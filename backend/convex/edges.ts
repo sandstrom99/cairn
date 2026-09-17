@@ -12,10 +12,11 @@
 // shows it.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type QueryCtx, mutation } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
+import { mutation } from "./lib/guard";
 import { issueById } from "./lib/lookup";
 import { ref } from "./lib/views";
 

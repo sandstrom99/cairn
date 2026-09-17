@@ -3,10 +3,10 @@
 // (docs/design.md §13). `ep` and `bl` are reserved: epics and blockers mint from the
 // same counters mechanism and would collide.
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
+import { mutation, query } from "./lib/guard";
 
 const SLUG = /^[a-z][a-z0-9]{0,15}$/;
 const RESERVED = ["ep", "bl"];

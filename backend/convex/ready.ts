@@ -20,7 +20,7 @@
 // The computation is `readyIssues` in lib/readiness.ts rather than here, because
 // `brief.get` counts and heads the same rows and must never disagree with this list.
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
 
 export const list = query({

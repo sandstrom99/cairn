@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "convex dev",
     "dev:local": "CONVEX_AGENT_MODE=anonymous convex dev",
+    "dev:cloud": "node scripts/cloud.mjs",
     "verify": "convex dev --once",
+    "push:cloud": "node scripts/cloud.mjs --once",
     "deploy": "convex deploy",
     "codegen": "convex codegen",
     "test": "vp test run"

@@ -19,10 +19,10 @@
 // blocker's revision moves on ack and resolve alone, through `applyRevision`.
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
+import { mutation, query } from "./lib/guard";
 import { LIVE, blockerById, issueById } from "./lib/lookup";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
 import { applyRevision } from "./lib/revision";

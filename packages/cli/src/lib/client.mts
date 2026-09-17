@@ -11,6 +11,12 @@
 //
 // A second consumer — a web app, an MCP wrapper — imports this module. It lifts into
 // its own package when that consumer exists, not before.
+//
+// The deployment's shared secret rides on every call, added here and nowhere else, so no
+// verb knows it exists. The deployment checks it in `lib/guard.ts` and strips it before
+// its handler (docs/design.md §12). With no secret resolved the arguments go through
+// untouched, with no `secret` key at all, which is what the anonymous local deployment
+// and any test against it see.
 
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { ConvexHttpClient } from "convex/browser";
@@ -18,15 +24,37 @@ import { type Deployment, configPath, resolveDeployment } from "./config.mts";
 
 export { api };
 
+/** What a verb calls: the two methods of `ConvexHttpClient`, with their types. */
+export type CairnClient = {
+  query: ConvexHttpClient["query"];
+  mutation: ConvexHttpClient["mutation"];
+};
+
 /** A client for one deployment. Cheap; nothing is opened until the first call. */
 export const client = (url: string): ConvexHttpClient => new ConvexHttpClient(url);
 
+/**
+ * `http` with the deployment's secret spread into the arguments of every call, or `http`
+ * itself when there is no secret to send.
+ */
+export function withSecret(http: CairnClient, secret?: string): CairnClient {
+  if (secret === undefined) return http;
+  // The generated signatures take the function's own arguments, so the one extra key is
+  // added on the way past and the call is re-typed as what it was.
+  const carry = (args: unknown[]): never =>
+    [{ ...(args[0] as Record<string, unknown>), secret }] as never;
+  return {
+    query: (fn, ...args) => http.query(fn, ...carry(args)),
+    mutation: (fn, ...args) => http.mutation(fn, ...carry(args)),
+  };
+}
+
 /** The client for the deployment this machine resolves, or a message saying there is none. */
 export function connect(env: NodeJS.ProcessEnv = process.env): {
-  client: ConvexHttpClient;
+  client: CairnClient;
   deployment: Deployment;
 } {
   const deployment = resolveDeployment(env);
   if (!deployment) throw new Error(`no deployment: set CAIRN_URL, or write ${configPath(env)}`);
-  return { client: client(deployment.url), deployment };
+  return { client: withSecret(client(deployment.url), deployment.secret), deployment };
 }

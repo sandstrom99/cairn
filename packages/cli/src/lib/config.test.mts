@@ -47,6 +47,45 @@ describe("resolveDeployment", () => {
     expect(resolveDeployment({ XDG_CONFIG_HOME: home })).toBeNull();
   });
 
+  it("carries the secret from the file, with its source", () => {
+    const env = tempConfig({ deployments: { a: { url: "https://a", secret: "from-file" } } });
+    expect(resolveDeployment(env)).toEqual({
+      name: "a",
+      url: "https://a",
+      source: "config",
+      secret: "from-file",
+      secretSource: "config",
+    });
+  });
+
+  it("lets CAIRN_SECRET override the file's secret", () => {
+    const env = {
+      ...tempConfig({ deployments: { a: { url: "https://a", secret: "from-file" } } }),
+      CAIRN_SECRET: "from-shell",
+    };
+    expect(resolveDeployment(env)).toMatchObject({
+      url: "https://a",
+      secret: "from-shell",
+      secretSource: "env",
+    });
+  });
+
+  it("carries CAIRN_SECRET alongside CAIRN_URL", () => {
+    expect(resolveDeployment({ CAIRN_URL: "https://env", CAIRN_SECRET: "s" })).toEqual({
+      name: "CAIRN_URL",
+      url: "https://env",
+      source: "env",
+      secret: "s",
+      secretSource: "env",
+    });
+  });
+
+  it("carries no secret when neither the file nor the shell has one", () => {
+    const dep = resolveDeployment({ CAIRN_URL: "https://env" });
+    expect(dep?.secret).toBeUndefined();
+    expect(dep?.secretSource).toBeUndefined();
+  });
+
   it("honours XDG_CONFIG_HOME in the path", () => {
     expect(configPath({ XDG_CONFIG_HOME: "/x" })).toBe("/x/cairn/config.json");
   });

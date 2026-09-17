@@ -7,12 +7,13 @@
 // created by the first create that asks for it.
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type MutationCtx, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import type { Actor } from "./lib/actor";
 import { claimed, invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
 import { checkPriority, createFollowUp } from "./lib/followUp";
+import { mutation, query } from "./lib/guard";
 import { mint } from "./lib/ids";
 import { INBOX_ID, ensureInbox } from "./lib/inbox";
 import { LIVE, issueById } from "./lib/lookup";
