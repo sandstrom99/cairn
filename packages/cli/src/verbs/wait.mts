@@ -1,0 +1,125 @@
+// cn wait — raise a human blocker on an issue, or attach one that already exists.
+//
+//   cn wait <id> --kind approval|external-wait|decision|credential|purchase
+//                --owner <who must act> --title <what is waited on>
+//                --resolves <what would end it> [--nudge <YYYY-MM-DD>]
+//   cn wait <id> --on bl-3
+//
+// Agents raise blockers and people resolve them: `cn ack` and `cn resolve` refuse an
+// agent, so what is raised here is genuinely handed over. One blocker can hold many
+// issues — `--on bl-3` attaches the one that already exists rather than minting a second
+// row for the same wait, and resolving it frees all of them at once.
+//
+// The issue leaves `cn ready` the moment a blocker is raised on it and comes back the
+// moment that blocker resolves, with nothing recomputed in between. It stays in
+// `cn list` throughout: waiting work is not gone, it is just not claimable.
+//
+// --owner is who must act, and defaults to CAIRN_OWNER when that is set in the
+// environment. --resolves is what would end the wait, written so the person can act on
+// it without asking. --nudge is the day to look again.
+
+import { parseArgs } from "../lib/args.mts";
+import { actor } from "../lib/actor.mts";
+import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { api, connect } from "../lib/client.mts";
+import { blockerLine } from "../lib/format.mts";
+import { ref } from "../lib/ref.mts";
+
+export const name = "wait";
+export const summary = "raise a human blocker on an issue, or attach one that exists";
+
+const KINDS = ["approval", "external-wait", "decision", "credential", "purchase"] as const;
+
+/** The options that describe a new blocker; none of them goes with `--on`. */
+const DESCRIBING = ["kind", "owner", "title", "resolves", "nudge"] as const;
+
+export type WaitArgs = {
+  issue: string;
+  on?: string;
+  kind?: (typeof KINDS)[number];
+  owner?: string;
+  title?: string;
+  whatResolves?: string;
+  nudgeAt?: number;
+};
+
+export type Parsed = { action: "help" } | { action: "wait"; args: WaitArgs };
+
+const text = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
+/** `{ on: "bl-3" }` or `{}`: an absent option is an absent key, never an undefined one. */
+const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
+  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
+
+const USAGE =
+  "cn wait <id> --kind approval --owner <who> --title <what> --resolves <what ends it>, or cn wait <id> --on bl-3";
+
+export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Parsed {
+  const { pos, opts } = parseArgs(argv, {
+    bool: ["help"],
+    value: ["on", ...DESCRIBING],
+  });
+  if (opts.help) return { action: "help" };
+
+  const [issue, ...rest] = pos;
+  if (!issue || rest.length > 0) throw new UsageError(USAGE);
+
+  const on = text(opts.on);
+  if (on !== undefined) {
+    const also = DESCRIBING.filter((o) => opts[o] !== undefined);
+    if (also.length > 0)
+      throw new UsageError(
+        `--on attaches an existing blocker; ${also.map((o) => `--${o}`).join(" and ")} describes a new one`,
+      );
+    return { action: "wait", args: { issue, on } };
+  }
+
+  const kind = text(opts.kind);
+  if (kind === undefined || !KINDS.includes(kind as (typeof KINDS)[number]))
+    throw new UsageError(`--kind is one of ${KINDS.join(", ")}, not "${kind ?? ""}"`);
+  // CAIRN_OWNER is the one person a machine usually waits on, so it is worth not typing.
+  const owner = text(opts.owner) ?? env.CAIRN_OWNER;
+  const title = text(opts.title);
+  const whatResolves = text(opts.resolves);
+  for (const [flag, value] of [
+    ["owner", owner],
+    ["title", title],
+    ["resolves", whatResolves],
+  ] as const)
+    if (value === undefined || value.trim() === "")
+      throw new UsageError(`a new blocker needs --${flag}`);
+
+  const nudge = text(opts.nudge);
+  const nudgeAt = nudge === undefined ? undefined : Date.parse(nudge);
+  if (nudgeAt !== undefined && Number.isNaN(nudgeAt))
+    throw new UsageError(`--nudge is a date, as YYYY-MM-DD, not "${nudge}"`);
+
+  return {
+    action: "wait",
+    args: {
+      issue,
+      kind: kind as (typeof KINDS)[number],
+      owner,
+      title,
+      whatResolves,
+      ...maybe("nudgeAt", nudgeAt),
+    },
+  };
+}
+
+export async function run(argv: string[]): Promise<number> {
+  const parsed = parse(argv);
+  if (parsed.action === "help") {
+    console.log(usageFromHeader(import.meta.url));
+    return 0;
+  }
+  const { client } = connect();
+  const { blocker } = await client.mutation(api.blockers.raise, {
+    actor: actor(),
+    ...parsed.args,
+  });
+  console.log(blockerLine(blocker));
+  console.log(`  holds  ${blocker.issues.map(ref).join(", ")}`);
+  return 0;
+}

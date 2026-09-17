@@ -85,3 +85,34 @@ export async function epicView(ctx: QueryCtx, doc: Doc<"epics">) {
 }
 
 export type EpicView = Awaited<ReturnType<typeof epicView>>;
+
+/**
+ * A blocker with the issues it holds. The blocker's own `kind` travels as `blockerKind`,
+ * because `show.get` spreads this view under its own `kind: "blocker"` discriminator and
+ * two fields called `kind` would be one field; every JSON spells it the same way.
+ */
+export async function blockerView(ctx: QueryCtx, doc: Doc<"blockers">) {
+  const links = await ctx.db
+    .query("blockerLinks")
+    .withIndex("by_blocker", (q) => q.eq("blockerId", doc._id))
+    .collect();
+  const issues = await Promise.all(links.map((l) => ctx.db.get(l.issueId)));
+  return {
+    id: doc.id,
+    title: doc.title,
+    blockerKind: doc.kind,
+    owner: doc.owner,
+    whatResolves: doc.whatResolves,
+    nudgeAt: doc.nudgeAt,
+    status: doc.status,
+    raisedBy: doc.raisedBy,
+    raisedAt: doc._creationTime,
+    resolvedBy: doc.resolvedBy,
+    resolvedAt: doc.resolvedAt,
+    resolution: doc.resolution,
+    revision: doc.revision,
+    issues: issues.filter((i): i is Doc<"issues"> => i !== null).map(ref),
+  };
+}
+
+export type BlockerView = Awaited<ReturnType<typeof blockerView>>;

@@ -8,6 +8,7 @@
 // index lookups over a graph of a few hundred documents.
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { LIVE } from "./lookup";
 import { type Ref, ref } from "./views";
 
 /** What holds an issue back. Ready is all three empty. */
@@ -19,9 +20,6 @@ export type Blocked = {
   /** Its `deferUntil`, when that date has not arrived. */
   deferredUntil?: number;
 };
-
-/** A closed or dropped issue blocks nothing; reconcile drops the edge later. */
-const LIVE = ["open", "in_progress"];
 
 /** Everything blocking `doc` right now, named in reference form. */
 export async function blockedBy(

@@ -34,6 +34,17 @@ export type HistoryEvent = {
   changes?: unknown;
 };
 
+/** Enough of a blocker to print one line of `cn waiting`. */
+export type BlockerLineView = Referable & {
+  blockerKind: string;
+  owner: string;
+  status: string;
+  raisedAt: number;
+  raisedBy: { name: string };
+  resolvedAt?: number;
+  resolvedBy?: { name: string };
+};
+
 /** Enough of an epic to print one line of a list. */
 export type EpicLineView = Referable & {
   counts: { open: number; inProgress: number; closed: number; followUps: number };
@@ -86,6 +97,23 @@ export function edgeLine({ type, from, to }: EdgeView): string {
   const verb =
     type === "related" ? "related to" : type === "discovered-from" ? "discovered from" : type;
   return `${ref(from)} ${verb} ${ref(to)}`;
+}
+
+/**
+ * `bl-1 "the App Store agreement" approval · owner balder · raised 5m ago by wsl/claude`
+ *
+ * The owner is the point of the line: a blocker is work only a person can do, so the
+ * person is named before anything else about it. The tail is whichever end of its
+ * lifecycle it is at — who raised it while it waits, who ended it once it is resolved —
+ * and the status word is dropped where the tense already says it, so a raised blocker
+ * reads `raised 5m ago` rather than `raised · raised 5m ago`.
+ */
+export function blockerLine(view: BlockerLineView, now: number = Date.now()): string {
+  const line = `${ref(view)} ${view.blockerKind} · owner ${view.owner}`;
+  if (view.status === "resolved" && view.resolvedAt !== undefined && view.resolvedBy)
+    return `${line} · resolved ${since(view.resolvedAt, now)} by ${view.resolvedBy.name}`;
+  const raised = `raised ${since(view.raisedAt, now)} by ${view.raisedBy.name}`;
+  return view.status === "raised" ? `${line} · ${raised}` : `${line} · ${view.status} · ${raised}`;
 }
 
 /** `ep-1 "…"  2 open · 1 in progress · 3 done · 1 follow-ups` */
@@ -175,13 +203,26 @@ export function brief(shown: Shown, now: number = Date.now()): string {
     return lines.join("\n");
   }
   if (shown.kind === "blocker") {
-    return [
+    const lines = [
       ref(shown),
-      `${label("kind")}${shown.blockerKind}`,
-      `${label("owner")}${shown.owner}`,
-      `${label("status")}${shown.status}`,
-      ...(shown.issues.length > 0 ? [`${label("issues")}${refs(shown.issues)}`] : []),
-    ].join("\n");
+      `${label("kind")}${shown.blockerKind} · owner ${shown.owner}`,
+      // `raised raised 2m ago` says it twice, so the status word goes where it adds one.
+      `${label("status")}${shown.status === "raised" ? "" : `${shown.status} · `}raised ${since(shown.raisedAt, now)} by ${shown.raisedBy.name}`,
+      `${label("resolves when")}${shown.whatResolves}`,
+    ];
+    // The date alone: a nudge is a day somebody looks again, and the hour is noise.
+    if (shown.nudgeAt !== undefined)
+      lines.push(`${label("nudge")}${new Date(shown.nudgeAt).toISOString().slice(0, 10)}`);
+    if (shown.resolvedBy && shown.resolvedAt !== undefined)
+      lines.push(
+        `${label("resolved")}by ${shown.resolvedBy.name} ${since(shown.resolvedAt, now)}: ${shown.resolution ?? ""}`,
+      );
+    if (shown.issues.length > 0) lines.push(`${label("holds")}${refs(shown.issues)}`);
+    if (shown.events && shown.events.length > 0) {
+      lines.push("history");
+      lines.push(...historyLines(shown.events, now));
+    }
+    return lines.join("\n");
   }
 
   const lines = [

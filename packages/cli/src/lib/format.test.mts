@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Shown,
   age,
+  blockerLine,
   brief,
   edgeLine,
   epicLine,
@@ -66,6 +67,46 @@ describe("epicLine", () => {
         counts: { open: 2, inProgress: 1, closed: 3, followUps: 1 },
       }),
     ).toBe('ep-1 "Create to close"  2 open · 1 in progress · 3 done · 1 follow-ups');
+  });
+});
+
+describe("blockerLine", () => {
+  const raised = {
+    id: "bl-1",
+    title: "the App Store agreement",
+    blockerKind: "approval",
+    owner: "balder",
+    status: "raised",
+    raisedAt: ago(5 * MINUTE),
+    raisedBy: { name: "wsl/claude" },
+  };
+
+  it("names the owner before anything else, and who raised it", () => {
+    expect(blockerLine(raised, now)).toBe(
+      'bl-1 "the App Store agreement" approval · owner balder · raised 5m ago by wsl/claude',
+    );
+  });
+
+  it("says acknowledged where the tense does not already say it", () => {
+    expect(blockerLine({ ...raised, status: "waiting" }, now)).toBe(
+      'bl-1 "the App Store agreement" approval · owner balder · waiting · raised 5m ago by wsl/claude',
+    );
+  });
+
+  it("ends on whoever resolved it once it is resolved", () => {
+    expect(
+      blockerLine(
+        {
+          ...raised,
+          status: "resolved",
+          resolvedAt: ago(2 * HOUR),
+          resolvedBy: { name: "wsl/balder" },
+        },
+        now,
+      ),
+    ).toBe(
+      'bl-1 "the App Store agreement" approval · owner balder · resolved 2h ago by wsl/balder',
+    );
   });
 });
 
@@ -230,23 +271,53 @@ describe("brief", () => {
     ]);
   });
 
-  it("prints a blocker as who must act and what it holds", () => {
+  it("prints a blocker as who must act, what would end it and what it holds", () => {
     const shown = {
       kind: "blocker",
       id: "bl-1",
       title: "the App Store agreement",
       blockerKind: "approval",
       owner: "balder",
+      whatResolves: "accept it in App Store Connect",
+      nudgeAt: Date.UTC(2026, 9, 1),
       status: "raised",
+      raisedBy: { name: "wsl/claude", kind: "agent" },
+      raisedAt: ago(2 * HOUR),
+      revision: 0,
       issues: [{ id: "cn-1", title: "schema, ids" }],
     } as unknown as Shown;
     expect(brief(shown, now).split("\n")).toEqual([
       'bl-1 "the App Store agreement"',
-      "kind            approval",
-      "owner           balder",
-      "status          raised",
-      'issues          cn-1 "schema, ids"',
+      "kind            approval · owner balder",
+      "status          raised 2h ago by wsl/claude",
+      "resolves when   accept it in App Store Connect",
+      "nudge           2026-10-01",
+      'holds           cn-1 "schema, ids"',
     ]);
+  });
+
+  it("prints who ended a resolved blocker, and its history when it was asked for", () => {
+    const shown = {
+      kind: "blocker",
+      id: "bl-1",
+      title: "the App Store agreement",
+      blockerKind: "approval",
+      owner: "balder",
+      whatResolves: "accept it in App Store Connect",
+      status: "resolved",
+      raisedBy: { name: "wsl/claude", kind: "agent" },
+      raisedAt: ago(DAY),
+      resolvedBy: { name: "wsl/balder", kind: "human" },
+      resolvedAt: ago(HOUR),
+      resolution: "accepted",
+      revision: 1,
+      issues: [],
+      events: [changed],
+    } as unknown as Shown;
+    const lines = brief(shown, now).split("\n");
+    expect(lines).toContain("status          resolved · raised 1d ago by wsl/claude");
+    expect(lines).toContain("resolved        by wsl/balder 1h ago: accepted");
+    expect(lines.at(-2)).toBe("history");
   });
 });
 

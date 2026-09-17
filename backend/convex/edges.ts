@@ -16,6 +16,7 @@ import { type QueryCtx, mutation } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
+import { issueById } from "./lib/lookup";
 import { ref } from "./lib/views";
 
 const typeValidator = v.union(
@@ -25,16 +26,6 @@ const typeValidator = v.union(
   v.literal("duplicates"),
   v.literal("supersedes"),
 );
-
-/** The issue with that public id, or `not-found`. Both endpoints start here. */
-async function byId(ctx: QueryCtx, id: string): Promise<Doc<"issues">> {
-  const doc = await ctx.db
-    .query("issues")
-    .withIndex("by_public_id", (q) => q.eq("id", id))
-    .unique();
-  if (!doc) throw notFound(id);
-  return doc;
-}
 
 /** The one `(from, to, type)` row, or null. */
 async function edgeBetween(
@@ -86,8 +77,8 @@ export const add = mutation({
   args: { actor: actorValidator, from: v.string(), to: v.string(), type: typeValidator },
   handler: async (ctx, args) => {
     if (args.from === args.to) throw invalid("an issue cannot relate to itself");
-    const from = await byId(ctx, args.from);
-    const to = await byId(ctx, args.to);
+    const from = await issueById(ctx, args.from);
+    const to = await issueById(ctx, args.to);
 
     // Idempotent: the same edge asked for twice is one row, one pair of events, and a
     // re-run of a script that adds it costs nothing.
@@ -119,8 +110,8 @@ export const add = mutation({
 export const remove = mutation({
   args: { actor: actorValidator, from: v.string(), to: v.string(), type: typeValidator },
   handler: async (ctx, args) => {
-    const from = await byId(ctx, args.from);
-    const to = await byId(ctx, args.to);
+    const from = await issueById(ctx, args.from);
+    const to = await issueById(ctx, args.to);
     const edge = await edgeBetween(ctx, from._id, to._id, args.type);
     if (!edge) throw notFound(`${args.from} ${args.type} ${args.to}`);
 

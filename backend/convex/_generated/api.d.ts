@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as blockers from "../blockers.js";
 import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
 import type * as issues from "../issues.js";
@@ -17,6 +18,7 @@ import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_ids from "../lib/ids.js";
 import type * as lib_inbox from "../lib/inbox.js";
+import type * as lib_lookup from "../lib/lookup.js";
 import type * as lib_readiness from "../lib/readiness.js";
 import type * as lib_revision from "../lib/revision.js";
 import type * as lib_verification from "../lib/verification.js";
@@ -32,6 +34,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  blockers: typeof blockers;
   edges: typeof edges;
   epics: typeof epics;
   issues: typeof issues;
@@ -41,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "lib/events": typeof lib_events;
   "lib/ids": typeof lib_ids;
   "lib/inbox": typeof lib_inbox;
+  "lib/lookup": typeof lib_lookup;
   "lib/readiness": typeof lib_readiness;
   "lib/revision": typeof lib_revision;
   "lib/verification": typeof lib_verification;
