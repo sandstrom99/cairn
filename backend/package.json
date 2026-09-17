@@ -7,13 +7,13 @@
     "./convex/*": "./convex/*"
   },
   "scripts": {
-    "dev": "convex dev",
-    "dev:local": "CONVEX_AGENT_MODE=anonymous convex dev",
+    "dev": "node scripts/local.mjs dev",
+    "dev:local": "node scripts/local.mjs dev",
     "dev:cloud": "node scripts/cloud.mjs",
-    "verify": "convex dev --once",
+    "verify": "node scripts/local.mjs dev --once",
     "push:cloud": "node scripts/cloud.mjs --once",
     "deploy": "convex deploy",
-    "codegen": "convex codegen",
+    "codegen": "node scripts/local.mjs codegen",
     "test": "vp test run"
   },
   "dependencies": {

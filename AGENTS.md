@@ -70,17 +70,19 @@ change works where it runs:
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is
 gitignored, and after that `vp run @cairn/backend#verify` and `#dev` target it.
-`#verify` is `convex dev --once` and refuses while that watcher holds port 3210, so
+`#verify` runs `convex dev --once` through `scripts/local.mjs` and refuses while that
+watcher holds port 3210, so
 stop the watcher first, or take the watcher's own `Convex functions ready!` line after
 a save as the push having happened: it pushes every change as it lands.
 
 That watcher pushes to the local deployment alone. A backend change reaches the
 worklist deployment only through `vp run @cairn/backend#push:cloud`, which reads
-`backend/.env.cloud.local`; `#dev:cloud` is the same watcher against it. Both go
-through `backend/scripts/cloud.mjs`, which puts `.env.local` back byte for byte
-afterwards, because convex 1.46 saves the deployment it just talked to into
-`.env.local` whatever `--env-file` says and would leave `#verify`, `#dev` and the
-MCP server pointed at the cloud without saying so.
+`backend/.env.cloud.local`; `#dev:cloud` is the same watcher against it, and both
+put `.env.local` back after themselves. `#dev`, `#dev:local`, `#verify` and
+`#codegen` pin the anonymous deployment in the environment and rewrite
+`backend/.env.local` when they find it naming anything else, saying so in one line.
+The one path that still flips it is a bare `npx convex` in `backend/`, and the next
+`vp run @cairn/backend#…` command corrects it.
 
 Three things enforce the gate, so a session cannot skip it by forgetting:
 
@@ -95,7 +97,7 @@ Three things enforce the gate, so a session cannot skip it by forgetting:
 | Path | Package | Holds |
 |---|---|---|
 | `backend/convex/` | `@cairn/backend` | schema, functions, tests. `_generated/` is committed and never hand-edited. |
-| `backend/scripts/` | | `cloud.mjs`, the wrapper `#dev:cloud` and `#push:cloud` run through. |
+| `backend/scripts/` | | `local.mjs` and `cloud.mjs`, the wrappers every `convex` command runs through: one pins the anonymous deployment, the other restores it. |
 | `packages/cli/` | `@cairn/cli` | `cn`. `src/verbs/` is one file per verb, `src/lib/` the shell they run in. |
 | `plugins/cairn/` | | the skill, the SessionStart hook, the slash commands. |
 | `docs/` | | `design.md`. |
