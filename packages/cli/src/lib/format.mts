@@ -16,6 +16,16 @@ export type IssueLineView = Referable & {
   priority: number;
   epic?: Referable;
   claimedBy?: { name: string };
+  revision?: number;
+};
+
+/** One `events` row, as the stale error and `cn show --history` both carry it. */
+export type HistoryEvent = {
+  at: number;
+  actor: { name: string };
+  kind: string;
+  revision?: number;
+  changes?: unknown;
 };
 
 /** Enough of an epic to print one line of a list. */
@@ -36,11 +46,18 @@ export function age(sinceMs: number, now: number = Date.now()): string {
   return `${Math.floor(ms / DAY)}d`;
 }
 
-/** `cn-1 "…" P0 open  ep-1 "…" · wsl/claude` */
+/**
+ * `cn-1 "…" P0 open  ep-1 "…" · wsl/claude r3`
+ *
+ * The revision closes the line wherever the view carries one, so every list, create and
+ * lifecycle line hands the agent the number its next write has to send. The issue rows
+ * inside an epic's show do not carry it and print without.
+ */
 export function issueLine(view: IssueLineView): string {
   const parts = [`${ref(view)} P${view.priority} ${view.status}`];
   if (view.epic) parts.push(` ${ref(view.epic)}`);
   if (view.claimedBy) parts.push(`· ${view.claimedBy.name}`);
+  if (view.revision !== undefined) parts.push(`r${view.revision}`);
   return parts.join(" ");
 }
 
@@ -62,6 +79,65 @@ const since = (at: number, now: number): string => {
   const token = age(at, now);
   return token === "just now" ? token : `${token} ago`;
 };
+
+/** As much of one event's payload as belongs on a line. */
+const CHANGES = 80;
+
+const clip = (text: string): string =>
+  text.length > CHANGES ? `${text.slice(0, CHANGES - 1)}…` : text;
+
+/** A string prints as itself; anything else as its JSON, so `2 → 1` is not `"2" → "1"`. */
+const side = (value: unknown): string =>
+  value === undefined ? "—" : typeof value === "string" ? value : JSON.stringify(value);
+
+// `from` or `to`, not both: a value of undefined is not stored, so the first write of a
+// field that had none comes back as `{ to }` alone.
+const isFieldMap = (
+  changes: unknown,
+): changes is Record<string, { from?: unknown; to?: unknown }> =>
+  typeof changes === "object" &&
+  changes !== null &&
+  !Array.isArray(changes) &&
+  Object.values(changes).every(
+    (v) => typeof v === "object" && v !== null && ("from" in v || "to" in v),
+  );
+
+/** `priority 2 → 1` for the field-map shape, the compact JSON for anything else. */
+const changesOf = (changes: unknown): string => {
+  if (changes === undefined) return "";
+  if (isFieldMap(changes))
+    return clip(
+      Object.entries(changes)
+        .map(([field, { from, to }]) => `${field} ${side(from)} → ${side(to)}`)
+        .join(", "),
+    );
+  return clip(JSON.stringify(changes) ?? "");
+};
+
+/** `  r4  wsl/claude  2h ago  issue.update  priority 2 → 1` */
+const eventLine = (e: HistoryEvent, now: number): string =>
+  [
+    "",
+    e.revision === undefined ? "—" : `r${e.revision}`,
+    e.actor.name,
+    since(e.at, now),
+    e.kind,
+    changesOf(e.changes),
+  ]
+    .join("  ")
+    .trimEnd();
+
+/**
+ * The events a rejected write came back with. A stale write is not a failure to report:
+ * it is what changed, who changed it and when, so the agent re-reads and retries
+ * (docs/design.md §9).
+ */
+export const staleLines = (data: { since?: HistoryEvent[] }, now: number = Date.now()): string[] =>
+  (data.since ?? []).map((e) => eventLine(e, now));
+
+/** The same lines, for `cn show <id> --history`. */
+export const historyLines = (events: HistoryEvent[], now: number = Date.now()): string[] =>
+  events.map((e) => eventLine(e, now));
 
 /** The ten-line brief of `cn show`, one shape per kind. */
 export function brief(shown: Shown, now: number = Date.now()): string {
@@ -105,6 +181,10 @@ export function brief(shown: Shown, now: number = Date.now()): string {
     lines.push("journal");
     for (const e of shown.journal)
       lines.push(`  ${age(e.at, now)} ${e.author.name} ${e.kind}: ${e.body}`);
+  }
+  if (shown.events && shown.events.length > 0) {
+    lines.push("history");
+    lines.push(...historyLines(shown.events, now));
   }
   return lines.join("\n");
 }

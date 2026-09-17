@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { type Shown, age, brief, epicLine, issueLine } from "./format.mts";
+import {
+  type Shown,
+  age,
+  brief,
+  epicLine,
+  historyLines,
+  issueLine,
+  staleLines,
+} from "./format.mts";
 
 const now = Date.UTC(2026, 8, 17, 12, 0, 0);
 const ago = (ms: number): number => now - ms;
@@ -122,6 +130,15 @@ describe("brief", () => {
     expect(text).toContain("  1h wsl/claude finding: the counter row is created on first use");
   });
 
+  it("prints the history after the journal, when it was asked for", () => {
+    const shown = { ...issue, events: [changed] } as unknown as Shown;
+    const lines = brief(shown, now).split("\n");
+    expect(lines.at(-2)).toBe("history");
+    expect(lines.at(-1)).toBe(
+      "  r4  wsl/claude  2h ago  issue.update  priority 2 → 1, epic ep-1 → ep-2",
+    );
+  });
+
   it("prints an epic as its line, its description and its open issues", () => {
     const shown = {
       kind: "epic",
@@ -158,5 +175,108 @@ describe("brief", () => {
       "status     raised",
       'issues     cn-1 "schema, ids"',
     ]);
+  });
+});
+
+describe("issueLine with a revision", () => {
+  it("ends with the number the next write has to send", () => {
+    expect(
+      issueLine({
+        id: "cn-2",
+        title: "the lifecycle",
+        status: "in_progress",
+        priority: 0,
+        epic: { id: "ep-1", title: "Create to close" },
+        claimedBy: { name: "wsl/claude" },
+        revision: 3,
+      }),
+    ).toBe('cn-2 "the lifecycle" P0 in_progress  ep-1 "Create to close" · wsl/claude r3');
+  });
+});
+
+const changed = {
+  revision: 4,
+  actor: { name: "wsl/claude" },
+  at: ago(2 * HOUR),
+  kind: "issue.update",
+  changes: { priority: { from: 2, to: 1 }, epic: { from: "ep-1", to: "ep-2" } },
+};
+
+describe("staleLines", () => {
+  it("is one line per change since the revision the caller read", () => {
+    expect(staleLines({ since: [changed] }, now)).toEqual([
+      "  r4  wsl/claude  2h ago  issue.update  priority 2 → 1, epic ep-1 → ep-2",
+    ]);
+  });
+
+  it("is nothing when the error carried no history", () => {
+    expect(staleLines({}, now)).toEqual([]);
+  });
+
+  it("prints what is not a field map as its JSON, and an append as having no revision", () => {
+    expect(
+      staleLines(
+        {
+          since: [
+            {
+              actor: { name: "mac/claude" },
+              at: ago(5 * MINUTE),
+              kind: "journal.append",
+              changes: { kind: "finding", body: "the counter row is created on first use" },
+            },
+          ],
+        },
+        now,
+      ),
+    ).toEqual([
+      '  —  mac/claude  5m ago  journal.append  {"kind":"finding","body":"the counter row is created on first use"}',
+    ]);
+  });
+
+  it("reads a field that had no value as coming from nothing", () => {
+    expect(
+      staleLines(
+        {
+          since: [
+            {
+              revision: 1,
+              actor: { name: "wsl/claude" },
+              at: now,
+              kind: "issue.claim",
+              // Convex stores no undefined, so a first write comes back as `{ to }` alone.
+              changes: { status: { from: "open", to: "in_progress" }, claimedAt: { to: now } },
+            },
+          ],
+        },
+        now,
+      ),
+    ).toEqual([
+      `  r1  wsl/claude  just now  issue.claim  status open → in_progress, claimedAt — → ${now}`,
+    ]);
+  });
+
+  it("cuts a change too long to read on one line", () => {
+    const [line] = staleLines(
+      {
+        since: [
+          {
+            revision: 2,
+            actor: { name: "wsl/claude" },
+            at: now,
+            kind: "issue.update",
+            changes: { title: { from: "a".repeat(60), to: "b".repeat(60) } },
+          },
+        ],
+      },
+      now,
+    );
+    expect(line).toMatch(/…$/);
+    expect(line).toHaveLength("  r2  wsl/claude  just now  issue.update  ".length + 80);
+  });
+});
+
+describe("historyLines", () => {
+  it("is the same shape, for cn show --history", () => {
+    expect(historyLines([changed], now)).toEqual(staleLines({ since: [changed] }, now));
   });
 });

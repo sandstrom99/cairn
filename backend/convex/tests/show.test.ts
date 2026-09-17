@@ -119,6 +119,43 @@ describe("show.get", () => {
     });
   });
 
+  it("returns the events in order with history, and none without it", async () => {
+    const t = await seeded();
+    await t.mutation(api.issues.claim, { actor, id: "cn-1" });
+    await t.mutation(api.journal.append, {
+      actor,
+      id: "cn-1",
+      kind: "finding",
+      body: "the counter row is created on first use",
+    });
+    await t.mutation(api.issues.update, { actor, id: "cn-1", revision: 1, priority: 1 });
+    await t.mutation(api.issues.close, {
+      actor,
+      id: "cn-1",
+      revision: 2,
+      verification: { command: "vp run verify", exitCode: 0, output: "all green" },
+    });
+
+    const plain = await t.query(api.show.get, { id: "cn-1" });
+    expect(plain.kind === "issue" ? plain.events : "not an issue").toBeUndefined();
+
+    const shown = await t.query(api.show.get, { id: "cn-1", history: true });
+    if (shown.kind !== "issue") throw new Error("cn-1 is an issue");
+    expect(shown.events?.map((e) => e.kind)).toEqual([
+      "issue.create",
+      "issue.claim",
+      "journal.append",
+      "issue.update",
+      "issue.close",
+    ]);
+    expect(shown.events?.map((e) => e.revision)).toEqual([0, 1, undefined, 2, 3]);
+    expect(shown.events?.[3]).toMatchObject({
+      actor,
+      at: expect.any(Number),
+      changes: { priority: { from: 0, to: 1 } },
+    });
+  });
+
   it("refuses an id nothing answers to", async () => {
     const t = await seeded();
     for (const id of ["cn-9", "ep-9", "bl-9"]) {

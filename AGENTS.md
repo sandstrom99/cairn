@@ -28,8 +28,8 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  6 passed (6)        ← backend
- Test Files  13 passed (13)      ← cli
+ Test Files  7 passed (7)        ← backend
+ Test Files  20 passed (20)      ← cli
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -51,7 +51,12 @@ change works where it runs:
 | `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list` | an epic mints `ep-N`, and its counts are its issues |
 | `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "…"`, and the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
 | `verbs/list.mts` | `cn list --epic ep-1 --json` | priority then age, and `--json` carries id and title |
-| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1` | the brief is an issue's neighbourhood, and an epic's open issues |
+| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1`, then `cn show cn-1 --history` | the brief is an issue's neighbourhood, an epic's open issues, and every event in order |
+| `verbs/claim.mts`, `verbs/release.mts` | `cn claim cn-2`, then `CAIRN_ACTOR=other/agent cn claim cn-2` | the first wins and prints `in_progress`; the second exits 1 naming who holds it and since when |
+| `verbs/update.mts` | `cn update cn-2 --revision 0 --priority 1` twice | the second is refused with every change since revision 0 and the line to retry with |
+| `verbs/journal.mts` | `cn journal cn-2 --kind finding "…"`, then `cn show cn-2` | the entry lands whatever the revision is, and shows newest first |
+| `verbs/close.mts` | `cn close cn-2 --revision N --run 'vp run verify' --follow-up "…" --kind verify` | the stored record is the real exit code and output tail, and the follow-up exists beside the closed parent |
+| `verbs/drop.mts` | `cn drop x-3 --revision 0`, then the same with `--reason "…"` | dropping without a reason exits 2, and with one it records the reason |
 
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is

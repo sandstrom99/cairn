@@ -5,7 +5,8 @@
 //
 // `main(fn)` runs the CLI body with `process.argv.slice(2)` and owns the exit arms: a
 // UsageError prints `✗ usage: …` and exits 2, a ConvexError prints the message the
-// deployment wrote and exits 1, any other error prints `✗ …` and exits 1,
+// deployment wrote and exits 1 — and a stale one also prints every change since the
+// revision the caller read, and how to retry — any other error prints `✗ …` and exits 1,
 // and a number returned by `fn` is the exit code. It sets `process.exitCode` and never
 // calls `process.exit()`: a pipe takes a large write asynchronously, and an exit right
 // after it cuts the output at 64 KB.
@@ -18,6 +19,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ConvexError } from "convex/values";
+import { type HistoryEvent, staleLines } from "./format.mts";
 
 /** Wrong arguments: exit 2 at the top of a CLI. */
 export class UsageError extends Error {}
@@ -64,8 +66,16 @@ export async function main(
     if (e instanceof ConvexError) {
       // Every ConvexError the deployment throws carries { kind, message }; the message is
       // written for the person reading it, so it prints as-is and the kind stays in --json.
-      const data = e.data as { message?: string } | undefined;
+      const data = e.data as
+        | { kind?: string; message?: string; since?: HistoryEvent[] }
+        | undefined;
       console.error(`✗ ${data?.message ?? e.message}`);
+      // A stale write is the one error worth more than its message: the events since the
+      // revision the caller read are what it needs to decide and retry (design §9).
+      if (data?.kind === "stale") {
+        for (const line of staleLines(data)) console.error(line);
+        console.error("  re-read with cn show <id> and retry with --revision <current>");
+      }
       process.exitCode = 1;
       return;
     }
