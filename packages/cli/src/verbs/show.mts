@@ -1,0 +1,39 @@
+// cn show — one id, and its neighbourhood.
+//
+//   cn show <id> [--json]
+//
+// The id says which: `ep-` an epic with its open issues, `bl-` a blocker with what it
+// holds, anything else an issue. An issue's brief is about ten lines — where it sits,
+// what it waits on, what waits on it, the first line of its design and acceptance, and
+// its last five journal entries — because that is what a session needs before it starts
+// and what it leaves behind when it stops.
+
+import { parseArgs } from "../lib/args.mts";
+import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { api, connect } from "../lib/client.mts";
+import { brief } from "../lib/format.mts";
+
+export const name = "show";
+export const summary = "one id, and its neighbourhood";
+
+export type Parsed = { action: "help" } | { action: "show"; json: boolean; args: { id: string } };
+
+export function parse(argv: string[]): Parsed {
+  const { pos, opts } = parseArgs(argv, { bool: ["help", "json"] });
+  if (opts.help) return { action: "help" };
+  const [id, ...rest] = pos;
+  if (!id || rest.length > 0) throw new UsageError("cn show <id> [--json]");
+  return { action: "show", json: Boolean(opts.json), args: { id } };
+}
+
+export async function run(argv: string[]): Promise<number> {
+  const parsed = parse(argv);
+  if (parsed.action === "help") {
+    console.log(usageFromHeader(import.meta.url));
+    return 0;
+  }
+  const { client } = connect();
+  const shown = await client.query(api.show.get, parsed.args);
+  console.log(parsed.json ? JSON.stringify(shown, null, 2) : brief(shown));
+  return 0;
+}

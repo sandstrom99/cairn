@@ -22,15 +22,33 @@ enums: the compiler only ever checks, it never emits.
 bin/cn           the shim a symlink points at
 src/main.mts     dispatch: cn <verb> [args], --help, --version
 src/verbs/       one file per verb, registered in index.mts
+src/smoke.test.mts   the real cn under the real Node, every verb's --help; the test
+                 that fails on an import without its extension
 src/lib/
   cli.mts        main(), UsageError, say/warn — the shell every verb runs in
   args.mts       the one argument parser
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
   client.mts     the typed Convex client and the generated `api`
+  actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>
+  format.mts     the lines cn prints: a list line, an epic line, the show brief
   ref.mts        the reference form: id and title, always
 ```
 
 ## Verbs
 
-Only `doctor` exists. The full set, one Convex function per verb or per action word, is
-the table in docs/design.md §10; the order they arrive in is docs/dogfood.md.
+What exists today. Every read verb takes `--json`, every line naming an issue or epic
+starts with the reference form, and `cn <verb> --help` is the verb file's own header.
+
+```
+cn create --project <slug> --epic <ep-id> --title <title> [--priority 0-4] …
+cn list [--project] [--epic] [--status] [--mine] [--json]
+cn show <id> [--json]                    an issue, an epic or a blocker, by prefix
+cn epic new <title> [--description]  ·  cn epic list [--all] [--json]
+cn project new <slug> --name <name>  ·  cn project list [--json]
+cn doctor                                node, the generated api, the deployment
+```
+
+The rest — `brief`, `ready`, `claim`, `update`, `journal`, `close`, `drop`, `dep`,
+`wait`, `waiting`, `ack`, `resolve`, `reconcile` — is the table in docs/design.md §10,
+one Convex function per verb or per action word. The order they arrive in is
+docs/dogfood.md.

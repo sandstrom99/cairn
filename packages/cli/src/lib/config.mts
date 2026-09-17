@@ -9,8 +9,11 @@
 // so nothing else has to move when the rule is decided:
 //
 //   CAIRN_URL                          wins, for hooks, crons and a one-off run
-//   ~/.config/cairn/config.json        { "default": "invyte",
+//   ~/.config/cairn/config.json        { "default": "invyte", "host": "wsl",
 //                                        "deployments": { "invyte": { "url": "https://….convex.cloud" } } }
+//
+// `host` is this machine's name in an actor (lib/actor.mts); everything else about the
+// file is which deployment to talk to.
 //
 // $XDG_CONFIG_HOME replaces ~/.config when set. Authentication is not decided and no
 // field is reserved for it here yet; see §13.
@@ -22,6 +25,8 @@ import { join } from "node:path";
 export type DeploymentConfig = { url: string };
 export type CairnConfig = {
   default?: string;
+  /** What this machine calls itself in an actor name; the OS hostname when absent. */
+  host?: string;
   deployments: Record<string, DeploymentConfig>;
 };
 

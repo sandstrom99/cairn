@@ -3,8 +3,8 @@
 //   cn doctor          one line per check; exit 1 if any fails
 //
 // Checks the Node floor, that the generated Convex API is importable (so @cairn/backend
-// is installed and codegen has run), and which deployment config resolves. It does not
-// call the deployment: there is no function to call yet.
+// is installed and codegen has run), which deployment config resolves, and then calls
+// that deployment: `projects.list` is the ping, so a green doctor means a verb will run.
 
 import { resolveDeployment, configPath } from "../lib/config.mts";
 import { usageFromHeader } from "../lib/cli.mts";
@@ -38,7 +38,10 @@ export async function run(argv: string[]): Promise<number> {
 
   try {
     const { api } = await import("../lib/client.mts");
-    ok(`generated api importable (${Object.keys(api).length} module(s))`);
+    // `api` is a Proxy, so nothing enumerates it; touching one function reference proves
+    // the generated module resolved and codegen has run.
+    if (!api.projects.list) throw new Error("api.projects.list is missing; codegen has not run");
+    ok("generated api importable");
   } catch (e) {
     bad(`generated api: ${(e as Error).message} — run \`vp install\` then \`vp run codegen\``);
   }
@@ -46,6 +49,14 @@ export async function run(argv: string[]): Promise<number> {
   const dep = resolveDeployment();
   if (dep) ok(`deployment ${dep.name} → ${dep.url} (from ${dep.source})`);
   else bad(`no deployment: set CAIRN_URL, or write ${configPath()}`);
+
+  try {
+    const { api, connect } = await import("../lib/client.mts");
+    const projects = await connect().client.query(api.projects.list, {});
+    ok(`deployment answered: ${projects.length} project(s)`);
+  } catch (e) {
+    bad(`deployment did not answer: ${(e as Error).message}`);
+  }
 
   return failed ? 1 : 0;
 }

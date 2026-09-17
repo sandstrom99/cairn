@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { UsageError } from "../lib/cli.mts";
+import { parse } from "./list.mts";
+
+const me = "wsl/balder";
+
+describe("cn list", () => {
+  it("passes every filter through as the query's arguments", () => {
+    expect(parse(["--project", "cn", "--epic", "ep-1", "--status", "open"], me)).toEqual({
+      action: "list",
+      json: false,
+      args: { project: "cn", epic: "ep-1", status: "open" },
+    });
+  });
+
+  it("turns --mine into this machine's actor", () => {
+    expect(parse(["--mine"], me)).toEqual({
+      action: "list",
+      json: false,
+      args: { claimedBy: me },
+    });
+  });
+
+  it("asks for nothing when nothing was given", () => {
+    expect(parse([], me)).toEqual({ action: "list", json: false, args: {} });
+  });
+
+  it("refuses a status that is not one of the four", () => {
+    expect(() => parse(["--status", "blocked"], me)).toThrow(UsageError);
+  });
+});
