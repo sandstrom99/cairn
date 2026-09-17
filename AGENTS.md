@@ -28,8 +28,8 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  9 passed (9)        ← backend
- Test Files  23 passed (23)      ← cli
+ Test Files  11 passed (11)      ← backend
+ Test Files  29 passed (29)      ← cli
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -45,12 +45,14 @@ change works where it runs:
 | `backend/convex/**` | `vp run @cairn/backend#verify` | the functions push to the configured deployment and pass Convex's own `tsc` |
 | `packages/cli/**` | the verb, against a local deployment: `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | it runs end to end, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
-| `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh` | silent or the brief, never an error |
+| `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh`, with `CAIRN_URL` set and with it unset, plus `claude plugin validate plugins/cairn --strict` | the brief with a deployment, nothing without, exit 0 both ways, and a manifest that validates |
+| `.claude/settings.json` | `claude plugin details cairn@cairn` from the repo root | the inventory names the skill, the four commands and the SessionStart hook; it needs the folder's trust dialog accepted once in an interactive `claude`, before which project marketplaces are ignored without a message, and `claude plugin list` never shows a project-enabled plugin |
 | `verbs/doctor.mts` | `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | the last line is the deployment answering, not only the config resolving |
 | `verbs/project.mts` | `cn project new cn --name "cairn: backend, cli, plugin"`, then `cn project list` | a slug becomes an id prefix, and the list reads it back |
 | `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list` | an epic mints `ep-N`, and its counts are its issues |
 | `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "…"`, and the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
 | `verbs/list.mts` | `cn list --epic ep-1 --json` | priority then age, and `--json` carries id and title |
+| `verbs/brief.mts` | `cn brief`, then `cn brief --can decision` | under 20 lines, counts and heads; the follow-ups line grows by what `--can` covers, and `cn ready` shows all of them marked |
 | `verbs/ready.mts` | `cn ready`, then `cn ready --can web` | open unblocked work in priority order, and a row needing `ios` marked `· needs ios` rather than hidden |
 | `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1`, then `cn show cn-1 --history`, then `cn show bl-1` | the brief is an issue's neighbourhood, an epic's open issues, every event in order, and a blocker with what it holds |
 | `verbs/claim.mts`, `verbs/release.mts` | `cn claim cn-2`, then `CAIRN_ACTOR=other/agent cn claim cn-2` | the first wins and prints `in_progress`; the second exits 1 naming who holds it and since when |

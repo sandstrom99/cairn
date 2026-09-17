@@ -42,6 +42,7 @@ What exists today. Every read verb takes `--json`, every line naming an issue or
 starts with the reference form, and `cn <verb> --help` is the verb file's own header.
 
 ```
+cn brief [--can ios web …] [--json]      counts and the head of each queue, under 20 lines
 cn create --project <slug> --epic <ep-id> --title <title> [--priority 0-4] …
 cn list [--project] [--epic] [--status] [--mine] [--json]
 cn ready [--can ios web …] [--json]      open, unblocked, in priority order, marked
@@ -62,6 +63,5 @@ cn project new <slug> --name <name>  ·  cn project list [--json]
 cn doctor                                node, the generated api, the deployment
 ```
 
-The rest — `brief` and `reconcile` — is the table in
-docs/design.md §10, one Convex function per verb or per action word. The order they
-arrive in is cairn's own worklist: `cn ready`.
+The rest — `reconcile` — is the table in docs/design.md §10, one Convex function per
+verb or per action word. The order they arrive in is cairn's own worklist: `cn ready`.

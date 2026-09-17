@@ -16,30 +16,14 @@
 // **Nothing is ever filtered by capability.** A row this session cannot finish comes back
 // marked `cannot`, because a wrong `can[]` hiding work is the beads bug this design
 // exists to avoid (§5).
+//
+// The computation is `readyIssues` in lib/readiness.ts rather than here, because
+// `brief.get` counts and heads the same rows and must never disagree with this list.
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { blockedBy, isReady } from "./lib/readiness";
-import { issueView } from "./lib/views";
+import { readyIssues } from "./lib/readiness";
 
 export const list = query({
   args: { can: v.optional(v.array(v.string())) },
-  handler: async (ctx, { can }) => {
-    const now = Date.now();
-    const open = await ctx.db
-      .query("issues")
-      .withIndex("by_status", (q) => q.eq("status", "open"))
-      .collect();
-
-    const ready = [];
-    for (const doc of open) if (isReady(await blockedBy(ctx, doc, now))) ready.push(doc);
-    ready.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
-
-    const have = new Set(can ?? []);
-    return await Promise.all(
-      ready.map(async (doc) => ({
-        ...(await issueView(ctx, doc)),
-        cannot: doc.requires.filter((r) => !have.has(r)),
-      })),
-    );
-  },
+  handler: async (ctx, { can }) => await readyIssues(ctx, can),
 });

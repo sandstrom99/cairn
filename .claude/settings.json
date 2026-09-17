@@ -1,4 +1,8 @@
 {
+  "extraKnownMarketplaces": {
+    "cairn": { "source": { "source": "directory", "path": "." } }
+  },
+  "enabledPlugins": { "cairn@cairn": true },
   "hooks": {
     "PostToolUse": [
       {

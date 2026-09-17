@@ -1,0 +1,18 @@
+---
+description: Close an issue with the evidence that it is done.
+argument-hint: "<id>"
+allowed-tools: Bash(cn:*)
+---
+
+The issue is `$ARGUMENTS`.
+
+Read it first with `cn show <id> --json` for its current revision, then close it with
+`cn close <id> --revision N --run '<the command that proves it>'`. The deployment runs
+nothing; the command runs here, and its exit code and output tail are the record.
+
+When the proof cannot run here — a device, a store, a person — record what you do have
+with `cn journal <id> --kind evidence "…"` first, then close `--unverified` with a reason
+that points at that entry.
+
+Anything left over is a follow-up, never a hanging parent:
+`--follow-up "<title>" --kind verify|decide|cleanup [--requires ios]`.

@@ -263,3 +263,79 @@ export function brief(shown: Shown, now: number = Date.now()): string {
   }
   return lines.join("\n");
 }
+
+/** What `cn brief` answers: the counts and the heads of design §8. */
+export type BriefView = FunctionReturnType<typeof api.brief.get>;
+
+/** Where this session is, for the brief's first line. */
+export type BriefWhere = { deployment: string; actor: string; can: string[] };
+
+/** As many rows as a glance holds, then `+N more`. */
+const capped = (rows: string[], cap: number): string =>
+  rows.length > cap
+    ? `${rows.slice(0, cap).join(" · ")} · +${rows.length - cap} more`
+    : rows.join(" · ");
+
+const IN_PROGRESS_CAP = 5;
+const FOLLOW_UP_CAP = 3;
+
+/**
+ * The situation report, at most six lines (docs/design.md §8):
+ *
+ * ```
+ * cairn · invyte · wsl/claude can web
+ * ready 4         app-31 "retry on reconnect" P1 · app-40 "…" P2
+ * in progress     app-14 "fix connection retry" wsl/claude 2h
+ * follow-ups      app-22 "confirm the retry path" [verify] · 1 more needs what you lack
+ * waiting on you  3
+ * flagged         2
+ * ```
+ *
+ * State, never doctrine: the rules are in the skill, which loads on demand, and a hook
+ * always loads. The follow-ups line is the one place a capability list subtracts rather
+ * than marks, and it says how many it left out, because `cn ready` is where every row
+ * lives and none of them is ever hidden there.
+ */
+export function briefLines(view: BriefView, where: BriefWhere, now: number = Date.now()): string[] {
+  const head = `cairn · ${where.deployment} · ${where.actor}`;
+  const lines = [where.can.length > 0 ? `${head} can ${where.can.join(" ")}` : head];
+
+  const ready = view.ready.top.map((i) => {
+    const line = `${ref(i)} P${i.priority}`;
+    return i.cannot.length > 0 ? `${line} · needs ${i.cannot.join(", ")}` : line;
+  });
+  lines.push(
+    // The head is three at the deployment, so there is nothing left to cap here.
+    `${label(`ready ${view.ready.count}`)}${view.ready.count === 0 ? "none" : ready.join(" · ")}`,
+  );
+
+  const holding = view.inProgress.map((i) =>
+    [ref(i), i.claimedBy?.name, i.claimedAt === undefined ? undefined : age(i.claimedAt, now)]
+      .filter((part): part is string => part !== undefined)
+      .join(" "),
+  );
+  lines.push(
+    `${label("in progress")}${holding.length === 0 ? "none" : capped(holding, IN_PROGRESS_CAP)}`,
+  );
+
+  const covered = view.followUps.covered.map(
+    (f) => `${ref(f)}${f.followUpKind === undefined ? "" : ` [${f.followUpKind}]`}`,
+  );
+  const hidden = view.followUps.count - view.followUps.covered.length;
+  const followUps =
+    view.followUps.count === 0
+      ? "none"
+      : [
+          capped(covered, FOLLOW_UP_CAP),
+          hidden > 0
+            ? `${hidden} more ${hidden === 1 ? "needs" : "need"} what you lack`
+            : undefined,
+        ]
+          .filter((part): part is string => part !== undefined && part !== "")
+          .join(" · ");
+  lines.push(`${label("follow-ups")}${followUps}`);
+
+  lines.push(`${label("waiting on you")}${view.waiting}`);
+  if (view.flagged > 0) lines.push(`${label("flagged")}${view.flagged}`);
+  return lines;
+}

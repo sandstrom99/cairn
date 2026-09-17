@@ -9,6 +9,7 @@
  */
 
 import type * as blockers from "../blockers.js";
+import type * as brief from "../brief.js";
 import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
 import type * as issues from "../issues.js";
@@ -35,6 +36,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   blockers: typeof blockers;
+  brief: typeof brief;
   edges: typeof edges;
   epics: typeof epics;
   issues: typeof issues;

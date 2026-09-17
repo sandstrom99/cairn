@@ -6,13 +6,15 @@ description: >
   to it. Trigger on "what's ready", "track this", "pick up where we left off", "what is
   app-14", "close this", "log a finding". Everything goes through the `cn` CLI.
 allowed-tools: "Bash(cn:*)"
-version: "0.0.0"
+version: "0.1.0"
 ---
 
 # cairn
 
-> **Nothing is built yet.** `cn doctor` is the only verb. This file is the language the
-> first slice will speak; it is written before the verbs so the verbs are built to it.
+The worklist every agent and every machine shares, held on one Convex deployment and
+driven entirely through the `cn` CLI. With a deployment configured, this session opened
+with `cn brief` in its context: the counts, what is ready, what is in progress and who
+holds it. That is state — everything below is how to act on it.
 
 ## The one rule that must not slip
 
@@ -39,30 +41,42 @@ shorten it. `cn show app-14` prints a ten-line brief when you need more.
 Tasks only. Not a wiki, not a knowledge base. A finding is a journal entry; a decision is
 an issue.
 
-## The verbs, as they will exist
+## The verbs
 
 | Verb | Does | Backed by |
 |---|---|---|
 | `cn brief` | the session-start report, under 20 lines | `brief.get` |
 | `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine` | `issues.list` |
-| `cn show <id>` | the brief: reference, epic, status, who, since when, neighbours, last journal entries | `show.get` |
+| `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
 | `cn update <id> --revision N` | title, design, acceptance, priority, epic, defer, requires | `issues.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
-| `cn close <id> --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue | `issues.close` |
-| `cn drop <id> --reason …` | closed without doing, never silently | `issues.drop` |
+| `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue | `issues.close` |
+| `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
 | `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
-| `cn wait <id> --kind … --owner …` | raise a human blocker, or `--on bl-3` to attach one | `blockers.raise` |
+| `cn wait <id> --kind … --owner …` | raise a human blocker, or `--on bl-3` to attach one that exists | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
-| `cn ack <bl>` · `cn resolve <bl>` | humans only | `blockers.ack` · `blockers.resolve` |
-| `cn epic new\|list\|close` · `cn project new\|list` | the containers | `epics.*` · `projects.*` |
-| `cn reconcile <epic>` | facts acted on, judgement raised to a human | `reconcile.run` |
+| `cn ack <bl>` · `cn resolve <bl> --note …` | humans only | `blockers.ack` · `blockers.resolve` |
+| `cn epic new\|list` · `cn project new\|list` | the containers | `epics.*` · `projects.*` |
+| `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right
-move is to re-read and decide, never to force.
+move is to re-read and decide, never to force. `cn <verb> --help` is that verb's
+contract, in full.
+
+## A session's shape
+
+- **Start.** The brief is already above. `cn ready` for the whole list, `cn show <id>`
+  for the one that looks right, `cn claim <id>` before touching anything.
+- **During.** `cn journal <id> --kind finding` or `--kind decision` the moment something
+  would be lost to compaction. `cn wait <id>` the moment the work needs a person.
+  `cn dep add <id> --blocked-by <other>` when one thing turns out to block another.
+- **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
+  what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
+  `cn release <id>` when it is not, so the next session can take it.
 
 ## Three boundaries
 

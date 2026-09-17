@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  type BriefView,
   type Shown,
   age,
   blockerLine,
   brief,
+  briefLines,
   edgeLine,
   epicLine,
   historyLines,
@@ -421,5 +423,112 @@ describe("staleLines", () => {
 describe("historyLines", () => {
   it("is the same shape, for cn show --history", () => {
     expect(historyLines([changed], now)).toEqual(staleLines({ since: [changed] }, now));
+  });
+});
+
+describe("briefLines", () => {
+  const claude = { name: "balder/claude", kind: "agent" } as const;
+  const where = { deployment: "local", actor: "balder/claude", can: ["web"] };
+  const empty: BriefView = {
+    ready: { count: 0, top: [] },
+    inProgress: [],
+    followUps: { count: 0, covered: [] },
+    waiting: 0,
+    flagged: 0,
+  };
+
+  it("is the six lines of design §8", () => {
+    const lines = briefLines(
+      {
+        ready: {
+          count: 4,
+          top: [
+            { id: "cn-7", title: "epic health and reconcile by hand", priority: 1, cannot: [] },
+            { id: "cn-8", title: "the deployment story", priority: 2, cannot: [] },
+            { id: "cn-9", title: "the web view", priority: 2, cannot: ["decision"] },
+          ],
+        },
+        inProgress: [
+          {
+            id: "cn-6",
+            title: "the brief and the plugin",
+            claimedBy: claude,
+            claimedAt: ago(2 * HOUR),
+          },
+        ],
+        followUps: {
+          count: 2,
+          covered: [
+            {
+              id: "cn-12",
+              title: "record explicit changes on close",
+              followUpKind: "cleanup",
+              requires: [],
+            },
+          ],
+        },
+        waiting: 0,
+        flagged: 2,
+      },
+      where,
+      now,
+    );
+    expect(lines).toEqual([
+      "cairn · local · balder/claude can web",
+      'ready 4         cn-7 "epic health and reconcile by hand" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2 · needs decision',
+      'in progress     cn-6 "the brief and the plugin" balder/claude 2h',
+      'follow-ups      cn-12 "record explicit changes on close" [cleanup] · 1 more needs what you lack',
+      "waiting on you  0",
+      "flagged         2",
+    ]);
+    expect(lines.length).toBeLessThan(20);
+  });
+
+  it("says none rather than nothing, and drops the flagged line when nothing is flagged", () => {
+    const lines = briefLines(empty, where, now);
+    expect(lines).toEqual([
+      "cairn · local · balder/claude can web",
+      "ready 0         none",
+      "in progress     none",
+      "follow-ups      none",
+      "waiting on you  0",
+    ]);
+    expect(lines.length).toBeLessThan(20);
+  });
+
+  it("caps each queue so a glance stays a glance", () => {
+    const lines = briefLines(
+      {
+        ...empty,
+        inProgress: Array.from({ length: 7 }, (_, i) => ({
+          id: `cn-${i + 1}`,
+          title: "held",
+          claimedBy: claude,
+          claimedAt: ago(HOUR),
+        })),
+        followUps: {
+          count: 7,
+          covered: Array.from({ length: 5 }, (_, i) => ({
+            id: `cn-${i + 20}`,
+            title: "confirm it",
+            followUpKind: "verify" as const,
+            requires: [],
+          })),
+        },
+      },
+      where,
+      now,
+    );
+    expect(lines[2]).toContain("· +2 more");
+    expect(lines[2]?.split(" · ")).toHaveLength(6);
+    expect(lines[3]).toBe(
+      'follow-ups      cn-20 "confirm it" [verify] · cn-21 "confirm it" [verify] · cn-22 "confirm it" [verify] · +2 more · 2 more need what you lack',
+    );
+    expect(lines.length).toBeLessThan(20);
+  });
+
+  it("names no capabilities when the session declared none", () => {
+    const [head] = briefLines(empty, { ...where, can: [] }, now);
+    expect(head).toBe("cairn · local · balder/claude");
   });
 });
