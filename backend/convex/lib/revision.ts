@@ -75,17 +75,22 @@ export async function expectRevision(
   });
 }
 
-/** Patches the target, bumps its revision by one, records the change. Returns the new revision. */
+/**
+ * Patches the target, bumps its revision by one, records the change. Returns the new
+ * revision. `changes` replaces the computed `{ field: { from, to } }` map when the patch
+ * is not what the reader should see: an epic change patches `epicId` and is recorded as
+ * the two public ids, because nothing outside the deployment knows a Convex id.
+ */
 export async function applyRevision(
   ctx: MutationCtx,
   target: Target,
   patch: Record<string, unknown>,
-  { kind, actor }: { kind: string; actor: Actor },
+  { kind, actor, changes }: { kind: string; actor: Actor; changes?: unknown },
 ): Promise<number> {
   const revision = target.doc.revision + 1;
   const before = target.doc as unknown as Record<string, unknown>;
-  const changes: Record<string, { from: unknown; to: unknown }> = {};
-  for (const [field, to] of Object.entries(patch)) changes[field] = { from: before[field], to };
+  const computed: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [field, to] of Object.entries(patch)) computed[field] = { from: before[field], to };
 
   const next = { ...patch, revision };
   if (target.table === "issues") await ctx.db.patch(target.doc._id, next as Partial<Doc<"issues">>);
@@ -93,6 +98,12 @@ export async function applyRevision(
     await ctx.db.patch(target.doc._id, next as Partial<Doc<"epics">>);
   else await ctx.db.patch(target.doc._id, next as Partial<Doc<"blockers">>);
 
-  await record(ctx, { kind, actor, ...targetKey(target), revision, changes });
+  await record(ctx, {
+    kind,
+    actor,
+    ...targetKey(target),
+    revision,
+    changes: changes ?? computed,
+  });
   return revision;
 }

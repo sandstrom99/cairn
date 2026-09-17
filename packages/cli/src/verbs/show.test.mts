@@ -12,6 +12,14 @@ describe("cn show", () => {
     });
   });
 
+  it("asks for the events with --history", () => {
+    expect(parse(["cn-2", "--history"])).toEqual({
+      action: "show",
+      json: false,
+      args: { id: "cn-2", history: true },
+    });
+  });
+
   it("refuses no id and more than one", () => {
     expect(() => parse([])).toThrow(UsageError);
     expect(() => parse(["cn-1", "cn-2"])).toThrow(UsageError);

@@ -10,6 +10,7 @@
 
 import type * as epics from "../epics.js";
 import type * as issues from "../issues.js";
+import type * as journal from "../journal.js";
 import type * as lib_actor from "../lib/actor.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
@@ -30,6 +31,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   epics: typeof epics;
   issues: typeof issues;
+  journal: typeof journal;
   "lib/actor": typeof lib_actor;
   "lib/errors": typeof lib_errors;
   "lib/events": typeof lib_events;

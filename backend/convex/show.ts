@@ -3,8 +3,9 @@
 // three, because an agent holding `app-14` should not have to know which table it is in.
 //
 // An issue comes back with what it blocks, what blocks it, what it waits on, its parent
-// and its follow-ups (docs/design.md §3). The blocker and edge verbs land in later
-// slices; the shape is the contract from today and reads empty until they do.
+// and its follow-ups (docs/design.md §3), and with `history` its events as well. The
+// blocker and edge verbs land in later slices; the shape is the contract from today and
+// reads empty until they do.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, query } from "./_generated/server";
@@ -16,7 +17,24 @@ const refsOf = async (ctx: QueryCtx, ids: Id<"issues">[]): Promise<Ref[]> => {
   return docs.filter((d): d is Doc<"issues"> => d !== null).map(ref);
 };
 
-async function issue(ctx: QueryCtx, doc: Doc<"issues">) {
+/** Every event on an issue, oldest first: what changed, who changed it and when. */
+async function history(ctx: QueryCtx, doc: Doc<"issues">) {
+  const rows = await ctx.db
+    .query("events")
+    .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
+    .collect();
+  // The index orders by revision, and an append carries none, so time is the order here.
+  rows.sort((a, b) => a._creationTime - b._creationTime);
+  return rows.map((e) => ({
+    at: e._creationTime,
+    actor: e.actor,
+    kind: e.kind,
+    revision: e.revision,
+    changes: e.changes,
+  }));
+}
+
+async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean) {
   const view = await issueView(ctx, doc);
   const entries = await ctx.db
     .query("journal")
@@ -66,6 +84,7 @@ async function issue(ctx: QueryCtx, doc: Doc<"issues">) {
       .filter((b): b is Doc<"blockers"> => b !== null && b.status !== "resolved")
       .map(ref),
     followUps: followUps.map(ref),
+    events: withHistory ? await history(ctx, doc) : undefined,
   };
 }
 
@@ -103,8 +122,8 @@ async function blocker(ctx: QueryCtx, doc: Doc<"blockers">) {
 }
 
 export const get = query({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => {
+  args: { id: v.string(), history: v.optional(v.boolean()) },
+  handler: async (ctx, { id, history: withHistory }) => {
     if (id.startsWith("ep-")) {
       const doc = await ctx.db
         .query("epics")
@@ -126,6 +145,6 @@ export const get = query({
       .withIndex("by_public_id", (q) => q.eq("id", id))
       .unique();
     if (!doc) throw notFound(id);
-    return await issue(ctx, doc);
+    return await issue(ctx, doc, Boolean(withHistory));
   },
 });
