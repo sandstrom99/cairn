@@ -43,10 +43,10 @@ cn doctor
 
 `can` is what this machine can do, not what it must be. The two values to fill in are the
 deployment's url and its secret, and 1Password is where both live: the item `cairn` in
-the Private vault, fields `url` and `secret`.
+the Personal vault, fields `url` and `secret`.
 
 ```bash
-op read "op://Private/cairn/secret"
+op read "op://Personal/cairn/secret"
 ```
 
 The secret is the one `CAIRN_SECRET` set on the deployment, so a machine already logged
