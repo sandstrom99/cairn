@@ -10,6 +10,50 @@ An agent worklist on Convex. One deployment per company, a `cn` CLI over typed
 Convex calls, and a Claude Code plugin that teaches agents to use it. Tasks
 only: not a wiki, not a knowledge base, not an orchestrator.
 
+## Verify a change
+
+One command, about a second, before you say anything works:
+
+```bash
+vp run verify        # vp check (format, lint, types), then every test
+```
+
+Green is exactly this, and nothing else counts:
+
+```
+pass: All N files are correctly formatted
+pass: Found no warnings, lint errors, or type errors in N files
+ Test Files  1 passed (1)        ← backend
+ Test Files  5 passed (5)        ← cli
+```
+
+`vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
+gate is fast enough that scoping the check buys nothing (one file 1.1s, the
+whole tree 0.9s); scope the tests only once the suite is slow, with
+`vp run @cairn/cli#test` or `vp run @cairn/backend#test`.
+
+Tests prove the unit. Depending on what changed, one more command proves the
+change works where it runs:
+
+| Changed | Also run | What it proves |
+|---|---|---|
+| `backend/convex/**` | `vp run @cairn/backend#verify` | the functions push to the configured deployment and pass Convex's own `tsc` |
+| `packages/cli/**` | the verb, against a local deployment: `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | it runs end to end, not only in a unit test |
+| a verb's header | `cn <verb> --help` | the header reads as the contract it is |
+| `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh` | silent or the brief, never an error |
+
+A local deployment with no account, once, in another terminal:
+`vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is
+gitignored, and after that `vp run @cairn/backend#verify` and `#dev` target it.
+
+Three things enforce the gate, so a session cannot skip it by forgetting:
+
+- **Pre-commit** runs `vp check --fix` on staged files. `vp config` arms it once
+  per clone; the hook lives in `.vite-hooks/`, the rule in `vite.config.ts`.
+- **A Claude Stop hook** refuses to end a turn while a changed file fails
+  `vp check`, and hands the output back. Once; it does not loop.
+- **CI** runs `vp check` and every test on push and pull request.
+
 ## Layout
 
 | Path | Package | Holds |
@@ -25,10 +69,10 @@ only: not a wiki, not a knowledge base, not an orchestrator.
 | Do | Not |
 |---|---|
 | `vp install` | `pnpm install`, `npm install` |
-| `vp check` before every commit, `vp check --fix` for formatting | prettier, eslint, a bare `tsc` |
-| `vp run -r test`, or `vp run @cairn/cli#test` for one package | `npx vitest` |
+| `vp run verify`, or `vp check --fix` for formatting alone | prettier, eslint, a bare `tsc`, `npx vitest` |
 | `vp run @cairn/backend#dev` for the Convex dev loop | |
 | `vp run codegen` after a schema or function change | editing `_generated/` |
+| `vp config` once per clone, for the pre-commit hook | |
 
 Node 24 comes from `.node-version`. vite-plus is pinned to the global binary's
 version in `pnpm-workspace.yaml`; the reason is in `docs/design.md` §11, and the
@@ -49,14 +93,6 @@ two move together.
   verb.
 - **Mutable writes carry `revision`. Journal entries are inserts.**
 - **`epicId` is required. Closing takes a verification record.**
-
-## Local deployment
-
-`CONVEX_AGENT_MODE=anonymous npx convex dev` in `backend/` runs a local Convex
-with no account and writes `backend/.env.local`, which is gitignored.
-`convex codegen` refuses to run without a deployment, so this is also how
-`_generated/` is refreshed offline. `cn` reaches it with
-`CAIRN_URL=http://127.0.0.1:3210`.
 
 ## Commits and pull requests
 

@@ -4,9 +4,9 @@
   "description": "An agent worklist on Convex: one deployment per company, a cn CLI over typed calls, no sync layer.",
   "type": "module",
   "scripts": {
+    "verify": "vp check && vp run -r test",
     "check": "vp check",
     "test": "vp run -r test",
-    "ready": "vp check && vp run -r test",
     "dev": "vp run @cairn/backend#dev",
     "codegen": "vp run @cairn/backend#codegen"
   },

@@ -68,8 +68,8 @@ docs/dogfood.md         the first issues, until `cn create` exists
 ```bash
 curl -fsSL https://vite.plus | bash        # once per machine: vp, and the Node it needs
 vp install                                 # once per checkout
-vp check                                   # format, lint, types
-vp run -r test                             # backend and cli tests
+vp config                                  # once per checkout: the pre-commit hook
+vp run verify                              # format, lint, types, every test: about a second
 ln -s "$PWD/packages/cli/bin/cn" ~/.local/bin/cn
 cn doctor
 ```
@@ -77,7 +77,7 @@ cn doctor
 A local Convex deployment, no account needed:
 
 ```bash
-cd backend && CONVEX_AGENT_MODE=anonymous npx convex dev
+vp run @cairn/backend#dev:local
 ```
 
 ## First slice

@@ -455,10 +455,11 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 | Packages | pnpm, driven by `vp install`. `workspace:*` between packages; `@cairn/cli` imports the generated `api` from `@cairn/backend` by name. |
 | Check | `vp check`: oxfmt, oxlint, and a type-aware check across every tsconfig. Markdown and yaml are left as written. |
 | Tests | `vp run -r test`: vitest per package. The backend runs `convex-test` in the edge runtime, which is closer to Convex's own than Node is. |
+| The gate | `vp run verify` is check plus every test, about a second. A pre-commit hook (`vp config`, once per clone) formats and lints staged files, a Claude Stop hook refuses to end a turn with a changed file failing `vp check`, and CI runs the same gate. `AGENTS.md` carries the per-change table. |
 | Local backend | `CONVEX_AGENT_MODE=anonymous npx convex dev` runs a local deployment with no Convex account, and is how `convex/_generated` was first produced. `convex codegen` alone refuses to run without a deployment. |
 | CI | `voidzero-dev/setup-vp`, then the same commands. |
 
-Two things pinned, and why:
+Three things pinned, and why:
 
 - **vite-plus is pinned to the global `vp` binary's version**, 0.1.24 in the
   catalog. The `latest` tags mix a 0.3.x core with the 0.1.x test package that
@@ -466,6 +467,12 @@ Two things pinned, and why:
   before doing anything. Upgrade the global binary and the catalog together.
 - **TypeScript 5.9, not 7.** vite-plus 0.1.x declares a peer range of 5 or 6,
   and Convex runs the installed `tsc`. Nothing in the tree needs 7.
+- **Task caching off** (`run.cache: false`). To cache, the runner traces every
+  file a task reads, and on WSL2 that tracer makes esbuild fail with
+  `spawn EBUSY` and the type-aware linter with "Linting could not start", so
+  `vp run verify` could not run its own check. The direct commands were fine
+  throughout; only the nested ones broke. A verification has nothing worth
+  caching anyway.
 
 Lost by leaving eslint: the Convex eslint plugin's rules. Accepted; `vp check`
 is what runs, and the rules are few.

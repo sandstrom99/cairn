@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "convex dev",
+    "dev:local": "CONVEX_AGENT_MODE=anonymous convex dev",
+    "verify": "convex dev --once",
     "deploy": "convex deploy",
     "codegen": "convex codegen",
     "test": "vp test run"
