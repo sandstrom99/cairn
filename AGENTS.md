@@ -12,6 +12,11 @@ only: not a wiki, not a knowledge base, not an orchestrator.
 
 ## Verify a change
 
+This section is the verification suite, at its start. It grows with the
+project: every new verb, table or surface adds its row to the table below and,
+where the unit tests cannot prove it, a command that runs it for real. Nothing
+here is optional, and nothing gets removed because it became inconvenient.
+
 One command, about a second, before you say anything works:
 
 ```bash
