@@ -28,6 +28,7 @@ src/lib/
   cli.mts        main(), UsageError, say/warn — the shell every verb runs in
   args.mts       the one argument parser
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
+  can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`
   actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>
   format.mts     the lines cn prints: a list line, an epic line, the show brief
@@ -43,17 +44,19 @@ starts with the reference form, and `cn <verb> --help` is the verb file's own he
 ```
 cn create --project <slug> --epic <ep-id> --title <title> [--priority 0-4] …
 cn list [--project] [--epic] [--status] [--mine] [--json]
+cn ready [--can ios web …] [--json]      open, unblocked, in priority order, marked
 cn show <id> [--history] [--json]        an issue, an epic or a blocker, by prefix
 cn claim <id>  ·  cn release <id>        first writer wins, no lease
 cn update <id> --revision N [--title] [--priority] [--epic] [--defer-until] [--requires]
 cn journal <id> --kind finding|decision|handoff|evidence|question <body…>
 cn close <id> --revision N --run '<cmd>' | --unverified <why> [--follow-up <title> --kind verify]
 cn drop <id> --revision N --reason <text>
+cn dep add|rm <id> --blocked-by|--blocks|--related|--discovered-from|--duplicates|--supersedes <other>
 cn epic new <title> [--description]  ·  cn epic list [--all] [--json]
 cn project new <slug> --name <name>  ·  cn project list [--json]
 cn doctor                                node, the generated api, the deployment
 ```
 
-The rest — `brief`, `ready`, `dep`, `wait`, `waiting`, `ack`, `resolve`, `reconcile` — is
-the table in docs/design.md §10, one Convex function per verb or per action word. The
-order they arrive in is docs/dogfood.md.
+The rest — `brief`, `wait`, `waiting`, `ack`, `resolve`, `reconcile` — is the table in
+docs/design.md §10, one Convex function per verb or per action word. The order they
+arrive in is docs/dogfood.md.

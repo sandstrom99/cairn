@@ -3,9 +3,10 @@
 // three, because an agent holding `app-14` should not have to know which table it is in.
 //
 // An issue comes back with what it blocks, what blocks it, what it waits on, its parent
-// and its follow-ups (docs/design.md §3), and with `history` its events as well. The
-// blocker and edge verbs land in later slices; the shape is the contract from today and
-// reads empty until they do.
+// and its follow-ups (docs/design.md §3), and with `history` its events as well. Each
+// edge type is its own list, because they mean different things: `blocks` decides
+// readiness and the rest are context. The blocker verbs land in a later slice, so
+// `waitingOn` reads empty until they do.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, query } from "./_generated/server";
@@ -76,10 +77,24 @@ async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean) {
       ctx,
       incoming.filter((e) => e.type === "blocks").map((e) => e.from),
     ),
+    // `related` is symmetric, so it reads both ways; the other three name a direction
+    // and are the edges from this issue, the way `cn dep add` wrote them.
     related: await refsOf(ctx, [
-      ...outgoing.filter((e) => e.type !== "blocks").map((e) => e.to),
-      ...incoming.filter((e) => e.type !== "blocks").map((e) => e.from),
+      ...outgoing.filter((e) => e.type === "related").map((e) => e.to),
+      ...incoming.filter((e) => e.type === "related").map((e) => e.from),
     ]),
+    discoveredFrom: await refsOf(
+      ctx,
+      outgoing.filter((e) => e.type === "discovered-from").map((e) => e.to),
+    ),
+    duplicates: await refsOf(
+      ctx,
+      outgoing.filter((e) => e.type === "duplicates").map((e) => e.to),
+    ),
+    supersedes: await refsOf(
+      ctx,
+      outgoing.filter((e) => e.type === "supersedes").map((e) => e.to),
+    ),
     waitingOn: blockers
       .filter((b): b is Doc<"blockers"> => b !== null && b.status !== "resolved")
       .map(ref),

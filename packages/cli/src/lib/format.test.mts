@@ -3,9 +3,11 @@ import {
   type Shown,
   age,
   brief,
+  edgeLine,
   epicLine,
   historyLines,
   issueLine,
+  readyLine,
   staleLines,
 } from "./format.mts";
 
@@ -67,6 +69,52 @@ describe("epicLine", () => {
   });
 });
 
+describe("readyLine", () => {
+  const row = {
+    id: "cn-4",
+    title: "confirm the retry path on a device",
+    status: "open",
+    priority: 1,
+    epic: { id: "ep-1", title: "Create to close" },
+  };
+
+  it("is the issue line while this session can do it", () => {
+    expect(readyLine({ ...row, cannot: [] })).toBe(issueLine(row));
+  });
+
+  it("marks what this session cannot do, rather than hiding the row", () => {
+    expect(readyLine({ ...row, cannot: ["ios", "device"] })).toBe(
+      `${issueLine(row)} · needs ios, device`,
+    );
+  });
+});
+
+describe("edgeLine", () => {
+  const from = { id: "cn-1", title: "schema, ids" };
+  const to = { id: "cn-2", title: "the lifecycle" };
+
+  it("reads a blocks row from the end that is held up", () => {
+    expect(edgeLine({ type: "blocks", from, to })).toBe(
+      'cn-2 "the lifecycle" blocked by cn-1 "schema, ids"',
+    );
+  });
+
+  it("reads every other type from the issue that was named", () => {
+    expect(edgeLine({ type: "related", from, to })).toBe(
+      'cn-1 "schema, ids" related to cn-2 "the lifecycle"',
+    );
+    expect(edgeLine({ type: "discovered-from", from, to })).toBe(
+      'cn-1 "schema, ids" discovered from cn-2 "the lifecycle"',
+    );
+    expect(edgeLine({ type: "duplicates", from, to })).toBe(
+      'cn-1 "schema, ids" duplicates cn-2 "the lifecycle"',
+    );
+    expect(edgeLine({ type: "supersedes", from, to })).toBe(
+      'cn-1 "schema, ids" supersedes cn-2 "the lifecycle"',
+    );
+  });
+});
+
 const issue = {
   kind: "issue",
   id: "cn-1",
@@ -84,6 +132,9 @@ const issue = {
   blocks: [],
   blockedBy: [],
   related: [],
+  discoveredFrom: [],
+  duplicates: [],
+  supersedes: [],
   waitingOn: [],
   followUps: [],
 } as unknown as Shown;
@@ -92,8 +143,8 @@ describe("brief", () => {
   it("opens with the reference form and leaves out what is empty", () => {
     const lines = brief(issue, now).split("\n");
     expect(lines[0]).toBe('cn-1 "schema, ids, revision, events"');
-    expect(lines[1]).toBe('epic       ep-1 "Create to close"');
-    expect(lines[3]).toBe("status     open · P0 · created 2h ago · revision 0");
+    expect(lines[1]).toBe('epic            ep-1 "Create to close"');
+    expect(lines[3]).toBe("status          open · P0 · created 2h ago · revision 0");
     expect(brief(issue, now)).not.toMatch(/blocks|waiting on|journal|acceptance/);
   });
 
@@ -103,7 +154,7 @@ describe("brief", () => {
   });
 
   it("marks a design that continues past its first line", () => {
-    expect(brief(issue, now)).toMatch(/design {5}transcribe §3…/);
+    expect(brief(issue, now)).toMatch(/design {10}transcribe §3…/);
   });
 
   it("prints the neighbourhood and the journal when there is any", () => {
@@ -124,10 +175,31 @@ describe("brief", () => {
       ],
     } as unknown as Shown;
     const text = brief(shown, now);
-    expect(text).toContain("claimed    wsl/claude · 5m");
-    expect(text).toContain("requires   ios, device");
-    expect(text).toContain('waiting on bl-1 "the App Store agreement"');
+    expect(text).toContain("claimed         wsl/claude · 5m");
+    expect(text).toContain("requires        ios, device");
+    expect(text).toContain('waiting on      bl-1 "the App Store agreement"');
     expect(text).toContain("  1h wsl/claude finding: the counter row is created on first use");
+  });
+
+  it("prints each edge type on its own line, blocking ones first", () => {
+    const shown = {
+      ...issue,
+      blocks: [{ id: "cn-3", title: "the graph" }],
+      blockedBy: [{ id: "cn-2", title: "the lifecycle" }],
+      related: [{ id: "cn-4", title: "the brief" }],
+      discoveredFrom: [{ id: "cn-2", title: "the lifecycle" }],
+      duplicates: [{ id: "cn-5", title: "a duplicate" }],
+      supersedes: [{ id: "cn-6", title: "the old plan" }],
+    } as unknown as Shown;
+    const lines = brief(shown, now).split("\n");
+    expect(lines.slice(4, 10)).toEqual([
+      'blocks          cn-3 "the graph"',
+      'blocked by      cn-2 "the lifecycle"',
+      'related         cn-4 "the brief"',
+      'discovered from cn-2 "the lifecycle"',
+      'duplicates      cn-5 "a duplicate"',
+      'supersedes      cn-6 "the old plan"',
+    ]);
   });
 
   it("prints the history after the journal, when it was asked for", () => {
@@ -170,10 +242,10 @@ describe("brief", () => {
     } as unknown as Shown;
     expect(brief(shown, now).split("\n")).toEqual([
       'bl-1 "the App Store agreement"',
-      "kind       approval",
-      "owner      balder",
-      "status     raised",
-      'issues     cn-1 "schema, ids"',
+      "kind            approval",
+      "owner           balder",
+      "status          raised",
+      'issues          cn-1 "schema, ids"',
     ]);
   });
 });

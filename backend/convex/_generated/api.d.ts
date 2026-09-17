@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
 import type * as issues from "../issues.js";
 import type * as journal from "../journal.js";
@@ -16,10 +17,12 @@ import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_ids from "../lib/ids.js";
 import type * as lib_inbox from "../lib/inbox.js";
+import type * as lib_readiness from "../lib/readiness.js";
 import type * as lib_revision from "../lib/revision.js";
 import type * as lib_verification from "../lib/verification.js";
 import type * as lib_views from "../lib/views.js";
 import type * as projects from "../projects.js";
+import type * as ready from "../ready.js";
 import type * as show from "../show.js";
 
 import type {
@@ -29,6 +32,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  edges: typeof edges;
   epics: typeof epics;
   issues: typeof issues;
   journal: typeof journal;
@@ -37,10 +41,12 @@ declare const fullApi: ApiFromModules<{
   "lib/events": typeof lib_events;
   "lib/ids": typeof lib_ids;
   "lib/inbox": typeof lib_inbox;
+  "lib/readiness": typeof lib_readiness;
   "lib/revision": typeof lib_revision;
   "lib/verification": typeof lib_verification;
   "lib/views": typeof lib_views;
   projects: typeof projects;
+  ready: typeof ready;
   show: typeof show;
 }>;
 
