@@ -4,7 +4,8 @@
 //   import { UsageError, main, say, warn, usageFromHeader } from "../lib/cli.mts";
 //
 // `main(fn)` runs the CLI body with `process.argv.slice(2)` and owns the exit arms: a
-// UsageError prints `✗ usage: …` and exits 2, any other error prints `✗ …` and exits 1,
+// UsageError prints `✗ usage: …` and exits 2, a ConvexError prints the message the
+// deployment wrote and exits 1, any other error prints `✗ …` and exits 1,
 // and a number returned by `fn` is the exit code. It sets `process.exitCode` and never
 // calls `process.exit()`: a pipe takes a large write asynchronously, and an exit right
 // after it cuts the output at 64 KB.
@@ -16,6 +17,7 @@
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ConvexError } from "convex/values";
 
 /** Wrong arguments: exit 2 at the top of a CLI. */
 export class UsageError extends Error {}
@@ -57,6 +59,14 @@ export async function main(
     if (e instanceof UsageError) {
       console.error(`✗ usage: ${e.message}`);
       process.exitCode = 2;
+      return;
+    }
+    if (e instanceof ConvexError) {
+      // Every ConvexError the deployment throws carries { kind, message }; the message is
+      // written for the person reading it, so it prints as-is and the kind stays in --json.
+      const data = e.data as { message?: string } | undefined;
+      console.error(`✗ ${data?.message ?? e.message}`);
+      process.exitCode = 1;
       return;
     }
     console.error(`✗ ${(e as Error)?.message ?? e}`);

@@ -28,8 +28,8 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  1 passed (1)        ← backend
- Test Files  5 passed (5)        ← cli
+ Test Files  6 passed (6)        ← backend
+ Test Files  13 passed (13)      ← cli
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -46,10 +46,19 @@ change works where it runs:
 | `packages/cli/**` | the verb, against a local deployment: `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | it runs end to end, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
 | `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh` | silent or the brief, never an error |
+| `verbs/doctor.mts` | `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | the last line is the deployment answering, not only the config resolving |
+| `verbs/project.mts` | `cn project new cn --name "cairn: backend, cli, plugin"`, then `cn project list` | a slug becomes an id prefix, and the list reads it back |
+| `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list` | an epic mints `ep-N`, and its counts are its issues |
+| `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "…"`, and the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
+| `verbs/list.mts` | `cn list --epic ep-1 --json` | priority then age, and `--json` carries id and title |
+| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1` | the brief is an issue's neighbourhood, and an epic's open issues |
 
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is
 gitignored, and after that `vp run @cairn/backend#verify` and `#dev` target it.
+`#verify` is `convex dev --once` and refuses while that watcher holds port 3210, so
+stop the watcher first, or take the watcher's own `Convex functions ready!` line after
+a save as the push having happened: it pushes every change as it lands.
 
 Three things enforce the gate, so a session cannot skip it by forgetting:
 
@@ -92,7 +101,9 @@ two move together.
   names an issue or epic uses `app-14 "fix connection retry"`. It is spelled in
   one place, `ref()` in `packages/cli/src/lib/ref.mts`.
 - **`.mts`, an extension on every import, erasable syntax only** in
-  `packages/cli`. Node strips the types; nothing is built.
+  `packages/cli`. Node strips the types; nothing is built. The type check resolves
+  like a bundler and does not require the extension, so `src/smoke.test.mts`, which
+  runs the real `cn` under Node for every verb, is what fails on a missing one.
 - **Every read verb takes `--json`.** stdout is the answer; `say` and `warn` go
   to stderr.
 - **A verb's file header is its `--help`.** Write the contract first, then the

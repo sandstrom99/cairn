@@ -5,8 +5,14 @@
 // The verb file's own leading comment is its `--help` text, via usageFromHeader.
 
 import type { CliBody } from "../lib/cli.mts";
+import * as create from "./create.mts";
 import * as doctor from "./doctor.mts";
+import * as epic from "./epic.mts";
+import * as list from "./list.mts";
+import * as project from "./project.mts";
+import * as show from "./show.mts";
 
 export type Verb = { name: string; summary: string; run: CliBody };
 
-export const VERBS: Verb[] = [doctor];
+/** In the order a session meets them: make work, read it, then the things around it. */
+export const VERBS: Verb[] = [create, list, show, epic, project, doctor];

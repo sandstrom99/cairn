@@ -5,10 +5,16 @@
   // erasableSyntaxOnly is what makes that viable. Node strips types without understanding
   // them, so anything that needs code generated — an enum, a namespace, a parameter
   // property — is refused here rather than left to fail at runtime.
+  //
+  // Resolution is "bundler", not "nodenext", because this program follows the generated
+  // `api` into @cairn/backend's sources, which import without extensions the way Convex
+  // does. Under nodenext those imports fail to resolve and every `api.*` call silently
+  // types as `any`. The cost is that nothing here insists on the extension Node needs at
+  // runtime; src/smoke.test.mts runs the real cn under Node and is what catches that.
   "compilerOptions": {
     "target": "esnext",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "lib": ["esnext"],
     "types": ["node"],
 
