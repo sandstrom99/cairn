@@ -5,6 +5,7 @@
 // The verb file's own leading comment is its `--help` text, via usageFromHeader.
 
 import type { CliBody } from "../lib/cli.mts";
+import * as ack from "./ack.mts";
 import * as claim from "./claim.mts";
 import * as close from "./close.mts";
 import * as create from "./create.mts";
@@ -17,8 +18,11 @@ import * as list from "./list.mts";
 import * as project from "./project.mts";
 import * as ready from "./ready.mts";
 import * as release from "./release.mts";
+import * as resolve from "./resolve.mts";
 import * as show from "./show.mts";
 import * as update from "./update.mts";
+import * as wait from "./wait.mts";
+import * as waiting from "./waiting.mts";
 
 export type Verb = { name: string; summary: string; run: CliBody };
 
@@ -38,6 +42,10 @@ export const VERBS: Verb[] = [
   close,
   drop,
   dep,
+  wait,
+  waiting,
+  ack,
+  resolve,
   epic,
   project,
   doctor,

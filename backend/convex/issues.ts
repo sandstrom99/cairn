@@ -7,13 +7,14 @@
 // created by the first create that asks for it.
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type MutationCtx, type QueryCtx, mutation, query } from "./_generated/server";
+import { type MutationCtx, mutation, query } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import type { Actor } from "./lib/actor";
 import { claimed, invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
 import { mint } from "./lib/ids";
 import { INBOX_ID, ensureInbox } from "./lib/inbox";
+import { LIVE, issueById } from "./lib/lookup";
 import { applyRevision, expectRevision } from "./lib/revision";
 import { verificationInputValidator } from "./lib/verification";
 import { createdChanges, issueView, ref } from "./lib/views";
@@ -40,16 +41,6 @@ function checkPriority(priority: number): number {
   return priority;
 }
 
-/** The issue with that public id, or `not-found`. Every lifecycle verb starts here. */
-async function byId(ctx: QueryCtx, id: string): Promise<Doc<"issues">> {
-  const doc = await ctx.db
-    .query("issues")
-    .withIndex("by_public_id", (q) => q.eq("id", id))
-    .unique();
-  if (!doc) throw notFound(id);
-  return doc;
-}
-
 /** The view of an issue as it now stands, read back after a patch. */
 const viewOf = async (ctx: MutationCtx, _id: Id<"issues">) =>
   await issueView(ctx, (await ctx.db.get(_id))!);
@@ -65,8 +56,6 @@ const heldBy = (doc: Doc<"issues">) =>
 /** True when `actor` may not touch a claim it does not hold: a human may, an agent may not. */
 const fencedOut = (doc: Doc<"issues">, actor: Actor): boolean =>
   doc.claimedBy !== undefined && doc.claimedBy.name !== actor.name && actor.kind === "agent";
-
-const LIVE = ["open", "in_progress"];
 
 export const create = mutation({
   args: {
@@ -233,7 +222,7 @@ export const list = query({
 export const claim = mutation({
   args: { actor: actorValidator, id: v.string() },
   handler: async (ctx, args) => {
-    const doc = await byId(ctx, args.id);
+    const doc = await issueById(ctx, args.id);
     if (!LIVE.includes(doc.status))
       throw invalid(
         `${doc.id} is ${doc.status}; reopening is not a thing, create a follow-up instead`,
@@ -256,7 +245,7 @@ export const claim = mutation({
 export const release = mutation({
   args: { actor: actorValidator, id: v.string() },
   handler: async (ctx, args) => {
-    const doc = await byId(ctx, args.id);
+    const doc = await issueById(ctx, args.id);
     if (!doc.claimedBy) return await issueView(ctx, doc);
     // A human may release anybody's claim; that is how a silent agent gets unstuck.
     if (fencedOut(doc, args.actor)) throw heldBy(doc);
@@ -288,7 +277,7 @@ export const update = mutation({
     requires: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const doc = await byId(ctx, args.id);
+    const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!LIVE.includes(doc.status))
       throw invalid(`${doc.id} is ${doc.status}; nothing about it changes now`);
@@ -357,7 +346,7 @@ export const close = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const doc = await byId(ctx, args.id);
+    const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!LIVE.includes(doc.status)) throw invalid(`${doc.id} is already ${doc.status}`);
     if (fencedOut(doc, args.actor)) throw heldBy(doc);
@@ -422,7 +411,7 @@ export const close = mutation({
 export const drop = mutation({
   args: { actor: actorValidator, id: v.string(), revision: v.number(), reason: v.string() },
   handler: async (ctx, args) => {
-    const doc = await byId(ctx, args.id);
+    const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!LIVE.includes(doc.status)) throw invalid(`${doc.id} is already ${doc.status}`);
     if (args.reason.trim() === "") throw invalid("dropping needs a reason");

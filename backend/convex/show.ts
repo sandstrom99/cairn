@@ -5,13 +5,12 @@
 // An issue comes back with what it blocks, what blocks it, what it waits on, its parent
 // and its follow-ups (docs/design.md §3), and with `history` its events as well. Each
 // edge type is its own list, because they mean different things: `blocks` decides
-// readiness and the rest are context. The blocker verbs land in a later slice, so
-// `waitingOn` reads empty until they do.
+// readiness and the rest are context.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, query } from "./_generated/server";
 import { notFound } from "./lib/errors";
-import { type Ref, epicView, issueView, ref } from "./lib/views";
+import { type Ref, blockerView, epicView, issueView, ref } from "./lib/views";
 
 const refsOf = async (ctx: QueryCtx, ids: Id<"issues">[]): Promise<Ref[]> => {
   const docs = await Promise.all(ids.map((id) => ctx.db.get(id)));
@@ -117,22 +116,24 @@ async function epic(ctx: QueryCtx, doc: Doc<"epics">) {
   };
 }
 
-async function blocker(ctx: QueryCtx, doc: Doc<"blockers">) {
-  const links = await ctx.db
-    .query("blockerLinks")
+async function blocker(ctx: QueryCtx, doc: Doc<"blockers">, withHistory: boolean) {
+  const events = await ctx.db
+    .query("events")
     .withIndex("by_blocker", (q) => q.eq("blockerId", doc._id))
     .collect();
+  events.sort((a, b) => a._creationTime - b._creationTime);
   return {
     kind: "blocker" as const,
-    id: doc.id,
-    title: doc.title,
-    blockerKind: doc.kind,
-    owner: doc.owner,
-    status: doc.status,
-    issues: await refsOf(
-      ctx,
-      links.map((l) => l.issueId),
-    ),
+    ...(await blockerView(ctx, doc)),
+    events: withHistory
+      ? events.map((e) => ({
+          at: e._creationTime,
+          actor: e.actor,
+          kind: e.kind,
+          revision: e.revision,
+          changes: e.changes,
+        }))
+      : undefined,
   };
 }
 
@@ -153,7 +154,7 @@ export const get = query({
         .withIndex("by_public_id", (q) => q.eq("id", id))
         .unique();
       if (!doc) throw notFound(id);
-      return await blocker(ctx, doc);
+      return await blocker(ctx, doc, Boolean(withHistory));
     }
     const doc = await ctx.db
       .query("issues")

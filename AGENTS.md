@@ -52,13 +52,16 @@ change works where it runs:
 | `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "…"`, and the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
 | `verbs/list.mts` | `cn list --epic ep-1 --json` | priority then age, and `--json` carries id and title |
 | `verbs/ready.mts` | `cn ready`, then `cn ready --can web` | open unblocked work in priority order, and a row needing `ios` marked `· needs ios` rather than hidden |
-| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1`, then `cn show cn-1 --history` | the brief is an issue's neighbourhood, an epic's open issues, and every event in order |
+| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1`, then `cn show cn-1 --history`, then `cn show bl-1` | the brief is an issue's neighbourhood, an epic's open issues, every event in order, and a blocker with what it holds |
 | `verbs/claim.mts`, `verbs/release.mts` | `cn claim cn-2`, then `CAIRN_ACTOR=other/agent cn claim cn-2` | the first wins and prints `in_progress`; the second exits 1 naming who holds it and since when |
 | `verbs/update.mts` | `cn update cn-2 --revision 0 --priority 1` twice | the second is refused with every change since revision 0 and the line to retry with |
 | `verbs/journal.mts` | `cn journal cn-2 --kind finding "…"`, then `cn show cn-2` | the entry lands whatever the revision is, and shows newest first |
 | `verbs/close.mts` | `cn close cn-2 --revision N --run 'vp run verify' --follow-up "…" --kind verify` | the stored record is the real exit code and output tail, and the follow-up exists beside the closed parent |
 | `verbs/drop.mts` | `cn drop x-3 --revision 0`, then the same with `--reason "…"` | dropping without a reason exits 2, and with one it records the reason |
 | `verbs/dep.mts` | `cn dep add cn-2 --blocked-by cn-1`, then `cn show cn-2`, then `cn dep rm cn-2 --blocked-by cn-1` | one row, read as `blocked by` from cn-2 and as `blocks` from cn-1, and removed by exactly that name |
+| `verbs/wait.mts` | `cn create --project cn --epic ep-0 --title "scratch: blocker round trip"` → cn-N, then `cn wait cn-N --kind decision --owner balder --title "scratch" --resolves "the round trip is done"`, then `cn ready`, then `cn list` | the issue leaves ready the moment the blocker is raised and stays in list |
+| `verbs/waiting.mts` | `cn waiting`, then `cn waiting --json` | one line per unresolved blocker in reference form with what it holds; with none it prints nothing and exits 0 |
+| `verbs/ack.mts`, `verbs/resolve.mts` | `cn ack bl-N` (refused: this shell is an agent), then `env -u CLAUDECODE cn ack bl-N`, then `env -u CLAUDECODE cn resolve bl-N --note "done"`, then `cn ready`, then `cn drop cn-N --revision 0 --reason "scratch"` | an agent is refused by name; a person moves it raised → waiting → resolved; the issue is back in ready with no recompute; the scratch is dropped |
 
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is
