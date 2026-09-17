@@ -1,6 +1,6 @@
 {
   "name": "cairn",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "An agent worklist on Convex. The cn skill, the session-start situation report, and the slash commands.",
   "author": {
     "name": "Balder Sandstrom",
@@ -16,7 +16,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 5
           }
         ]
       }

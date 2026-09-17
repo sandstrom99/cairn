@@ -12,7 +12,9 @@
 - `.mcp.json` registers Convex's own MCP server against `backend/`, for reading
   tables and logs and running functions while developing. It is a dev tool; the
   agent surface for cairn itself is `cn`.
-- `plugins/cairn/` is what other repos install. Do not enable it here until
-  `cn brief` exists; its hook is silent without `cn` on PATH anyway.
+- `plugins/cairn/` is enabled here through `.claude/settings.json`, so every
+  session in this repo starts with `cn brief` in context when a deployment is
+  configured, and the skill and the `/cairn:*` commands are the ones other repos
+  get.
 - Replies name work in the reference form, `app-14 "fix connection retry"`, from
   the first line of the first slice onward.

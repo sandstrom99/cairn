@@ -9,7 +9,7 @@
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { LIVE } from "./lookup";
-import { type Ref, ref } from "./views";
+import { type Ref, issueView, ref } from "./views";
 
 /** What holds an issue back. Ready is all three empty. */
 export type Blocked = {
@@ -57,3 +57,31 @@ export const isReady = (blocked: Blocked): boolean =>
   blocked.issues.length === 0 &&
   blocked.blockers.length === 0 &&
   blocked.deferredUntil === undefined;
+
+/**
+ * The ready rows themselves, in ready order, each marked with what `can` cannot satisfy.
+ * `ready.list` is this function and nothing else, and `brief.get` counts the same rows,
+ * so the head of the brief can never disagree with the list it is the head of.
+ */
+export async function readyIssues(
+  ctx: QueryCtx,
+  can: string[] | undefined,
+  now: number = Date.now(),
+) {
+  const open = await ctx.db
+    .query("issues")
+    .withIndex("by_status", (q) => q.eq("status", "open"))
+    .collect();
+
+  const ready = [];
+  for (const doc of open) if (isReady(await blockedBy(ctx, doc, now))) ready.push(doc);
+  ready.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
+
+  const have = new Set(can ?? []);
+  return await Promise.all(
+    ready.map(async (doc) => ({
+      ...(await issueView(ctx, doc)),
+      cannot: doc.requires.filter((r) => !have.has(r)),
+    })),
+  );
+}

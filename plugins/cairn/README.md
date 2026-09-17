@@ -1,14 +1,14 @@
 # The cairn plugin
 
 What an agent gets when cairn is installed: the skill, the session-start situation
-report, and later the slash commands. It ships from this repo so it versions with the
+report, and the slash commands. It ships from this repo so it versions with the
 `cn` it drives and installs anywhere, including a cloud runner.
 
 ```
 .claude-plugin/plugin.json   the manifest
 skills/cairn/SKILL.md        the language: the reference rule, the verbs, the boundaries
-hooks/session-start.sh       `cn brief`, silent until it exists
-commands/                    slash commands, none yet
+hooks/session-start.sh       `cn brief`, silent without a deployment
+commands/                    /cairn:ready, /cairn:pick, /cairn:handoff, /cairn:close
 ```
 
 ## Install on a machine

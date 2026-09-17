@@ -9,3 +9,6 @@ export const actorValidator = v.object({
 });
 
 export type Actor = Infer<typeof actorValidator>;
+
+/** The actor reconcile writes as (§7), so its raises can be told apart; it lands in cn-7. */
+export const RECONCILE: Actor = { name: "cairn/reconcile", kind: "agent" };

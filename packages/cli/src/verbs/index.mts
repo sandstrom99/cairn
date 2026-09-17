@@ -6,6 +6,7 @@
 
 import type { CliBody } from "../lib/cli.mts";
 import * as ack from "./ack.mts";
+import * as brief from "./brief.mts";
 import * as claim from "./claim.mts";
 import * as close from "./close.mts";
 import * as create from "./create.mts";
@@ -31,6 +32,7 @@ export type Verb = { name: string; summary: string; run: CliBody };
  * then the things around it.
  */
 export const VERBS: Verb[] = [
+  brief,
   create,
   list,
   ready,
