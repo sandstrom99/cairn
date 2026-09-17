@@ -42,11 +42,11 @@ cn doctor
 ```
 
 `can` is what this machine can do, not what it must be. The two values to fill in are the
-deployment's url and its secret, and 1Password is where both live: the item `cairn` in
-the Personal vault, fields `url` and `secret`.
+deployment's url and its secret, and 1Password is where both live: the item `cairn dev
+deployment` in the Personal vault, fields `url`, `secret` and `deployment`.
 
 ```bash
-op read "op://Personal/cairn/secret"
+op read "op://Personal/cairn dev deployment/secret"
 ```
 
 The secret is the one `CAIRN_SECRET` set on the deployment, so a machine already logged
