@@ -59,7 +59,8 @@ an issue.
 | `cn wait <id> --kind … --owner …` | raise a human blocker, or `--on bl-3` to attach one that exists | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | humans only | `blockers.ack` · `blockers.resolve` |
-| `cn epic new\|list` · `cn project new\|list` | the containers | `epics.*` · `projects.*` |
+| `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
+| `cn reconcile <epic>` | tidy an epic: releases silent claims, spawns missing follow-ups, drops dead edges, reparents inbox items, closes a finished epic; raises duplicates, stale inbox items and passed nudges to a person | `reconcile.run` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that

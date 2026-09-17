@@ -7,10 +7,11 @@ import {
   brief,
   briefLines,
   edgeLine,
-  epicLine,
+  healthLines,
   historyLines,
   issueLine,
   readyLine,
+  reconcileLines,
   staleLines,
 } from "./format.mts";
 
@@ -60,15 +61,112 @@ describe("issueLine", () => {
   });
 });
 
-describe("epicLine", () => {
-  it("is the reference form and the counts, follow-ups last", () => {
+describe("healthLines", () => {
+  const bare = {
+    id: "ep-3",
+    title: "An epic tells the truth",
+    counts: { open: 0, inProgress: 0, closed: 2, followUps: 1 },
+    health: { moving: [], waiting: [] },
+  };
+
+  it("is one line for an epic with nothing behind the other three", () => {
+    expect(healthLines(bare, now)).toEqual([
+      'ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up · never reconciled',
+    ]);
+  });
+
+  it("pluralises the follow-ups, and dates the last reconcile when there was one", () => {
     expect(
-      epicLine({
-        id: "ep-1",
-        title: "Create to close",
-        counts: { open: 2, inProgress: 1, closed: 3, followUps: 1 },
-      }),
-    ).toBe('ep-1 "Create to close"  2 open · 1 in progress · 3 done · 1 follow-ups');
+      healthLines(
+        {
+          ...bare,
+          counts: { open: 1, inProgress: 1, closed: 2, followUps: 2 },
+          lastReconciledAt: ago(3 * DAY),
+        },
+        now,
+      )[0],
+    ).toBe(
+      'ep-3 "An epic tells the truth"  2 done · 2 open · 2 follow-ups · last reconciled 3d ago',
+    );
+  });
+
+  it("names what is moving, what is stuck and what waits on a person", () => {
+    expect(
+      healthLines(
+        {
+          ...bare,
+          health: {
+            moving: [
+              {
+                id: "cn-7",
+                title: "epic health and reconcile by hand",
+                claimedBy: { name: "wsl/claude" },
+                claimedAt: ago(2 * HOUR),
+              },
+            ],
+            stuck: { id: "cn-9", title: "the reconcile sweep", lastActivity: ago(9 * DAY) },
+            waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+          },
+        },
+        now,
+      ).slice(1),
+    ).toEqual([
+      '  moving   cn-7 "epic health and reconcile by hand" wsl/claude 2h',
+      '  stuck    cn-9 "the reconcile sweep" silent 9d',
+      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+    ]);
+  });
+});
+
+describe("reconcileLines", () => {
+  const epic = { id: "ep-3", title: "An epic tells the truth" };
+
+  it("says so when a run had nothing to do", () => {
+    expect(reconcileLines({ epic, at: now, did: [], raised: [] } as never, "balder", now)).toEqual([
+      'ep-3 "An epic tells the truth" reconciled · nothing to do',
+    ]);
+  });
+
+  it("counts what it did and what it raised, then names each of them", () => {
+    const result = {
+      epic,
+      at: now,
+      did: [
+        {
+          rule: "reparent",
+          issue: { id: "cn-8", title: "the retry path" },
+          to: { id: "ep-1", title: "Create to close" },
+        },
+        {
+          rule: "release",
+          issue: { id: "cn-7", title: "epic health" },
+          from: { name: "wsl/claude", kind: "agent" },
+          silentMs: 25 * HOUR,
+        },
+        {
+          rule: "spawn-follow-up",
+          issue: { id: "cn-5", title: "the brief" },
+          followUp: { id: "cn-9", title: "verify: the brief" },
+        },
+        {
+          rule: "drop-edge",
+          from: { id: "cn-1", title: "the schema" },
+          to: { id: "cn-2", title: "the lifecycle" },
+        },
+        { rule: "close-epic", epic },
+      ],
+      raised: [{ rule: "duplicate", blocker: { id: "bl-4", title: "same title? …" }, issues: [] }],
+    };
+    expect(reconcileLines(result as never, "balder", now)).toEqual([
+      'ep-3 "An epic tells the truth" reconciled · did 5 · raised 1',
+      '  reparented  cn-8 "the retry path" → ep-1 "Create to close"',
+      // The silence is an age like any other, so 25 hours coarsens to a day.
+      '  released    cn-7 "epic health" from wsl/claude, silent 1d',
+      '  spawned     cn-9 "verify: the brief" for cn-5 "the brief"',
+      '  dropped     cn-1 "the schema" blocks cn-2 "the lifecycle"',
+      '  closed      ep-3 "An epic tells the truth"',
+      '  raised      bl-4 "same title? …" · owner balder',
+    ]);
   });
 });
 
@@ -264,10 +362,15 @@ describe("brief", () => {
       revision: 0,
       createdAt: ago(DAY),
       counts: { open: 1, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
+      health: {
+        moving: [],
+        waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+      },
       issues: [{ id: "cn-1", title: "schema, ids", status: "open", priority: 0 }],
     } as unknown as Shown;
     expect(brief(shown, now).split("\n")).toEqual([
-      'ep-1 "Create to close"  1 open · 0 in progress · 0 done · 0 follow-ups',
+      'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups · never reconciled',
+      '  waiting  bl-3 "confirm the invite copy" · owner balder',
       "an agent creates, claims, journals and closes work",
       '  cn-1 "schema, ids" P0 open',
     ]);

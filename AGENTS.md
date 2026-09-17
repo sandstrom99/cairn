@@ -28,8 +28,8 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  11 passed (11)      ← backend
- Test Files  29 passed (29)      ← cli
+ Test Files  12 passed (12)      ← backend
+ Test Files  30 passed (30)      ← cli
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -49,7 +49,7 @@ change works where it runs:
 | `.claude/settings.json` | `claude plugin details cairn@cairn` from the repo root | the inventory names the skill, the four commands and the SessionStart hook; it needs the folder's trust dialog accepted once in an interactive `claude`, before which project marketplaces are ignored without a message, and `claude plugin list` never shows a project-enabled plugin |
 | `verbs/doctor.mts` | `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | the last line is the deployment answering, not only the config resolving |
 | `verbs/project.mts` | `cn project new cn --name "cairn: backend, cli, plugin"`, then `cn project list` | a slug becomes an id prefix, and the list reads it back |
-| `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list` | an epic mints `ep-N`, and its counts are its issues |
+| `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list`, then `cn epic close ep-N --revision 0` with an open task | an epic mints `ep-N`, the list prints its health block, and closing over open work is refused naming it |
 | `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "…"`, and the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
 | `verbs/list.mts` | `cn list --epic ep-1 --json` | priority then age, and `--json` carries id and title |
 | `verbs/brief.mts` | `cn brief`, then `cn brief --can decision` | under 20 lines, counts and heads; the follow-ups line grows by what `--can` covers, and `cn ready` shows all of them marked |
@@ -64,6 +64,7 @@ change works where it runs:
 | `verbs/wait.mts` | `cn create --project cn --epic ep-0 --title "scratch: blocker round trip"` → cn-N, then `cn wait cn-N --kind decision --owner balder --title "scratch" --resolves "the round trip is done"`, then `cn ready`, then `cn list` | the issue leaves ready the moment the blocker is raised and stays in list |
 | `verbs/waiting.mts` | `cn waiting`, then `cn waiting --json` | one line per unresolved blocker in reference form with what it holds; with none it prints nothing and exits 0 |
 | `verbs/ack.mts`, `verbs/resolve.mts` | `cn ack bl-N` (refused: this shell is an agent), then `env -u CLAUDECODE cn ack bl-N`, then `env -u CLAUDECODE cn resolve bl-N --note "done"`, then `cn ready`, then `cn drop cn-N --revision 0 --reason "scratch"` | an agent is refused by name; a person moves it raised → waiting → resolved; the issue is back in ready with no recompute; the scratch is dropped |
+| `verbs/reconcile.mts` | `cn epic new "scratch: reconcile"` → ep-N, two `cn create --project cn --epic ep-N` titled "scratch: the same title" and "scratch: the same title.", then `cn reconcile ep-N` twice, then `env -u CLAUDECODE cn resolve bl-N --note scratch`, then `cn epic close ep-N --revision 0 --drop --reason scratch` | one decision blocker raised by `cairn/reconcile` holding both, a second run does nothing, and the scratch epic and its issues are dropped with the reason |
 
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is

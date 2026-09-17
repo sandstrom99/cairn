@@ -17,15 +17,19 @@ import type * as journal from "../journal.js";
 import type * as lib_actor from "../lib/actor.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
+import type * as lib_followUp from "../lib/followUp.js";
 import type * as lib_ids from "../lib/ids.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_lookup from "../lib/lookup.js";
+import type * as lib_raise from "../lib/raise.js";
 import type * as lib_readiness from "../lib/readiness.js";
 import type * as lib_revision from "../lib/revision.js";
+import type * as lib_thresholds from "../lib/thresholds.js";
 import type * as lib_verification from "../lib/verification.js";
 import type * as lib_views from "../lib/views.js";
 import type * as projects from "../projects.js";
 import type * as ready from "../ready.js";
+import type * as reconcile from "../reconcile.js";
 import type * as show from "../show.js";
 
 import type {
@@ -44,15 +48,19 @@ declare const fullApi: ApiFromModules<{
   "lib/actor": typeof lib_actor;
   "lib/errors": typeof lib_errors;
   "lib/events": typeof lib_events;
+  "lib/followUp": typeof lib_followUp;
   "lib/ids": typeof lib_ids;
   "lib/inbox": typeof lib_inbox;
   "lib/lookup": typeof lib_lookup;
+  "lib/raise": typeof lib_raise;
   "lib/readiness": typeof lib_readiness;
   "lib/revision": typeof lib_revision;
+  "lib/thresholds": typeof lib_thresholds;
   "lib/verification": typeof lib_verification;
   "lib/views": typeof lib_views;
   projects: typeof projects;
   ready: typeof ready;
+  reconcile: typeof reconcile;
   show: typeof show;
 }>;
 

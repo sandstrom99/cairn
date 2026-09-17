@@ -102,6 +102,9 @@ describe("show.get", () => {
       kind: "epic",
       id: "ep-1",
       counts: { open: 1 },
+      // The health block of §8 rides on every epic read: nothing moving, nothing waiting,
+      // and no stuck line while the one open issue is younger than the threshold.
+      health: { moving: [], waiting: [] },
       issues: [
         {
           id: "cn-1",
@@ -111,6 +114,13 @@ describe("show.get", () => {
         },
       ],
     });
+  });
+
+  it("leaves an epic with nothing neglected in it without a stuck line", async () => {
+    const t = await seeded();
+    const shown = await t.query(api.show.get, { id: "ep-1" });
+    if (shown.kind !== "epic") throw new Error("ep-1 is an epic");
+    expect(shown.health.stuck).toBeUndefined();
   });
 
   it("returns a blocker with the issues it holds", async () => {

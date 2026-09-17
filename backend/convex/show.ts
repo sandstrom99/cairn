@@ -10,7 +10,8 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type QueryCtx, query } from "./_generated/server";
 import { notFound } from "./lib/errors";
-import { type Ref, blockerView, epicView, issueView, ref } from "./lib/views";
+import { epicById } from "./lib/lookup";
+import { type Ref, blockerView, epicHealth, issueView, ref } from "./lib/views";
 
 const refsOf = async (ctx: QueryCtx, ids: Id<"issues">[]): Promise<Ref[]> => {
   const docs = await Promise.all(ids.map((id) => ctx.db.get(id)));
@@ -111,7 +112,7 @@ async function epic(ctx: QueryCtx, doc: Doc<"epics">) {
   live.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
   return {
     kind: "epic" as const,
-    ...(await epicView(ctx, doc)),
+    ...(await epicHealth(ctx, doc)),
     issues: live.map((i) => ({ id: i.id, title: i.title, status: i.status, priority: i.priority })),
   };
 }
@@ -140,14 +141,7 @@ async function blocker(ctx: QueryCtx, doc: Doc<"blockers">, withHistory: boolean
 export const get = query({
   args: { id: v.string(), history: v.optional(v.boolean()) },
   handler: async (ctx, { id, history: withHistory }) => {
-    if (id.startsWith("ep-")) {
-      const doc = await ctx.db
-        .query("epics")
-        .withIndex("by_public_id", (q) => q.eq("id", id))
-        .unique();
-      if (!doc) throw notFound(id);
-      return await epic(ctx, doc);
-    }
+    if (id.startsWith("ep-")) return await epic(ctx, await epicById(ctx, id));
     if (id.startsWith("bl-")) {
       const doc = await ctx.db
         .query("blockers")
