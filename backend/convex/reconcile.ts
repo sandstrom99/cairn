@@ -23,11 +23,12 @@
 // can finish an epic's last issue, so one run both empties an epic and closes it.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type MutationCtx, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { type Actor, RECONCILE, actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { createFollowUp } from "./lib/followUp";
+import { mutation } from "./lib/guard";
 import { INBOX_ID } from "./lib/inbox";
 import { LIVE, epicById, issueOrder } from "./lib/lookup";
 import { attachBlocker, raiseBlocker } from "./lib/raise";

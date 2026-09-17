@@ -28,8 +28,8 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  12 passed (12)      ← backend
- Test Files  30 passed (30)      ← cli
+ Test Files  13 passed (13)      ← backend
+ Test Files  31 passed (31)      ← cli
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -43,11 +43,12 @@ change works where it runs:
 | Changed | Also run | What it proves |
 |---|---|---|
 | `backend/convex/**` | `vp run @cairn/backend#verify` | the functions push to the configured deployment and pass Convex's own `tsc` |
+| `backend/convex/lib/guard.ts` | `CAIRN_SECRET=wrong cn ready`, then `cn ready` | the cloud deployment refuses a wrong secret in one line naming the fix, and answers with the right one |
 | `packages/cli/**` | the verb, against a local deployment: `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | it runs end to end, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
 | `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh`, with `CAIRN_URL` set and with it unset, plus `claude plugin validate plugins/cairn --strict` | the brief with a deployment, nothing without, exit 0 both ways, and a manifest that validates |
 | `.claude/settings.json` | `claude plugin details cairn@cairn` from the repo root | the inventory names the skill, the four commands and the SessionStart hook; it needs the folder's trust dialog accepted once in an interactive `claude`, before which project marketplaces are ignored without a message, and `claude plugin list` never shows a project-enabled plugin |
-| `verbs/doctor.mts` | `CAIRN_URL=http://127.0.0.1:3210 cn doctor` | the last line is the deployment answering, not only the config resolving |
+| `verbs/doctor.mts` | `cn doctor`, with nothing set in the environment | the last two lines are the deployment answering and `✓ secret accepted by cairn`, not only the config resolving |
 | `verbs/project.mts` | `cn project new cn --name "cairn: backend, cli, plugin"`, then `cn project list` | a slug becomes an id prefix, and the list reads it back |
 | `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list`, then `cn epic close ep-N --revision 0` with an open task | an epic mints `ep-N`, the list prints its health block, and closing over open work is refused naming it |
 | `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "…"`, and the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
@@ -69,9 +70,19 @@ change works where it runs:
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is
 gitignored, and after that `vp run @cairn/backend#verify` and `#dev` target it.
-`#verify` is `convex dev --once` and refuses while that watcher holds port 3210, so
+`#verify` runs `convex dev --once` through `scripts/local.mjs` and refuses while that
+watcher holds port 3210, so
 stop the watcher first, or take the watcher's own `Convex functions ready!` line after
 a save as the push having happened: it pushes every change as it lands.
+
+That watcher pushes to the local deployment alone. A backend change reaches the
+worklist deployment only through `vp run @cairn/backend#push:cloud`, which reads
+`backend/.env.cloud.local`; `#dev:cloud` is the same watcher against it, and both
+put `.env.local` back after themselves. `#dev`, `#dev:local`, `#verify` and
+`#codegen` pin the anonymous deployment in the environment and rewrite
+`backend/.env.local` when they find it naming anything else, saying so in one line.
+The one path that still flips it is a bare `npx convex` in `backend/`, and the next
+`vp run @cairn/backend#…` command corrects it.
 
 Three things enforce the gate, so a session cannot skip it by forgetting:
 
@@ -86,6 +97,7 @@ Three things enforce the gate, so a session cannot skip it by forgetting:
 | Path | Package | Holds |
 |---|---|---|
 | `backend/convex/` | `@cairn/backend` | schema, functions, tests. `_generated/` is committed and never hand-edited. |
+| `backend/scripts/` | | `local.mjs` and `cloud.mjs`, the wrappers every `convex` command runs through: one pins the anonymous deployment, the other restores it. |
 | `packages/cli/` | `@cairn/cli` | `cn`. `src/verbs/` is one file per verb, `src/lib/` the shell they run in. |
 | `plugins/cairn/` | | the skill, the SessionStart hook, the slash commands. |
 | `docs/` | | `design.md`. |
@@ -131,8 +143,12 @@ Scopes here: `backend`, `cli`, `plugin`, `docs`, `tooling`.
 
 ## Dogfood
 
-Every task is a cairn issue in cairn, on the local deployment. What to do next
-is `CAIRN_URL=http://127.0.0.1:3210 cn ready`: claim it, journal as you go, and
-close it with `--run 'vp run verify'`. The eleven slices mapped on 2026-09-17
-went in that day as `cn-1` to `cn-11` under `ep-1` to `ep-5`, and the file they
-came from is gone.
+Every task is a cairn issue in cairn, on the cloud deployment `cairn` that
+`~/.config/cairn/config.json` defaults to. What to do next is `cn ready` with
+nothing set in the environment: claim it, journal as you go, and close it with
+`--run 'vp run verify'`. `CAIRN_URL=http://127.0.0.1:3210` is the anonymous local
+deployment, which the rows above run against and which carries a copy of the
+worklist.
+
+The eleven slices mapped on 2026-09-17 went in that day as `cn-1` to `cn-11`
+under `ep-1` to `ep-5`, and the file they came from is gone.

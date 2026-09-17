@@ -8,8 +8,9 @@
 // readiness and the rest are context.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type QueryCtx, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { notFound } from "./lib/errors";
+import { query } from "./lib/guard";
 import { epicById } from "./lib/lookup";
 import { type Ref, blockerView, epicHealth, issueView, ref } from "./lib/views";
 

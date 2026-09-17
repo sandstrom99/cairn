@@ -741,6 +741,12 @@ Added when the solution was mapped, 2026-09-17:
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
   `{ "default": "invyte", "can": ["web", "android"], "deployments": { "invyte": { "url": …, "secret": … } } }`.
+- **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
+  environment, checked by `lib/guard.ts` on every public function and stripped from the
+  arguments before the handler, so nothing downstream sees it. A deployment with none set
+  checks nothing, which is what keeps the anonymous local one open. `cn` sends it from the
+  deployment's `secret` in the config, or `CAIRN_SECRET` in the shell, which wins. It
+  fences a deployment; it does not tell actors apart, which stays §13.
 - **A verification record with `exitCode ≠ 0` cannot close an issue.** The
   choice is `--unverified` with a reason, or fix it.
 

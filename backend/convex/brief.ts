@@ -12,8 +12,9 @@
 // finish is noise in it; `cn ready` is the list, and it shows every row, marked (§5).
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { type QueryCtx, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { RECONCILE } from "./lib/actor";
+import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
 
 /**

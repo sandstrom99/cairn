@@ -3,7 +3,8 @@
     "convex": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "convex@latest", "mcp", "start", "--project-dir", "backend"]
+      "args": ["-y", "convex@latest", "mcp", "start", "--project-dir", "backend"],
+      "env": { "CONVEX_DEPLOYMENT": "anonymous:anonymous-agent" }
     }
   }
 }

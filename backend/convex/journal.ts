@@ -6,10 +6,10 @@
 // issue is not a conflict, so it always lands. It does stamp `lastActivity`, which is how
 // a claim heartbeats for free, and any status is fine — evidence arrives after a close.
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
+import { mutation } from "./lib/guard";
 
 /** As much of a body as belongs in a history line. */
 const SUMMARY = 80;

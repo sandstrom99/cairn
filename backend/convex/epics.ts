@@ -3,10 +3,10 @@
 // no stored progress to go stale (docs/design.md §3, §5).
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
+import { mutation, query } from "./lib/guard";
 import { mint } from "./lib/ids";
 import { INBOX_ID } from "./lib/inbox";
 import { LIVE, epicById, issueOrder } from "./lib/lookup";

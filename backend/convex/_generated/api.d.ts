@@ -18,6 +18,7 @@ import type * as lib_actor from "../lib/actor.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_followUp from "../lib/followUp.js";
+import type * as lib_guard from "../lib/guard.js";
 import type * as lib_ids from "../lib/ids.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_lookup from "../lib/lookup.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/errors": typeof lib_errors;
   "lib/events": typeof lib_events;
   "lib/followUp": typeof lib_followUp;
+  "lib/guard": typeof lib_guard;
   "lib/ids": typeof lib_ids;
   "lib/inbox": typeof lib_inbox;
   "lib/lookup": typeof lib_lookup;

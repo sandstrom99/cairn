@@ -5,8 +5,13 @@
 // Checks the Node floor, that the generated Convex API is importable (so @cairn/backend
 // is installed and codegen has run), which deployment config resolves, and then calls
 // that deployment: `projects.list` is the ping, so a green doctor means a verb will run.
+//
+// Where the deployment is fenced by a secret (docs/design.md §12), the ping is what
+// proves the secret this machine holds is the one the deployment wants, and the line
+// after it says so. Doctor names where a secret came from and never prints it.
 
-import { resolveDeployment, configPath } from "../lib/config.mts";
+import { ConvexError } from "convex/values";
+import { configPath, resolveDeployment } from "../lib/config.mts";
 import { usageFromHeader } from "../lib/cli.mts";
 import { parseArgs } from "../lib/args.mts";
 
@@ -47,15 +52,26 @@ export async function run(argv: string[]): Promise<number> {
   }
 
   const dep = resolveDeployment();
-  if (dep) ok(`deployment ${dep.name} → ${dep.url} (from ${dep.source})`);
+  // The secret itself is never printed, here or anywhere: where it came from is the
+  // whole diagnosis, since a wrong one fails the ping below by name.
+  const secret = dep?.secretSource
+    ? `secret from ${dep.secretSource === "env" ? "CAIRN_SECRET" : "config"}`
+    : "no secret";
+  if (dep) ok(`deployment ${dep.name} → ${dep.url} (from ${dep.source}, ${secret})`);
   else bad(`no deployment: set CAIRN_URL, or write ${configPath()}`);
 
   try {
     const { api, connect } = await import("../lib/client.mts");
     const projects = await connect().client.query(api.projects.list, {});
     ok(`deployment answered: ${projects.length} project(s)`);
+    if (dep?.secret) ok(`secret accepted by ${dep.name}`);
   } catch (e) {
-    bad(`deployment did not answer: ${(e as Error).message}`);
+    const kind = e instanceof ConvexError ? (e.data as { kind?: string } | undefined)?.kind : null;
+    if (kind === "unauthorized" && dep)
+      bad(
+        `${dep.name} needs a secret: put it under deployments.${dep.name}.secret in ${configPath()}, or set CAIRN_SECRET`,
+      );
+    else bad(`deployment did not answer: ${(e as Error).message}`);
   }
 
   return failed ? 1 : 0;

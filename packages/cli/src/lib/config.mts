@@ -11,20 +11,27 @@
 //   CAIRN_URL                          wins, for hooks, crons and a one-off run
 //   ~/.config/cairn/config.json        { "default": "invyte", "host": "wsl",
 //                                        "can": ["web", "android"],
-//                                        "deployments": { "invyte": { "url": "https://….convex.cloud" } } }
+//                                        "deployments": { "invyte": { "url": "https://….convex.cloud",
+//                                                                     "secret": "…" } } }
 //
 // `host` is this machine's name in an actor (lib/actor.mts) and `can` is what it can do,
 // the fallback for `cn ready --can` (lib/can.mts); everything else about the file is
 // which deployment to talk to.
 //
-// $XDG_CONFIG_HOME replaces ~/.config when set. Authentication is not decided and no
-// field is reserved for it here yet; see §13.
+// `secret` is the deployment's one shared secret, sent on every call and checked by
+// `lib/guard.ts` in the deployment (docs/design.md §12). `CAIRN_SECRET` in the shell wins
+// over the file, the same way `CAIRN_URL` does, so a hook or a one-off run can carry it.
+// A deployment with no `CAIRN_SECRET` set on it checks nothing, which is what keeps the
+// anonymous local deployment open. It fences a deployment, not an actor: identity auth is
+// still §13.
+//
+// $XDG_CONFIG_HOME replaces ~/.config when set.
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export type DeploymentConfig = { url: string };
+export type DeploymentConfig = { url: string; secret?: string };
 export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
@@ -34,7 +41,14 @@ export type CairnConfig = {
   deployments: Record<string, DeploymentConfig>;
 };
 
-export type Deployment = { name: string; url: string; source: "env" | "config" };
+export type Deployment = {
+  name: string;
+  url: string;
+  source: "env" | "config";
+  /** The shared secret to send, when this machine has one for the deployment. */
+  secret?: string;
+  secretSource?: "env" | "config";
+};
 
 /** `$XDG_CONFIG_HOME/cairn/config.json`, or `~/.config/cairn/config.json`. */
 export const configPath = (env: NodeJS.ProcessEnv = process.env): string =>
@@ -53,7 +67,10 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CairnConfig | 
 
 /** The deployment to use, or null when nothing names one. */
 export function resolveDeployment(env: NodeJS.ProcessEnv = process.env): Deployment | null {
-  if (env.CAIRN_URL) return { name: "CAIRN_URL", url: env.CAIRN_URL, source: "env" };
+  const fromEnv = env.CAIRN_SECRET
+    ? { secret: env.CAIRN_SECRET, secretSource: "env" as const }
+    : {};
+  if (env.CAIRN_URL) return { name: "CAIRN_URL", url: env.CAIRN_URL, source: "env", ...fromEnv };
   const cfg = readConfig(env);
   if (!cfg) return null;
   const names = Object.keys(cfg.deployments ?? {});
@@ -61,5 +78,6 @@ export function resolveDeployment(env: NodeJS.ProcessEnv = process.env): Deploym
   if (!name) return null;
   const dep = cfg.deployments[name];
   if (!dep?.url) throw new Error(`${configPath(env)}: deployment "${name}" has no url`);
-  return { name, url: dep.url, source: "config" };
+  const fromConfig = dep.secret ? { secret: dep.secret, secretSource: "config" as const } : {};
+  return { name, url: dep.url, source: "config", ...fromConfig, ...fromEnv };
 }
