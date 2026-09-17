@@ -85,7 +85,8 @@ two move together.
 
 ## Rules that hold from the first line
 
-- **A verb is one Convex function** plus formatting. The CLI never decides. If a
+- **A verb is one Convex function** plus formatting, and where a verb takes an action
+  word (`epic new`, `dep rm`) each action is one function. The CLI never decides. If a
   verb needs logic, the logic goes in `backend/convex/` and gets a test there.
 - **The reference form.** Every output line, journal entry, commit and reply that
   names an issue or epic uses `app-14 "fix connection retry"`. It is spelled in

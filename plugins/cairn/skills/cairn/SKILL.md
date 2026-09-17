@@ -43,14 +43,22 @@ an issue.
 
 | Verb | Does | Backed by |
 |---|---|---|
-| `cn ready` | what can be started, by priority, with what this session cannot do marked | the readiness query |
-| `cn show <id>` | the brief: reference, epic, status, who, since when, last journal entries | `issues.show` |
+| `cn brief` | the session-start report, under 20 lines | `brief.get` |
+| `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
+| `cn list` | issues by project, epic, status, or `--mine` | `issues.list` |
+| `cn show <id>` | the brief: reference, epic, status, who, since when, neighbours, last journal entries | `show.get` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates | `issues.create` |
-| `cn claim <id>` | atomic, first writer wins, no lease | `issues.claim` |
-| `cn journal <id>` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
-| `cn close <id>` | takes a verification record: what ran and what it said, or `--unverified <why>` | `issues.close` |
-| `cn waiting` | what is blocked on a human | the blockers table |
-| `cn brief` | the session-start report, under 20 lines | the hook |
+| `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
+| `cn update <id> --revision N` | title, design, acceptance, priority, epic, defer, requires | `issues.update` |
+| `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
+| `cn close <id> --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue | `issues.close` |
+| `cn drop <id> --reason …` | closed without doing, never silently | `issues.drop` |
+| `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
+| `cn wait <id> --kind … --owner …` | raise a human blocker, or `--on bl-3` to attach one | `blockers.raise` |
+| `cn waiting` | what is blocked on a human | `blockers.list` |
+| `cn ack <bl>` · `cn resolve <bl>` | humans only | `blockers.ack` · `blockers.resolve` |
+| `cn epic new\|list\|close` · `cn project new\|list` | the containers | `epics.*` · `projects.*` |
+| `cn reconcile <epic>` | facts acted on, judgement raised to a human | `reconcile.run` |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right

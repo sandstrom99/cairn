@@ -6,10 +6,12 @@ nothing to sync.
 
 Settled over an interview on 2026-09-16 and 2026-09-17, and revised the same
 day when the surface question was reopened: one CLI and no MCP server (§10),
-the reference form (§10), and the toolchain (§11). **The repository skeleton is
-built; nothing domain-specific is.** Every decision below is a decision, not a
-sketch; where something was deliberately left open it says so under *Deferred*,
-with the lean recorded.
+the reference form (§10), and the toolchain (§11). The solution was mapped on
+2026-09-17: the concrete schema and the graph (§3), how the parts talk and the
+verb-to-function table (§10), and the slices in `docs/dogfood.md`. **The
+repository skeleton is built; nothing domain-specific is.** Every decision below
+is a decision, not a sketch; where something was deliberately left open it says
+so under *Deferred*, with the lean recorded.
 
 ---
 
@@ -47,13 +49,14 @@ doing that.
 | Knowledge | Tasks only. A finding is a journal entry; a decision is an issue. Nothing to index. |
 | Hierarchy | `epic` floats above projects. `project` is a field on the **issue**. One epic spans app, web and admin. |
 | Project | Coarse and arbitrary. `app` + `backend` are **one** project. A project may be a repo, or a prototyping effort. Not repo-shaped. |
-| Ids | Project-prefixed: `app-14`, `web-22`. Minted server-side inside a transaction. |
+| Ids | Project-prefixed: `app-14`, `web-22`. Epics `ep-7`, blockers `bl-3`, from one global counter each. All minted server-side inside a transaction from a `counters` table, never reused. `ep` and `bl` are reserved project slugs. |
+| Actor | `{ name, kind: human \| agent }`, stored inline on every claim, journal entry, edge, blocker and event. Until auth exists `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller (§13). |
 | Surface | One `cn` CLI over typed Convex calls. **No MCP server.** Revised 2026-09-17; the reasoning is in §10. |
 | References | Every mention of an issue or epic carries id **and** title: `app-14 "fix connection retry"`. A bare id is a bug. §10. |
 | Concurrency | Document revision on mutable fields. Journal entries and comments are inserts and never conflict. |
 | Readiness | Three blocking edges: `blocks`, `blocked-by` (blocker entity), `defer-until`. Computed live. |
 | Statuses | `open`, `in_progress`, `closed`, `dropped`. Blocked is derived, never stored. |
-| Orphans | `epicId` is non-null. A per-project `inbox` epic is the escape hatch, and draining it is reconcile's standing job. |
+| Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is reconcile's standing job. Revised 2026-09-17 from one inbox per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
 | Residue | A `follow-up` issue with `requires[]`, linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
@@ -71,27 +74,137 @@ doing that.
 
 ## 3. Data model
 
+Drawn concretely on 2026-09-17, when the solution was mapped. This is what
+`backend/convex/schema.ts` transcribes in the first slice: a field here is a
+field there, an index here is an index there. Types are Convex validators:
+`string`, `number`, a union of literals for an enum, `?` for optional, `Id<t>`
+for a reference to another table.
+
+Two ids on every issue, epic and blocker. `_id` is Convex's document id and is
+what tables reference. `id` is the public one, `app-14`, `ep-7`, `bl-3`, minted
+from `counters` inside the creating mutation and never reused. Nothing ever
+prints `_id`.
+
 ```
-projects    slug, name
+projects      slug              string        the id prefix: app, web, cn. ep and bl are reserved
+              name              string
+              index by_slug [slug]
 
-epics       title, description, status, lastReconciledAt
-            ↑ no projectId: an epic is an outcome, not a place
+counters      key               string        "ep", "bl", or a project slug
+              next              number        the next number to mint
+              index by_key [key]
 
-issues      projectId, epicId*, title, description, design, acceptance,
-            type, followUpKind, parentIssueId,
-            status, priority, claimedBy, claimedAt, lastActivity,
-            deferUntil, requires[], verification, revision
+epics         id                string        ep-7. ep-0 is the one inbox
+              title             string
+              description?      string
+              status            open | closed | dropped
+              droppedReason?    string
+              lastReconciledAt? number
+              revision          number
+              index by_public_id [id], by_status [status]
+              ↑ no projectId: an epic is an outcome, not a place
 
-blockers    kind, owner, title, whatResolves, nudgeAt, status, raisedBy
+issues        id                string        app-14
+              projectId         Id<projects>
+              epicId            Id<epics>     required, always
+              title             string
+              description?      string
+              design?           string        HOW; may change during implementation
+              acceptance?       string        WHAT; stable across sessions
+              type              task | follow-up
+              followUpKind?     verify | decide | cleanup       required iff type = follow-up
+              parentIssueId?    Id<issues>    the issue whose residue this is
+              requires          string[]      what a session needs: ios, android, web, device, decision
+              status            open | in_progress | closed | dropped
+              priority          number        0 is highest, 4 is backlog
+              claimedBy?        actor
+              claimedAt?        number
+              lastActivity      number        stamped by claim, update, close and every journal append
+              deferUntil?       number
+              verification?     { command, exitCode, output, at, by } | { unverified, at, by }
+              droppedReason?    string
+              closedAt?         number
+              revision          number
+              index by_public_id [id], by_epic [epicId, status], by_project [projectId, status],
+                    by_status [status, priority], by_activity [status, lastActivity],
+                    by_parent [parentIssueId]
 
-edges       from, to, type
+edges         from              Id<issues>
+              to                Id<issues>
+              type              blocks | related | discovered-from | duplicates | supersedes
+              by                actor
+              index by_from [from, type], by_to [to, type]
 
-journal     issueId, author, kind, body, createdAt      ← append-only, never updated
+blockers      id                string        bl-3
+              kind              approval | external-wait | decision | credential | purchase
+              owner             string        who must act
+              title             string
+              whatResolves      string
+              nudgeAt?          number
+              status            raised | waiting | resolved
+              raisedBy          actor
+              resolvedBy?       actor
+              resolvedAt?       number
+              resolution?       string
+              revision          number
+              index by_public_id [id], by_status [status, nudgeAt]
 
-events      append-only audit of every mutation
+blockerLinks  blockerId         Id<blockers>
+              issueId           Id<issues>
+              index by_issue [issueId], by_blocker [blockerId]
+
+journal       issueId           Id<issues>
+              author            actor
+              kind              finding | decision | handoff | evidence | question
+              body              string
+              index by_issue [issueId]                       ← insert only, never updated
+
+events        kind              string        issue.create, issue.claim, edge.add, blocker.resolve, …
+              actor             actor
+              issueId?          Id<issues>
+              epicId?           Id<epics>
+              blockerId?        Id<blockers>
+              revision?         number        the revision the target moved to
+              changes           any           field → { from, to }, or the payload of the action
+              index by_issue [issueId, revision], by_epic [epicId], by_blocker [blockerId]
+
+actor      =  { name: string, kind: human | agent }          stored inline wherever it appears
 ```
 
-`epicId` is required. There is no valid orphan state.
+`_creationTime` is Convex's own field and is the created-at everywhere. Index
+names avoid `by_id`, which Convex reserves for its own. `epicId` is required:
+there is no valid orphan state, and `ep-0 "Inbox"` is where an issue goes when
+no epic fits.
+
+### The graph
+
+Nodes are issues. Everything else is a field on an issue or a row pointing at
+one, and only three things make an issue not ready.
+
+| Relation | Stored as | Blocks readiness |
+|---|---|---|
+| A blocks B | one `edges` row, `blocks`, from A to B. `blocked-by` is the same row read through `by_to`; only one direction is ever stored | while A is open or in progress |
+| a human must act before B | a `blockerLinks` row from a `blockers` row to B | while the blocker is not resolved |
+| B waits for a date | `deferUntil` on B | until the date |
+| B is residue of A | `parentIssueId` on B: one parent, so a field and not an edge | never |
+| B belongs to an epic | `epicId` on B | never |
+| related, discovered-from, duplicates, supersedes | `edges` rows | never |
+
+No epic-to-epic edges, no edge to an epic, no edge between blockers. `cn dep add`
+refuses an edge that would make an issue block itself, walking `blocks` from the
+target, because a cycle makes both ends unready forever and is a fact checkable
+at write time. `cn show` prints the neighbourhood: what this blocks, what blocks
+it, what it waits on, its parent and its follow-ups.
+
+### Revision and events
+
+Every mutable write to an issue, epic or blocker carries the `revision` the
+writer read, bumps it by one, and writes an `events` row carrying the new
+revision and what changed. A journal append is an insert: it stamps
+`lastActivity` and writes an event, but neither takes nor bumps `revision`. A
+stale write is rejected with the events since the writer's revision, which is
+exactly the "what changed, who changed it and when" of §9, read from the table
+rather than reconstructed.
 
 ### The three content fields
 
@@ -118,7 +231,8 @@ an append is an insert.
 ### Journal entry kinds
 
 `finding`, `decision`, `handoff`, `evidence`, `question`. Every entry carries an
-author and a timestamp, and every append stamps the issue's `lastActivity`.
+author and a timestamp, and every append stamps the issue's `lastActivity`. Where
+§9 says "comments", it means these: there is no second table.
 
 ### Statuses
 
@@ -154,6 +268,15 @@ roughly 2,000 lines here, of which about 800 exist only to repair a
 denormalised flag after a three-way merge — a category that does not exist on a
 single authoritative deployment.
 
+In Convex terms it is one query function, `ready.list`: the candidates through
+`by_status [open]`, every `blocks` edge into them through `by_to` with the
+blocking issue's status, every `blockerLinks` row through `by_issue` with the
+blocker's status, then the date test and the sort. Every read is an index
+lookup, and at the sizes here (Invyte's beads graph is 136 issues) the whole
+thing touches a few hundred documents. Convex caps one query at 16,384
+documents read; that is the ceiling to watch, about two orders of magnitude
+away.
+
 Edges that block: `blocks`, `blocked-by`, `defer-until`. Epic membership does
 **not** block. `related`, `discovered-from`, `duplicates`, `supersedes` are
 context and never touch readiness. For reference, beads has 19 dependency types
@@ -180,7 +303,12 @@ reconcile auto-releases a claim that has been silent past a threshold.
 
 **Close.** Takes a verification record. In beads, close is a free-text
 `close_reason` that nothing checks, which is exactly how work gets marked done
-without ever being confirmed.
+without ever being confirmed. Here `cn close --run '<command>'` runs the command
+itself and records the command, its exit status and the tail of its output; the
+agent never types the output in, so there is nothing to fabricate. `issues.close`
+refuses a non-zero exit unless the close is `--unverified` with a reason. A
+follow-up given on the same close is created in the same mutation, so a parent
+never closes without its residue existing.
 
 ### Follow-ups: residue that must not hang
 
@@ -249,8 +377,13 @@ blockers    kind          approval | external-wait | decision | credential | pur
             raisedBy      which agent raised it
 ```
 
-- One blocker can block **many** issues.
-- **Agents raise them. Agents may never resolve them.**
+- One blocker can block **many** issues, through `blockerLinks`. `cn wait <issue>`
+  raises a new one, `bl-3 "App Store review"`, or attaches an existing one with
+  `--on bl-3`; both are `blockers.raise`.
+- **Agents raise them. Agents may never resolve them.** `blockers.resolve` and
+  `blockers.ack` reject an actor of kind `agent`. Until auth exists that is a
+  guardrail against an honest agent, not a lock against a lying one, and that is
+  enough for the throwaway window.
 - They do not appear in any agent work queue, and they are not counted in epic
   progress — otherwise "7 of 10" starts counting work no agent can do.
 
@@ -289,6 +422,14 @@ The rule from the interview: *facts yes, judgement asks.*
 A raise is a human blocker, so reconcile's questions arrive through the same
 mechanism as everything else waiting on a person.
 
+Reconcile is one mutation, `reconcile.run(epicId)`, so what it did and what it
+raised come back as one answer, and running it twice acts on nothing the second
+time. "Exactly one epic matches" is a fact test, not a guess: the inbox issue's
+parent or `discovered-from` issue sits in exactly one open epic. The sweep is
+`reconcile.sweep`, an internal function on a cron in `crons.ts`, running the
+same rules over every open epic plus the `nudgeAt` raise, once per `nudgeAt`.
+The thresholds are constants at the top of `reconcile.ts`, proposed in §12.
+
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
 dependency edges*, not epic-less issues. The thing that actually goes wrong has
@@ -308,7 +449,17 @@ A hook injects **under 20 lines**:
 - waiting-on-you as a **count only**
 - anything reconcile flagged
 
-Scenario 1 answers without a tool call; scenario 2 starts warm.
+Scenario 1 answers without a tool call; scenario 2 starts warm. One query,
+`brief.get(can)`, returns the numbers and the heads; `cn brief` lays them out:
+
+```
+cairn · invyte · wsl/claude can web android
+ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
+in progress    app-14 "fix connection retry" wsl/claude 2h · web-9 "…" mac/claude 1d
+follow-ups     app-22 "[verify] confirm retry path on a device" (web)
+waiting on you 3
+flagged        2 inbox items older than 7d
+```
 
 > **The trap to avoid.** `bd prime` is exactly this, and it grew until it
 > contradicted the skill shipped beside it: prime says *"Prohibited: Do NOT use
@@ -368,7 +519,7 @@ the CLI, and the reasons it went are below.
 
 | Surface | For |
 |---|---|
-| **`cn` CLI** | Every agent, every hook, every cron, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. |
+| **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function. |
 | **Claude Code plugin** | Skill, SessionStart hook, slash commands. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
 | **`apps/web`** | Reserved. Built once the schema stops moving. |
 
@@ -391,6 +542,71 @@ the CLI, and the reasons it went are below.
 If a second consumer ever needs the typed client — a web app, an MCP wrapper —
 it imports `packages/cli/src/lib/client.mts`, and that module lifts into its own
 package then, not before.
+
+### How the parts talk
+
+```
+ a Claude Code session                               one Convex deployment per company
+ ┌────────────────────────────────────┐              ┌────────────────────────────────────┐
+ │ SessionStart hook  ──  cn brief    │              │ schema.ts     the tables of §3     │
+ │ SKILL.md           teaches the verbs│              │ issues.ts  epics.ts  journal.ts    │
+ │ /cairn:* commands  ──  cn …        │  ── HTTPS ─► │ edges.ts  blockers.ts  ready.ts    │
+ │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  reconcile.ts    │
+ └────────────────────────────────────┘  call per    │ projects.ts  crons.ts              │
+       cn  (Node 24, .mts, no build)     verb        │ lib/  ids · revision · actor ·     │
+       config.mts → url, secret, can[]               │       events · guard · verification│
+       actor.mts  → { name, kind }                   │ crons ── reconcile.sweep, §7       │
+       client.mts → ConvexHttpClient                 └────────────────────────────────────┘
+       verbs/*    → api.<module>.<fn> → ref()                        ▲
+                                                                     │
+ apps/web, later  ──  convex/react subscriptions to the same functions
+```
+
+- **Every hop is one typed Convex function call over HTTPS.** `cn` uses the HTTP
+  client: one request, no socket, so a hook or a cron costs one process and one
+  round trip. The web app uses the React client and subscribes to the same
+  functions; nothing is written twice.
+- **Every mutation takes `actor`**, and on a mutable field `revision`. Every
+  query that can be fenced takes `can[]`. Until auth exists the actor is an
+  argument `cn` fills in (§13).
+- **The deployment is where anything decides.** `ready` computes, `close`
+  validates, `reconcile` acts, `create` hands back candidate epics. `cn` parses
+  arguments, runs the one command `cn close` proves with, and formats through
+  `ref()`.
+- **The scheduled sweep runs inside the deployment**, an internal function on a
+  cron. There is no daemon on any machine.
+- **Two channels back to the human**: `cn waiting` and the brief's count now,
+  `apps/web` later.
+
+### The verbs
+
+One row per verb, one function per row. This table is the contract the skill
+teaches and the `--help` headers restate.
+
+| Verb | Function | |
+|---|---|---|
+| `cn brief` | `brief.get` | query |
+| `cn ready [--can ios web …]` | `ready.list` | query |
+| `cn list [--project] [--epic] [--status] [--mine]` | `issues.list` | query |
+| `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
+| `cn create --project app --epic ep-3 --title … [--priority] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |
+| `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
+| `cn update <id> --revision N [--title] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires]` | `issues.update` | mutation |
+| `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
+| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --requires ios]` | `issues.close` | mutation |
+| `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
+| `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
+| `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
+| `cn waiting` | `blockers.list` | query |
+| `cn ack <bl>` · `cn resolve <bl> --note …` | `blockers.ack` · `blockers.resolve` | mutation, human only |
+| `cn epic new\|list\|close` | `epics.create` · `epics.list` · `epics.close` | |
+| `cn project new\|list` | `projects.create` · `projects.list` | |
+| `cn reconcile <epic>` | `reconcile.run` | mutation |
+| `cn doctor` | `projects.list`, as the ping | query |
+
+Every read verb takes `--json`. Every list line starts with the reference form.
+On a stale-write error every write verb prints the events since the caller's
+revision and the command to retry with.
 
 ### The reference form
 
@@ -431,8 +647,10 @@ schema · create · list · ready · close · journal
 ```
 
 Then dogfood **within days**, in this repo, on cairn's own construction. The
-first ~10 issues live in a markdown file and are imported the day `create`
-works. Everything after that is cairn issues in cairn.
+build is mapped into eleven slices under five epics in `docs/dogfood.md`, drawn
+2026-09-17: the first four are the loop above and the import, and the file goes
+into cairn the day `create` works. Everything after that is cairn issues in
+cairn.
 
 The accepted cost: a short throwaway window, and early schema churn means
 migrating your own dogfood data.
@@ -491,8 +709,28 @@ Called by the design session rather than chosen by Balder. Cheap to overrule:
   an agent fabricates.
 - **Follow-up kinds**: `verify`, `decide`, `cleanup`.
 - **Capability vocabulary** starts at `ios`, `android`, `web`, `device`,
-  `decision`.
+  `decision`. A machine declares what it has as `can[]` in
+  `~/.config/cairn/config.json`, overridden per call by `--can` or `CAIRN_CAN`.
 - **No epic-to-epic edges.** Epics relate through their issues or not at all.
+
+Added when the solution was mapped, 2026-09-17:
+
+- **The actor `cn` sends** is `CAIRN_ACTOR` when set, else `<host>/<user>`, with
+  `kind: agent` when `CLAUDECODE` is in the environment (Claude Code sets it for
+  every shell it runs) and `human` otherwise. So a session on this machine is
+  `wsl/claude` and Balder at a terminal is `wsl/balder`.
+- **`cn close` runs the command.** The verification record is what the command
+  did, captured by `cn`, with the last 40 lines of output and a 10-minute
+  timeout. Proof that ran on another machine goes in as an `evidence` journal
+  entry and the close is `--unverified` pointing at it.
+- **Reconcile thresholds**: a claim silent 24 hours is released, an inbox item
+  older than 7 days is raised, an epic's "stuck" line is its open unclaimed
+  issue silent longest, shown past 3 days.
+- **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
+- **The deployment config** grows two fields, both machine-local:
+  `{ "default": "invyte", "can": ["web", "android"], "deployments": { "invyte": { "url": …, "secret": … } } }`.
+- **A verification record with `exitCode ≠ 0` cannot close an issue.** The
+  choice is `--unverified` with a reason, or fix it.
 
 ---
 
@@ -504,9 +742,11 @@ implementation.
 | Open question | Current lean |
 |---|---|
 | How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`) |
-| Short ids for epics | An epic is not project-scoped, so `app-` prefixes cannot apply. Lean: `ep-7`, one global counter, minted server-side like issue ids |
-| Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company |
-| Auth, and who counts as the actor on a journal entry or a claim | Nothing decided |
+| Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
+| Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8 in `docs/dogfood.md` |
+| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth, Convex Auth or Clerk, arrives with `apps/web`, and only then does the actor stop being an argument |
+| Who counts as the actor on a journal entry or a claim | Lean: the argument `cn` sends (§12) until identity auth exists, then the token's identity, with `kind` from whether the token belongs to a person |
+| Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |
 | The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The UI becomes the channel |
 

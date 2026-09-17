@@ -32,5 +32,5 @@ src/lib/
 
 ## Verbs
 
-Only `doctor` exists. The first slice is `create · list · ready · close · journal · show`
-(docs/design.md §11), each one Convex function in `@cairn/backend`.
+Only `doctor` exists. The full set, one Convex function per verb or per action word, is
+the table in docs/design.md §10; the order they arrive in is docs/dogfood.md.

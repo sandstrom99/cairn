@@ -13,11 +13,15 @@ Where the first slice goes, once it is written:
 
 | File | Holds |
 |---|---|
-| `issues.ts` | `create`, `list`, `show`, `claim`, `close` |
+| `issues.ts` | `create`, `list`, `claim`, `release`, `update`, `close`, `drop` |
 | `journal.ts` | `append` — inserts only, never an update |
 | `ready.ts` | the one hard query, §4, computed live |
+| `show.ts` | `get`: an issue, epic or blocker by its public id, with its neighbourhood |
+| `brief.ts` | `get`: the session-start report as data, §8 |
+| `edges.ts` | `add`, `remove`; one direction stored, §3 |
 | `epics.ts`, `blockers.ts`, `projects.ts` | their own tables' functions |
-| `lib/` | mechanism shared by the above: id minting, revision checks, the verification record |
+| `reconcile.ts`, `crons.ts` | `run` by hand, `sweep` on the cron, §7 |
+| `lib/` | mechanism shared by the above: `ids`, `revision`, `actor`, `events`, `guard`, `verification` |
 
 Rules that hold from the first line:
 
