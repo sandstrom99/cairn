@@ -423,13 +423,15 @@ The rule from the interview: *facts yes, judgement asks.*
 A raise is a human blocker, so reconcile's questions arrive through the same
 mechanism as everything else waiting on a person.
 
-Reconcile is one mutation, `reconcile.run(epicId)`, so what it did and what it
-raised come back as one answer, and running it twice acts on nothing the second
-time. "Exactly one epic matches" is a fact test, not a guess: the inbox issue's
-parent or `discovered-from` issue sits in exactly one open epic. The sweep is
-`reconcile.sweep`, an internal function on a cron in `crons.ts`, running the
-same rules over every open epic plus the `nudgeAt` raise, once per `nudgeAt`.
-The thresholds are constants at the top of `reconcile.ts`, proposed in §12.
+Reconcile is one mutation, `reconcile.run(epicId, owner)`, so what it did and
+what it raised come back as one answer, and running it twice acts on nothing the
+second time. Every raise is addressed to `owner`, which `cn reconcile --owner`
+names and `CAIRN_OWNER` supplies when it does not. "Exactly one epic matches"
+is a fact test, not a guess: the inbox issue's parent or `discovered-from` issue
+sits in exactly one open epic. The sweep is `reconcile.sweep`, an internal
+function on a cron in `crons.ts`, running the same rules over every open epic
+plus the `nudgeAt` raise, once per `nudgeAt`. The thresholds are constants in
+`lib/thresholds.ts`, proposed in §12, where epic health reads the same numbers.
 
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
@@ -474,14 +476,18 @@ Not a percentage. A percentage hides everything that matters — an epic at 95%
 frozen for a month reads better than one at 40% advancing daily.
 
 ```
-Ship invite links                         last reconciled 3d ago
-  12 done · 4 open · 3 follow-ups
-  moving   app-31 (wsl/claude, 2h)
-  stuck    web-12  open, unclaimed, silent 9d
-  waiting  you — "confirm the invite copy"
+ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups · last reconciled 3d ago
+  moving   app-31 "retry on reconnect" wsl/claude 2h
+  stuck    web-12 "invite landing copy" silent 9d
+  waiting  bl-3 "confirm the invite copy" · owner balder
 ```
 
-Each line is a fact with a query behind it.
+Each line is a fact with a query behind it, `epics.health`, and a line with
+nothing behind it is not printed: a fresh epic is its first line alone. `done`
+and `open` count tasks, follow-ups sit beside them (§5), `moving` is every claim
+with who and since when, `stuck` is the one open unclaimed issue silent longest
+once past the threshold in §12, and `waiting` is every unresolved blocker on the
+epic's live issues.
 
 ---
 
@@ -600,9 +606,9 @@ teaches and the `--help` headers restate.
 | `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
 | `cn waiting` | `blockers.list` | query |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | `blockers.ack` · `blockers.resolve` | mutation, human only |
-| `cn epic new\|list\|close` | `epics.create` · `epics.list` · `epics.close` | |
+| `cn epic new\|list\|close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
 | `cn project new\|list` | `projects.create` · `projects.list` | |
-| `cn reconcile <epic>` | `reconcile.run` | mutation |
+| `cn reconcile <epic> [--owner <who>]` | `reconcile.run` | mutation |
 | `cn doctor` | `projects.list`, as the ping | query |
 
 Every read verb takes `--json`. Every list line starts with the reference form.
@@ -728,6 +734,10 @@ Added when the solution was mapped, 2026-09-17:
 - **Reconcile thresholds**: a claim silent 24 hours is released, an inbox item
   older than 7 days is raised, an epic's "stuck" line is its open unclaimed
   issue silent longest, shown past 3 days.
+- **Near-identical titles** are titles equal after lowercasing and replacing every
+  run of non-alphanumerics with one space, or within Levenshtein distance 2 of
+  each other after that (`NEAR_TITLE_DISTANCE`). Each raise carries a
+  deterministic title and is asked once, resolved or not.
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
   `{ "default": "invyte", "can": ["web", "android"], "deployments": { "invyte": { "url": …, "secret": … } } }`.

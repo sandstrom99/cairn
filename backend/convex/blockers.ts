@@ -19,12 +19,12 @@
 // blocker's revision moves on ack and resolve alone, through `applyRevision`.
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { type QueryCtx, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
-import { mint } from "./lib/ids";
 import { LIVE, blockerById, issueById } from "./lib/lookup";
+import { attachBlocker, raiseBlocker } from "./lib/raise";
 import { applyRevision } from "./lib/revision";
 import { blockerView, ref } from "./lib/views";
 
@@ -35,19 +35,6 @@ const kindValidator = v.union(
   v.literal("credential"),
   v.literal("purchase"),
 );
-
-/** The link row for this blocker and issue, or null. */
-async function linkBetween(
-  ctx: QueryCtx,
-  blocker: Doc<"blockers">,
-  issue: Doc<"issues">,
-): Promise<Doc<"blockerLinks"> | null> {
-  const rows = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_blocker", (q) => q.eq("blockerId", blocker._id))
-    .collect();
-  return rows.find((l) => l.issueId === issue._id) ?? null;
-}
 
 /** `bl-3 was resolved by balder on 2026-09-17T…`: who ended it, so nobody reopens it. */
 const alreadyResolved = (doc: Doc<"blockers">) =>
@@ -92,16 +79,7 @@ export const raise = mutation({
       if (blocker.status === "resolved")
         throw invalid(`${blocker.id} is resolved; raise a new one`);
       // Idempotent, like edges.add: attaching the same blocker twice is one link.
-      if (!(await linkBetween(ctx, blocker, issue))) {
-        await ctx.db.insert("blockerLinks", { blockerId: blocker._id, issueId: issue._id });
-        await record(ctx, {
-          kind: "blocker.attach",
-          actor: args.actor,
-          issueId: issue._id,
-          blockerId: blocker._id,
-          changes: { blocker: blocker.id, issue: issue.id },
-        });
-      }
+      await attachBlocker(ctx, args.actor, blocker, issue);
       return { blocker: await blockerView(ctx, blocker), issue: ref(issue) };
     }
 
@@ -116,35 +94,14 @@ export const raise = mutation({
     const missing = required.find(([, value]) => value === undefined || value.trim() === "");
     if (missing) throw invalid(`a new blocker needs --${missing[0]}`);
 
-    const n = await mint(ctx, "bl");
-    const _id = await ctx.db.insert("blockers", {
-      id: `bl-${n}`,
+    const blocker = await raiseBlocker(ctx, args.actor, issue, {
       kind: args.kind!,
       owner: args.owner!,
       title: args.title!,
       whatResolves: args.whatResolves!,
       ...(args.nudgeAt === undefined ? {} : { nudgeAt: args.nudgeAt }),
-      status: "raised",
-      raisedBy: args.actor,
-      revision: 0,
     });
-    await ctx.db.insert("blockerLinks", { blockerId: _id, issueId: issue._id });
-    await record(ctx, {
-      kind: "blocker.raise",
-      actor: args.actor,
-      issueId: issue._id,
-      blockerId: _id,
-      changes: {
-        id: `bl-${n}`,
-        blockerKind: args.kind,
-        owner: args.owner,
-        title: args.title,
-        whatResolves: args.whatResolves,
-        ...(args.nudgeAt === undefined ? {} : { nudgeAt: args.nudgeAt }),
-        issue: issue.id,
-      },
-    });
-    return { blocker: await blockerView(ctx, (await ctx.db.get(_id))!), issue: ref(issue) };
+    return { blocker: await blockerView(ctx, blocker), issue: ref(issue) };
   },
 });
 

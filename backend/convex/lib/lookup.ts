@@ -20,6 +20,23 @@ export async function issueById(ctx: QueryCtx, id: string): Promise<Doc<"issues"
   return doc;
 }
 
+/** The epic with that public id, or `not-found`. */
+export async function epicById(ctx: QueryCtx, id: string): Promise<Doc<"epics">> {
+  const doc = await ctx.db
+    .query("epics")
+    .withIndex("by_public_id", (q) => q.eq("id", id))
+    .unique();
+  if (!doc) throw notFound(id);
+  return doc;
+}
+
+/** `cn-10` after `cn-2`, and one project's ids before another's: mint order, not string order. */
+export const issueOrder = (a: { id: string }, b: { id: string }): number => {
+  const [aSlug = "", aN = ""] = a.id.split(/-(?=\d+$)/);
+  const [bSlug = "", bN = ""] = b.id.split(/-(?=\d+$)/);
+  return aSlug.localeCompare(bSlug) || Number(aN) - Number(bN);
+};
+
 /** The blocker with that public id, or `not-found`. */
 export async function blockerById(ctx: QueryCtx, id: string): Promise<Doc<"blockers">> {
   const doc = await ctx.db

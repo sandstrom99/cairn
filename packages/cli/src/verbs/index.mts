@@ -18,6 +18,7 @@ import * as journal from "./journal.mts";
 import * as list from "./list.mts";
 import * as project from "./project.mts";
 import * as ready from "./ready.mts";
+import * as reconcile from "./reconcile.mts";
 import * as release from "./release.mts";
 import * as resolve from "./resolve.mts";
 import * as show from "./show.mts";
@@ -48,6 +49,7 @@ export const VERBS: Verb[] = [
   waiting,
   ack,
   resolve,
+  reconcile,
   epic,
   project,
   doctor,

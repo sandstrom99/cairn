@@ -45,10 +45,19 @@ export type BlockerLineView = Referable & {
   resolvedBy?: { name: string };
 };
 
-/** Enough of an epic to print one line of a list. */
+/** Enough of an epic to print its health block: the counts, and the three lines of §8. */
 export type EpicLineView = Referable & {
   counts: { open: number; inProgress: number; closed: number; followUps: number };
+  lastReconciledAt?: number;
+  health: {
+    moving: (Referable & { claimedBy: { name: string }; claimedAt: number })[];
+    stuck?: Referable & { lastActivity: number };
+    waiting: (Referable & { owner: string })[];
+  };
 };
+
+/** What `cn reconcile` answers: what it did on its own, and what it handed to a person. */
+export type ReconcileView = FunctionReturnType<typeof api.reconcile.run>;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -116,14 +125,95 @@ export function blockerLine(view: BlockerLineView, now: number = Date.now()): st
   return view.status === "raised" ? `${line} · ${raised}` : `${line} · ${view.status} · ${raised}`;
 }
 
-/** `ep-1 "…"  2 open · 1 in progress · 3 done · 1 follow-ups` */
-export function epicLine(view: EpicLineView): string {
+/**
+ * An epic's health, as many lines as it has facts (docs/design.md §8):
+ *
+ * ```
+ * ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up · never reconciled
+ *   moving   cn-7 "epic health and reconcile by hand" balder/claude 2h
+ *   stuck    cn-9 "the reconcile sweep" silent 9d
+ *   waiting  bl-3 "confirm the invite copy" · owner balder
+ * ```
+ *
+ * Never a percentage: an epic at 95% frozen for a month reads better than one at 40%
+ * advancing daily. A line with nothing behind it is not printed at all, so a fresh epic
+ * is one line and the three that follow are only there when they say something.
+ */
+export function healthLines(view: EpicLineView, now: number = Date.now()): string[] {
   const { open, inProgress, closed, followUps } = view.counts;
-  return `${ref(view)}  ${open} open · ${inProgress} in progress · ${closed} done · ${followUps} follow-ups`;
+  const reconciled =
+    view.lastReconciledAt === undefined
+      ? "never reconciled"
+      : `last reconciled ${since(view.lastReconciledAt, now)}`;
+  const lines = [
+    `${ref(view)}  ${closed} done · ${open + inProgress} open · ${followUps} ${
+      followUps === 1 ? "follow-up" : "follow-ups"
+    } · ${reconciled}`,
+  ];
+  for (const issue of view.health.moving)
+    lines.push(
+      `  ${fact("moving")}${ref(issue)} ${issue.claimedBy.name} ${age(issue.claimedAt, now)}`,
+    );
+  if (view.health.stuck)
+    lines.push(
+      `  ${fact("stuck")}${ref(view.health.stuck)} silent ${age(view.health.stuck.lastActivity, now)}`,
+    );
+  for (const blocker of view.health.waiting)
+    lines.push(`  ${fact("waiting")}${ref(blocker)} · owner ${blocker.owner}`);
+  return lines;
+}
+
+/**
+ * What one `cn reconcile` run did, and what it could not decide:
+ *
+ * ```
+ * ep-3 "An epic tells the truth" reconciled · did 2 · raised 1
+ *   released    cn-7 "…" from wsl/claude, silent 25h
+ *   dropped     cn-1 "…" blocks cn-2 "…"
+ *   raised      bl-4 "same title? …" · owner balder
+ * ```
+ *
+ * The owner is the verb's, not the run's: a raise is addressed to whoever `--owner` named,
+ * and the answer carries the blockers rather than repeating the name on each of them.
+ */
+export function reconcileLines(
+  result: ReconcileView,
+  owner: string,
+  now: number = Date.now(),
+): string[] {
+  const { did, raised } = result;
+  const head =
+    did.length === 0 && raised.length === 0
+      ? `${ref(result.epic)} reconciled · nothing to do`
+      : `${ref(result.epic)} reconciled · did ${did.length} · raised ${raised.length}`;
+  const lines = [head];
+  for (const entry of did) {
+    if (entry.rule === "reparent")
+      lines.push(`  ${rule("reparented")}${ref(entry.issue)} → ${ref(entry.to)}`);
+    else if (entry.rule === "release")
+      lines.push(
+        `  ${rule("released")}${ref(entry.issue)} from ${entry.from.name}, silent ${age(
+          now - entry.silentMs,
+          now,
+        )}`,
+      );
+    else if (entry.rule === "spawn-follow-up")
+      lines.push(`  ${rule("spawned")}${ref(entry.followUp)} for ${ref(entry.issue)}`);
+    else if (entry.rule === "drop-edge")
+      lines.push(`  ${rule("dropped")}${ref(entry.from)} blocks ${ref(entry.to)}`);
+    else lines.push(`  ${rule("closed")}${ref(entry.epic)}`);
+  }
+  for (const entry of raised)
+    lines.push(`  ${rule("raised")}${ref(entry.blocker)} · owner ${owner}`);
+  return lines;
 }
 
 /** The label column: the longest label is `discovered from`, and one space after it. */
 const label = (name: string): string => name.padEnd(16);
+/** The health block's column: `waiting` is the longest of the three, and two after it. */
+const fact = (name: string): string => name.padEnd(9);
+/** The reconcile block's column: `reparented` is the longest, and two after it. */
+const rule = (name: string): string => name.padEnd(12);
 const firstLine = (text: string): string => {
   const [head, ...rest] = text.split("\n");
   return rest.length > 0 && rest.join("").trim() !== "" ? `${head}…` : (head ?? "");
@@ -197,7 +287,7 @@ export const historyLines = (events: HistoryEvent[], now: number = Date.now()): 
 /** The ten-line brief of `cn show`, one shape per kind. */
 export function brief(shown: Shown, now: number = Date.now()): string {
   if (shown.kind === "epic") {
-    const lines = [epicLine(shown)];
+    const lines = healthLines(shown, now);
     if (shown.description) lines.push(shown.description);
     lines.push(...shown.issues.map((i) => `  ${issueLine(i)}`));
     return lines.join("\n");

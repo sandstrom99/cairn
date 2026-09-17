@@ -12,6 +12,7 @@ import { actorValidator } from "./lib/actor";
 import type { Actor } from "./lib/actor";
 import { claimed, invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
+import { checkPriority, createFollowUp } from "./lib/followUp";
 import { mint } from "./lib/ids";
 import { INBOX_ID, ensureInbox } from "./lib/inbox";
 import { LIVE, issueById } from "./lib/lookup";
@@ -33,13 +34,6 @@ const followUpKindValidator = v.union(
   v.literal("decide"),
   v.literal("cleanup"),
 );
-
-/** 0 is highest, 4 is backlog, and nothing between is a fraction. */
-function checkPriority(priority: number): number {
-  if (!Number.isInteger(priority) || priority < 0 || priority > 4)
-    throw invalid(`priority ${priority} is not an integer 0 to 4, 0 highest`);
-  return priority;
-}
 
 /** The view of an issue as it now stands, read back after a patch. */
 const viewOf = async (ctx: MutationCtx, _id: Id<"issues">) =>
@@ -375,35 +369,9 @@ export const close = mutation({
     );
 
     // The residue is created in the same mutation, so a parent never closes without it.
-    let followUp = undefined;
-    if (args.followUp) {
-      const project = await ctx.db.get(doc.projectId);
-      if (!project) throw notFound(doc.id);
-      const n = await mint(ctx, project.slug);
-      const _id = await ctx.db.insert("issues", {
-        id: `${project.slug}-${n}`,
-        projectId: project._id,
-        epicId: doc.epicId,
-        title: args.followUp.title,
-        type: "follow-up",
-        followUpKind: args.followUp.kind,
-        parentIssueId: doc._id,
-        requires: args.followUp.requires ?? [],
-        status: "open",
-        priority: checkPriority(args.followUp.priority ?? doc.priority),
-        lastActivity: now,
-        revision: 0,
-      });
-      followUp = await viewOf(ctx, _id);
-      await record(ctx, {
-        kind: "issue.create",
-        actor: args.actor,
-        issueId: _id,
-        epicId: doc.epicId,
-        revision: 0,
-        changes: createdChanges(followUp),
-      });
-    }
+    const followUp = args.followUp
+      ? await createFollowUp(ctx, args.actor, doc, args.followUp)
+      : undefined;
     return { issue: await viewOf(ctx, doc._id), followUp };
   },
 });
