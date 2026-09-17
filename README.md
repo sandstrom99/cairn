@@ -60,7 +60,6 @@ backend/convex/         schema, queries, mutations, tests      @cairn/backend
 packages/cli/           cn, no build step                       @cairn/cli
 plugins/cairn/          the Claude Code plugin: skill, hook, commands
 docs/design.md          the design
-docs/dogfood.md         the first issues, until `cn create` exists
 ```
 
 ## Run it
