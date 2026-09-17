@@ -82,7 +82,7 @@ Three things enforce the gate, so a session cannot skip it by forgetting:
 | `backend/convex/` | `@cairn/backend` | schema, functions, tests. `_generated/` is committed and never hand-edited. |
 | `packages/cli/` | `@cairn/cli` | `cn`. `src/verbs/` is one file per verb, `src/lib/` the shell they run in. |
 | `plugins/cairn/` | | the skill, the SessionStart hook, the slash commands. |
-| `docs/` | | `design.md`, and `dogfood.md` until `cn create` exists. |
+| `docs/` | | `design.md`. |
 | `apps/` | | reserved; in the workspace globs, nothing in it. |
 
 ## Toolchain: vp, only
@@ -125,6 +125,8 @@ Scopes here: `backend`, `cli`, `plugin`, `docs`, `tooling`.
 
 ## Dogfood
 
-The moment `cn create` works, the issues in `docs/dogfood.md` go in, and every
-task after that is a cairn issue in cairn. Until then, what to do next is
-written there.
+Every task is a cairn issue in cairn, on the local deployment. What to do next
+is `CAIRN_URL=http://127.0.0.1:3210 cn ready`: claim it, journal as you go, and
+close it with `--run 'vp run verify'`. The eleven slices mapped on 2026-09-17
+went in that day as `cn-1` to `cn-11` under `ep-1` to `ep-5`, and the file they
+came from is gone.

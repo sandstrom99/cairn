@@ -8,10 +8,11 @@ Settled over an interview on 2026-09-16 and 2026-09-17, and revised the same
 day when the surface question was reopened: one CLI and no MCP server (§10),
 the reference form (§10), and the toolchain (§11). The solution was mapped on
 2026-09-17: the concrete schema and the graph (§3), how the parts talk and the
-verb-to-function table (§10), and the slices in `docs/dogfood.md`. **The
-repository skeleton is built; nothing domain-specific is.** Every decision below
-is a decision, not a sketch; where something was deliberately left open it says
-so under *Deferred*, with the lean recorded.
+verb-to-function table (§10), and the eleven slices, in cairn itself as `cn-1`
+to `cn-11` since the same day (§11). **The repository skeleton is built;
+nothing domain-specific is.** Every decision below is a decision, not a sketch;
+where something was deliberately left open it says so under *Deferred*, with
+the lean recorded.
 
 ---
 
@@ -628,7 +629,7 @@ spelled in one place, `ref()` in `packages/cli/src/lib/ref.mts`.
 backend/convex/         schema, queries, mutations, tests   (@cairn/backend)
 packages/cli/           cn, no build step                    (@cairn/cli)
 plugins/cairn/          the Claude Code plugin
-docs/                   this file, and the dogfood list
+docs/                   this file
 apps/                   reserved, in the workspace globs, nothing in it
 ```
 
@@ -647,10 +648,11 @@ schema · create · list · ready · close · journal
 ```
 
 Then dogfood **within days**, in this repo, on cairn's own construction. The
-build is mapped into eleven slices under five epics in `docs/dogfood.md`, drawn
-2026-09-17: the first four are the loop above and the import, and the file goes
-into cairn the day `create` works. Everything after that is cairn issues in
-cairn.
+build was mapped into eleven slices under five epics on 2026-09-17, first in a
+`docs/dogfood.md`, and the same day `create` worked they were imported as
+`cn-1` to `cn-11` under `ep-1` to `ep-5` and the file deleted. The first four
+were the loop above and the import; everything after that is cairn issues in
+cairn, and `cn ready` says what is next.
 
 The accepted cost: a short throwaway window, and early schema churn means
 migrating your own dogfood data.
@@ -743,7 +745,7 @@ implementation.
 |---|---|
 | How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`) |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
-| Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8 in `docs/dogfood.md` |
+| Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8, `cn-8 "a cloud deployment per company, and the secret that guards it"` |
 | Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth, Convex Auth or Clerk, arrives with `apps/web`, and only then does the actor stop being an argument |
 | Who counts as the actor on a journal entry or a claim | Lean: the argument `cn` sends (§12) until identity auth exists, then the token's identity, with `kind` from whether the token belongs to a person |
 | Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |

@@ -59,4 +59,4 @@ cn doctor                                node, the generated api, the deployment
 
 The rest — `brief`, `wait`, `waiting`, `ack`, `resolve`, `reconcile` — is the table in
 docs/design.md §10, one Convex function per verb or per action word. The order they
-arrive in is docs/dogfood.md.
+arrive in is cairn's own worklist: `cn ready`.
