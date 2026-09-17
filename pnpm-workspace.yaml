@@ -1,0 +1,32 @@
+packages:
+  - backend
+  - packages/*
+  - apps/*
+
+catalogMode: prefer
+
+# vite and vitest resolve to the copies vite-plus ships, the way `vp create` lays a
+# workspace out. Everything else is pinned in the package that uses it.
+catalog:
+  '@types/node': ^24
+  typescript: ^5.9.3
+  vite: npm:@voidzero-dev/vite-plus-core@0.1.24
+  vitest: npm:@voidzero-dev/vite-plus-test@0.1.24
+  vite-plus: 0.1.24
+overrides:
+  vite: 'catalog:'
+  vitest: 'catalog:'
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: '*'
+    vitest: '*'
+# pnpm 12 gates packages younger than its minimum release age; convex is trusted as-is.
+minimumReleaseAgeExclude:
+  - convex@1.46.0
+# esbuild (via convex) runs a postinstall that checks its platform binary. Allowed here so
+# no machine has to answer `pnpm approve-builds`.
+allowBuilds:
+  esbuild: true

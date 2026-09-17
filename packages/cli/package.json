@@ -1,0 +1,23 @@
+{
+  "name": "@cairn/cli",
+  "private": true,
+  "description": "cn: the cairn CLI. One verb is one Convex function call plus formatting. No build step.",
+  "bin": {
+    "cn": "./bin/cn"
+  },
+  "type": "module",
+  "scripts": {
+    "cn": "node src/main.mts",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@cairn/backend": "workspace:*",
+    "convex": "^1.46.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

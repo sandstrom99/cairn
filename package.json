@@ -1,0 +1,21 @@
+{
+  "name": "cairn",
+  "private": true,
+  "description": "An agent worklist on Convex: one deployment per company, a cn CLI over typed calls, no sync layer.",
+  "type": "module",
+  "scripts": {
+    "check": "vp check",
+    "test": "vp run -r test",
+    "ready": "vp check && vp run -r test",
+    "dev": "vp run @cairn/backend#dev",
+    "codegen": "vp run @cairn/backend#codegen"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.4.2"
+}

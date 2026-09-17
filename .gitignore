@@ -1,0 +1,12 @@
+node_modules
+dist
+*.log
+.DS_Store
+
+# Convex: the deployment this checkout points at. Written by `vp run dev` on first run.
+backend/.env.local
+.env*.local
+
+# Claude Code: per-machine settings and worktrees
+.claude/settings.local.json
+.claude/worktrees/

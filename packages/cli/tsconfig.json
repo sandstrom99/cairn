@@ -1,0 +1,26 @@
+{
+  // The type-check of cn. Nothing is built from it: Node 24 strips the types itself, so
+  // this exists to be told when a call does not match a signature.
+  //
+  // erasableSyntaxOnly is what makes that viable. Node strips types without understanding
+  // them, so anything that needs code generated — an enum, a namespace, a parameter
+  // property — is refused here rather than left to fail at runtime.
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["esnext"],
+    "types": ["node"],
+
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUnusedLocals": true
+  },
+  "include": ["src/**/*.mts", "vite.config.ts"]
+}

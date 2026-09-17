@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# cn: the cairn CLI. The checkout is the install:
+#
+#   ln -s ~/code/cairn/packages/cli/bin/cn ~/.local/bin/cn
+#
+# Resolves its own symlink, then runs src/main.mts under Node, which strips the types
+# itself on 24 and later. Nothing is built. Written to bash 3.2 so it runs on macOS.
+set -eu
+
+self=$0
+while [ -L "$self" ]; do
+  d=$(cd -- "$(dirname -- "$self")" && pwd -P)
+  self=$(readlink -- "$self")
+  case "$self" in /*) ;; *) self="$d/$self" ;; esac
+done
+here=$(cd -- "$(dirname -- "$self")" && pwd -P)
+
+exec node "$here/../src/main.mts" "$@"

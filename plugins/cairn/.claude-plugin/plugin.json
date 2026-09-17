@@ -1,0 +1,25 @@
+{
+  "name": "cairn",
+  "version": "0.0.0",
+  "description": "An agent worklist on Convex. The cn skill, the session-start situation report, and the slash commands.",
+  "author": {
+    "name": "Balder Sandstrom",
+    "url": "https://github.com/sandstrom99"
+  },
+  "repository": "https://github.com/sandstrom99/cairn",
+  "keywords": ["issue-tracker", "task-management", "agent-memory", "convex"],
+  "skills": "./skills/",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@cairn/backend",
+  "private": true,
+  "description": "The Convex deployment: schema, queries, mutations. One per company.",
+  "type": "module",
+  "exports": {
+    "./convex/*": "./convex/*"
+  },
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "codegen": "convex codegen",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "convex": "^1.46.0"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/node": "catalog:",
+    "convex-test": "^0.0.58",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
