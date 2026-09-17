@@ -10,10 +10,12 @@
 //
 //   CAIRN_URL                          wins, for hooks, crons and a one-off run
 //   ~/.config/cairn/config.json        { "default": "invyte", "host": "wsl",
+//                                        "can": ["web", "android"],
 //                                        "deployments": { "invyte": { "url": "https://….convex.cloud" } } }
 //
-// `host` is this machine's name in an actor (lib/actor.mts); everything else about the
-// file is which deployment to talk to.
+// `host` is this machine's name in an actor (lib/actor.mts) and `can` is what it can do,
+// the fallback for `cn ready --can` (lib/can.mts); everything else about the file is
+// which deployment to talk to.
 //
 // $XDG_CONFIG_HOME replaces ~/.config when set. Authentication is not decided and no
 // field is reserved for it here yet; see §13.
@@ -27,6 +29,8 @@ export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
   host?: string;
+  /** What this machine can do: ios, android, web, device, decision. Advisory (§5). */
+  can?: string[];
   deployments: Record<string, DeploymentConfig>;
 };
 

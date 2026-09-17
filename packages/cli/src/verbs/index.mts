@@ -8,12 +8,14 @@ import type { CliBody } from "../lib/cli.mts";
 import * as claim from "./claim.mts";
 import * as close from "./close.mts";
 import * as create from "./create.mts";
+import * as dep from "./dep.mts";
 import * as doctor from "./doctor.mts";
 import * as drop from "./drop.mts";
 import * as epic from "./epic.mts";
 import * as journal from "./journal.mts";
 import * as list from "./list.mts";
 import * as project from "./project.mts";
+import * as ready from "./ready.mts";
 import * as release from "./release.mts";
 import * as show from "./show.mts";
 import * as update from "./update.mts";
@@ -27,6 +29,7 @@ export type Verb = { name: string; summary: string; run: CliBody };
 export const VERBS: Verb[] = [
   create,
   list,
+  ready,
   show,
   claim,
   release,
@@ -34,6 +37,7 @@ export const VERBS: Verb[] = [
   journal,
   close,
   drop,
+  dep,
   epic,
   project,
   doctor,

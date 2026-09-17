@@ -21,7 +21,7 @@ Where the first slice goes, once it is written:
 | `edges.ts` | `add`, `remove`; one direction stored, §3 |
 | `epics.ts`, `blockers.ts`, `projects.ts` | their own tables' functions |
 | `reconcile.ts`, `crons.ts` | `run` by hand, `sweep` on the cron, §7 |
-| `lib/` | mechanism shared by the above: `ids`, `revision`, `actor`, `events`, `errors`, `views`, `inbox`, `guard`, `verification` |
+| `lib/` | mechanism shared by the above: `ids`, `revision`, `actor`, `events`, `errors`, `views`, `inbox`, `readiness`, `guard`, `verification` |
 
 Rules that hold from the first line:
 

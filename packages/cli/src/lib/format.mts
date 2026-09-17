@@ -19,6 +19,12 @@ export type IssueLineView = Referable & {
   revision?: number;
 };
 
+/** A ready row: an issue line, plus what this session cannot satisfy. */
+export type ReadyLineView = IssueLineView & { cannot: string[] };
+
+/** One edge, as `edges.add` and `edges.remove` both answer. */
+export type EdgeView = { type: string; from: Referable; to: Referable };
+
 /** One `events` row, as the stale error and `cn show --history` both carry it. */
 export type HistoryEvent = {
   at: number;
@@ -61,14 +67,35 @@ export function issueLine(view: IssueLineView): string {
   return parts.join(" ");
 }
 
+/**
+ * The issue line, plus `· needs ios` where this session lacks what the issue requires.
+ * Marked, never hidden: a wrong `can[]` must not be able to make work disappear (§5).
+ */
+export function readyLine(view: ReadyLineView): string {
+  const line = issueLine(view);
+  return view.cannot.length > 0 ? `${line} · needs ${view.cannot.join(", ")}` : line;
+}
+
+/**
+ * One edge, read in the direction that makes it a sentence. Only one row is ever stored,
+ * so `blocks` prints from its far end: `cn-2 "…" blocked by cn-1 "…"` is the row
+ * `cn dep add cn-2 --blocked-by cn-1` wrote, read back the way it was asked for.
+ */
+export function edgeLine({ type, from, to }: EdgeView): string {
+  if (type === "blocks") return `${ref(to)} blocked by ${ref(from)}`;
+  const verb =
+    type === "related" ? "related to" : type === "discovered-from" ? "discovered from" : type;
+  return `${ref(from)} ${verb} ${ref(to)}`;
+}
+
 /** `ep-1 "…"  2 open · 1 in progress · 3 done · 1 follow-ups` */
 export function epicLine(view: EpicLineView): string {
   const { open, inProgress, closed, followUps } = view.counts;
   return `${ref(view)}  ${open} open · ${inProgress} in progress · ${closed} done · ${followUps} follow-ups`;
 }
 
-/** The label column: the longest label is `blocked by`, and one space after it. */
-const label = (name: string): string => name.padEnd(11);
+/** The label column: the longest label is `discovered from`, and one space after it. */
+const label = (name: string): string => name.padEnd(16);
 const firstLine = (text: string): string => {
   const [head, ...rest] = text.split("\n");
   return rest.length > 0 && rest.join("").trim() !== "" ? `${head}…` : (head ?? "");
@@ -174,6 +201,13 @@ export function brief(shown: Shown, now: number = Date.now()): string {
   if (shown.followUps.length > 0) lines.push(`${label("follow-ups")}${refs(shown.followUps)}`);
   if (shown.blocks.length > 0) lines.push(`${label("blocks")}${refs(shown.blocks)}`);
   if (shown.blockedBy.length > 0) lines.push(`${label("blocked by")}${refs(shown.blockedBy)}`);
+  // The context edges after the blocking ones: they say where an issue came from and what
+  // it sits beside, and none of them touches readiness (design §3).
+  if (shown.related.length > 0) lines.push(`${label("related")}${refs(shown.related)}`);
+  if (shown.discoveredFrom.length > 0)
+    lines.push(`${label("discovered from")}${refs(shown.discoveredFrom)}`);
+  if (shown.duplicates.length > 0) lines.push(`${label("duplicates")}${refs(shown.duplicates)}`);
+  if (shown.supersedes.length > 0) lines.push(`${label("supersedes")}${refs(shown.supersedes)}`);
   if (shown.waitingOn.length > 0) lines.push(`${label("waiting on")}${refs(shown.waitingOn)}`);
   if (shown.design) lines.push(`${label("design")}${firstLine(shown.design)}`);
   if (shown.acceptance) lines.push(`${label("acceptance")}${firstLine(shown.acceptance)}`);

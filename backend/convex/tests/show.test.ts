@@ -56,6 +56,9 @@ describe("show.get", () => {
       blocks: [],
       blockedBy: [],
       related: [],
+      discoveredFrom: [],
+      duplicates: [],
+      supersedes: [],
       waitingOn: [],
       followUps: [{ id: "cn-2", title: "check it on a device" }],
       journal: [
@@ -67,6 +70,29 @@ describe("show.get", () => {
         },
       ],
     });
+  });
+
+  it("puts each edge type in its own list, and reads related both ways", async () => {
+    const t = await seeded();
+    for (const title of ["the lifecycle", "the graph", "the brief", "a duplicate"])
+      await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title });
+    await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-1", type: "blocks" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-3", type: "blocks" });
+    // related is symmetric, so cn-1 sees it whichever end wrote it.
+    await t.mutation(api.edges.add, { actor, from: "cn-4", to: "cn-1", type: "related" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "discovered-from" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-5", type: "duplicates" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-4", type: "supersedes" });
+
+    const shown = await t.query(api.show.get, { id: "cn-1" });
+    if (shown.kind !== "issue") throw new Error("cn-1 is an issue");
+    const idsOf = (refs: { id: string }[]) => refs.map((r) => r.id);
+    expect(idsOf(shown.blocks)).toEqual(["cn-3"]);
+    expect(idsOf(shown.blockedBy)).toEqual(["cn-2"]);
+    expect(idsOf(shown.related)).toEqual(["cn-4"]);
+    expect(idsOf(shown.discoveredFrom)).toEqual(["cn-2"]);
+    expect(idsOf(shown.duplicates)).toEqual(["cn-5"]);
+    expect(idsOf(shown.supersedes)).toEqual(["cn-4"]);
   });
 
   it("returns an epic with its open issues in list order", async () => {
