@@ -578,7 +578,7 @@ package then, not before.
  │ SKILL.md           teaches the verbs│              │ issues.ts  epics.ts  journal.ts    │
  │ /cairn:* commands  ──  cn …        │  ── HTTPS ─► │ edges.ts  blockers.ts  ready.ts    │
  │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  reconcile.ts    │
- └────────────────────────────────────┘  call per    │ projects.ts  crons.ts              │
+ └────────────────────────────────────┘  call per    │ projects.ts  events.ts  crons.ts   │
        cn  (Node 24, .mts, no build)     verb        │ lib/  ids · revision · actor ·     │
        config.mts → url, secret, can[]               │       events · guard · verification│
        actor.mts  → { name, kind }                   │ crons ── reconcile.sweep, §7       │
@@ -615,6 +615,7 @@ teaches and the `--help` headers restate.
 | `cn ready [--can ios web …]` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine]` | `issues.list` | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
+| `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title | query |
 | `cn create --project app --epic ep-3 --title … [--priority] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
 | `cn update <id> --revision N [--title] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires]` | `issues.update` | mutation |

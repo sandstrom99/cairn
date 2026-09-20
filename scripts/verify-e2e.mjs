@@ -310,6 +310,36 @@ row("verbs/close.mts", () => {
   assert.equal(shown.followUps.length, 1, "the follow-up does not exist beside the closed parent");
 });
 
+row("verbs/log.mts", () => {
+  const seen = cn(["log"]);
+  assert.equal(seen.status, 0, "cn log was refused");
+  for (const line of lines(seen.stdout))
+    assert.match(line, /^((cn|ep|bl)-\d+ "|—)/, `cn log printed a line with no lead: ${line}`);
+
+  const capped = cn(["log", "--limit", "3"]);
+  assert.equal(capped.status, 0, "cn log --limit 3 was refused");
+  assert.equal(lines(capped.stdout).length, 3, "cn log --limit 3 did not print exactly 3 lines");
+
+  const all = json(["log", "--limit", "200"]);
+  for (let i = 1; i < all.length; i++)
+    assert.ok(all[i - 1].at >= all[i].at, "cn log --json is not newest first");
+  for (const e of all)
+    for (const named of [e.issue, e.epic, e.blocker])
+      if (named !== undefined)
+        assert.ok(
+          typeof named.id === "string" && typeof named.title === "string",
+          "an event names something without carrying both its id and its title",
+        );
+  const closed = all.find((e) => e.kind === "issue.close" && e.issue?.id === "cn-2");
+  assert.equal(
+    closed?.changes?.verification?.to,
+    "echo proof (exit 0)",
+    "cn log does not carry the verification cn-2 was closed with",
+  );
+
+  assert.equal(cn(["log", "--limit", "0"]).status, 2, "cn log --limit 0 was not a usage error");
+});
+
 row("verbs/epic.mts (close)", () => {
   const refused = cn(["epic", "close", "ep-1", "--revision", String(revisionOf("ep-1"))]);
   assert.equal(refused.status, 1, "an epic with open work was allowed to close");

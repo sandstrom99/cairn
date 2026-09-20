@@ -28,8 +28,8 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  14 passed (14)      ← backend
- Test Files  32 passed (32)      ← cli
+ Test Files  15 passed (15)      ← backend
+ Test Files  33 passed (33)      ← cli
  Test Files  2 passed (2)        ← web
 ```
 
@@ -44,7 +44,7 @@ the ones an empty deployment mints — `ep-1`, `cn-1`, `bl-1` — and it stops t
 deployment and deletes its state after itself. Its last line is:
 
 ```
-e2e: 20 rows passed against an empty throwaway deployment
+e2e: 21 rows passed against an empty throwaway deployment
 ```
 
 To run one row by hand, `vp run @cairn/backend#dev:throwaway` in another terminal
@@ -82,6 +82,7 @@ change works where it runs:
 | `verbs/ack.mts`, `verbs/resolve.mts` | `cn ack bl-1` (refused: this shell is an agent), then `env -u CLAUDECODE cn ack bl-1`, then `env -u CLAUDECODE cn resolve bl-1 --note "done"`, then `cn ready`, then `cn waiting` | an agent is refused by name; a person moves it raised → waiting → resolved; the issue is back in ready with no recompute, and with nothing waiting `cn waiting` prints nothing and exits 0 |
 | `verbs/drop.mts` | `cn drop cn-4 --revision N`, then the same with `--reason "scratch"` | dropping without a reason exits 2, and with one it records the reason |
 | `verbs/close.mts` | `cn close cn-1 --revision N --run 'exit 3'`, then `cn close cn-2 --revision N --run 'echo proof' --follow-up "scratch: follow-up" --kind verify` | a command that failed cannot close an issue; the stored record is the real exit code and output tail, and the follow-up exists beside the closed parent |
+| `verbs/log.mts` | `cn log`, then `cn log --limit 3`, then `cn log --limit 200 --json`, then `cn log --limit 0` | one line per event across the deployment, newest first, each led by the reference form or `—`; exactly the three newest; every issue, epic or blocker an event names carrying id and title, with cn-2's close reading `echo proof (exit 0)`; and a limit out of range exiting 2 |
 | `verbs/epic.mts` (close) | `cn epic close ep-1 --revision N` with cn-1 and cn-3 still open | closing over open work is refused, naming it |
 | `verbs/reconcile.mts` | `cn epic new "scratch: reconcile"` → ep-2, two `cn create --project cn --epic ep-2` titled "scratch: the same title" and "scratch: the same title.", then `cn reconcile ep-2` twice, then `env -u CLAUDECODE cn resolve bl-2 --note scratch`, then `cn epic close ep-2 --revision N --drop --reason scratch` | one decision blocker raised by `cairn/reconcile` holding both, a second run does nothing, and the scratch epic and its issues are dropped with the reason |
 | `verbs/init.mts` | with `XDG_CONFIG_HOME` pointed at an empty directory and no `CAIRN_URL` throughout: `cn doctor`, then `bash plugins/cairn/hooks/session-start.sh`, then `cn init --name e2e --url <the throwaway's> --secret-cmd "echo s3cret" --can web android`, then `cn doctor`, then that same `cn init` again, then `cn init --name other --url <the same>`, then `cn init --name dead --url http://127.0.0.1:9`, then the hook again | a cold machine is told to run `cn init` and the hook points at `/cairn:init`; the config lands mode 600 with the secret never printed; a name already there is refused and the bytes do not move; a second deployment leaves the default and `can` alone and carries no `secret` key; a deployment that does not answer writes nothing; and the hook that asked for setup now prints the brief |

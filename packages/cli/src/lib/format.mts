@@ -284,6 +284,22 @@ export const staleLines = (data: { since?: HistoryEvent[] }, now: number = Date.
 export const historyLines = (events: HistoryEvent[], now: number = Date.now()): string[] =>
   events.map((e) => eventLine(e, now));
 
+/** What `cn log` lists: one event, with whatever it names resolved to id and title. */
+export type LogEvent = FunctionReturnType<typeof api.events.recent>[number];
+
+/**
+ * `cn-2 "scratch: second"  issue.claim  wsl/claude  2h ago  status open → in_progress, …`
+ *
+ * The target leads because that is what happened to, an issue first since an event that
+ * names both an issue and its blocker is about the issue; a create prints no payload,
+ * because the reference at the start of the line already names what was created.
+ */
+export function logLine(e: LogEvent, now: number = Date.now()): string {
+  const target = e.issue ? ref(e.issue) : e.blocker ? ref(e.blocker) : e.epic ? ref(e.epic) : "—";
+  const payload = e.kind.endsWith(".create") ? "" : changesOf(e.changes);
+  return [target, e.kind, e.actor.name, since(e.at, now), payload].join("  ").trimEnd();
+}
+
 /** The ten-line brief of `cn show`, one shape per kind. */
 export function brief(shown: Shown, now: number = Date.now()): string {
   if (shown.kind === "epic") {

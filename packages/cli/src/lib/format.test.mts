@@ -10,6 +10,7 @@ import {
   healthLines,
   historyLines,
   issueLine,
+  logLine,
   readyLine,
   reconcileLines,
   staleLines,
@@ -584,6 +585,94 @@ describe("historyLines", () => {
       ),
     ).toBe(true);
     for (const line of lines) expect(line).not.toContain("…");
+  });
+});
+
+describe("logLine", () => {
+  it("leads with the issue, then the event, actor, age and changes", () => {
+    const claim = {
+      at: ago(2 * HOUR),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "issue.claim",
+      revision: 1,
+      changes: { status: { from: "open", to: "in_progress" }, claimedBy: { to: "wsl/claude" } },
+      issue: { id: "cn-2", title: "scratch: second" },
+      epic: undefined,
+      blocker: undefined,
+    };
+    expect(logLine(claim, now)).toBe(
+      'cn-2 "scratch: second"  issue.claim  wsl/claude  2h ago  status open → in_progress, claimedBy — → wsl/claude',
+    );
+  });
+
+  it("leads with the issue when a row names both an issue and a blocker", () => {
+    const raise = {
+      at: ago(MINUTE),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "blocker.raise",
+      revision: undefined,
+      changes: { id: "bl-1" },
+      issue: { id: "cn-2", title: "scratch: second" },
+      blocker: { id: "bl-1", title: "confirm the invite copy" },
+      epic: undefined,
+    };
+    expect(logLine(raise, now).startsWith('cn-2 "scratch: second"')).toBe(true);
+  });
+
+  it("leads with the blocker when a row names no issue", () => {
+    const resolve = {
+      at: ago(MINUTE),
+      actor: { name: "wsl/balder", kind: "human" } as const,
+      kind: "blocker.resolve",
+      revision: 1,
+      changes: { status: { from: "raised", to: "resolved" } },
+      issue: undefined,
+      blocker: { id: "bl-1", title: "confirm the invite copy" },
+      epic: undefined,
+    };
+    expect(logLine(resolve, now).startsWith('bl-1 "confirm the invite copy"')).toBe(true);
+  });
+
+  it("leads with the epic when a row names neither an issue nor a blocker", () => {
+    const create = {
+      at: ago(2 * HOUR),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "epic.create",
+      revision: 0,
+      changes: { id: "ep-1", title: "Create to close" },
+      issue: undefined,
+      blocker: undefined,
+      epic: { id: "ep-1", title: "Create to close" },
+    };
+    expect(logLine(create, now)).toBe('ep-1 "Create to close"  epic.create  wsl/claude  2h ago');
+  });
+
+  it("leads with — when a row names nothing", () => {
+    const create = {
+      at: ago(2 * HOUR),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "project.create",
+      revision: undefined,
+      changes: { slug: "cn", name: "cairn" },
+      issue: undefined,
+      blocker: undefined,
+      epic: undefined,
+    };
+    expect(logLine(create, now)).toBe("—  project.create  wsl/claude  2h ago");
+  });
+
+  it("prints no payload for a create, however big the changes it carries", () => {
+    const create = {
+      at: ago(2 * HOUR),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "issue.create",
+      revision: 0,
+      changes: { id: "cn-1", title: "a".repeat(200), status: "open", requires: [], priority: 0 },
+      issue: { id: "cn-1", title: "the first issue" },
+      epic: undefined,
+      blocker: undefined,
+    };
+    expect(logLine(create, now)).toBe('cn-1 "the first issue"  issue.create  wsl/claude  2h ago');
   });
 });
 
