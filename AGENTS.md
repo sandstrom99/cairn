@@ -58,6 +58,7 @@ change works where it runs:
 |---|---|---|
 | `backend/convex/**` | `vp run @cairn/backend#verify` | the functions push to the configured deployment and pass Convex's own `tsc` |
 | `backend/convex/lib/guard.ts` | `CAIRN_SECRET=wrong cn ready`, then `cn ready` | the cloud deployment refuses a wrong secret in one line naming the fix, and answers with the right one |
+| `backend/convex/crons.ts`, `reconcile.sweep` | `vp run @cairn/backend#verify`, then from `backend/`: `node scripts/local.mjs dev --once --run reconcile:sweep` | Convex accepts the cron, and on a deployment with no `CAIRN_OWNER` the sweep warns that it is off and answers `{"epics": [], "owner": null}`, touching nothing |
 | `packages/cli/**` | `vp run verify:e2e` | every verb runs end to end against a real deployment, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
 | `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh`, with `CAIRN_URL` set and with it unset, plus `claude plugin validate plugins/cairn --strict` | the brief with a deployment, nothing without, exit 0 both ways, and a manifest that validates |

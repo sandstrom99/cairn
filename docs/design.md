@@ -429,9 +429,16 @@ second time. Every raise is addressed to `owner`, which `cn reconcile --owner`
 names and `CAIRN_OWNER` supplies when it does not. "Exactly one epic matches"
 is a fact test, not a guess: the inbox issue's parent or `discovered-from` issue
 sits in exactly one open epic. The sweep is `reconcile.sweep`, an internal
-function on a cron in `crons.ts`, running the same rules over every open epic
-plus the `nudgeAt` raise, once per `nudgeAt`. The thresholds are constants in
-`lib/thresholds.ts`, proposed in §12, where epic health reads the same numbers.
+function on a daily cron in `crons.ts`, at 04:00 UTC. It schedules
+`reconcile.sweepEpic` for every open epic, one transaction each, so an epic that
+fails does so alone, and each runs the same rules `reconcile.run` runs, the
+`nudgeAt` raise among them, asked once per `nudgeAt` because the date is in the
+title. It is off until `CAIRN_OWNER` is set in the deployment's environment
+variables, beside `CAIRN_SECRET`: that is how a deployment turns the sweep on,
+once reconcile by hand has earned the trust. It records one `reconcile.sweep`
+event, and a swept epic records a `reconcile.run` only when something happened.
+The thresholds are constants in `lib/thresholds.ts`, proposed in §12, where epic
+health reads the same numbers.
 
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
