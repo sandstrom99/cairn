@@ -10,6 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import type { Actor } from "./lib/actor";
+import { claimChanges, closeChanges, dropChanges, releaseChanges } from "./lib/changes";
 import { claimed, invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
 import { checkPriority, createFollowUp } from "./lib/followUp";
@@ -231,7 +232,7 @@ export const claim = mutation({
       ctx,
       { table: "issues", doc },
       { status: "in_progress", claimedBy: args.actor, claimedAt: now, lastActivity: now },
-      { kind: "issue.claim", actor: args.actor },
+      { kind: "issue.claim", actor: args.actor, changes: claimChanges(doc, args.actor) },
     );
     return await viewOf(ctx, doc._id);
   },
@@ -250,7 +251,7 @@ export const release = mutation({
       ctx,
       { table: "issues", doc },
       { status: "open", claimedBy: undefined, claimedAt: undefined, lastActivity: now },
-      { kind: "issue.release", actor: args.actor },
+      { kind: "issue.release", actor: args.actor, changes: releaseChanges(doc) },
     );
     return await viewOf(ctx, doc._id);
   },
@@ -366,7 +367,7 @@ export const close = mutation({
         claimedAt: undefined,
         lastActivity: now,
       },
-      { kind: "issue.close", actor: args.actor },
+      { kind: "issue.close", actor: args.actor, changes: closeChanges(doc, proof) },
     );
 
     // The residue is created in the same mutation, so a parent never closes without it.
@@ -398,7 +399,7 @@ export const drop = mutation({
         claimedAt: undefined,
         lastActivity: now,
       },
-      { kind: "issue.drop", actor: args.actor },
+      { kind: "issue.drop", actor: args.actor, changes: dropChanges(doc, args.reason) },
     );
     return await viewOf(ctx, doc._id);
   },

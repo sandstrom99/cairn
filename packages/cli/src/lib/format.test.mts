@@ -527,6 +527,64 @@ describe("historyLines", () => {
   it("is the same shape, for cn show --history", () => {
     expect(historyLines([changed], now)).toEqual(staleLines({ since: [changed] }, now));
   });
+
+  it("reads a lifecycle event's explicit changes whole, not the raw patch", () => {
+    const claim = {
+      revision: 1,
+      actor: { name: "balder/claude" },
+      at: ago(2 * HOUR),
+      kind: "issue.claim",
+      changes: { status: { from: "open", to: "in_progress" }, claimedBy: { to: "balder/claude" } },
+    };
+    const release = {
+      revision: 2,
+      actor: { name: "balder/claude" },
+      at: ago(2 * HOUR),
+      kind: "issue.release",
+      changes: {
+        status: { from: "in_progress", to: "open" },
+        claimedBy: { from: "balder/claude" },
+      },
+    };
+    const close = {
+      revision: 3,
+      actor: { name: "balder/claude" },
+      at: ago(2 * HOUR),
+      kind: "issue.close",
+      changes: {
+        status: { from: "in_progress", to: "closed" },
+        verification: { to: "vp run verify (exit 0)" },
+      },
+    };
+    const drop = {
+      revision: 4,
+      actor: { name: "balder/claude" },
+      at: ago(2 * HOUR),
+      kind: "issue.drop",
+      changes: {
+        status: { from: "open", to: "dropped" },
+        droppedReason: { to: "not going to happen" },
+      },
+    };
+    const lines = historyLines([claim, release, close, drop], now);
+    expect(
+      lines[0]!.endsWith("issue.claim  status open → in_progress, claimedBy — → balder/claude"),
+    ).toBe(true);
+    expect(
+      lines[1]!.endsWith("issue.release  status in_progress → open, claimedBy balder/claude → —"),
+    ).toBe(true);
+    expect(
+      lines[2]!.endsWith(
+        "issue.close  status in_progress → closed, verification — → vp run verify (exit 0)",
+      ),
+    ).toBe(true);
+    expect(
+      lines[3]!.endsWith(
+        "issue.drop  status open → dropped, droppedReason — → not going to happen",
+      ),
+    ).toBe(true);
+    for (const line of lines) expect(line).not.toContain("…");
+  });
 });
 
 describe("briefLines", () => {

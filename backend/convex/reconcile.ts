@@ -35,6 +35,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 // secret and does not go through lib/guard: there is nothing for a caller to prove.
 import { type MutationCtx, internalMutation } from "./_generated/server";
 import { type Actor, RECONCILE, actorValidator } from "./lib/actor";
+import { releaseChanges } from "./lib/changes";
 import { deploymentEnv } from "./lib/env";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
@@ -199,7 +200,7 @@ async function reconcileEpic(
       ctx,
       { table: "issues", doc: issue },
       { status: "open", claimedBy: undefined, claimedAt: undefined, lastActivity: now },
-      { kind: "issue.release", actor: RECONCILE },
+      { kind: "issue.release", actor: RECONCILE, changes: releaseChanges(issue) },
     );
     if (from) did.push({ rule: "release", issue: ref(issue), from, silentMs });
   }

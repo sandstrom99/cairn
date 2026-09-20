@@ -4,6 +4,7 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { actorValidator } from "./lib/actor";
+import { dropChanges } from "./lib/changes";
 import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
@@ -123,7 +124,7 @@ export const close = mutation({
           claimedAt: undefined,
           lastActivity: now,
         },
-        { kind: "issue.drop", actor: args.actor },
+        { kind: "issue.drop", actor: args.actor, changes: dropChanges(issue, reason) },
       );
     await applyRevision(
       ctx,

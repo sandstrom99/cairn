@@ -262,8 +262,14 @@ describe("epics.close", () => {
         status: "dropped",
         droppedReason: "the feature is not shipping",
       });
-    const kinds = (await t.run((ctx) => ctx.db.query("events").collect())).map((e) => e.kind);
+    const rows = await t.run((ctx) => ctx.db.query("events").collect());
+    const kinds = rows.map((e) => e.kind);
     expect(kinds.filter((k) => k === "issue.drop")).toHaveLength(2);
     expect(kinds.filter((k) => k === "epic.drop")).toHaveLength(1);
+    for (const e of rows.filter((e) => e.kind === "issue.drop"))
+      expect(e.changes).toEqual({
+        status: { from: "open", to: "dropped" },
+        droppedReason: { to: "the feature is not shipping" },
+      });
   });
 });

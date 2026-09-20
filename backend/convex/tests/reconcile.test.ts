@@ -141,7 +141,13 @@ describe("R3, release a silent claim", () => {
     expect(released!.claimedBy).toBeUndefined();
     expect(await issueDoc(t, "cn-2")).toMatchObject({ status: "in_progress", claimedBy: actor });
     expect((await events(t)).filter((e) => e.kind === "issue.release")).toMatchObject([
-      { actor: RECONCILE },
+      {
+        actor: RECONCILE,
+        changes: {
+          status: { from: "in_progress", to: "open" },
+          claimedBy: { from: actor.name },
+        },
+      },
     ]);
   });
 });

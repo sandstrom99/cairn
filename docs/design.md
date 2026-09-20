@@ -207,6 +207,15 @@ stale write is rejected with the events since the writer's revision, which is
 exactly the "what changed, who changed it and when" of §9, read from the table
 rather than reconstructed.
 
+What an event records is what a reader should see, not the patch that was written.
+`lastActivity`, `claimedAt` and `closedAt` are housekeeping the row's own time already
+says, and an actor travels by name. So a claim records `status` and `claimedBy`, a release
+the same in reverse, a close `status` and a one-line summary of the verification whose
+whole record stays on the issue, and a drop `status` and `droppedReason`; the helpers are
+in `lib/changes.ts`, one per move, shared by every site that makes that move. Events
+written before 2026-09-20 carry the raw patch for those four kinds, because nothing
+migrates an audit trail, so whatever renders `changes` reads both.
+
 ### The three content fields
 
 Taken from the beads plugin verbatim, because it is the best product thinking in

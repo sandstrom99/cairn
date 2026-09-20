@@ -274,6 +274,13 @@ describe("issues.claim", () => {
     await expect(t.mutation(api.issues.claim, { actor: other, id: "cn-1" })).rejects.toMatchObject({
       data: { kind: "claimed", id: "cn-1", by: actor, since: mine.claimedAt },
     });
+
+    // The event names the move, not the timestamps and actor object the patch carries.
+    const [event] = await eventsOf(t, "issue.claim");
+    expect(event!.changes).toEqual({
+      status: { from: "open", to: "in_progress" },
+      claimedBy: { to: actor.name },
+    });
   });
 
   it("is idempotent for the same actor: one event, one revision", async () => {
@@ -309,6 +316,12 @@ describe("issues.release", () => {
     expect(released).toMatchObject({ status: "open", revision: 2 });
     expect(released.claimedBy).toBeUndefined();
     expect(released.claimedAt).toBeUndefined();
+
+    const [event] = await eventsOf(t, "issue.release");
+    expect(event!.changes).toEqual({
+      status: { from: "in_progress", to: "open" },
+      claimedBy: { from: actor.name },
+    });
   });
 
   it("lets a human release anybody's claim, and does nothing to an unclaimed issue", async () => {
@@ -426,6 +439,12 @@ describe("issues.close", () => {
     expect(issue.closedAt).toEqual(expect.any(Number));
     expect(issue.claimedBy).toBeUndefined();
     expect(issue.claimedAt).toBeUndefined();
+
+    const [event] = await eventsOf(t, "issue.close");
+    expect(event!.changes).toEqual({
+      status: { from: "in_progress", to: "closed" },
+      verification: { to: "vp run verify (exit 0)" },
+    });
   });
 
   it("refuses a close with no record at all, at the validator", async () => {
@@ -556,5 +575,11 @@ describe("issues.drop", () => {
       revision: 1,
     });
     expect(dropped.closedAt).toEqual(expect.any(Number));
+
+    const [event] = await eventsOf(t, "issue.drop");
+    expect(event!.changes).toEqual({
+      status: { from: "open", to: "dropped" },
+      droppedReason: { to: "the approach it describes is gone" },
+    });
   });
 });
