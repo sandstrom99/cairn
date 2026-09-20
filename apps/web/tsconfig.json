@@ -1,0 +1,26 @@
+{
+  // The type-check of the web app. Nothing here is run by Node: vite builds it, so this
+  // exists to be told when a component, a query argument or a view shape does not match.
+  //
+  // Resolution is "bundler" for the same reason cn's is: this app follows the generated
+  // `api` into @cairn/backend's sources, which import without extensions the way Convex
+  // does, and it reaches into @cairn/cli for ref.mts, which has no exports map. Under
+  // nodenext those imports fail to resolve and every `api.*` call silently types as `any`.
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "types": ["vite/client"],
+    "jsx": "react-jsx",
+
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUnusedLocals": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]
+}

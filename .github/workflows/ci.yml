@@ -21,6 +21,9 @@ jobs:
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run verify
+      # The bundle: every import apps/web makes, the generated api and the CLI's formatter
+      # among them, resolves for a browser. vp check and the tests cannot prove that.
+      - run: vp run @cairn/web#build
       # The per-verb rows of AGENTS.md, against an anonymous local backend this starts
       # and deletes itself: no Convex account and no secret. The first run on a runner
       # downloads the backend binary before the deployment answers.
