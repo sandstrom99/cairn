@@ -682,8 +682,9 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 | Check | `vp check`: oxfmt, oxlint, and a type-aware check across every tsconfig. Markdown and yaml are left as written. |
 | Tests | `vp run -r test`: vitest per package. The backend runs `convex-test` in the edge runtime, which is closer to Convex's own than Node is. |
 | The gate | `vp run verify` is check plus every test, about a second. A pre-commit hook (`vp config`, once per clone) formats and lints staged files, a Claude Stop hook refuses to end a turn with a changed file failing `vp check`, and CI runs the same gate. `AGENTS.md` carries the per-change table. |
+| End to end | `vp run verify:e2e` runs the per-verb rows of `AGENTS.md` with the real `cn` against a throwaway anonymous local deployment on its own ports and state directory, empty by construction and deleted afterwards. Decided 2026-09-17: automated verification never targets a deployment agents work in. A Convex preview deployment is the later option. |
 | Local backend | `CONVEX_AGENT_MODE=anonymous npx convex dev` runs a local deployment with no Convex account, and is how `convex/_generated` was first produced. `convex codegen` alone refuses to run without a deployment. |
-| CI | `voidzero-dev/setup-vp`, then the same commands. |
+| CI | `voidzero-dev/setup-vp`, then the gate and `vp run verify:e2e`; neither needs a Convex account. |
 
 Three things pinned, and why:
 
