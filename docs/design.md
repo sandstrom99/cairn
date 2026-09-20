@@ -538,7 +538,7 @@ the CLI, and the reasons it went are below.
 |---|---|
 | **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function. |
 | **Claude Code plugin** | Skill, SessionStart hook, slash commands. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
-| **`apps/web`** | Reserved. Built once the schema stops moving. |
+| **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. |
 
 ### Why not an MCP server
 
@@ -647,7 +647,7 @@ backend/convex/         schema, queries, mutations, tests   (@cairn/backend)
 packages/cli/           cn, no build step                    (@cairn/cli)
 plugins/cairn/          the Claude Code plugin
 docs/                   this file
-apps/                   reserved, in the workspace globs, nothing in it
+apps/web/               the web window, Vite and React           (@cairn/web)
 ```
 
 One pnpm workspace under vite-plus. The CLI depends on `@cairn/backend` through
@@ -695,7 +695,8 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 | The gate | `vp run verify` is check plus every test, about a second. A pre-commit hook (`vp config`, once per clone) formats and lints staged files, a Claude Stop hook refuses to end a turn with a changed file failing `vp check`, and CI runs the same gate. `AGENTS.md` carries the per-change table. |
 | End to end | `vp run verify:e2e` runs the per-verb rows of `AGENTS.md` with the real `cn` against a throwaway anonymous local deployment on its own ports and state directory, empty by construction and deleted afterwards. Decided 2026-09-17: automated verification never targets a deployment agents work in. A Convex preview deployment is the later option. |
 | Local backend | `CONVEX_AGENT_MODE=anonymous npx convex dev` runs a local deployment with no Convex account, and is how `convex/_generated` was first produced. `convex codegen` alone refuses to run without a deployment. |
-| CI | `voidzero-dev/setup-vp`, then the gate and `vp run verify:e2e`; neither needs a Convex account. |
+| CI | `voidzero-dev/setup-vp`, then the gate, `vp run @cairn/web#build` and `vp run verify:e2e`; none needs a Convex account. |
+| Web | `apps/web` is Vite 8 and React 19 through the same pinned vite-plus: `vp dev`, `vp build` and `vp test run`, with `@vitejs/plugin-react` 6 for Fast Refresh. Proved on 0.1.24 on 2026-09-20, which until then had only run check and test here. Its tests render to a string with `react-dom/server`, so the suite carries no DOM. |
 
 Three things pinned, and why:
 
@@ -774,7 +775,7 @@ implementation.
 | How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`). `cn init` writes that file: checked before written, added and never replaced, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8, `cn-8 "a cloud deployment per company, and the secret that guards it"` |
-| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth, Convex Auth or Clerk, arrives with `apps/web`, and only then does the actor stop being an argument |
+| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth, Convex Auth or Clerk, arrives with the page's first write, `cn-11 "apps/web, the human channel: ack and resolve behind identity auth"`, and only then does the actor stop being an argument. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
 | Who counts as the actor on a journal entry or a claim | Lean: the argument `cn` sends (§12) until identity auth exists, then the token's identity, with `kind` from whether the token belongs to a person |
 | Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |
 | The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |

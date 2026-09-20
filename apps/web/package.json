@@ -1,0 +1,28 @@
+{
+  "name": "@cairn/web",
+  "private": true,
+  "description": "The web window onto a cairn deployment: convex/react subscriptions to the same functions cn calls.",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@cairn/backend": "workspace:*",
+    "@cairn/cli": "workspace:*",
+    "convex": "^1.46.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

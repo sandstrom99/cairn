@@ -9,6 +9,7 @@
     "check": "vp check",
     "test": "vp run -r test",
     "dev": "vp run @cairn/backend#dev",
+    "dev:web": "vp run @cairn/web#dev",
     "codegen": "vp run @cairn/backend#codegen"
   },
   "devDependencies": {
