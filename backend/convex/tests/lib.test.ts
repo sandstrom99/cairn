@@ -5,6 +5,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import type { MutationCtx } from "../_generated/server";
+import { claimChanges, closeChanges, dropChanges, releaseChanges } from "../lib/changes";
 import { mint } from "../lib/ids";
 import { ensureInbox } from "../lib/inbox";
 import { applyRevision, expectRevision } from "../lib/revision";
@@ -37,6 +38,71 @@ describe("ensureInbox", () => {
       expect(second._id).toEqual(first._id);
       expect(await ctx.db.query("epics").collect()).toHaveLength(1);
       expect(await ctx.db.query("counters").collect()).toHaveLength(0);
+    });
+  });
+});
+
+describe("changes", () => {
+  async function seeded() {
+    const t = convexTest(schema, modules);
+    await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
+    await t.mutation(api.epics.create, { actor, title: "Create to close" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "one" });
+    return t;
+  }
+
+  const issueDoc = (t: Awaited<ReturnType<typeof seeded>>) =>
+    t.run((ctx) =>
+      ctx.db
+        .query("issues")
+        .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
+        .unique(),
+    );
+
+  it("claimChanges moves status open to in_progress and names the claimer", async () => {
+    const t = await seeded();
+    const doc = (await issueDoc(t))!;
+    expect(claimChanges(doc, actor)).toEqual({
+      status: { from: "open", to: "in_progress" },
+      claimedBy: { to: actor.name },
+    });
+  });
+
+  it("releaseChanges names who held it, and omits claimedBy when nobody did", async () => {
+    const t = await seeded();
+    await t.mutation(api.issues.claim, { actor, id: "cn-1" });
+    const held = (await issueDoc(t))!;
+    expect(releaseChanges(held)).toEqual({
+      status: { from: "in_progress", to: "open" },
+      claimedBy: { from: actor.name },
+    });
+
+    await t.mutation(api.issues.release, { actor, id: "cn-1" });
+    const unclaimed = (await issueDoc(t))!;
+    const result = releaseChanges(unclaimed);
+    expect(result).toEqual({ status: { from: "open", to: "open" } });
+    expect("claimedBy" in result).toBe(false);
+  });
+
+  it("closeChanges summarises a command's exit code, and an unverified reason", async () => {
+    const t = await seeded();
+    const doc = (await issueDoc(t))!;
+    expect(closeChanges(doc, { command: "vp run verify", exitCode: 0, output: "ok" })).toEqual({
+      status: { from: "open", to: "closed" },
+      verification: { to: "vp run verify (exit 0)" },
+    });
+    expect(closeChanges(doc, { unverified: "ran on the mac" })).toEqual({
+      status: { from: "open", to: "closed" },
+      verification: { to: "unverified: ran on the mac" },
+    });
+  });
+
+  it("dropChanges names the reason", async () => {
+    const t = await seeded();
+    const doc = (await issueDoc(t))!;
+    expect(dropChanges(doc, "not going to happen")).toEqual({
+      status: { from: "open", to: "dropped" },
+      droppedReason: { to: "not going to happen" },
     });
   });
 });
