@@ -21,3 +21,7 @@ jobs:
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run verify
+      # The per-verb rows of AGENTS.md, against an anonymous local backend this starts
+      # and deletes itself: no Convex account and no secret. The first run on a runner
+      # downloads the backend binary before the deployment answers.
+      - run: vp run verify:e2e

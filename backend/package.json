@@ -10,6 +10,7 @@
     "dev": "node scripts/local.mjs dev",
     "dev:local": "node scripts/local.mjs dev",
     "dev:cloud": "node scripts/cloud.mjs",
+    "dev:throwaway": "node scripts/throwaway.mjs",
     "verify": "node scripts/local.mjs dev --once",
     "push:cloud": "node scripts/cloud.mjs --once",
     "deploy": "convex deploy",
