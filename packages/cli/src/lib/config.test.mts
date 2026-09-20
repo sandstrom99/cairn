@@ -1,8 +1,24 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { configPath, resolveDeployment } from "./config.mts";
+import { dirname, join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  type CairnConfig,
+  configPath,
+  readConfig,
+  resolveDeployment,
+  withDeployment,
+  writeConfig,
+} from "./config.mts";
 
 function tempConfig(body: unknown): NodeJS.ProcessEnv {
   const home = mkdtempSync(join(tmpdir(), "cairn-config-"));
@@ -88,5 +104,131 @@ describe("resolveDeployment", () => {
 
   it("honours XDG_CONFIG_HOME in the path", () => {
     expect(configPath({ XDG_CONFIG_HOME: "/x" })).toBe("/x/cairn/config.json");
+  });
+});
+
+/** What `cn init` hands `withDeployment`, minus whatever the test varies. */
+const input = { name: "cairn", url: "https://b", makeDefault: false };
+
+describe("withDeployment", () => {
+  it("makes the first deployment the whole file, and the default", () => {
+    expect(withDeployment(null, { ...input, secret: "s", can: ["web"], host: "wsl" })).toEqual({
+      default: "cairn",
+      host: "wsl",
+      can: ["web"],
+      deployments: { cairn: { url: "https://b", secret: "s" } },
+    });
+  });
+
+  it("writes no secret key when there is no secret, and no host or can when not given", () => {
+    expect(withDeployment(null, input)).toEqual({
+      default: "cairn",
+      deployments: { cairn: { url: "https://b" } },
+    });
+    // An empty --can is not an answer about what the machine can do.
+    expect(withDeployment(null, { ...input, can: [] })).not.toHaveProperty("can");
+  });
+
+  it("adds beside what is there, leaving the default, host and can alone", () => {
+    const existing: CairnConfig = {
+      default: "invyte",
+      host: "wsl",
+      can: ["web", "android"],
+      deployments: { invyte: { url: "https://a", secret: "s" } },
+    };
+    expect(withDeployment(existing, input)).toEqual({
+      default: "invyte",
+      host: "wsl",
+      can: ["web", "android"],
+      deployments: { invyte: { url: "https://a", secret: "s" }, cairn: { url: "https://b" } },
+    });
+    expect(existing.deployments.cairn).toBeUndefined();
+  });
+
+  it("takes the default with --default, and when the file names none", () => {
+    const existing: CairnConfig = {
+      default: "invyte",
+      deployments: { invyte: { url: "https://a" } },
+    };
+    expect(withDeployment(existing, { ...input, makeDefault: true }).default).toBe("cairn");
+    const undecided: CairnConfig = { deployments: { invyte: { url: "https://a" } } };
+    expect(withDeployment(undecided, input).default).toBe("cairn");
+  });
+
+  it("replaces host and can only when they are given", () => {
+    const existing: CairnConfig = {
+      default: "invyte",
+      host: "wsl",
+      can: ["web"],
+      deployments: { invyte: { url: "https://a" } },
+    };
+    expect(withDeployment(existing, { ...input, host: "mac", can: ["ios"] })).toMatchObject({
+      host: "mac",
+      can: ["ios"],
+    });
+  });
+
+  it("refuses a name the file already carries, whether or not the url matches", () => {
+    const existing: CairnConfig = { deployments: { cairn: { url: "https://b" } } };
+    expect(() => withDeployment(existing, input)).toThrow(/already a deployment/);
+    expect(() => withDeployment(existing, { ...input, url: "https://other" })).toThrow(
+      /already a deployment/,
+    );
+  });
+
+  it("treats a file with no deployments key as one with none", () => {
+    expect(withDeployment({ default: "gone" } as CairnConfig, input).deployments).toEqual({
+      cairn: { url: "https://b" },
+    });
+  });
+});
+
+describe("writeConfig", () => {
+  /** Every XDG_CONFIG_HOME this describe makes, removed whatever the test did. */
+  const made: string[] = [];
+  const home = (): NodeJS.ProcessEnv => {
+    const dir = mkdtempSync(join(tmpdir(), "cairn-write-"));
+    made.push(dir);
+    return { XDG_CONFIG_HOME: dir };
+  };
+  const mode = (file: string): number => statSync(file).mode & 0o777;
+
+  afterEach(() => {
+    for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  const config: CairnConfig = {
+    default: "cairn",
+    deployments: { cairn: { url: "https://b", secret: "s" } },
+  };
+
+  it("creates the directory and writes the file 600", () => {
+    const env = home();
+    const file = writeConfig(config, env);
+    expect(file).toBe(configPath(env));
+    expect(mode(file)).toBe(0o600);
+    expect(mode(dirname(file))).toBe(0o700);
+  });
+
+  it("round-trips through readConfig, with a trailing newline", () => {
+    const env = home();
+    expect(readConfig(env)).toBeNull();
+    const file = writeConfig(config, env);
+    expect(readConfig(env)).toEqual(config);
+    expect(readFileSync(file, "utf8").endsWith("}\n")).toBe(true);
+  });
+
+  it("tightens a file that was already there and looser, since the secret is in it", () => {
+    const env = home();
+    const file = writeConfig(config, env);
+    chmodSync(file, 0o644);
+    writeConfig(config, env);
+    expect(mode(file)).toBe(0o600);
+  });
+
+  it("leaves no temp file behind", () => {
+    const env = home();
+    const file = writeConfig(config, env);
+    expect(readdirSync(dirname(file))).toEqual(["config.json"]);
   });
 });

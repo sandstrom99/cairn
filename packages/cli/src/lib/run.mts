@@ -12,6 +12,10 @@
 // The command runs through `sh -c`, so a pipeline or a `&&` works, with stdin closed —
 // nothing it runs may wait for a person. stdout and stderr are both captured and joined:
 // the interesting line of a failing build is as often on stderr as not.
+//
+// `captureStdout` is the other shape, for `cn init --secret-cmd`: the same `sh -c` with
+// the two streams kept apart, because there the stdout is a secret and only the stderr
+// may be shown.
 
 import { spawnSync } from "node:child_process";
 import { constants } from "node:os";
@@ -28,6 +32,11 @@ export type RunOptions = {
 
 const MINUTE = 60_000;
 const TEN_MINUTES = 10 * MINUTE;
+/**
+ * Long for a command that prints one line, because a password manager's CLI may wait on
+ * a person unlocking it, and its own unattended bound has to expire first.
+ */
+const UNLOCK = 150_000;
 const TAIL = 40;
 /** 64 MB of output, past which the pipe is cut. Only the tail is kept anyway. */
 const MAX_BUFFER = 64 * 1024 * 1024;
@@ -47,6 +56,36 @@ const tail = (text: string, lines: number): string =>
 
 /** A signal's number, for the 128 + N convention a shell reports. */
 const signalNumber = (signal: NodeJS.Signals): number => constants.signals[signal] ?? 0;
+
+/**
+ * A command's stdout alone, for a value that must not be merged, tailed or echoed: a
+ * secret. The two streams stay apart so a caller can show why it failed without ever
+ * showing what it printed. A timeout is exit 124 and a signal 128 + N, as `runCommand`
+ * reports them; stdout comes back trimmed of its trailing line ending and nothing else.
+ * That ending is `\r\n` when the command is a Windows binary reached from WSL, and a
+ * carriage return left on a secret is a secret the deployment refuses.
+ */
+export function captureStdout(
+  command: string,
+  timeoutMs = UNLOCK,
+): { exitCode: number; stdout: string; stderr: string } {
+  const result = spawnSync("sh", ["-c", command], {
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    timeout: timeoutMs,
+  });
+
+  const error = result.error as NodeJS.ErrnoException | undefined;
+  const timedOut = error?.code === "ETIMEDOUT";
+  const exitCode = timedOut
+    ? 124
+    : result.signal
+      ? 128 + signalNumber(result.signal)
+      : (result.status ?? 1);
+  // A spawn that never ran has nothing on either stream, so its message is the diagnosis.
+  const said = `${result.stderr ?? ""}${error ? `\n${error.message}` : ""}`;
+  return { exitCode, stdout: (result.stdout ?? "").replace(/[\r\n]+$/, ""), stderr: said.trim() };
+}
 
 /** Runs `command` and returns what it did, as the verification record takes it. */
 export function runCommand(

@@ -20,7 +20,7 @@
 
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { ConvexHttpClient } from "convex/browser";
-import { type Deployment, configPath, resolveDeployment } from "./config.mts";
+import { type Deployment, noDeploymentMessage, resolveDeployment } from "./config.mts";
 
 export { api };
 
@@ -49,12 +49,20 @@ export function withSecret(http: CairnClient, secret?: string): CairnClient {
   };
 }
 
+/**
+ * A client for a deployment named outright, rather than one the config resolves: what
+ * `cn init` checks against, since the deployment it was given is not in the file yet.
+ */
+export function connectTo(target: { url: string; secret?: string }): CairnClient {
+  return withSecret(client(target.url), target.secret);
+}
+
 /** The client for the deployment this machine resolves, or a message saying there is none. */
 export function connect(env: NodeJS.ProcessEnv = process.env): {
   client: CairnClient;
   deployment: Deployment;
 } {
   const deployment = resolveDeployment(env);
-  if (!deployment) throw new Error(`no deployment: set CAIRN_URL, or write ${configPath(env)}`);
-  return { client: withSecret(client(deployment.url), deployment.secret), deployment };
+  if (!deployment) throw new Error(noDeploymentMessage());
+  return { client: connectTo(deployment), deployment };
 }

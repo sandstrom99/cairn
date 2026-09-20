@@ -11,7 +11,7 @@
 // after it says so. Doctor names where a secret came from and never prints it.
 
 import { ConvexError } from "convex/values";
-import { configPath, resolveDeployment } from "../lib/config.mts";
+import { configPath, noDeploymentMessage, resolveDeployment } from "../lib/config.mts";
 import { usageFromHeader } from "../lib/cli.mts";
 import { parseArgs } from "../lib/args.mts";
 
@@ -58,7 +58,7 @@ export async function run(argv: string[]): Promise<number> {
     ? `secret from ${dep.secretSource === "env" ? "CAIRN_SECRET" : "config"}`
     : "no secret";
   if (dep) ok(`deployment ${dep.name} → ${dep.url} (from ${dep.source}, ${secret})`);
-  else bad(`no deployment: set CAIRN_URL, or write ${configPath()}`);
+  else bad(noDeploymentMessage());
 
   try {
     const { api, connect } = await import("../lib/client.mts");

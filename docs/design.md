@@ -459,8 +459,11 @@ A hook injects **under 20 lines**:
 - waiting-on-you as a **count only**
 - anything reconcile flagged
 
-Scenario 1 answers without a tool call; scenario 2 starts warm. One query,
-`brief.get(can)`, returns the numbers and the heads; `cn brief` lays them out:
+Scenario 1 answers without a tool call; scenario 2 starts warm. With `cn` on
+PATH and no deployment configured the hook prints two lines pointing at
+`/cairn:init` instead of nothing, because a machine that has `cn` installed
+means to use it. One query, `brief.get(can)`, returns the numbers and the heads;
+`cn brief` lays them out:
 
 ```
 cairn · invyte · wsl/claude can web android
@@ -617,6 +620,7 @@ teaches and the `--help` headers restate.
 | `cn project new\|list` | `projects.create` · `projects.list` | |
 | `cn reconcile <epic> [--owner <who>]` | `reconcile.run` | mutation |
 | `cn doctor` | `projects.list`, as the ping | query |
+| `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` | `projects.list`, as the check; then it writes this machine's config | query, local |
 
 Every read verb takes `--json`. Every list line starts with the reference form.
 On a stale-write error every write verb prints the events since the caller's
@@ -767,7 +771,7 @@ implementation.
 
 | Open question | Current lean |
 |---|---|
-| How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`) |
+| How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`). `cn init` writes that file: checked before written, added and never replaced, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8, `cn-8 "a cloud deployment per company, and the secret that guards it"` |
 | Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth, Convex Auth or Clerk, arrives with `apps/web`, and only then does the actor stop being an argument |
