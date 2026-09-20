@@ -10,11 +10,13 @@
 
 import type * as blockers from "../blockers.js";
 import type * as brief from "../brief.js";
+import type * as crons from "../crons.js";
 import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
 import type * as issues from "../issues.js";
 import type * as journal from "../journal.js";
 import type * as lib_actor from "../lib/actor.js";
+import type * as lib_env from "../lib/env.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_followUp from "../lib/followUp.js";
@@ -42,11 +44,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   blockers: typeof blockers;
   brief: typeof brief;
+  crons: typeof crons;
   edges: typeof edges;
   epics: typeof epics;
   issues: typeof issues;
   journal: typeof journal;
   "lib/actor": typeof lib_actor;
+  "lib/env": typeof lib_env;
   "lib/errors": typeof lib_errors;
   "lib/events": typeof lib_events;
   "lib/followUp": typeof lib_followUp;
