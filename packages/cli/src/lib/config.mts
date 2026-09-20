@@ -25,11 +25,25 @@
 // anonymous local deployment open. It fences a deployment, not an actor: identity auth is
 // still §13.
 //
+// The file is written by `cn init` and by hand, and by nothing else. What `cn init`
+// guarantees is here, in `withDeployment` and `writeConfig`: it is checked before it is
+// written — the deployment answers and takes the secret, or the file is untouched — it
+// adds a deployment and never replaces one, and the file lands mode 600 in a 700
+// directory, because the secret is in it.
+//
 // $XDG_CONFIG_HOME replaces ~/.config when set.
 
-import { existsSync, readFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export type DeploymentConfig = { url: string; secret?: string };
 export type CairnConfig = {
@@ -63,6 +77,64 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CairnConfig | 
   } catch (e) {
     throw new Error(`${file}: ${(e as Error).message}`);
   }
+}
+
+/** What `cn init` was told, already validated by the verb. */
+export type NewDeployment = {
+  name: string;
+  url: string;
+  secret?: string;
+  host?: string;
+  can?: string[];
+  makeDefault: boolean;
+};
+
+/** `existing` with the deployment added. Pure; throws Error when the name is taken. */
+export function withDeployment(existing: CairnConfig | null, input: NewDeployment): CairnConfig {
+  const { name, url, secret, host, can, makeDefault } = input;
+  const deployments = existing?.deployments ?? {};
+  const taken = deployments[name];
+  // The same refusal whether or not the url matches: which of the two the machine meant
+  // is a person's call, and guessing it wrong silently retargets every verb.
+  if (taken)
+    throw new Error(
+      `${name} is already a deployment in the config, at ${taken.url};` +
+        " cn init adds, it does not replace. Edit the file to change it.",
+    );
+  // An empty --can is not an answer: it leaves what the file already said alone.
+  const capabilities = can && can.length > 0 ? can : undefined;
+  return {
+    ...existing,
+    // The first deployment a file has is what every verb resolves to, so it is the
+    // default whether or not --default was passed.
+    ...(makeDefault || existing?.default === undefined ? { default: name } : {}),
+    ...(host === undefined ? {} : { host }),
+    ...(capabilities === undefined ? {} : { can: capabilities }),
+    deployments: { ...deployments, [name]: { url, ...(secret === undefined ? {} : { secret }) } },
+  };
+}
+
+/** Writes the config 600 in a 700 directory, atomically, and returns its path. */
+export function writeConfig(config: CairnConfig, env: NodeJS.ProcessEnv = process.env): string {
+  const file = configPath(env);
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  const temp = `${file}.tmp-${process.pid}`;
+  try {
+    writeFileSync(temp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+    renameSync(temp, file);
+    // A rename carries the new file's mode, but an older file at the path may have been
+    // looser and this is the case that matters: the secret is in what just landed.
+    chmodSync(file, 0o600);
+  } catch (e) {
+    rmSync(temp, { force: true });
+    throw e;
+  }
+  return file;
+}
+
+/** The one sentence every verb and `cn doctor` say when nothing resolves. */
+export function noDeploymentMessage(): string {
+  return "no deployment: run `cn init` to set this machine up (cn init --help), or set CAIRN_URL";
 }
 
 /** The deployment to use, or null when nothing names one. */

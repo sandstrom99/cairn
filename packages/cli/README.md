@@ -18,42 +18,46 @@ enums: the compiler only ever checks, it never emits.
 
 ## A second machine
 
-The same three steps, plus the config file, because nothing about the deployment is in
-the checkout:
+The same two steps, plus `cn init`, because nothing about the deployment is in the
+checkout:
 
 ```bash
 vp install                                         # once per checkout, at the repo root
 ln -s ~/code/cairn/packages/cli/bin/cn ~/.local/bin/cn
-mkdir -p ~/.config/cairn
-cat > ~/.config/cairn/config.json <<'EOF'
+cn init --name cairn --url "$(op read 'op://Personal/cairn dev deployment/url')" \
+  --secret-cmd 'op read "op://Personal/cairn dev deployment/secret"' \
+  --can web android
+cn doctor
+```
+
+`--can` is what this machine can do, not what it must be. `--secret-cmd` is run once,
+here, and its stdout is the secret, so the secret is never an argument and never in a
+shell history; `cn init` checks that the deployment answers and takes it before writing
+anything, and writes the file 600. It adds and never replaces: run against a name the
+file already has, it refuses and changes nothing.
+
+The two values to fill in are the deployment's url and its secret, and 1Password is where
+both live: the item `cairn dev deployment` in the Personal vault, fields `url`, `secret`
+and `deployment`. The secret is the one `CAIRN_SECRET` set on the deployment, so a machine
+already logged in to Convex can also read it back with
+`npx convex env get CAIRN_SECRET --deployment <deployment>` from `backend/`.
+
+The file `cn init` writes is `~/.config/cairn/config.json`, and it is the copy `cn` reads
+on every call — `op` is not on that path, because one read costs seconds:
+
+```json
 {
   "default": "cairn",
   "can": ["web", "android"],
   "deployments": {
-    "cairn": {
-      "url": "https://<deployment>.convex.cloud",
-      "secret": "<the deployment's CAIRN_SECRET>"
-    }
+    "cairn": { "url": "https://<deployment>.convex.cloud", "secret": "…" }
   }
 }
-EOF
-chmod 600 ~/.config/cairn/config.json
-cn doctor
 ```
 
-`can` is what this machine can do, not what it must be. The two values to fill in are the
-deployment's url and its secret, and 1Password is where both live: the item `cairn dev
-deployment` in the Personal vault, fields `url`, `secret` and `deployment`.
-
-```bash
-op read "op://Personal/cairn dev deployment/secret"
-```
-
-The secret is the one `CAIRN_SECRET` set on the deployment, so a machine already logged
-in to Convex can also read it back with
-`npx convex env get CAIRN_SECRET --deployment <deployment>` from `backend/`. The file is
-the copy `cn` reads on every call; `op` is not on that path, because one read costs
-seconds. `CAIRN_SECRET` in the shell overrides the file, for a hook or a one-off run.
+Editing it by hand is how a deployment that already exists changes. `CAIRN_SECRET` in the
+shell overrides the file, for a hook or a one-off run, and `cn init` takes it as the
+secret when `--secret-cmd` is not given.
 
 When it works, the last two lines of `cn doctor` are the deployment answering and
 

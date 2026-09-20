@@ -43,7 +43,7 @@ the ones an empty deployment mints — `ep-1`, `cn-1`, `bl-1` — and it stops t
 deployment and deletes its state after itself. Its last line is:
 
 ```
-e2e: 19 rows passed against an empty throwaway deployment
+e2e: 20 rows passed against an empty throwaway deployment
 ```
 
 To run one row by hand, `vp run @cairn/backend#dev:throwaway` in another terminal
@@ -61,7 +61,7 @@ change works where it runs:
 | `backend/convex/crons.ts`, `reconcile.sweep` | `vp run @cairn/backend#verify`, then from `backend/`: `node scripts/local.mjs dev --once --run reconcile:sweep` | Convex accepts the cron, and on a deployment with no `CAIRN_OWNER` the sweep warns that it is off and answers `{"epics": [], "owner": null}`, touching nothing |
 | `packages/cli/**` | `vp run verify:e2e` | every verb runs end to end against a real deployment, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
-| `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh`, with `CAIRN_URL` set and with it unset, plus `claude plugin validate plugins/cairn --strict` | the brief with a deployment, nothing without, exit 0 both ways, and a manifest that validates |
+| `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh` three ways — with `CAIRN_URL` set, with it unset on a machine that has a config, and with `XDG_CONFIG_HOME` pointed at an empty directory — plus `claude plugin validate plugins/cairn --strict` | the brief from the environment, the brief from the file, and with nothing configured the two lines pointing at `/cairn:init`; exit 0 every way, and a manifest that validates |
 | `.claude/settings.json` | `claude plugin details cairn@cairn` from the repo root | the inventory names the skill, the four commands and the SessionStart hook; it needs the folder's trust dialog accepted once in an interactive `claude`, before which project marketplaces are ignored without a message, and `claude plugin list` never shows a project-enabled plugin |
 | `verbs/doctor.mts` | `cn doctor`, with nothing set in the environment | the last two lines are the deployment answering and `✓ secret accepted by cairn`, not only the config resolving |
 | `verbs/project.mts` | `cn project new cn --name "cairn: backend, cli, plugin"`, then `cn project list` | a slug becomes an id prefix, and the list reads it back |
@@ -82,6 +82,7 @@ change works where it runs:
 | `verbs/close.mts` | `cn close cn-1 --revision N --run 'exit 3'`, then `cn close cn-2 --revision N --run 'echo proof' --follow-up "scratch: follow-up" --kind verify` | a command that failed cannot close an issue; the stored record is the real exit code and output tail, and the follow-up exists beside the closed parent |
 | `verbs/epic.mts` (close) | `cn epic close ep-1 --revision N` with cn-1 and cn-3 still open | closing over open work is refused, naming it |
 | `verbs/reconcile.mts` | `cn epic new "scratch: reconcile"` → ep-2, two `cn create --project cn --epic ep-2` titled "scratch: the same title" and "scratch: the same title.", then `cn reconcile ep-2` twice, then `env -u CLAUDECODE cn resolve bl-2 --note scratch`, then `cn epic close ep-2 --revision N --drop --reason scratch` | one decision blocker raised by `cairn/reconcile` holding both, a second run does nothing, and the scratch epic and its issues are dropped with the reason |
+| `verbs/init.mts` | with `XDG_CONFIG_HOME` pointed at an empty directory and no `CAIRN_URL` throughout: `cn doctor`, then `bash plugins/cairn/hooks/session-start.sh`, then `cn init --name e2e --url <the throwaway's> --secret-cmd "echo s3cret" --can web android`, then `cn doctor`, then that same `cn init` again, then `cn init --name other --url <the same>`, then `cn init --name dead --url http://127.0.0.1:9`, then the hook again | a cold machine is told to run `cn init` and the hook points at `/cairn:init`; the config lands mode 600 with the secret never printed; a name already there is refused and the bytes do not move; a second deployment leaves the default and `can` alone and carries no `secret` key; a deployment that does not answer writes nothing; and the hook that asked for setup now prints the brief |
 
 A local deployment with no account, once, in another terminal:
 `vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is

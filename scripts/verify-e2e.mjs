@@ -13,10 +13,11 @@
 // state directory and deletes both afterwards. The target is only ever the deployment
 // this script started — never the worklist, never the local dev copy on 3210 — and `cn`
 // runs with XDG_CONFIG_HOME pointed at a temp directory, so ~/.config/cairn/config.json
-// cannot be read even if CAIRN_URL went missing.
+// cannot be read even if CAIRN_URL went missing. The `cn init` row is the one that writes
+// a config at all, and it writes into a second temp directory it starts empty.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,31 +25,54 @@ import { startThrowaway } from "../backend/scripts/throwaway.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const MAIN = join(root, "packages", "cli", "src", "main.mts");
+const HOOK = join(root, "plugins", "cairn", "hooks", "session-start.sh");
 
 /** The deployment under test and the config home cn reads, both set up in `main`. */
 let url;
 let home;
+/** The config home the `cn init` row starts empty, and a directory holding a `cn` on PATH. */
+let cold;
+let bin;
 /** The last `cn` call, which is what a failed row prints beside its assertion. */
 let last;
+
+/** The environment every call gets: nothing of this machine's cairn, everything of this run's. */
+function environment({ as, xdg, viaConfig }) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (key.startsWith("CAIRN_")) delete env[key];
+  delete env.CLAUDECODE;
+  // A `viaConfig` call names no deployment in the environment, so the only place one can
+  // come from is the file under XDG_CONFIG_HOME — which is what `cn init` writes.
+  if (!viaConfig) env.CAIRN_URL = url;
+  env.CAIRN_HOST = "e2e";
+  env.XDG_CONFIG_HOME = xdg;
+  if (as !== "human") env.CLAUDECODE = "1";
+  if (as === "other") env.CAIRN_ACTOR = "other/agent";
+  return env;
+}
 
 /**
  * One `cn` run. `as` is who the call is: an agent (CLAUDECODE set, actor `e2e/claude`),
  * a person (no CLAUDECODE), or a second agent on another machine (CAIRN_ACTOR set).
+ * `xdg` is the config home it reads, and `viaConfig` withholds CAIRN_URL so it has to.
  */
-function cn(args, { as = "agent" } = {}) {
-  const env = { ...process.env };
-  for (const key of Object.keys(env)) if (key.startsWith("CAIRN_")) delete env[key];
-  delete env.CLAUDECODE;
-  env.CAIRN_URL = url;
-  env.CAIRN_HOST = "e2e";
-  env.XDG_CONFIG_HOME = home;
-  if (as !== "human") env.CLAUDECODE = "1";
-  if (as === "other") env.CAIRN_ACTOR = "other/agent";
-
-  const result = spawnSync(process.execPath, [MAIN, ...args], { encoding: "utf8", cwd: home, env });
+function cn(args, { as = "agent", xdg = home, viaConfig = false } = {}) {
+  const env = environment({ as, xdg, viaConfig });
+  const result = spawnSync(process.execPath, [MAIN, ...args], { encoding: "utf8", cwd: xdg, env });
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
   last = { args, status: result.status, stdout, stderr, out: stdout + stderr };
+  return last;
+}
+
+/** The SessionStart hook, run as a cold machine with `cn` on PATH and no deployment. */
+function hook() {
+  const env = environment({ as: "agent", xdg: cold, viaConfig: true });
+  env.PATH = `${bin}:${env.PATH ?? ""}`;
+  const result = spawnSync("bash", [HOOK], { encoding: "utf8", cwd: cold, env });
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  last = { args: ["(hook)"], status: result.status, stdout, stderr, out: stdout + stderr };
   return last;
 }
 
@@ -333,6 +357,64 @@ row("verbs/reconcile.mts", () => {
   assert.equal(dropped.status, 0, "cn epic close --drop was refused");
 });
 
+row("verbs/init.mts", () => {
+  const config = join(cold, "cairn", "config.json");
+  const viaFile = { xdg: cold, viaConfig: true };
+
+  // A machine with nothing configured: every verb says so, and the hook says where to go.
+  const blind = cn(["doctor"], viaFile);
+  assert.equal(blind.status, 1, "cn doctor passed on a machine with no deployment at all");
+  assert.match(blind.out, /cn init/, "the refusal does not name the verb that fixes it");
+  const asked = hook();
+  assert.equal(asked.status, 0, "the hook exited non-zero with nothing configured");
+  assert.match(asked.stdout, /not set up/, "the hook does not say the machine is not set up");
+  assert.match(asked.stdout, /\/cairn:init/, "the hook does not point at /cairn:init");
+
+  // The whole setup, as a person would run it, with the secret coming from a command.
+  const setup = ["init", "--name", "e2e", "--url", url, "--secret-cmd", "echo s3cret"];
+  const made = cn([...setup, "--can", "web", "android"], viaFile);
+  assert.equal(made.status, 0, "cn init was refused against a deployment that answers");
+  assert.ok(!made.out.includes("s3cret"), "cn init printed the secret it was given");
+  assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
+  assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), {
+    default: "e2e",
+    can: ["web", "android"],
+    deployments: { e2e: { url, secret: "s3cret" } },
+  });
+
+  // The file alone is enough from here: nothing in the environment names a deployment.
+  const doctored = cn(["doctor"], viaFile);
+  assert.equal(doctored.status, 0, "cn doctor failed on the config cn init just wrote");
+  assert.match(doctored.out, /e2e/, "cn doctor does not name the deployment it resolved");
+  assert.match(doctored.out, /from config/, "cn doctor does not name the config as the source");
+
+  const written = readFileSync(config, "utf8");
+  const again = cn([...setup, "--can", "web", "android"], viaFile);
+  assert.equal(again.status, 1, "cn init replaced a deployment that was already there");
+  assert.match(again.out, /already a deployment/, "the refusal does not say the name is taken");
+  assert.equal(readFileSync(config, "utf8"), written, "the refused cn init wrote anyway");
+
+  const second = cn(["init", "--name", "other", "--url", url], viaFile);
+  assert.equal(second.status, 0, "a second deployment was refused");
+  const both = JSON.parse(readFileSync(config, "utf8"));
+  assert.deepEqual(sorted(Object.keys(both.deployments)), ["e2e", "other"], "both are not there");
+  assert.equal(both.default, "e2e", "a second deployment took the default without --default");
+  assert.deepEqual(both.can, ["web", "android"], "a second deployment rewrote can");
+  assert.ok(!("secret" in both.deployments.other), "a deployment with no secret got a secret key");
+
+  const dead = cn(["init", "--name", "dead", "--url", "http://127.0.0.1:9"], viaFile);
+  assert.equal(dead.status, 1, "cn init against a deployment that does not answer was allowed");
+  assert.match(dead.out, /nothing written/, "the refusal does not say nothing was written");
+  assert.ok(!readFileSync(config, "utf8").includes("dead"), "a failed check was written anyway");
+
+  // The second acceptance criterion: the first session after setup opens with the brief.
+  const warm = hook();
+  assert.equal(warm.status, 0, "the hook exited non-zero with a deployment configured");
+  assert.ok(!warm.stdout.includes("/cairn:init"), "the hook still asks for setup after cn init");
+  assert.match(warm.stdout, /e2e/, "the brief does not name the deployment");
+  assert.match(warm.stdout, /can web android/, "the brief does not carry what the config said");
+});
+
 // ---------------------------------------------------------------------------
 
 /** Runs the rows in order, stopping at the first failure: each one reads the last's state. */
@@ -359,9 +441,14 @@ let deployment;
 let passed = false;
 
 const teardown = async () => {
-  if (home) {
-    rmSync(home, { recursive: true, force: true });
-    home = undefined;
+  for (const [dir, clear] of [
+    [home, () => (home = undefined)],
+    [cold, () => (cold = undefined)],
+    [bin, () => (bin = undefined)],
+  ]) {
+    if (!dir) continue;
+    rmSync(dir, { recursive: true, force: true });
+    clear();
   }
   if (deployment) {
     const stopping = deployment;
@@ -380,6 +467,11 @@ try {
   deployment = await startThrowaway();
   url = deployment.url;
   home = mkdtempSync(join(tmpdir(), "cairn-e2e-"));
+  // The `cn init` row needs a machine that has nothing: its own empty config home, and a
+  // `cn` on PATH for the SessionStart hook, which is all that hook looks for.
+  cold = mkdtempSync(join(tmpdir(), "cairn-e2e-cold-"));
+  bin = mkdtempSync(join(tmpdir(), "cairn-e2e-bin-"));
+  symlinkSync(join(root, "packages", "cli", "bin", "cn"), join(bin, "cn"));
   passed = runRows();
   if (passed) console.log(`e2e: ${rows.length} rows passed against an empty throwaway deployment`);
 } catch (e) {

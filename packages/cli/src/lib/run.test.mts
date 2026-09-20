@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runCommand } from "./run.mts";
+import { captureStdout, runCommand } from "./run.mts";
 
 describe("runCommand", () => {
   it("captures what the command said and the status it exited with", () => {
@@ -39,5 +39,34 @@ describe("runCommand", () => {
     const { exitCode, output } = runCommand("sleep 5", { timeoutMs: 100 });
     expect(exitCode).toBe(124);
     expect(output).toContain("timed out");
+  });
+});
+
+describe("captureStdout", () => {
+  it("keeps the two streams apart, so what failed can be shown and the secret cannot", () => {
+    expect(captureStdout("echo s3cret; echo unlocking >&2")).toEqual({
+      exitCode: 0,
+      stdout: "s3cret",
+      stderr: "unlocking",
+    });
+  });
+
+  it("reports a non-zero exit with the stderr that explains it", () => {
+    const { exitCode, stdout, stderr } = captureStdout("echo 'not signed in' >&2; exit 6");
+    expect(exitCode).toBe(6);
+    expect(stdout).toBe("");
+    expect(stderr).toBe("not signed in");
+  });
+
+  it("trims the trailing newlines and nothing else", () => {
+    expect(captureStdout("printf '  s3 cret \\n\\n'").stdout).toBe("  s3 cret ");
+  });
+
+  it("trims a Windows line ending too, which is what op.exe prints under WSL", () => {
+    expect(captureStdout("printf 's3cret\\r\\n'").stdout).toBe("s3cret");
+  });
+
+  it("exits 124 when the command outlives its timeout", () => {
+    expect(captureStdout("sleep 5", 100).exitCode).toBe(124);
   });
 });

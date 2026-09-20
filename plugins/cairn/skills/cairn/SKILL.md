@@ -14,7 +14,9 @@ version: "0.1.0"
 The worklist every agent and every machine shares, held on one Convex deployment and
 driven entirely through the `cn` CLI. With a deployment configured, this session opened
 with `cn brief` in its context: the counts, what is ready, what is in progress and who
-holds it. That is state — everything below is how to act on it.
+holds it. That is state — everything below is how to act on it. On a machine where the
+session opened instead with "not set up on this machine", run `/cairn:init` before
+anything else: no verb below can work until the config exists.
 
 ## The one rule that must not slip
 
@@ -62,6 +64,7 @@ an issue.
 | `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
 | `cn reconcile <epic>` | tidy an epic: releases silent claims, spawns missing follow-ups, drops dead edges, reparents inbox items, closes a finished epic; raises duplicates, stale inbox items and passed nudges to a person | `reconcile.run` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
+| `cn init --name … --url … [--secret-cmd …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret | `projects.list`, as the check |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right

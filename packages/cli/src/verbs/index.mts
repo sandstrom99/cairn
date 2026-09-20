@@ -14,6 +14,7 @@ import * as dep from "./dep.mts";
 import * as doctor from "./doctor.mts";
 import * as drop from "./drop.mts";
 import * as epic from "./epic.mts";
+import * as init from "./init.mts";
 import * as journal from "./journal.mts";
 import * as list from "./list.mts";
 import * as project from "./project.mts";
@@ -53,4 +54,5 @@ export const VERBS: Verb[] = [
   epic,
   project,
   doctor,
+  init,
 ];
