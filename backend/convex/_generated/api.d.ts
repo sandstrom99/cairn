@@ -18,6 +18,7 @@ import type * as issues from "../issues.js";
 import type * as journal from "../journal.js";
 import type * as lib_actor from "../lib/actor.js";
 import type * as lib_changes from "../lib/changes.js";
+import type * as lib_clock from "../lib/clock.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   journal: typeof journal;
   "lib/actor": typeof lib_actor;
   "lib/changes": typeof lib_changes;
+  "lib/clock": typeof lib_clock;
   "lib/env": typeof lib_env;
   "lib/errors": typeof lib_errors;
   "lib/events": typeof lib_events;

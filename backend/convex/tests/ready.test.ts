@@ -104,6 +104,17 @@ describe("ready.list", () => {
     expect(await ids(t)).toEqual(["cn-1", "cn-2"]);
   });
 
+  it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
+    const t = await seeded();
+    const deferUntil = Date.now() + DAY;
+    await t.mutation(api.issues.update, { actor, id: "cn-2", revision: 0, deferUntil });
+    const idsAt = async (now?: number) =>
+      (await t.query(api.ready.list, now === undefined ? {} : { now })).map((i) => i.id);
+    expect(await idsAt(deferUntil - 1)).toEqual(["cn-1"]);
+    expect(await idsAt(deferUntil)).toEqual(["cn-1", "cn-2"]);
+    expect(await idsAt()).toEqual(["cn-1"]);
+  });
+
   it("leaves a claimed issue out: in progress is somebody's work, not ready work", async () => {
     const t = await seeded();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });

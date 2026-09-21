@@ -595,6 +595,12 @@ package then, not before.
 - **Every mutation takes `actor`**, and on a mutable field `revision`. Every
   query that can be fenced takes `can[]`. Until auth exists the actor is an
   argument `cn` fills in (§13).
+- **A subscriber sends its own clock.** Convex re-runs a subscribed query when data it
+  read changes, never because time passed, so the stuck line and a `deferUntil` would go
+  stale on a page left open. Every public query that reads the clock takes an optional
+  `now` (`lib/clock.ts`): `cn` asks once and leaves it out, the page sends the current time
+  rounded down to the minute, so it re-asks once a minute and the query cache holds in
+  between. Nothing validates it; a wrong `now` misleads only the caller that sent it.
 - **The deployment is where anything decides.** `ready` computes, `close`
   validates, `reconcile` acts, `create` hands back candidate epics. `cn` parses
   arguments, runs the one command `cn close` proves with, and formats through

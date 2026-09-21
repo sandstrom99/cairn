@@ -14,6 +14,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { RECONCILE } from "./lib/actor";
+import { nowArg } from "./lib/clock";
 import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
 
@@ -34,9 +35,9 @@ const blockersWith = async (
 const TOP = 3;
 
 export const get = query({
-  args: { can: v.optional(v.array(v.string())) },
-  handler: async (ctx, { can }) => {
-    const ready = await readyIssues(ctx, can ?? []);
+  args: { can: v.optional(v.array(v.string())), ...nowArg },
+  handler: async (ctx, { can, now }) => {
+    const ready = await readyIssues(ctx, can ?? [], now);
     const tasks = ready.filter((i) => i.type === "task");
     const followUps = ready.filter((i) => i.type === "follow-up");
 

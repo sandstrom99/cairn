@@ -114,6 +114,16 @@ describe("brief.get", () => {
     expect(brief.ready.top.map((i) => i.id)).toEqual(["cn-1", "cn-2", "cn-3"]);
   });
 
+  it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
+    const t = await seeded();
+    // cn-2 is already ready; a second task, deferred, joins it once the defer date passes.
+    const deferUntil = Date.now() + 24 * 60 * 60 * 1000;
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "e" });
+    await t.mutation(api.issues.update, { actor, id: "cn-7", revision: 0, deferUntil });
+    expect((await t.query(api.brief.get, { now: deferUntil - 1 })).ready.count).toBe(1);
+    expect((await t.query(api.brief.get, { now: deferUntil })).ready.count).toBe(2);
+  });
+
   it("leaves the row the brief filtered in ready, marked", async () => {
     const t = await seeded();
     const rows = await t.query(api.ready.list, {});

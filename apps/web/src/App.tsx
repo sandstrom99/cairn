@@ -11,6 +11,8 @@ import { useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Component, type ReactNode, useState } from "react";
 import { EpicList } from "./EpicList.tsx";
+import { useHeld } from "./held.ts";
+import { useMinute } from "./now.ts";
 import { devSecret, readSecret, writeSecret } from "./secret.ts";
 
 export function App({ url }: { url: string }) {
@@ -41,7 +43,8 @@ export function App({ url }: { url: string }) {
 
 /** The live list. `undefined` is the subscription not having answered yet, not an empty list. */
 function Epics({ secret }: { secret: string | undefined }) {
-  const epics = useQuery(api.epics.list, secret === undefined ? {} : { secret });
+  const now = useMinute();
+  const epics = useHeld(useQuery(api.epics.list, secret === undefined ? { now } : { secret, now }));
   if (epics === undefined) return <p>loading…</p>;
   return <EpicList epics={epics} />;
 }

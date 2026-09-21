@@ -30,7 +30,7 @@ pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
  Test Files  15 passed (15)      ← backend
  Test Files  33 passed (33)      ← cli
- Test Files  2 passed (2)        ← web
+ Test Files  3 passed (3)        ← web
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The

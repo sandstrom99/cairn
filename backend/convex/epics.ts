@@ -10,6 +10,7 @@ import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
 import { mint } from "./lib/ids";
 import { INBOX_ID } from "./lib/inbox";
+import { nowArg } from "./lib/clock";
 import { LIVE, epicById, issueOrder } from "./lib/lookup";
 import { applyRevision, expectRevision } from "./lib/revision";
 import { createdChanges, epicHealth, epicView, ref } from "./lib/views";
@@ -41,8 +42,8 @@ export const create = mutation({
 });
 
 export const list = query({
-  args: { all: v.optional(v.boolean()) },
-  handler: async (ctx, { all }) => {
+  args: { all: v.optional(v.boolean()), ...nowArg },
+  handler: async (ctx, { all, now }) => {
     const rows = all
       ? await ctx.db.query("epics").collect()
       : await ctx.db
@@ -50,14 +51,14 @@ export const list = query({
           .withIndex("by_status", (q) => q.eq("status", "open"))
           .collect();
     rows.sort((a, b) => number(a) - number(b));
-    return await Promise.all(rows.map((doc) => epicHealth(ctx, doc)));
+    return await Promise.all(rows.map((doc) => epicHealth(ctx, doc, now)));
   },
 });
 
 /** One epic's health, the three lines of §8 with the counts above them. */
 export const health = query({
-  args: { id: v.string() },
-  handler: async (ctx, { id }) => await epicHealth(ctx, await epicById(ctx, id)),
+  args: { id: v.string(), ...nowArg },
+  handler: async (ctx, { id, now }) => epicHealth(ctx, await epicById(ctx, id), now),
 });
 
 /**

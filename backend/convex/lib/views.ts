@@ -96,9 +96,11 @@ export type EpicView = Awaited<ReturnType<typeof epicView>>;
  * `stuck` is the single open, unclaimed, undeferred issue that has been silent longest,
  * and only once that silence passes STUCK_AFTER_MS: an epic nobody has neglected has no
  * stuck line at all.
+ *
+ * `now` is the caller's clock when a subscriber sends one, because a subscription re-runs
+ * on data and never on time.
  */
-export async function epicHealth(ctx: QueryCtx, doc: Doc<"epics">) {
-  const now = Date.now();
+export async function epicHealth(ctx: QueryCtx, doc: Doc<"epics">, now: number = Date.now()) {
   const issues = await ctx.db
     .query("issues")
     .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
