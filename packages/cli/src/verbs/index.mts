@@ -17,6 +17,7 @@ import * as epic from "./epic.mts";
 import * as init from "./init.mts";
 import * as journal from "./journal.mts";
 import * as list from "./list.mts";
+import * as log from "./log.mts";
 import * as project from "./project.mts";
 import * as ready from "./ready.mts";
 import * as reconcile from "./reconcile.mts";
@@ -39,6 +40,7 @@ export const VERBS: Verb[] = [
   list,
   ready,
   show,
+  log,
   claim,
   release,
   update,

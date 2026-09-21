@@ -98,6 +98,7 @@ cn create --project <slug> --epic <ep-id> --title <title> [--priority 0-4] …
 cn list [--project] [--epic] [--status] [--mine] [--json]
 cn ready [--can ios web …] [--json]      open, unblocked, in priority order, marked
 cn show <id> [--history] [--json]        an issue, an epic or a blocker, by prefix
+cn log [--limit N] [--before <date>] [--json]   what happened across the deployment, newest first
 cn claim <id>  ·  cn release <id>        first writer wins, no lease
 cn update <id> --revision N [--title] [--priority] [--epic] [--defer-until] [--requires]
 cn journal <id> --kind finding|decision|handoff|evidence|question <body…>

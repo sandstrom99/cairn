@@ -13,6 +13,7 @@ import type * as brief from "../brief.js";
 import type * as crons from "../crons.js";
 import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
+import type * as events from "../events.js";
 import type * as issues from "../issues.js";
 import type * as journal from "../journal.js";
 import type * as lib_actor from "../lib/actor.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   edges: typeof edges;
   epics: typeof epics;
+  events: typeof events;
   issues: typeof issues;
   journal: typeof journal;
   "lib/actor": typeof lib_actor;

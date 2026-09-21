@@ -51,6 +51,7 @@ an issue.
 | `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine` | `issues.list` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
+| `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed, raised or reconciled what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
 | `cn update <id> --revision N` | title, design, acceptance, priority, epic, defer, requires | `issues.update` |
