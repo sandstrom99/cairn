@@ -20,8 +20,20 @@ import {
   writeConfig,
 } from "./config.mts";
 
+/** Every XDG_CONFIG_HOME a test makes, removed after it whatever it did. */
+const made: string[] = [];
+afterEach(() => {
+  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+function tempHome(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  made.push(dir);
+  return dir;
+}
+
 function tempConfig(body: unknown): NodeJS.ProcessEnv {
-  const home = mkdtempSync(join(tmpdir(), "cairn-config-"));
+  const home = tempHome("cairn-config-");
   mkdirSync(join(home, "cairn"));
   writeFileSync(join(home, "cairn", "config.json"), JSON.stringify(body));
   return { XDG_CONFIG_HOME: home };
@@ -59,8 +71,7 @@ describe("resolveDeployment", () => {
   });
 
   it("answers null with no file at all", () => {
-    const home = mkdtempSync(join(tmpdir(), "cairn-empty-"));
-    expect(resolveDeployment({ XDG_CONFIG_HOME: home })).toBeNull();
+    expect(resolveDeployment({ XDG_CONFIG_HOME: tempHome("cairn-empty-") })).toBeNull();
   });
 
   it("carries the secret from the file, with its source", () => {
@@ -184,18 +195,8 @@ describe("withDeployment", () => {
 });
 
 describe("writeConfig", () => {
-  /** Every XDG_CONFIG_HOME this describe makes, removed whatever the test did. */
-  const made: string[] = [];
-  const home = (): NodeJS.ProcessEnv => {
-    const dir = mkdtempSync(join(tmpdir(), "cairn-write-"));
-    made.push(dir);
-    return { XDG_CONFIG_HOME: dir };
-  };
+  const home = (): NodeJS.ProcessEnv => ({ XDG_CONFIG_HOME: tempHome("cairn-write-") });
   const mode = (file: string): number => statSync(file).mode & 0o777;
-
-  afterEach(() => {
-    for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
-  });
 
   const config: CairnConfig = {
     default: "cairn",
