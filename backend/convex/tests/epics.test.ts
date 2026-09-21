@@ -7,7 +7,7 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import schema from "../schema";
-import { DAY } from "../lib/thresholds";
+import { DAY, STUCK_AFTER_MS } from "../lib/thresholds";
 
 const actor = { name: "wsl/claude", kind: "agent" } as const;
 const balder = { name: "wsl/balder", kind: "human" } as const;
@@ -142,6 +142,36 @@ describe("epics.health", () => {
     await t.mutation(api.issues.update, { actor, id: "cn-2", revision: 0, priority: 1 });
     at("2026-09-21T09:00:00Z");
     expect((await healthOf(t)).stuck).toMatchObject({ id: "cn-1", title: "work 1" });
+  });
+
+  it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
+    at("2026-09-17T09:00:00Z");
+    const t = await seeded(2);
+    const lastActivity = await t.run(async (ctx) => {
+      const doc = await ctx.db
+        .query("issues")
+        .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
+        .unique();
+      return doc!.lastActivity;
+    });
+    expect(
+      (await t.query(api.epics.health, { id: "ep-1", now: lastActivity + STUCK_AFTER_MS })).health
+        .stuck,
+    ).toBeUndefined();
+    const later = await t.query(api.epics.health, {
+      id: "ep-1",
+      now: lastActivity + STUCK_AFTER_MS + 1,
+    });
+    expect(later.health.stuck).toMatchObject({ id: "cn-1", title: "work 1" });
+    expect(
+      (await t.query(api.epics.list, { now: lastActivity + STUCK_AFTER_MS + 1 }))[0]!.health.stuck,
+    ).toMatchObject({ id: "cn-1" });
+    const shown = await t.query(api.show.get, {
+      id: "ep-1",
+      now: lastActivity + STUCK_AFTER_MS + 1,
+    });
+    if (shown.kind !== "epic") throw new Error("ep-1 is an epic");
+    expect(shown.health.stuck).toMatchObject({ id: "cn-1" });
   });
 
   it("counts neither a deferred issue nor a claimed one as stuck", async () => {

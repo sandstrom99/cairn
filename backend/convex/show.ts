@@ -9,6 +9,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
+import { nowArg } from "./lib/clock";
 import { notFound } from "./lib/errors";
 import { query } from "./lib/guard";
 import { epicById } from "./lib/lookup";
@@ -104,7 +105,7 @@ async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean) {
   };
 }
 
-async function epic(ctx: QueryCtx, doc: Doc<"epics">) {
+async function epic(ctx: QueryCtx, doc: Doc<"epics">, now?: number) {
   const rows = await ctx.db
     .query("issues")
     .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
@@ -113,7 +114,7 @@ async function epic(ctx: QueryCtx, doc: Doc<"epics">) {
   live.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
   return {
     kind: "epic" as const,
-    ...(await epicHealth(ctx, doc)),
+    ...(await epicHealth(ctx, doc, now)),
     issues: live.map((i) => ({ id: i.id, title: i.title, status: i.status, priority: i.priority })),
   };
 }
@@ -140,9 +141,9 @@ async function blocker(ctx: QueryCtx, doc: Doc<"blockers">, withHistory: boolean
 }
 
 export const get = query({
-  args: { id: v.string(), history: v.optional(v.boolean()) },
-  handler: async (ctx, { id, history: withHistory }) => {
-    if (id.startsWith("ep-")) return await epic(ctx, await epicById(ctx, id));
+  args: { id: v.string(), history: v.optional(v.boolean()), ...nowArg },
+  handler: async (ctx, { id, history: withHistory, now }) => {
+    if (id.startsWith("ep-")) return await epic(ctx, await epicById(ctx, id), now);
     if (id.startsWith("bl-")) {
       const doc = await ctx.db
         .query("blockers")

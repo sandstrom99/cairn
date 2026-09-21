@@ -20,10 +20,11 @@
 // The computation is `readyIssues` in lib/readiness.ts rather than here, because
 // `brief.get` counts and heads the same rows and must never disagree with this list.
 import { v } from "convex/values";
+import { nowArg } from "./lib/clock";
 import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
 
 export const list = query({
-  args: { can: v.optional(v.array(v.string())) },
-  handler: async (ctx, { can }) => await readyIssues(ctx, can),
+  args: { can: v.optional(v.array(v.string())), ...nowArg },
+  handler: async (ctx, { can, now }) => await readyIssues(ctx, can, now),
 });

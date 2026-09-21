@@ -62,6 +62,9 @@ export const isReady = (blocked: Blocked): boolean =>
  * The ready rows themselves, in ready order, each marked with what `can` cannot satisfy.
  * `ready.list` is this function and nothing else, and `brief.get` counts the same rows,
  * so the head of the brief can never disagree with the list it is the head of.
+ *
+ * `now` is the caller's clock when a subscriber sends one, because a subscription re-runs
+ * on data and never on time.
  */
 export async function readyIssues(
   ctx: QueryCtx,
