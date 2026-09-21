@@ -525,8 +525,11 @@ is checked rather than hoped for. Ruled out: a mono dump of the lines with the
 references turned into links, which reads as a screenshot of a terminal.
 
 The screens are the Overview at `/`, Issues, one page per id (`/app-14`,
-`/ep-3`, `/bl-2`) that renders what `cn show` prints, the Log, and a connect
-dialog that holds the deployment picker. The Overview's headline is the brief
+`/ep-3`, `/bl-2`) that renders what `cn show` prints, and the Log. Where the
+deployment will not answer, the page shows its line and a field for the secret.
+A picker for switching deployments in the page was planned here and taken out
+on 2026-09-21: which deployments a browser knows about is part of running cairn
+for more than one person, and that is deferred whole (§13). The Overview's headline is the brief
 said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
@@ -862,6 +865,7 @@ implementation.
 | Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |
 | The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The UI becomes the channel |
+| Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified and whether a session needs an identifier of its own, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself is `cn-11` |
 
 ---
 
