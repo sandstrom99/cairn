@@ -4,13 +4,18 @@ import {
   type Shown,
   age,
   blockerLine,
+  blockerParts,
   brief,
   briefLines,
+  changePieces,
   edgeLine,
   healthLines,
+  healthParts,
   historyLines,
+  holdsLine,
   issueLine,
   logLine,
+  logParts,
   readyLine,
   reconcileLines,
   staleLines,
@@ -780,5 +785,115 @@ describe("briefLines", () => {
   it("names no capabilities when the session declared none", () => {
     const [head] = briefLines(empty, { ...where, can: [] }, now);
     expect(head).toBe("cairn · local · balder/claude");
+  });
+});
+
+// The `…Parts` are what apps/web sets as rows. The lines above are defined over them, so
+// what is held here is the seam itself: the pieces a surface with columns gets, and that
+// joined the way the line joins them they are the line.
+describe("the parts a line is joined from", () => {
+  it("gives an epic's health as the epic, its counts as one run, and a row per fact", () => {
+    const view = {
+      id: "ep-3",
+      title: "An epic tells the truth",
+      counts: { open: 1, inProgress: 1, closed: 2, followUps: 1 },
+      health: {
+        moving: [
+          {
+            id: "cn-7",
+            title: "epic health",
+            claimedBy: { name: "wsl/claude" },
+            claimedAt: ago(2 * HOUR),
+          },
+        ],
+        stuck: { id: "cn-9", title: "the reconcile sweep", lastActivity: ago(9 * DAY) },
+        waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+      },
+    };
+    const parts = healthParts(view, now);
+    expect(parts.counts).toBe("2 done · 2 open · 1 follow-up · never reconciled");
+    expect(parts.rows.map((row) => [row.fact, row.target.id, row.tail])).toEqual([
+      ["moving", "cn-7", "wsl/claude 2h"],
+      ["stuck", "cn-9", "silent 9d"],
+      ["waiting", "bl-3", "· owner balder"],
+    ]);
+    expect(healthLines(view, now)).toHaveLength(1 + parts.rows.length);
+  });
+
+  it("gives a blocker as its reference, its kind and the rest, which joined are its line", () => {
+    const view = {
+      id: "bl-1",
+      title: "the App Store agreement",
+      blockerKind: "approval",
+      owner: "balder",
+      status: "waiting",
+      raisedAt: ago(5 * MINUTE),
+      raisedBy: { name: "wsl/claude" },
+    };
+    const { target, kind, tail } = blockerParts(view, now);
+    expect(tail).toBe("owner balder · waiting · raised 5m ago by wsl/claude");
+    expect(`${target.id} ${JSON.stringify(target.title)} ${kind} · ${tail}`).toBe(
+      blockerLine(view, now),
+    );
+  });
+
+  it("prints what a blocker holds under it", () => {
+    expect(
+      holdsLine([
+        { id: "cn-4", title: "a" },
+        { id: "cn-7", title: "b" },
+      ]),
+    ).toBe('  holds  cn-4 "a", cn-7 "b"');
+  });
+
+  it("gives an event's payload a change at a time", () => {
+    expect(
+      changePieces({ status: { from: "open", to: "closed" }, priority: { from: 2, to: 1 } }),
+    ).toEqual(["status open → closed", "priority 2 → 1"]);
+    expect(changePieces(undefined)).toEqual([]);
+    expect(changePieces(["not", "a", "field", "map"])).toEqual(['["not","a","field","map"]']);
+  });
+
+  it("cuts inside the change the limit lands in, and drops the ones after it", () => {
+    const pieces = changePieces({
+      title: { from: "a".repeat(40), to: "b".repeat(40) },
+      priority: { from: 2, to: 1 },
+    });
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]).toMatch(/…$/);
+    expect(pieces.join(", ")).toHaveLength(80);
+  });
+
+  it("keeps a whole change and cuts the next, when the limit lands in the second", () => {
+    const pieces = changePieces({
+      priority: { from: 2, to: 1 },
+      title: { from: "a".repeat(40), to: "b".repeat(40) },
+    });
+    expect(pieces[0]).toBe("priority 2 → 1");
+    expect(pieces[1]).toMatch(/^title a+ → b+…$/);
+    expect(pieces.join(", ")).toHaveLength(80);
+  });
+
+  it("gives an event as its pieces, with no payload for a create and no target where none is named", () => {
+    const created = {
+      at: ago(HOUR),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "issue.create",
+      revision: 0,
+      changes: { title: { to: "x" } },
+      issue: { id: "cn-2", title: "scratch: second" },
+      epic: undefined,
+      blocker: undefined,
+    };
+    expect(logParts(created, now)).toEqual({
+      target: { id: "cn-2", title: "scratch: second" },
+      kind: "issue.create",
+      actor: "wsl/claude",
+      when: "1h ago",
+      changes: [],
+    });
+    expect(
+      logParts({ ...created, kind: "reconcile.sweep", issue: undefined }, now).target,
+    ).toBeUndefined();
   });
 });

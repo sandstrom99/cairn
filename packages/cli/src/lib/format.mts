@@ -118,12 +118,32 @@ export function edgeLine({ type, from, to }: EdgeView): string {
  * reads `raised 5m ago` rather than `raised · raised 5m ago`.
  */
 export function blockerLine(view: BlockerLineView, now: number = Date.now()): string {
-  const line = `${ref(view)} ${view.blockerKind} · owner ${view.owner}`;
-  if (view.status === "resolved" && view.resolvedAt !== undefined && view.resolvedBy)
-    return `${line} · resolved ${since(view.resolvedAt, now)} by ${view.resolvedBy.name}`;
-  const raised = `raised ${since(view.raisedAt, now)} by ${view.raisedBy.name}`;
-  return view.status === "raised" ? `${line} · ${raised}` : `${line} · ${view.status} · ${raised}`;
+  const { target, kind, tail } = blockerParts(view, now);
+  return `${ref(target)} ${kind} · ${tail}`;
 }
+
+/**
+ * A line in the pieces a surface with columns sets apart: what the line is about, the word
+ * that classes it, and the rest of it as one run. Every `…Parts` below answers some shape
+ * of this, and the `…Line` beside it is those pieces joined, so the web window's rows and
+ * cn's lines cannot drift: apps/web pins each row's text to the line.
+ */
+export type BlockerParts = { target: Referable; kind: string; tail: string };
+
+export function blockerParts(view: BlockerLineView, now: number = Date.now()): BlockerParts {
+  const owner = `owner ${view.owner}`;
+  const raised = `raised ${since(view.raisedAt, now)} by ${view.raisedBy.name}`;
+  const tail =
+    view.status === "resolved" && view.resolvedAt !== undefined && view.resolvedBy
+      ? `${owner} · resolved ${since(view.resolvedAt, now)} by ${view.resolvedBy.name}`
+      : view.status === "raised"
+        ? `${owner} · ${raised}`
+        : `${owner} · ${view.status} · ${raised}`;
+  return { target: { id: view.id, title: view.title }, kind: view.blockerKind, tail };
+}
+
+/** `  holds  cn-4 "…", cn-7 "…"`: the issues a blocker keeps out of ready, under its line. */
+export const holdsLine = (issues: Referable[]): string => `  holds  ${refs(issues)}`;
 
 /**
  * An epic's health, as many lines as it has facts (docs/design.md §8):
@@ -140,27 +160,47 @@ export function blockerLine(view: BlockerLineView, now: number = Date.now()): st
  * is one line and the three that follow are only there when they say something.
  */
 export function healthLines(view: EpicLineView, now: number = Date.now()): string[] {
+  const { epic, counts, rows } = healthParts(view, now);
+  return [
+    `${ref(epic)}  ${counts}`,
+    ...rows.map((row) => `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`),
+  ];
+}
+
+/** One fact of an epic's health: which of the three it is, what it names, and the rest. */
+export type HealthRow = { fact: "moving" | "stuck" | "waiting"; target: Referable; tail: string };
+
+/** The health block in pieces: the epic, its counts as one run, and a row per fact. */
+export type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
+
+export function healthParts(view: EpicLineView, now: number = Date.now()): HealthParts {
   const { open, inProgress, closed, followUps } = view.counts;
   const reconciled =
     view.lastReconciledAt === undefined
       ? "never reconciled"
       : `last reconciled ${since(view.lastReconciledAt, now)}`;
-  const lines = [
-    `${ref(view)}  ${closed} done · ${open + inProgress} open · ${followUps} ${
+  const rows: HealthRow[] = [];
+  for (const issue of view.health.moving)
+    rows.push({
+      fact: "moving",
+      target: issue,
+      tail: `${issue.claimedBy.name} ${age(issue.claimedAt, now)}`,
+    });
+  if (view.health.stuck)
+    rows.push({
+      fact: "stuck",
+      target: view.health.stuck,
+      tail: `silent ${age(view.health.stuck.lastActivity, now)}`,
+    });
+  for (const blocker of view.health.waiting)
+    rows.push({ fact: "waiting", target: blocker, tail: `· owner ${blocker.owner}` });
+  return {
+    epic: view,
+    counts: `${closed} done · ${open + inProgress} open · ${followUps} ${
       followUps === 1 ? "follow-up" : "follow-ups"
     } · ${reconciled}`,
-  ];
-  for (const issue of view.health.moving)
-    lines.push(
-      `  ${fact("moving")}${ref(issue)} ${issue.claimedBy.name} ${age(issue.claimedAt, now)}`,
-    );
-  if (view.health.stuck)
-    lines.push(
-      `  ${fact("stuck")}${ref(view.health.stuck)} silent ${age(view.health.stuck.lastActivity, now)}`,
-    );
-  for (const blocker of view.health.waiting)
-    lines.push(`  ${fact("waiting")}${ref(blocker)} · owner ${blocker.owner}`);
-  return lines;
+    rows,
+  };
 }
 
 /**
@@ -247,17 +287,34 @@ const isFieldMap = (
     (v) => typeof v === "object" && v !== null && ("from" in v || "to" in v),
   );
 
-/** `priority 2 → 1` for the field-map shape, the compact JSON for anything else. */
-const changesOf = (changes: unknown): string => {
-  if (changes === undefined) return "";
-  if (isFieldMap(changes))
-    return clip(
-      Object.entries(changes)
-        .map(([field, { from, to }]) => `${field} ${side(from)} → ${side(to)}`)
-        .join(", "),
-    );
-  return clip(JSON.stringify(changes) ?? "");
+/**
+ * One event's payload in pieces: `priority 2 → 1` per field for the field-map shape, the
+ * compact JSON as a single piece for anything else. Joined with `, ` they are what a line
+ * has room for, so the cut is made here, inside the piece it lands in, and nothing a
+ * reader of the pieces sees differs from what a reader of the line sees.
+ */
+export const changePieces = (changes: unknown): string[] => {
+  if (changes === undefined) return [];
+  if (!isFieldMap(changes)) {
+    const text = clip(JSON.stringify(changes) ?? "");
+    return text === "" ? [] : [text];
+  }
+  const pieces = Object.entries(changes).map(
+    ([field, { from, to }]) => `${field} ${side(from)} → ${side(to)}`,
+  );
+  if (pieces.join(", ").length <= CHANGES) return pieces;
+  const kept: string[] = [];
+  let room = CHANGES - 1;
+  for (const piece of pieces) {
+    if (room <= 0) break;
+    kept.push(piece.slice(0, room));
+    room -= piece.length + 2;
+  }
+  kept[kept.length - 1] += "…";
+  return kept;
 };
+
+const changesOf = (changes: unknown): string => changePieces(changes).join(", ");
 
 /** `  r4  wsl/claude  2h ago  issue.update  priority 2 → 1` */
 const eventLine = (e: HistoryEvent, now: number): string =>
@@ -295,9 +352,27 @@ export type LogEvent = FunctionReturnType<typeof api.events.recent>[number];
  * because the reference at the start of the line already names what was created.
  */
 export function logLine(e: LogEvent, now: number = Date.now()): string {
-  const target = e.issue ? ref(e.issue) : e.blocker ? ref(e.blocker) : e.epic ? ref(e.epic) : "—";
-  const payload = e.kind.endsWith(".create") ? "" : changesOf(e.changes);
-  return [target, e.kind, e.actor.name, since(e.at, now), payload].join("  ").trimEnd();
+  const { target, kind, actor, when, changes } = logParts(e, now);
+  return [target ? ref(target) : "—", kind, actor, when, changes.join(", ")].join("  ").trimEnd();
+}
+
+/** One event in pieces: a target where it names one, and its payload a change at a time. */
+export type LogParts = {
+  target?: Referable;
+  kind: string;
+  actor: string;
+  when: string;
+  changes: string[];
+};
+
+export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
+  return {
+    target: e.issue ?? e.blocker ?? e.epic,
+    kind: e.kind,
+    actor: e.actor.name,
+    when: since(e.at, now),
+    changes: e.kind.endsWith(".create") ? [] : changePieces(e.changes),
+  };
 }
 
 /** The ten-line brief of `cn show`, one shape per kind. */

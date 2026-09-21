@@ -10,11 +10,15 @@
 // carry a secret, and the page falls back to the one pasted into it (src/secret.ts).
 // So does `vp test`, which runs this config as `serve` in mode `test`: without that, a test
 // would read the developer's real secret and pass or fail by whose machine it ran on.
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite-plus";
 
 export default defineConfig(({ command, mode }) => ({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  // `@/` is src/, the alias shadcn's generated components import through. tsconfig.json
+  // names it a second time for the type check.
+  resolve: { alias: { "@": `${import.meta.dirname}/src` } },
   define: {
     __CAIRN_DEV_SECRET__: JSON.stringify(
       command === "serve" && mode !== "test"

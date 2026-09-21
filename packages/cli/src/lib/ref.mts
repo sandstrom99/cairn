@@ -10,5 +10,19 @@
 
 export type Referable = { id: string; title: string };
 
+/**
+ * The form in its two pieces, for a surface that typesets it rather than printing it: the
+ * id, and the title exactly as it prints between the quotes, escapes included. The web
+ * window sets the id in one face and the title in another, and the text it ends up with
+ * is still `ref()`'s.
+ */
+export const refParts = ({ id, title }: Referable): Referable => ({
+  id,
+  title: JSON.stringify(title).slice(1, -1),
+});
+
 /** `app-14 "fix connection retry"`. */
-export const ref = ({ id, title }: Referable): string => `${id} ${JSON.stringify(title)}`;
+export const ref = (item: Referable): string => {
+  const { id, title } = refParts(item);
+  return `${id} "${title}"`;
+};

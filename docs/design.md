@@ -508,6 +508,53 @@ with who and since when, `stuck` is the one open unclaimed issue silent longest
 once past the threshold in §12, and `waiting` is every unresolved blocker on the
 epic's live issues.
 
+### The web window
+
+Settled 2026-09-21 on a static mock, `docs/mock/overview.html`, before any
+component was written. The page a person opens answers two questions: what are
+the agents doing, and does anything need me.
+
+**A row is one of cn's lines, typeset.** The page does not print the padded
+lines a terminal gets, and it does not word anything a second way either.
+`format.mts` builds each line from pieces, `healthParts`, `blockerParts`,
+`logParts` and `changePieces`, and the line is those pieces joined; the page
+sets the same pieces in columns. The separators cn prints stay in the markup,
+pale or not drawn, so the text of a row is the line. `apps/web/src/rows.test.tsx`
+holds every row to that, which is how "the same health lines as `cn epic list`"
+is checked rather than hoped for. Ruled out: a mono dump of the lines with the
+references turned into links, which reads as a screenshot of a terminal.
+
+The screens are the Overview at `/`, Issues, one page per id (`/app-14`,
+`/ep-3`, `/bl-2`) that renders what `cn show` prints, the Log, and a connect
+dialog that holds the deployment picker. The Overview's headline is the brief
+said as a sentence, waiting first, in a fixed order, with a clause that has
+nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
+That wording is the page's own, in `apps/web/src/brief.ts`.
+
+The look, and what each choice rules out:
+
+- **Glass only on what floats**: the rail, the feed, the jump bar, a dialog.
+  Content sits on near-solid paper and scrolls under the glass. Not a glass card
+  per epic: blur on every card is slow and reads white on white.
+- **Chroma means state.** Moving is teal, stuck is amber, waiting is violet, and
+  a violet bloom sits behind the headline only while something waits on the
+  reader. A deployment where nothing is happening is grey and white. Nothing is
+  coloured to decorate, the ground included: it is light falling across a wall,
+  in greys, there for the glass to stand over. Literal stones were tried and
+  rejected.
+- **One face, Recursive**, from sans to mono along its MONO axis. Prose in sans;
+  ids, commands and verification records in mono, because they get pasted into
+  a terminal.
+- **A jump bar where a chat page has its composer.** Type an id or part of a
+  title and go. It reads, like everything else on the page, and it is where
+  `cn-11`'s answers will be typed.
+- **One motion nobody asked for**: an event arriving over the subscription lands
+  in the feed with a sheen. It is the proof that no reload brought it.
+- Light first. Dark is a second set of values for the same tokens.
+
+Components are shadcn's, on Tailwind 4 and Radix, restyled through the tokens in
+`apps/web/src/index.css`.
+
 ---
 
 ## 9. Concurrency
@@ -547,7 +594,7 @@ the CLI, and the reasons it went are below.
 |---|---|
 | **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function. |
 | **Claude Code plugin** | Skill, SessionStart hook, slash commands. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
-| **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. |
+| **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
 
 ### Why not an MCP server
 
@@ -712,7 +759,7 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 | End to end | `vp run verify:e2e` runs the per-verb rows of `AGENTS.md` with the real `cn` against a throwaway anonymous local deployment on its own ports and state directory, empty by construction and deleted afterwards. Decided 2026-09-17: automated verification never targets a deployment agents work in. A Convex preview deployment is the later option. |
 | Local backend | `CONVEX_AGENT_MODE=anonymous npx convex dev` runs a local deployment with no Convex account, and is how `convex/_generated` was first produced. `convex codegen` alone refuses to run without a deployment. |
 | CI | `voidzero-dev/setup-vp`, then the gate, `vp run @cairn/web#build` and `vp run verify:e2e`; none needs a Convex account. |
-| Web | `apps/web` is Vite 8 and React 19 through the same pinned vite-plus: `vp dev`, `vp build` and `vp test run`, with `@vitejs/plugin-react` 6 for Fast Refresh. Proved on 0.1.24 on 2026-09-20, which until then had only run check and test here. Its tests render to a string with `react-dom/server`, so the suite carries no DOM. |
+| Web | `apps/web` is Vite 8 and React 19 through the same pinned vite-plus: `vp dev`, `vp build` and `vp test run`, with `@vitejs/plugin-react` 6 for Fast Refresh. Proved on 0.1.24 on 2026-09-20, which until then had only run check and test here. Its tests render to a string with `react-dom/server`, so the suite carries no DOM. Tailwind 4 through `@tailwindcss/vite` and shadcn's components came in on 2026-09-21, on the same 0.1.24: `vp dlx shadcn@latest add <component>` writes into `src/components/ui/`. shadcn's registry now generates `import { cn } from "cn"`, an npm package that ships a binary named `cn`; it is not installed here, because in this repo `cn` is the CLI, and `src/lib/utils.ts` carries the helper over clsx and tailwind-merge instead. Recursive is self-hosted from `@fontsource-variable/recursive`. |
 
 Three things pinned, and why:
 

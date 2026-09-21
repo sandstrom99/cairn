@@ -1,52 +1,100 @@
-// App.tsx: the whole page. One live subscription to `api.epics.list` — the same function
-// `cn epic list` calls — printed through the CLI's own reference form.
+// App.tsx: the shell, and the only file that asks the deployment anything. Five live
+// subscriptions, each to a function `cn` calls: `brief.get` for the headline, `epics.list`
+// for health, `blockers.list` for what waits on a person, `events.recent` for the feed and
+// `issues.list` for the jump bar. Nothing here calls a mutation: the window reads.
 //
 // The secret is state rather than a build-time value, because the deployment answers
 // `unauthorized` to a caller that did not send the right one and the page has to be able
-// to ask. An error boundary around the subscription is what carries that answer to the
+// to ask. An error boundary around the subscriptions is what carries that answer to the
 // reader: convex/react throws a ConvexError out of `useQuery`, and the guard's line names
 // the fix. Changing the secret remounts the boundary, so a fixed secret clears the error.
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { Component, type ReactNode, useState } from "react";
-import { EpicList } from "./EpicList.tsx";
+import { Component, type ReactNode, useMemo, useState } from "react";
+import { Connect } from "./Connect.tsx";
+import { Feed } from "./Feed.tsx";
+import { Ground } from "./Ground.tsx";
 import { useHeld } from "./held.ts";
+import { type Destination, JumpBar } from "./JumpBar.tsx";
 import { useMinute } from "./now.ts";
+import { Brief, Epics, Waiting } from "./Overview.tsx";
+import { Rail } from "./Rail.tsx";
 import { devSecret, readSecret, writeSecret } from "./secret.ts";
+
+/** How much of the feed the Overview keeps beside it. The rest is the log's. */
+const FEED = 30;
 
 export function App({ url }: { url: string }) {
   const [secret, setSecret] = useState<string | undefined>(() => readSecret() ?? devSecret());
+  const host = new URL(url).host;
 
   return (
-    <main>
-      <h1>cairn</h1>
-      <p>{url}</p>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          // A FormData entry is a string or a File; only the string is a secret.
-          const entered = new FormData(event.currentTarget).get("secret");
-          writeSecret(typeof entered === "string" ? entered : "");
-          setSecret(readSecret() ?? devSecret());
-        }}
-      >
-        <input type="password" name="secret" placeholder="deployment secret" autoComplete="off" />
-        <button type="submit">Save</button>
-      </form>
-      <ErrorBoundary key={secret ?? ""}>
-        <Epics secret={secret} />
-      </ErrorBoundary>
-    </main>
+    <ErrorBoundary
+      key={secret ?? ""}
+      fallback={(message) => (
+        <>
+          <Ground waiting={false} />
+          <Connect
+            host={host}
+            message={message}
+            onSecret={(entered) => {
+              writeSecret(entered);
+              setSecret(readSecret() ?? devSecret());
+            }}
+          />
+        </>
+      )}
+    >
+      <Window host={host} secret={secret} />
+    </ErrorBoundary>
   );
 }
 
-/** The live list. `undefined` is the subscription not having answered yet, not an empty list. */
-function Epics({ secret }: { secret: string | undefined }) {
+/** The live page. `undefined` is a subscription not having answered yet, never an empty list. */
+function Window({ host, secret }: { host: string; secret: string | undefined }) {
   const now = useMinute();
-  const epics = useHeld(useQuery(api.epics.list, secret === undefined ? { now } : { secret, now }));
-  if (epics === undefined) return <p>loading…</p>;
-  return <EpicList epics={epics} />;
+  const who = secret === undefined ? {} : { secret };
+  const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
+  const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
+  const blockers = useQuery(api.blockers.list, who);
+  const events = useQuery(api.events.recent, { ...who, limit: FEED });
+  const issues = useQuery(api.issues.list, who);
+
+  const destinations = useMemo<Destination[]>(
+    () => [
+      ...(issues ?? []).map(({ id, title, status }) => ({
+        id,
+        title,
+        what: status.replace("_", " "),
+      })),
+      ...(epics ?? []).map(({ id, title }) => ({ id, title, what: "epic" })),
+      ...(blockers ?? []).map(({ id, title }) => ({ id, title, what: "blocker" })),
+    ],
+    [issues, epics, blockers],
+  );
+
+  return (
+    <>
+      <Ground waiting={(brief?.waiting ?? 0) > 0} />
+      <Rail host={host} epics={epics} />
+      <main className="relative z-10 ml-[276px] mr-[396px] px-10 pt-16 pb-36 max-[1100px]:mr-0 max-[720px]:ml-0 max-[720px]:px-4 max-[720px]:pt-9">
+        <div className="mx-auto max-w-[760px]">
+          {brief === undefined || epics === undefined ? (
+            <p className="text-slate">Reading {host}…</p>
+          ) : (
+            <>
+              <Brief view={brief} />
+              <Waiting blockers={blockers ?? []} now={now} />
+              <Epics epics={epics} now={now} />
+            </>
+          )}
+        </div>
+      </main>
+      <Feed events={events} now={now} />
+      <JumpBar destinations={destinations} />
+    </>
+  );
 }
 
 /**
@@ -65,7 +113,10 @@ function messageOf(error: Error): string {
   return error.message;
 }
 
-class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }> {
+class ErrorBoundary extends Component<
+  { children: ReactNode; fallback: (message: string) => ReactNode },
+  { error?: Error }
+> {
   state: { error?: Error } = {};
 
   static getDerivedStateFromError(error: Error) {
@@ -75,6 +126,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }
   render(): ReactNode {
     const { error } = this.state;
     if (error === undefined) return this.props.children;
-    return <p role="alert">{messageOf(error)}</p>;
+    return this.props.fallback(messageOf(error));
   }
 }

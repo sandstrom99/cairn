@@ -14,8 +14,7 @@
 import { parseArgs } from "../lib/args.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { blockerLine } from "../lib/format.mts";
-import { ref } from "../lib/ref.mts";
+import { blockerLine, holdsLine } from "../lib/format.mts";
 
 export const name = "waiting";
 export const summary = "what waits on a person: every unresolved blocker, and what it holds";
@@ -43,7 +42,7 @@ export async function run(argv: string[]): Promise<number> {
   }
   for (const blocker of blockers) {
     console.log(blockerLine(blocker));
-    if (blocker.issues.length > 0) console.log(`  holds  ${blocker.issues.map(ref).join(", ")}`);
+    if (blocker.issues.length > 0) console.log(holdsLine(blocker.issues));
   }
   return 0;
 }

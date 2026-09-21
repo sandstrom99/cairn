@@ -6,6 +6,7 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
+import "./index.css";
 
 const url = import.meta.env.VITE_CAIRN_URL ?? "http://127.0.0.1:3210";
 const client = new ConvexReactClient(url);
