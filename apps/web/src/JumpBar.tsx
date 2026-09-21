@@ -8,11 +8,20 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { navigate } from "./location.ts";
 
 /** Something the bar can go to, and the word that says what it is. */
 export type Destination = Referable & { what: string };
 
-export function JumpBar({ destinations }: { destinations: Destination[] }) {
+export function JumpBar({
+  destinations,
+  side = true,
+}: {
+  destinations: Destination[];
+  /** Whether a column stands on the right, which the bar centres itself clear of. */
+  side?: boolean;
+}) {
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -30,7 +39,12 @@ export function JumpBar({ destinations }: { destinations: Destination[] }) {
 
   const open = focused && term.trim() !== "";
   return (
-    <div className="pointer-events-none fixed right-[396px] bottom-[22px] left-[276px] z-30 flex justify-center px-10 max-[1100px]:right-0 max-[720px]:left-0 max-[720px]:px-4">
+    <div
+      className={cn(
+        "pointer-events-none fixed bottom-[22px] left-[276px] z-30 flex justify-center px-10 max-[720px]:left-0 max-[720px]:px-4",
+        side ? "right-[396px] max-[1100px]:right-0" : "right-0",
+      )}
+    >
       <div className="under-bar absolute inset-x-0 bottom-[-22px] h-[132px]" />
       <Command
         label="Go to an issue, epic or blocker"
@@ -50,7 +64,11 @@ export function JumpBar({ destinations }: { destinations: Destination[] }) {
               <CommandItem
                 key={id}
                 value={`${id} ${title}`}
-                onSelect={() => window.location.assign(`/${id}`)}
+                onSelect={() => {
+                  navigate(`/${id}`);
+                  setTerm("");
+                  input.current?.blur();
+                }}
                 className="gap-1.5 rounded-xl px-3 py-[9px] text-[0.875rem] data-selected:bg-white/75 [&>svg:last-child]:hidden"
               >
                 <span className="shrink-0 font-mono text-meta text-slate">{id}</span>

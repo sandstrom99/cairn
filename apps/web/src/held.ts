@@ -7,8 +7,14 @@
 // first answer has not arrived, and never that a later one is pending.
 import { useRef } from "react";
 
-export function useHeld<T>(fresh: T | undefined): T | undefined {
-  const held = useRef(fresh);
-  if (fresh !== undefined) held.current = fresh;
-  return held.current;
+/**
+ * `key` names what the answer is about. When it changes, what was held is about something
+ * else and is let go: a page for `cn-2` must not show `cn-1` while its own answer is on
+ * the way.
+ */
+export function useHeld<T>(fresh: T | undefined, key: string = ""): T | undefined {
+  const held = useRef<{ key: string; value: T | undefined }>({ key, value: fresh });
+  if (held.current.key !== key) held.current = { key, value: fresh };
+  else if (fresh !== undefined) held.current.value = fresh;
+  return held.current.value;
 }

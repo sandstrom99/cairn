@@ -135,11 +135,7 @@ export function Epics({ epics, now }: { epics: EpicLineView[]; now: number }) {
             </h2>{" "}
             <Run text={counts} className="ml-auto text-small text-slate max-[720px]:ml-0" />
           </div>
-          <ul className="paper divide-y divide-hair">
-            {rows.map((row) => (
-              <HealthRowLine key={`${row.fact} ${row.target.id}`} row={row} />
-            ))}
-          </ul>
+          <HealthRows rows={rows} />
         </section>
       ))}
       {still.length > 0 && (
@@ -163,6 +159,17 @@ export function Epics({ epics, now }: { epics: EpicLineView[]; now: number }) {
         </section>
       )}
     </>
+  );
+}
+
+/** An epic's facts, a row each: what is moving, what is stuck, what waits on a person. */
+export function HealthRows({ rows }: { rows: HealthRow[] }) {
+  return (
+    <ul className="paper divide-y divide-hair">
+      {rows.map((row) => (
+        <HealthRowLine key={`${row.fact} ${row.target.id}`} row={row} />
+      ))}
+    </ul>
   );
 }
 

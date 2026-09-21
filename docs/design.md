@@ -531,6 +531,25 @@ said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
 
+A page for one id is `cn show` with room. An issue is the brief's labelled lines
+as a table, `issueFacts`, then everything written into it printed whole where
+the brief keeps a first line, then the proof its close stored and its journal,
+with its own history in the column where the Overview has the feed. An epic is
+its health and every issue under it, the finished ones included, which is more
+than `cn show ep-3` lists and is what a person opening an epic came for. Getting
+around is the point of the page: every reference anywhere is a link, an issue
+names its epic above its title and steps to the issue before and after it in
+the epic's order, the rail marks the epic on screen, and one button copies the
+reference form, `cn-26 "apps/web, the read-only window"`, because that is what a
+person pastes into a session to say which work they mean.
+
+Four routes do not get a router. The path is the state, and one listener turns
+every plain same-origin link into `history.pushState`, so components write
+`<a href>` and nothing else: links work with a modifier held, render in a test
+with no router around them, and keep the live subscriptions when clicked
+(`apps/web/src/location.ts`). Whatever hosts the built page has to answer every
+path with `index.html`.
+
 The look, and what each choice rules out:
 
 - **Glass only on what floats**: the rail, the feed, the jump bar, a dialog.

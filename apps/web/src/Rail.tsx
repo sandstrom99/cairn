@@ -48,10 +48,13 @@ export function Rail({
   host,
   epics,
   current = "/",
+  epicId,
 }: {
   host: string;
   epics: EpicLineView[] | undefined;
   current?: string;
+  /** The epic on screen, or the one the issue on screen belongs to. */
+  epicId?: string;
 }) {
   const open = epics?.reduce(
     (sum, { counts }) => sum + counts.open + counts.inProgress + counts.followUps,
@@ -108,7 +111,8 @@ export function Rail({
             <a
               href={`/${epic.id}`}
               title={epic.title}
-              className="flex h-8 items-center gap-[9px] rounded-[9px] px-2.5 text-row hover:bg-white/40"
+              aria-current={epic.id === epicId ? "true" : undefined}
+              className="flex h-8 items-center gap-[9px] rounded-[9px] px-2.5 text-row hover:bg-white/40 aria-[current=true]:bg-white/70 aria-[current=true]:shadow-[0_0_0_1px_rgb(21_24_30/0.05),0_1px_2px_rgb(21_24_30/0.06)]"
             >
               <i className={cn("size-2 shrink-0 rounded-full", DOT[toneOf(epic)])} />
               <span className="shrink-0 font-mono text-meta text-slate">{epic.id}</span>

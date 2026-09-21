@@ -30,7 +30,7 @@ pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
  Test Files  15 passed (15)      ← backend
  Test Files  33 passed (33)      ← cli
- Test Files  4 passed (4)        ← web
+ Test Files  7 passed (7)        ← web
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -62,8 +62,8 @@ change works where it runs:
 | `backend/convex/crons.ts`, `reconcile.sweep` | `vp run @cairn/backend#verify`, then from `backend/`: `node scripts/local.mjs dev --once --run reconcile:sweep` | Convex accepts the cron, and on a deployment with no `CAIRN_OWNER` the sweep warns that it is off and answers `{"epics": [], "owner": null}`, touching nothing |
 | `packages/cli/**` | `vp run verify:e2e` | every verb runs end to end against a real deployment, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
-| `packages/cli/src/lib/format.mts`, `ref.mts` | `vp run @cairn/web#test` | the page's rows are still cn's lines: `apps/web/src/rows.test.tsx` renders each row and holds its text to the line the same view prints |
-| `apps/web/**` | `vp run @cairn/web#build`, then with `vp run @cairn/backend#dev:throwaway` held open in another terminal: `VITE_CAIRN_URL=<the throwaway's> vp run dev:web`, `CAIRN_URL=<the same> cn epic new "scratch"`, and the page in a browser | every import the page makes resolves for a browser, the generated `api` and the CLI's `ref.mts` among them, which neither `vp check` nor the tests can prove; and the page prints the new epic in the reference form without a reload, the write itself landing at the top of the Activity feed. A headless browser needs a real wait before it reads the DOM: `--dump-dom` returns at the load event, before the subscription has answered |
+| `packages/cli/src/lib/format.mts`, `ref.mts` | `vp run @cairn/web#test` | the page's rows are still cn's lines: `apps/web/src/rows.test.tsx` and `sheet.test.tsx` render each row and each page's table and hold the text to what cn prints from the same view |
+| `apps/web/**` | `vp run @cairn/web#build`, then with `vp run @cairn/backend#dev:throwaway` held open in another terminal: `VITE_CAIRN_URL=<the throwaway's> vp run dev:web`, `CAIRN_URL=<the same> cn epic new "scratch"`, and the page in a browser | every import the page makes resolves for a browser, the generated `api` and the CLI's `ref.mts` among them, which neither `vp check` nor the tests can prove; and the page prints the new epic in the reference form without a reload, the write itself landing at the top of the Activity feed. Then click the epic, one of its issues, and Copy reference: the path changes with no page load, and the clipboard holds the reference form A headless browser needs a real wait before it reads the DOM: `--dump-dom` returns at the load event, before the subscription has answered |
 | `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh` three ways — with `CAIRN_URL` set, with it unset on a machine that has a config, and with `XDG_CONFIG_HOME` pointed at an empty directory — plus `claude plugin validate plugins/cairn --strict` | the brief from the environment, the brief from the file, and with nothing configured the two lines pointing at `/cairn:init`; exit 0 every way, and a manifest that validates |
 | `.claude/settings.json` | `claude plugin details cairn@cairn` from the repo root | the inventory names the skill, the four commands and the SessionStart hook; it needs the folder's trust dialog accepted once in an interactive `claude`, before which project marketplaces are ignored without a message, and `claude plugin list` never shows a project-enabled plugin |
 | `verbs/doctor.mts` | `cn doctor`, with nothing set in the environment | the last two lines are the deployment answering and `✓ secret accepted by cairn`, not only the config resolving |
