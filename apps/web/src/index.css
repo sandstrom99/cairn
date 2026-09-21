@@ -1,0 +1,359 @@
+/*
+ * index.css: the page's tokens and its three surfaces. The direction is settled on
+ * cn-26 "apps/web, the read-only window" and drawn in docs/mock/overview.html:
+ *
+ *   - Glass only on what floats: the rail, the feed, the jump bar, a dialog. Content sits
+ *     on paper and scrolls under the glass, which is the only time glass shows anything.
+ *   - Chroma means state. Moving is teal, stuck is amber, waiting is violet, and a page
+ *     with none of the three is grey and white. Nothing is coloured to decorate.
+ *   - One face, Recursive, from sans to mono along its MONO axis: prose in sans, and ids,
+ *     commands and records in mono, because they are pasted into a terminal.
+ *
+ * Light only for now. Dark is a second set of values for the same tokens, later.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/recursive/mono.css";
+
+@theme {
+  --font-sans: "Recursive Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans--font-variation-settings: "MONO" 0, "CASL" 0;
+  --font-mono: "Recursive Variable", ui-monospace, monospace;
+  --font-mono--font-variation-settings: "MONO" 1, "CASL" 0;
+
+  --color-mist: #f3f5f9;
+  --color-ink: #15181e;
+  --color-slate: #5b6472;
+  --color-faint: #8b94a3;
+  /* Quotes, dots and arrows: cn's punctuation, kept in the text and quietened. */
+  --color-mark: #b4bbc7;
+  --color-hair: rgb(21 24 30 / 0.08);
+  --color-paper: rgb(255 255 255 / 0.88);
+
+  /* The dot, then the same hue dark enough to read as a word on paper. */
+  --color-moving: #1f9d8a;
+  --color-moving-ink: #15796a;
+  --color-stuck: #c9821b;
+  --color-stuck-ink: #96600f;
+  --color-waiting: #6c5ce7;
+  --color-waiting-ink: #5143c4;
+
+  --text-micro: 0.71875rem;
+  --text-micro--line-height: 1.55;
+  --text-meta: 0.78125rem;
+  --text-meta--line-height: 1.45;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.5;
+  --text-row: 0.84375rem;
+  --text-row--line-height: 1.5;
+  --text-body: 0.90625rem;
+  --text-body--line-height: 1.5;
+  --text-title: 1.0625rem;
+  --text-title--line-height: 1.35;
+  --text-brief: 2.375rem;
+  --text-brief--line-height: 1.16;
+}
+
+/* What shadcn's components read. The values are this page's, the names are theirs. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: var(--color-mist);
+  --foreground: var(--color-ink);
+  --card: #fff;
+  --card-foreground: var(--color-ink);
+  --popover: #fff;
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-ink);
+  --primary-foreground: #fff;
+  --secondary: rgb(255 255 255 / 0.7);
+  --secondary-foreground: var(--color-ink);
+  --muted: rgb(255 255 255 / 0.75);
+  --muted-foreground: var(--color-slate);
+  --accent: rgb(255 255 255 / 0.75);
+  --accent-foreground: var(--color-ink);
+  --destructive: #b3261e;
+  --border: var(--color-hair);
+  --input: rgb(21 24 30 / 0.14);
+  --ring: var(--color-ink);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-body text-foreground font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ---------- glass: only what floats ---------- */
+
+  .glass {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.24));
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    box-shadow:
+      0 0 0 1px rgb(21 24 30 / 0.06),
+      0 30px 60px -28px rgb(30 40 60 / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      inset 0 0 24px rgb(255 255 255 / 0.35),
+      inset 0 -14px 28px -18px rgb(80 95 125 / 0.18);
+  }
+
+  /* The lit edge: bright where light enters at the top left, again where it leaves. */
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgb(255 255 255 / 0.95),
+      rgb(255 255 255 / 0.15) 32%,
+      rgb(255 255 255 / 0.08) 68%,
+      rgb(255 255 255 / 0.75)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* The bar is smaller and sits over moving content, so it carries more of its own light. */
+  .glass-bar {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.66), rgb(255 255 255 / 0.42));
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
+    box-shadow:
+      0 0 0 1px rgb(21 24 30 / 0.06),
+      0 18px 40px -14px rgb(30 40 60 / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+
+  .glass-bar:focus-within {
+    box-shadow:
+      0 0 0 2px var(--color-ink),
+      0 18px 40px -14px rgb(30 40 60 / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+
+  /* ---------- paper: what is read ---------- */
+
+  .paper {
+    background: var(--color-paper);
+    border: 1px solid var(--color-hair);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgb(21 24 30 / 0.04);
+    overflow: hidden;
+  }
+
+  .paper-waiting {
+    border-color: rgb(108 92 231 / 0.26);
+    background:
+      linear-gradient(180deg, rgb(108 92 231 / 0.055), rgb(108 92 231 / 0.015)), var(--color-paper);
+  }
+
+  /*
+   * In the text, so what a reader copies or a screen reader says is cn's line; not drawn,
+   * because a column already does the job the character did in a terminal. Inline and of
+   * no size rather than positioned out of the way: a positioned one copies as a line of
+   * its own. Never a direct child of a grid or a flex row, where it would take a cell.
+   */
+  .unseen {
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+  }
+
+  /* ---------- the ground ---------- */
+
+  /*
+   * Light through a window, falling across the wall behind the page: long diagonal
+   * shafts, each with one defined edge and one that fades. It is there for the glass to
+   * stand over, so it is strongest at the sides and held back behind the column people
+   * read. No hue of its own: see "chroma means state" above.
+   */
+  .ground-light {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: linear-gradient(
+      90deg,
+      rgb(176 188 212 / 0.42),
+      rgb(176 188 212 / 0) 26%,
+      rgb(176 188 212 / 0) 70%,
+      rgb(176 188 212 / 0.5)
+    );
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 20%,
+      rgb(0 0 0 / 0.3) 36%,
+      rgb(0 0 0 / 0.3) 66%,
+      #000 78%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 20%,
+      rgb(0 0 0 / 0.3) 36%,
+      rgb(0 0 0 / 0.3) 66%,
+      #000 78%
+    );
+  }
+
+  .ground-shafts {
+    position: absolute;
+    inset: -40% -25%;
+    transform: rotate(-28deg);
+    filter: blur(5px);
+  }
+
+  .ground-shafts > i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(
+      90deg,
+      rgb(255 255 255 / 0) 0%,
+      rgb(255 255 255 / 0.95) 5%,
+      rgb(255 255 255 / 0.4) 55%,
+      rgb(255 255 255 / 0) 100%
+    );
+  }
+
+  .ground-shafts > i.shade {
+    background: linear-gradient(
+      90deg,
+      rgb(128 144 178 / 0) 0%,
+      rgb(128 144 178 / 0.5) 4%,
+      rgb(128 144 178 / 0.16) 60%,
+      rgb(128 144 178 / 0) 100%
+    );
+  }
+
+  /* Violet is on the page only while something waits on the reader. */
+  .ground-waiting {
+    position: absolute;
+    top: -120px;
+    left: 180px;
+    width: 860px;
+    height: 560px;
+    background: radial-gradient(closest-side, rgb(108 92 231 / 0.2), transparent);
+    opacity: 0;
+    transition: opacity 600ms ease;
+  }
+
+  .ground-waiting[data-on="true"] {
+    opacity: 1;
+  }
+
+  @media (max-width: 1100px) {
+    .ground-light {
+      opacity: 0.6;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .ground-light {
+      opacity: 0.4;
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+  }
+
+  /* Content softens as it passes under the jump bar. */
+  .under-bar {
+    background: linear-gradient(180deg, rgb(243 245 249 / 0), rgb(243 245 249 / 0.86) 62%);
+  }
+
+  /* ---------- the page's one unprompted motion: an event arriving ---------- */
+
+  .landed {
+    animation: land 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .landed::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      rgb(255 255 255 / 0.95) 50%,
+      transparent 70%
+    );
+    transform: translateX(-100%);
+    animation: sheen 1100ms 120ms ease-out forwards;
+    pointer-events: none;
+  }
+
+  @keyframes land {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes sheen {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landed,
+    .landed::after {
+      animation: none;
+    }
+
+    .landed::after {
+      display: none;
+    }
+
+    .ground-waiting {
+      transition: none;
+    }
+  }
+}

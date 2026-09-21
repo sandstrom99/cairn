@@ -13,6 +13,7 @@
     "lib": ["esnext", "dom", "dom.iterable"],
     "types": ["vite/client"],
     "jsx": "react-jsx",
+    "paths": { "@/*": ["./src/*"] },
 
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,

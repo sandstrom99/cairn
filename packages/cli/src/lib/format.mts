@@ -80,11 +80,33 @@ export function age(sinceMs: number, now: number = Date.now()): string {
  * inside an epic's show do not carry it and print without.
  */
 export function issueLine(view: IssueLineView): string {
-  const parts = [`${ref(view)} P${view.priority} ${view.status}`];
-  if (view.epic) parts.push(` ${ref(view.epic)}`);
-  if (view.claimedBy) parts.push(`· ${view.claimedBy.name}`);
-  if (view.revision !== undefined) parts.push(`r${view.revision}`);
+  const { target, priority, status, epic, claimedBy, revision } = issueParts(view);
+  const parts = [`${ref(target)} ${priority} ${status}`];
+  if (epic) parts.push(` ${ref(epic)}`);
+  if (claimedBy) parts.push(`· ${claimedBy}`);
+  if (revision) parts.push(revision);
   return parts.join(" ");
+}
+
+/** The issue line in pieces, each already the token the line prints: `P2`, `r3`. */
+export type IssueParts = {
+  target: Referable;
+  priority: string;
+  status: string;
+  epic?: Referable;
+  claimedBy?: string;
+  revision?: string;
+};
+
+export function issueParts(view: IssueLineView): IssueParts {
+  return {
+    target: { id: view.id, title: view.title },
+    priority: `P${view.priority}`,
+    status: view.status,
+    epic: view.epic,
+    claimedBy: view.claimedBy?.name,
+    revision: view.revision === undefined ? undefined : `r${view.revision}`,
+  };
 }
 
 /**
@@ -118,12 +140,32 @@ export function edgeLine({ type, from, to }: EdgeView): string {
  * reads `raised 5m ago` rather than `raised · raised 5m ago`.
  */
 export function blockerLine(view: BlockerLineView, now: number = Date.now()): string {
-  const line = `${ref(view)} ${view.blockerKind} · owner ${view.owner}`;
-  if (view.status === "resolved" && view.resolvedAt !== undefined && view.resolvedBy)
-    return `${line} · resolved ${since(view.resolvedAt, now)} by ${view.resolvedBy.name}`;
-  const raised = `raised ${since(view.raisedAt, now)} by ${view.raisedBy.name}`;
-  return view.status === "raised" ? `${line} · ${raised}` : `${line} · ${view.status} · ${raised}`;
+  const { target, kind, tail } = blockerParts(view, now);
+  return `${ref(target)} ${kind} · ${tail}`;
 }
+
+/**
+ * A line in the pieces a surface with columns sets apart: what the line is about, the word
+ * that classes it, and the rest of it as one run. Every `…Parts` below answers some shape
+ * of this, and the `…Line` beside it is those pieces joined, so the web window's rows and
+ * cn's lines cannot drift: apps/web pins each row's text to the line.
+ */
+export type BlockerParts = { target: Referable; kind: string; tail: string };
+
+export function blockerParts(view: BlockerLineView, now: number = Date.now()): BlockerParts {
+  const owner = `owner ${view.owner}`;
+  const raised = `raised ${since(view.raisedAt, now)} by ${view.raisedBy.name}`;
+  const tail =
+    view.status === "resolved" && view.resolvedAt !== undefined && view.resolvedBy
+      ? `${owner} · resolved ${since(view.resolvedAt, now)} by ${view.resolvedBy.name}`
+      : view.status === "raised"
+        ? `${owner} · ${raised}`
+        : `${owner} · ${view.status} · ${raised}`;
+  return { target: { id: view.id, title: view.title }, kind: view.blockerKind, tail };
+}
+
+/** `  holds  cn-4 "…", cn-7 "…"`: the issues a blocker keeps out of ready, under its line. */
+export const holdsLine = (issues: Referable[]): string => `  holds  ${refs(issues)}`;
 
 /**
  * An epic's health, as many lines as it has facts (docs/design.md §8):
@@ -140,27 +182,47 @@ export function blockerLine(view: BlockerLineView, now: number = Date.now()): st
  * is one line and the three that follow are only there when they say something.
  */
 export function healthLines(view: EpicLineView, now: number = Date.now()): string[] {
+  const { epic, counts, rows } = healthParts(view, now);
+  return [
+    `${ref(epic)}  ${counts}`,
+    ...rows.map((row) => `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`),
+  ];
+}
+
+/** One fact of an epic's health: which of the three it is, what it names, and the rest. */
+export type HealthRow = { fact: "moving" | "stuck" | "waiting"; target: Referable; tail: string };
+
+/** The health block in pieces: the epic, its counts as one run, and a row per fact. */
+export type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
+
+export function healthParts(view: EpicLineView, now: number = Date.now()): HealthParts {
   const { open, inProgress, closed, followUps } = view.counts;
   const reconciled =
     view.lastReconciledAt === undefined
       ? "never reconciled"
       : `last reconciled ${since(view.lastReconciledAt, now)}`;
-  const lines = [
-    `${ref(view)}  ${closed} done · ${open + inProgress} open · ${followUps} ${
+  const rows: HealthRow[] = [];
+  for (const issue of view.health.moving)
+    rows.push({
+      fact: "moving",
+      target: issue,
+      tail: `${issue.claimedBy.name} ${age(issue.claimedAt, now)}`,
+    });
+  if (view.health.stuck)
+    rows.push({
+      fact: "stuck",
+      target: view.health.stuck,
+      tail: `silent ${age(view.health.stuck.lastActivity, now)}`,
+    });
+  for (const blocker of view.health.waiting)
+    rows.push({ fact: "waiting", target: blocker, tail: `· owner ${blocker.owner}` });
+  return {
+    epic: view,
+    counts: `${closed} done · ${open + inProgress} open · ${followUps} ${
       followUps === 1 ? "follow-up" : "follow-ups"
     } · ${reconciled}`,
-  ];
-  for (const issue of view.health.moving)
-    lines.push(
-      `  ${fact("moving")}${ref(issue)} ${issue.claimedBy.name} ${age(issue.claimedAt, now)}`,
-    );
-  if (view.health.stuck)
-    lines.push(
-      `  ${fact("stuck")}${ref(view.health.stuck)} silent ${age(view.health.stuck.lastActivity, now)}`,
-    );
-  for (const blocker of view.health.waiting)
-    lines.push(`  ${fact("waiting")}${ref(blocker)} · owner ${blocker.owner}`);
-  return lines;
+    rows,
+  };
 }
 
 /**
@@ -220,7 +282,7 @@ const firstLine = (text: string): string => {
 };
 const refs = (items: Referable[]): string => items.map(ref).join(", ");
 /** `2h ago`, but `just now` reads as itself. */
-const since = (at: number, now: number): string => {
+export const since = (at: number, now: number): string => {
   const token = age(at, now);
   return token === "just now" ? token : `${token} ago`;
 };
@@ -247,30 +309,57 @@ const isFieldMap = (
     (v) => typeof v === "object" && v !== null && ("from" in v || "to" in v),
   );
 
-/** `priority 2 → 1` for the field-map shape, the compact JSON for anything else. */
-const changesOf = (changes: unknown): string => {
-  if (changes === undefined) return "";
-  if (isFieldMap(changes))
-    return clip(
-      Object.entries(changes)
-        .map(([field, { from, to }]) => `${field} ${side(from)} → ${side(to)}`)
-        .join(", "),
-    );
-  return clip(JSON.stringify(changes) ?? "");
+/**
+ * One event's payload in pieces: `priority 2 → 1` per field for the field-map shape, the
+ * compact JSON as a single piece for anything else. Joined with `, ` they are what a line
+ * has room for, so the cut is made here, inside the piece it lands in, and nothing a
+ * reader of the pieces sees differs from what a reader of the line sees.
+ */
+export const changePieces = (changes: unknown): string[] => {
+  if (changes === undefined) return [];
+  if (!isFieldMap(changes)) {
+    const text = clip(JSON.stringify(changes) ?? "");
+    return text === "" ? [] : [text];
+  }
+  const pieces = Object.entries(changes).map(
+    ([field, { from, to }]) => `${field} ${side(from)} → ${side(to)}`,
+  );
+  if (pieces.join(", ").length <= CHANGES) return pieces;
+  const kept: string[] = [];
+  let room = CHANGES - 1;
+  for (const piece of pieces) {
+    if (room <= 0) break;
+    kept.push(piece.slice(0, room));
+    room -= piece.length + 2;
+  }
+  kept[kept.length - 1] += "…";
+  return kept;
 };
 
 /** `  r4  wsl/claude  2h ago  issue.update  priority 2 → 1` */
-const eventLine = (e: HistoryEvent, now: number): string =>
-  [
-    "",
-    e.revision === undefined ? "—" : `r${e.revision}`,
-    e.actor.name,
-    since(e.at, now),
-    e.kind,
-    changesOf(e.changes),
-  ]
-    .join("  ")
-    .trimEnd();
+const eventLine = (e: HistoryEvent, now: number): string => {
+  const { revision, actor, when, kind, changes } = historyParts(e, now);
+  return ["", revision, actor, when, kind, changes.join(", ")].join("  ").trimEnd();
+};
+
+/** One event of a thing's own history, in pieces. It names no target: the thing is the page. */
+export type HistoryParts = {
+  revision: string;
+  actor: string;
+  when: string;
+  kind: string;
+  changes: string[];
+};
+
+export function historyParts(e: HistoryEvent, now: number = Date.now()): HistoryParts {
+  return {
+    revision: e.revision === undefined ? "—" : `r${e.revision}`,
+    actor: e.actor.name,
+    when: since(e.at, now),
+    kind: e.kind,
+    changes: changePieces(e.changes),
+  };
+}
 
 /**
  * The events a rejected write came back with. A stale write is not a failure to report:
@@ -295,10 +384,116 @@ export type LogEvent = FunctionReturnType<typeof api.events.recent>[number];
  * because the reference at the start of the line already names what was created.
  */
 export function logLine(e: LogEvent, now: number = Date.now()): string {
-  const target = e.issue ? ref(e.issue) : e.blocker ? ref(e.blocker) : e.epic ? ref(e.epic) : "—";
-  const payload = e.kind.endsWith(".create") ? "" : changesOf(e.changes);
-  return [target, e.kind, e.actor.name, since(e.at, now), payload].join("  ").trimEnd();
+  const { target, kind, actor, when, changes } = logParts(e, now);
+  return [target ? ref(target) : "—", kind, actor, when, changes.join(", ")].join("  ").trimEnd();
 }
+
+/** One event in pieces: a target where it names one, and its payload a change at a time. */
+export type LogParts = {
+  target?: Referable;
+  kind: string;
+  actor: string;
+  when: string;
+  changes: string[];
+};
+
+export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
+  return {
+    target: e.issue ?? e.blocker ?? e.epic,
+    kind: e.kind,
+    actor: e.actor.name,
+    when: since(e.at, now),
+    changes: e.kind.endsWith(".create") ? [] : changePieces(e.changes),
+  };
+}
+
+/**
+ * One labelled line of `cn show`: a label, and either a run of text or the things it
+ * names. The brief is these printed under the reference, and the web window's page for
+ * an id is these set as a table, so the two say the same facts in the same words.
+ */
+export type Fact = { label: string; text?: string; refs?: Referable[] };
+
+const factLine = ({ label: name, text, refs: named }: Fact): string =>
+  `${label(name)}${named ? refs(named) : (text ?? "")}`;
+
+export type ShownIssue = Extract<Shown, { kind: "issue" }>;
+export type ShownEpic = Extract<Shown, { kind: "epic" }>;
+export type ShownBlocker = Extract<Shown, { kind: "blocker" }>;
+
+/** An issue's facts, from its epic down to what it waits on. Its prose comes after them. */
+export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] {
+  const facts: Fact[] = [
+    { label: "epic", refs: [shown.epic] },
+    { label: "project", text: shown.project },
+    {
+      label: "status",
+      text: `${shown.status} · P${shown.priority} · created ${since(shown.createdAt, now)} · revision ${shown.revision}`,
+    },
+  ];
+  if (shown.claimedBy)
+    facts.push({
+      label: "claimed",
+      text: `${shown.claimedBy.name}${
+        shown.claimedAt === undefined ? "" : ` · ${age(shown.claimedAt, now)}`
+      }`,
+    });
+  if (shown.requires.length > 0) facts.push({ label: "requires", text: shown.requires.join(", ") });
+  if (shown.parent) facts.push({ label: "parent", refs: [shown.parent] });
+  // The blocking edges, then the context ones: those say where an issue came from and what
+  // it sits beside, and none of them touches readiness (design §3).
+  const named: [string, Referable[]][] = [
+    ["follow-ups", shown.followUps],
+    ["blocks", shown.blocks],
+    ["blocked by", shown.blockedBy],
+    ["related", shown.related],
+    ["discovered from", shown.discoveredFrom],
+    ["duplicates", shown.duplicates],
+    ["supersedes", shown.supersedes],
+    ["waiting on", shown.waitingOn],
+  ];
+  for (const [name, items] of named) if (items.length > 0) facts.push({ label: name, refs: items });
+  return facts;
+}
+
+/** A blocker's facts: its kind and owner, where it stands, what ends it, what it holds. */
+export function blockerFacts(shown: ShownBlocker, now: number = Date.now()): Fact[] {
+  const facts: Fact[] = [
+    { label: "kind", text: `${shown.blockerKind} · owner ${shown.owner}` },
+    {
+      label: "status",
+      // `raised raised 2m ago` says it twice, so the status word goes where it adds one.
+      text: `${shown.status === "raised" ? "" : `${shown.status} · `}raised ${since(shown.raisedAt, now)} by ${shown.raisedBy.name}`,
+    },
+    { label: "resolves when", text: shown.whatResolves },
+  ];
+  // The date alone: a nudge is a day somebody looks again, and the hour is noise.
+  if (shown.nudgeAt !== undefined)
+    facts.push({ label: "nudge", text: new Date(shown.nudgeAt).toISOString().slice(0, 10) });
+  if (shown.resolvedBy && shown.resolvedAt !== undefined)
+    facts.push({
+      label: "resolved",
+      text: `by ${shown.resolvedBy.name} ${since(shown.resolvedAt, now)}: ${shown.resolution ?? ""}`,
+    });
+  if (shown.issues.length > 0) facts.push({ label: "holds", refs: shown.issues });
+  return facts;
+}
+
+type JournalEntry = { at: number; author: { name: string }; kind: string; body: string };
+
+/** One journal entry as `cn show` prints it: `  2h wsl/claude finding: what turned out true`. */
+export const journalLine = (e: JournalEntry, now: number = Date.now()): string => {
+  const { when, author, kind, body } = journalParts(e, now);
+  return `  ${when} ${author} ${kind}: ${body}`;
+};
+
+/** The same entry in pieces. `when` is an age with no `ago`, as the line has it. */
+export const journalParts = (e: JournalEntry, now: number = Date.now()) => ({
+  when: age(e.at, now),
+  author: e.author.name,
+  kind: e.kind,
+  body: e.body,
+});
 
 /** The ten-line brief of `cn show`, one shape per kind. */
 export function brief(shown: Shown, now: number = Date.now()): string {
@@ -309,21 +504,7 @@ export function brief(shown: Shown, now: number = Date.now()): string {
     return lines.join("\n");
   }
   if (shown.kind === "blocker") {
-    const lines = [
-      ref(shown),
-      `${label("kind")}${shown.blockerKind} · owner ${shown.owner}`,
-      // `raised raised 2m ago` says it twice, so the status word goes where it adds one.
-      `${label("status")}${shown.status === "raised" ? "" : `${shown.status} · `}raised ${since(shown.raisedAt, now)} by ${shown.raisedBy.name}`,
-      `${label("resolves when")}${shown.whatResolves}`,
-    ];
-    // The date alone: a nudge is a day somebody looks again, and the hour is noise.
-    if (shown.nudgeAt !== undefined)
-      lines.push(`${label("nudge")}${new Date(shown.nudgeAt).toISOString().slice(0, 10)}`);
-    if (shown.resolvedBy && shown.resolvedAt !== undefined)
-      lines.push(
-        `${label("resolved")}by ${shown.resolvedBy.name} ${since(shown.resolvedAt, now)}: ${shown.resolution ?? ""}`,
-      );
-    if (shown.issues.length > 0) lines.push(`${label("holds")}${refs(shown.issues)}`);
+    const lines = [ref(shown), ...blockerFacts(shown, now).map(factLine)];
     if (shown.events && shown.events.length > 0) {
       lines.push("history");
       lines.push(...historyLines(shown.events, now));
@@ -331,37 +512,12 @@ export function brief(shown: Shown, now: number = Date.now()): string {
     return lines.join("\n");
   }
 
-  const lines = [
-    ref(shown),
-    `${label("epic")}${ref(shown.epic)}`,
-    `${label("project")}${shown.project}`,
-    `${label("status")}${shown.status} · P${shown.priority} · created ${since(shown.createdAt, now)} · revision ${shown.revision}`,
-  ];
-  if (shown.claimedBy)
-    lines.push(
-      `${label("claimed")}${shown.claimedBy.name}${
-        shown.claimedAt === undefined ? "" : ` · ${age(shown.claimedAt, now)}`
-      }`,
-    );
-  if (shown.requires.length > 0) lines.push(`${label("requires")}${shown.requires.join(", ")}`);
-  if (shown.parent) lines.push(`${label("parent")}${ref(shown.parent)}`);
-  if (shown.followUps.length > 0) lines.push(`${label("follow-ups")}${refs(shown.followUps)}`);
-  if (shown.blocks.length > 0) lines.push(`${label("blocks")}${refs(shown.blocks)}`);
-  if (shown.blockedBy.length > 0) lines.push(`${label("blocked by")}${refs(shown.blockedBy)}`);
-  // The context edges after the blocking ones: they say where an issue came from and what
-  // it sits beside, and none of them touches readiness (design §3).
-  if (shown.related.length > 0) lines.push(`${label("related")}${refs(shown.related)}`);
-  if (shown.discoveredFrom.length > 0)
-    lines.push(`${label("discovered from")}${refs(shown.discoveredFrom)}`);
-  if (shown.duplicates.length > 0) lines.push(`${label("duplicates")}${refs(shown.duplicates)}`);
-  if (shown.supersedes.length > 0) lines.push(`${label("supersedes")}${refs(shown.supersedes)}`);
-  if (shown.waitingOn.length > 0) lines.push(`${label("waiting on")}${refs(shown.waitingOn)}`);
+  const lines = [ref(shown), ...issueFacts(shown, now).map(factLine)];
   if (shown.design) lines.push(`${label("design")}${firstLine(shown.design)}`);
   if (shown.acceptance) lines.push(`${label("acceptance")}${firstLine(shown.acceptance)}`);
   if (shown.journal.length > 0) {
     lines.push("journal");
-    for (const e of shown.journal)
-      lines.push(`  ${age(e.at, now)} ${e.author.name} ${e.kind}: ${e.body}`);
+    for (const e of shown.journal) lines.push(journalLine(e, now));
   }
   if (shown.events && shown.events.length > 0) {
     lines.push("history");
