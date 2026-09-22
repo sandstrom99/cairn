@@ -888,6 +888,7 @@ describe("briefLines", () => {
             title: "the brief and the plugin",
             claimedBy: claude,
             claimedAt: ago(2 * HOUR),
+            mine: false,
           },
         ],
         followUps: {
@@ -939,6 +940,7 @@ describe("briefLines", () => {
           title: "held",
           claimedBy: claude,
           claimedAt: ago(HOUR),
+          mine: false,
         })),
         followUps: {
           count: 7,
@@ -959,6 +961,45 @@ describe("briefLines", () => {
       'follow-ups      cn-20 "confirm it" [verify] · cn-21 "confirm it" [verify] · cn-22 "confirm it" [verify] · +2 more · 2 more need what you lack',
     );
     expect(lines.length).toBeLessThan(20);
+  });
+
+  it("marks what this session holds as yours, and a silent claim with its silence", () => {
+    const lines = briefLines(
+      {
+        ...empty,
+        inProgress: [
+          {
+            id: "cn-37",
+            title: "a session beside the actor",
+            claimedBy: { ...claude, session: "s-1" },
+            claimedAt: ago(5 * MINUTE),
+            mine: true,
+          },
+          {
+            id: "cn-6",
+            title: "the brief and the plugin",
+            claimedBy: claude,
+            claimedAt: ago(3 * DAY),
+            mine: false,
+            silentSince: ago(26 * HOUR),
+          },
+          {
+            id: "cn-9",
+            title: "forgotten in this very session",
+            claimedBy: { ...claude, session: "s-1" },
+            claimedAt: ago(9 * DAY),
+            mine: true,
+            silentSince: ago(9 * DAY),
+          },
+        ],
+      },
+      where,
+      now,
+    );
+    // Silence stays in hours for two days, where `1d` would hide how far past 24h it is.
+    expect(lines[2]).toBe(
+      'in progress     cn-37 "a session beside the actor" balder/claude 5m · yours · cn-6 "the brief and the plugin" balder/claude 3d · silent 26h · cn-9 "forgotten in this very session" balder/claude 9d · silent 9d · yours',
+    );
   });
 
   it("names no capabilities when the session declared none", () => {

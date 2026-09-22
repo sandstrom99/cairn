@@ -10,13 +10,20 @@
 // Follow-ups are the one place in cairn where `can[]` filters rather than marks, and the
 // count says how many were left out. The brief is a glance, so a row this session cannot
 // finish is noise in it; `cn ready` is the list, and it shows every row, marked (§5).
+//
+// The in-progress rows carry two facts the deployment alone can state: `mine`, that the
+// claim belongs to the asking session — the same test `issues.claim` is idempotent on, so
+// the brief and the claim cannot disagree about whose it is — and `silentSince`, the last
+// activity of a claim silent past CLAIM_SILENT_MS, which a person reads and decides on;
+// nothing releases it (§7).
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { RECONCILE } from "./lib/actor";
+import { RECONCILE, actorValidator, sameSession } from "./lib/actor";
 import { nowArg } from "./lib/clock";
 import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
+import { CLAIM_SILENT_MS } from "./lib/thresholds";
 
 /**
  * The blockers in one unresolved status. Both lines over them are counts, so the order
@@ -35,8 +42,8 @@ const blockersWith = async (
 const TOP = 3;
 
 export const get = query({
-  args: { can: v.optional(v.array(v.string())), ...nowArg },
-  handler: async (ctx, { can, now }) => {
+  args: { can: v.optional(v.array(v.string())), actor: v.optional(actorValidator), ...nowArg },
+  handler: async (ctx, { can, actor, now = Date.now() }) => {
     const ready = await readyIssues(ctx, can ?? [], now);
     const tasks = ready.filter((i) => i.type === "task");
     const followUps = ready.filter((i) => i.type === "follow-up");
@@ -68,6 +75,9 @@ export const get = query({
           title: doc.title,
           claimedBy: doc.claimedBy,
           claimedAt: doc.claimedAt,
+          mine:
+            actor !== undefined && doc.claimedBy !== undefined && sameSession(doc.claimedBy, actor),
+          ...(now - doc.lastActivity > CLAIM_SILENT_MS ? { silentSince: doc.lastActivity } : {}),
         })),
       followUps: {
         count: followUps.length,

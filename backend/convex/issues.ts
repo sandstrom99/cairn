@@ -8,7 +8,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { actorValidator } from "./lib/actor";
+import { actorValidator, sameSession } from "./lib/actor";
 import type { Actor } from "./lib/actor";
 import { claimChanges, closeChanges, dropChanges, releaseChanges } from "./lib/changes";
 import { claimed, invalid, notFound } from "./lib/errors";
@@ -41,13 +41,20 @@ const followUpKindValidator = v.union(
 const viewOf = async (ctx: MutationCtx, _id: Id<"issues">) =>
   await issueView(ctx, (await ctx.db.get(_id))!);
 
-/** `claimed`, with the two fields narrowed: every caller has tested `claimedBy` first. */
-const heldBy = (doc: Doc<"issues">) =>
-  claimed({
-    id: doc.id,
-    claimedBy: doc.claimedBy!,
-    claimedAt: doc.claimedAt ?? doc.lastActivity,
-  });
+/**
+ * `claimed`, with the two fields narrowed: every caller has tested `claimedBy` first.
+ * With the asker given, a holder of the same name is named as another session, so an
+ * agent refused under its own name is told what the difference is.
+ */
+const heldBy = (doc: Doc<"issues">, asker?: Actor) =>
+  claimed(
+    {
+      id: doc.id,
+      claimedBy: doc.claimedBy!,
+      claimedAt: doc.claimedAt ?? doc.lastActivity,
+    },
+    asker !== undefined && asker.name === doc.claimedBy!.name,
+  );
 
 /** True when `actor` may not touch a claim it does not hold: a human may, an agent may not. */
 const fencedOut = (doc: Doc<"issues">, actor: Actor): boolean =>
@@ -223,9 +230,10 @@ export const claim = mutation({
       throw invalid(
         `${doc.id} is ${doc.status}; reopening is not a thing, create a follow-up instead`,
       );
-    // Idempotent for the same actor: a session that claims twice has claimed once.
-    if (doc.claimedBy?.name === args.actor.name) return await issueView(ctx, doc);
-    if (doc.claimedBy) throw heldBy(doc);
+    // Idempotent for the same session: a session that claims twice has claimed once. Two
+    // sessions of one name are two claimants, so the second is refused like anybody else.
+    if (doc.claimedBy && sameSession(doc.claimedBy, args.actor)) return await issueView(ctx, doc);
+    if (doc.claimedBy) throw heldBy(doc, args.actor);
 
     const now = Date.now();
     await applyRevision(

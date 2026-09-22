@@ -54,13 +54,15 @@ export async function run(argv: string[]): Promise<number> {
 
   const capabilities = can(parsed.can);
   const { client } = connect();
-  const view = await client.query(api.brief.get, { can: capabilities });
+  // The actor goes along so the deployment can mark which claims are this session's.
+  const me = actor();
+  const view = await client.query(api.brief.get, { can: capabilities, actor: me });
   if (parsed.json) console.log(JSON.stringify(view, null, 2));
   else
     console.log(
       briefLines(view, {
         deployment: deployment.name,
-        actor: actor().name,
+        actor: me.name,
         can: capabilities,
       }).join("\n"),
     );

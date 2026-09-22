@@ -81,7 +81,7 @@ src/lib/
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
   can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`
-  actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>
+  actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>, with CAIRN_SESSION beside it
   format.mts     the lines cn prints: a list line, an epic line, the show brief
   run.mts        runs the command `cn close --run` proves with, and keeps its tail
   ref.mts        the reference form: id and title, always

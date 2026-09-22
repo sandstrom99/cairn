@@ -20,11 +20,15 @@ export const conflict = (message: string): ConvexError<{ kind: string; message: 
  * not told it is stale — it is told who holds it and since when, which is what it needs
  * to decide whether to wait, ask or take something else (docs/design.md §5).
  */
-export const claimed = (doc: {
-  id: string;
-  claimedBy: Actor;
-  claimedAt: number;
-}): ConvexError<{
+export const claimed = (
+  doc: {
+    id: string;
+    claimedBy: Actor;
+    claimedAt: number;
+  },
+  /** The asker has the holder's name: another session of it holds the claim. */
+  sameName = false,
+): ConvexError<{
   kind: string;
   message: string;
   id: string;
@@ -33,7 +37,7 @@ export const claimed = (doc: {
 }> =>
   new ConvexError({
     kind: "claimed",
-    message: `${doc.id} is held by ${doc.claimedBy.name} since ${new Date(doc.claimedAt).toISOString()}`,
+    message: `${doc.id} is held by ${doc.claimedBy.name}${sameName ? " in another session" : ""} since ${new Date(doc.claimedAt).toISOString()}`,
     id: doc.id,
     by: doc.claimedBy,
     since: doc.claimedAt,

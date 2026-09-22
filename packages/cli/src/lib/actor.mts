@@ -4,15 +4,22 @@
 //   CAIRN_ACTOR        wins outright
 //   otherwise          <host>/claude with CLAUDECODE set, <host>/<user> without it
 //   host               CAIRN_HOST, then `host` in the config file, then this machine's
+//   session            CAIRN_SESSION when set, which the SessionStart hook exports
 //
 // Claude Code sets CLAUDECODE in every shell it runs, which is the whole test for `kind`:
 // a session on this machine is wsl/claude as an agent, Balder at a terminal is
 // wsl/balder as a human. Nothing else distinguishes them until a token does.
+//
+// Every session on a machine is the same wsl/claude, so the name cannot tell two parallel
+// sessions apart. The session id sits beside it: the hook writes `export CAIRN_SESSION=…`
+// to the file Claude Code sources before every Bash command, a claim is idempotent on
+// name and session together, and the brief marks what this session holds. A human
+// terminal has none, and the name stays as it was so the log keeps one stable actor.
 
 import { hostname, userInfo } from "node:os";
 import { readConfig } from "./config.mts";
 
-export type Actor = { name: string; kind: "human" | "agent" };
+export type Actor = { name: string; kind: "human" | "agent"; session?: string };
 
 /** The machine facts the actor is built from, injectable so the derivation is testable. */
 export type Sys = { hostname: () => string; username: () => string };
@@ -24,5 +31,6 @@ export function actor(env: NodeJS.ProcessEnv = process.env, sys: Sys = SYS): Act
   const kind: Actor["kind"] = env.CLAUDECODE ? "agent" : "human";
   const host = env.CAIRN_HOST ?? readConfig(env)?.host ?? sys.hostname();
   const name = env.CAIRN_ACTOR ?? `${host}/${kind === "agent" ? "claude" : sys.username()}`;
-  return { name, kind };
+  const session = env.CAIRN_SESSION;
+  return session ? { name, kind, session } : { name, kind };
 }
