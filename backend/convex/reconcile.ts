@@ -35,7 +35,6 @@ import type { Doc, Id } from "./_generated/dataModel";
 // secret and does not go through lib/guard: there is nothing for a caller to prove.
 import { type MutationCtx, internalMutation } from "./_generated/server";
 import { type Actor, RECONCILE, actorValidator } from "./lib/actor";
-import { releaseChanges } from "./lib/changes";
 import { deploymentEnv } from "./lib/env";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
@@ -43,10 +42,10 @@ import { createFollowUp } from "./lib/followUp";
 import { edgesFrom, edgesTo, issuesHeldBy, issuesIn, unresolvedBlockersOn } from "./lib/graph";
 import { mutation } from "./lib/guard";
 import { INBOX_ID } from "./lib/inbox";
+import { closeEpic, moveIssue, releaseIssue } from "./lib/lifecycle";
 import { epicById, findEpic } from "./lib/lookup";
 import { idOrder } from "./lib/order";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
-import { applyRevision } from "./lib/revision";
 import { CLAIM_SILENT_MS, INBOX_STALE_MS, NEAR_TITLE_DISTANCE } from "./lib/thresholds";
 import { isLive } from "./lib/validators";
 import { type Ref, ref } from "./lib/views";
@@ -145,17 +144,7 @@ async function reconcileEpic(
       const target = [...candidates.values()][0]!;
       // Reconciling the inbox routes out of it; reconciling an epic pulls into itself.
       if (!isInbox && target._id !== epic._id) continue;
-      await applyRevision(
-        ctx,
-        { table: "issues", doc: issue },
-        { epicId: target._id, lastActivity: now },
-        {
-          kind: "issue.update",
-          actor: RECONCILE,
-          // The two public ids, the way `issues.update` records an epic change.
-          changes: { epic: { from: INBOX_ID, to: target.id } },
-        },
-      );
+      await moveIssue(ctx, RECONCILE, issue, target);
       did.push({ rule: "reparent", issue: ref(issue), to: ref(target) });
     }
   }
@@ -167,12 +156,7 @@ async function reconcileEpic(
     const silentMs = now - issue.lastActivity;
     if (silentMs <= CLAIM_SILENT_MS) continue;
     const from = issue.claimedBy;
-    await applyRevision(
-      ctx,
-      { table: "issues", doc: issue },
-      { status: "open", claimedBy: undefined, claimedAt: undefined, lastActivity: now },
-      { kind: "issue.release", actor: RECONCILE, changes: releaseChanges(issue) },
-    );
+    await releaseIssue(ctx, RECONCILE, issue);
     if (from) did.push({ rule: "release", issue: ref(issue), from, silentMs });
   }
 
@@ -225,12 +209,7 @@ async function reconcileEpic(
   if (!isInbox) {
     const issues = await issuesIn(ctx, epic._id);
     if (issues.some((i) => i.type === "task") && !issues.some(isLive)) {
-      await applyRevision(
-        ctx,
-        { table: "epics", doc: epic },
-        { status: "closed" },
-        { kind: "epic.close", actor: RECONCILE },
-      );
+      await closeEpic(ctx, RECONCILE, epic);
       did.push({ rule: "close-epic", epic: ref(epic) });
     }
   }

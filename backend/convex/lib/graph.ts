@@ -83,11 +83,13 @@ export async function issuesHeldBy(
   return docs.filter((i): i is Doc<"issues"> => i !== null);
 }
 
+/** The tables whose rows carry a revision and have events hung on them. */
+export type Revisioned = "issues" | "epics" | "blockers";
+
 /** A document events hang on: which table it is in decides which index reads them. */
-export type Target =
-  | { table: "issues"; doc: Doc<"issues"> }
-  | { table: "epics"; doc: Doc<"epics"> }
-  | { table: "blockers"; doc: Doc<"blockers"> };
+export type Target<T extends Revisioned = Revisioned> = T extends Revisioned
+  ? { table: T; doc: Doc<T> }
+  : never;
 
 /**
  * Every event on a target, oldest first. The issue index orders by revision and an append

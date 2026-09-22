@@ -7,8 +7,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Actor } from "./actor";
 import { stale } from "./errors";
-import { record } from "./events";
-import { type Target, eventView, eventsOn } from "./graph";
+import { type EventKind, record } from "./events";
+import { type Revisioned, type Target, eventView, eventsOn } from "./graph";
 
 /** The event row's foreign key for this target, the one key `record` needs. */
 const targetKey = (
@@ -43,34 +43,27 @@ export async function expectRevision(
 }
 
 /**
- * Patches the target, bumps its revision by one, records the change. Returns the new
- * revision. `changes` replaces the computed `{ field: { from, to } }` map when the patch
- * is not what the reader should see: an epic change patches `epicId` and is recorded as
- * the two public ids, because nothing outside the deployment knows a Convex id.
+ * Patches the target, bumps its revision by one, and records exactly the `changes` it is
+ * given, computing nothing: what an event says is the calling helper's, in lib/lifecycle.ts.
+ * Returns the patched document, so no caller reads it again after the write.
  */
-export async function applyRevision(
+export async function applyRevision<T extends Revisioned>(
   ctx: MutationCtx,
-  target: Target,
-  patch: Record<string, unknown>,
-  { kind, actor, changes }: { kind: string; actor: Actor; changes?: unknown },
-): Promise<number> {
+  target: Target<T>,
+  patch: Partial<Doc<T>>,
+  event: { kind: EventKind; actor: Actor; changes: unknown },
+): Promise<Doc<T>> {
   const revision = target.doc.revision + 1;
-  const before = target.doc as unknown as Record<string, unknown>;
-  const computed: Record<string, { from: unknown; to: unknown }> = {};
-  for (const [field, to] of Object.entries(patch)) computed[field] = { from: before[field], to };
-
-  const next = { ...patch, revision };
-  if (target.table === "issues") await ctx.db.patch(target.doc._id, next as Partial<Doc<"issues">>);
-  else if (target.table === "epics")
-    await ctx.db.patch(target.doc._id, next as Partial<Doc<"epics">>);
-  else await ctx.db.patch(target.doc._id, next as Partial<Doc<"blockers">>);
-
+  // The checker reads `target.doc` through the conditional's constraint, which widens its
+  // `_id` to an id of any of the three tables; `Target<T>` pins it to `T`'s.
+  const id = target.doc._id as Id<T>;
+  await ctx.db.patch(id, { ...patch, revision });
   await record(ctx, {
-    kind,
-    actor,
+    kind: event.kind,
+    actor: event.actor,
     ...targetKey(target),
     revision,
-    changes: changes ?? computed,
+    changes: event.changes,
   });
-  return revision;
+  return (await ctx.db.get(id))!;
 }

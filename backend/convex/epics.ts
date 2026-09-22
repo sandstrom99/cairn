@@ -3,18 +3,17 @@
 // no stored progress to go stale (docs/design.md §3, §5).
 import { v } from "convex/values";
 import { actorValidator } from "./lib/actor";
-import { createdChanges, dropChanges } from "./lib/changes";
 import { conflict, invalid } from "./lib/errors";
-import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
 import { issuesIn } from "./lib/graph";
 import { mint } from "./lib/ids";
 import { INBOX_ID } from "./lib/inbox";
 import { nowArg } from "./lib/clock";
 import { epicHealth } from "./lib/health";
+import { closeEpic, dropEpic, dropIssue, insertEpic } from "./lib/lifecycle";
 import { epicById } from "./lib/lookup";
 import { idOrder } from "./lib/order";
-import { applyRevision, expectRevision } from "./lib/revision";
+import { expectRevision } from "./lib/revision";
 import { isLive } from "./lib/validators";
 import { epicView, ref } from "./lib/views";
 
@@ -22,23 +21,8 @@ export const create = mutation({
   args: { actor: actorValidator, title: v.string(), description: v.optional(v.string()) },
   handler: async (ctx, { actor, title, description }) => {
     const n = await mint(ctx, "ep");
-    const _id = await ctx.db.insert("epics", {
-      id: `ep-${n}`,
-      title,
-      ...(description === undefined ? {} : { description }),
-      status: "open",
-      revision: 0,
-    });
-    // Inserted this instant, so nothing points at it yet and it has no issues to read.
-    const view = epicView((await ctx.db.get(_id))!, []);
-    await record(ctx, {
-      kind: "epic.create",
-      actor,
-      epicId: _id,
-      revision: 0,
-      changes: createdChanges(view),
-    });
-    return view;
+    const doc = await insertEpic(ctx, actor, { id: `ep-${n}`, title, description });
+    return epicView(doc, []);
   },
 });
 
@@ -76,7 +60,7 @@ export const health = query({
  * outcome it hangs off is done. Reconcile is stricter and waits for both (§7).
  *
  * `--drop --reason` is the other ending: the epic is not going to happen, so every live
- * issue in it is dropped with that reason first, each through `applyRevision` so each
+ * issue in it is dropped with that reason first, each through `dropIssue` so each
  * carries its own `issue.drop` event.
  */
 export const close = mutation({
@@ -102,44 +86,20 @@ export const close = mutation({
         throw conflict(
           `${doc.id} "${doc.title}" has open work: ${liveTasks.map((i) => `${i.id} "${i.title}"`).join(", ")}`,
         );
-      await applyRevision(
-        ctx,
-        { table: "epics", doc },
-        { status: "closed" },
-        { kind: "epic.close", actor: args.actor },
-      );
+      const closed = await closeEpic(ctx, args.actor, doc);
       // Only the epic moved, so the issues read above are still the ones in it.
-      return { epic: await epicHealth(ctx, (await ctx.db.get(doc._id))!, issues), dropped: [] };
+      return { epic: await epicHealth(ctx, closed, issues), dropped: [] };
     }
 
     const reason = args.reason ?? "";
     if (reason.trim() === "") throw invalid("dropping an epic needs --reason");
 
-    const now = Date.now();
     live.sort(idOrder);
-    for (const issue of live)
-      await applyRevision(
-        ctx,
-        { table: "issues", doc: issue },
-        {
-          status: "dropped",
-          droppedReason: reason,
-          closedAt: now,
-          claimedBy: undefined,
-          claimedAt: undefined,
-          lastActivity: now,
-        },
-        { kind: "issue.drop", actor: args.actor, changes: dropChanges(issue, reason) },
-      );
-    await applyRevision(
-      ctx,
-      { table: "epics", doc },
-      { status: "dropped", droppedReason: reason },
-      { kind: "epic.drop", actor: args.actor },
-    );
+    for (const issue of live) await dropIssue(ctx, args.actor, issue, reason);
+    const dropped = await dropEpic(ctx, args.actor, doc, reason);
     // Every live issue was just dropped, so the rows read above are stale: read them again.
     return {
-      epic: await epicHealth(ctx, (await ctx.db.get(doc._id))!, await issuesIn(ctx, doc._id)),
+      epic: await epicHealth(ctx, dropped, await issuesIn(ctx, doc._id)),
       dropped: live.map(ref),
     };
   },

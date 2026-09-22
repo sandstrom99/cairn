@@ -6,28 +6,27 @@
 // `cn create` prints them. ep-0 "Inbox" is the answer when none of them fits, and it is
 // created by the first create that asks for it.
 import { v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { actorValidator, sameSession } from "./lib/actor";
 import type { Actor } from "./lib/actor";
-import {
-  claimChanges,
-  closeChanges,
-  createdChanges,
-  dropChanges,
-  releaseChanges,
-} from "./lib/changes";
 import { claimed, epicRequired, invalid } from "./lib/errors";
-import { record } from "./lib/events";
 import { createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
 import { issuesIn } from "./lib/graph";
-import { mint } from "./lib/ids";
 import { openEpicArg } from "./lib/inbox";
+import {
+  type IssueEdit,
+  claimIssue,
+  closeIssue,
+  dropIssue,
+  editIssue,
+  insertIssue,
+  releaseIssue,
+} from "./lib/lifecycle";
 import { epicById, issueById, projectBySlug } from "./lib/lookup";
 import { idOrder, priorityOrder } from "./lib/order";
-import { DEFAULT_PRIORITY, checkPriority } from "./lib/priority";
-import { applyRevision, expectRevision } from "./lib/revision";
+import { DEFAULT_PRIORITY } from "./lib/priority";
+import { expectRevision } from "./lib/revision";
 import {
   followUpKindValidator,
   isLive,
@@ -36,10 +35,6 @@ import {
 } from "./lib/validators";
 import { verificationInputValidator } from "./lib/verification";
 import { issueView, ref } from "./lib/views";
-
-/** The view of an issue as it now stands, read back after a patch. */
-const viewOf = async (ctx: MutationCtx, _id: Id<"issues">) =>
-  await issueView(ctx, (await ctx.db.get(_id))!);
 
 /**
  * `claimed`, with the two fields narrowed: every caller has tested `claimedBy` first.
@@ -96,36 +91,19 @@ export const create = mutation({
 
     const parent = args.parent === undefined ? null : await issueById(ctx, args.parent);
 
-    const priority = checkPriority(args.priority ?? DEFAULT_PRIORITY);
-
-    const n = await mint(ctx, project.slug);
-    const _id = await ctx.db.insert("issues", {
-      id: `${project.slug}-${n}`,
-      projectId: project._id,
+    return await insertIssue(ctx, args.actor, {
+      project,
       epicId: epic._id,
       title: args.title,
-      ...(args.description === undefined ? {} : { description: args.description }),
-      ...(args.design === undefined ? {} : { design: args.design }),
-      ...(args.acceptance === undefined ? {} : { acceptance: args.acceptance }),
+      description: args.description,
+      design: args.design,
+      acceptance: args.acceptance,
       type,
-      ...(args.followUpKind === undefined ? {} : { followUpKind: args.followUpKind }),
-      ...(parent === null ? {} : { parentIssueId: parent._id }),
+      followUpKind: args.followUpKind,
+      parentIssueId: parent?._id,
       requires: args.requires ?? [],
-      status: "open",
-      priority,
-      lastActivity: Date.now(),
-      revision: 0,
+      priority: args.priority ?? DEFAULT_PRIORITY,
     });
-    const view = await issueView(ctx, (await ctx.db.get(_id))!);
-    await record(ctx, {
-      kind: "issue.create",
-      actor: args.actor,
-      issueId: _id,
-      epicId: epic._id,
-      revision: 0,
-      changes: createdChanges(view),
-    });
-    return view;
   },
 });
 
@@ -190,14 +168,7 @@ export const claim = mutation({
     if (doc.claimedBy && sameSession(doc.claimedBy, args.actor)) return await issueView(ctx, doc);
     if (doc.claimedBy) throw heldBy(doc, args.actor);
 
-    const now = Date.now();
-    await applyRevision(
-      ctx,
-      { table: "issues", doc },
-      { status: "in_progress", claimedBy: args.actor, claimedAt: now, lastActivity: now },
-      { kind: "issue.claim", actor: args.actor, changes: claimChanges(doc, args.actor) },
-    );
-    return await viewOf(ctx, doc._id);
+    return await issueView(ctx, await claimIssue(ctx, args.actor, doc));
   },
 });
 
@@ -209,14 +180,7 @@ export const release = mutation({
     // A human may release anybody's claim; that is how a silent agent gets unstuck.
     if (fencedOut(doc, args.actor)) throw heldBy(doc);
 
-    const now = Date.now();
-    await applyRevision(
-      ctx,
-      { table: "issues", doc },
-      { status: "open", claimedBy: undefined, claimedAt: undefined, lastActivity: now },
-      { kind: "issue.release", actor: args.actor, changes: releaseChanges(doc) },
-    );
-    return await viewOf(ctx, doc._id);
+    return await issueView(ctx, await releaseIssue(ctx, args.actor, doc));
   },
 });
 
@@ -240,42 +204,17 @@ export const update = mutation({
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!isLive(doc)) throw invalid(`${doc.id} is ${doc.status}; nothing about it changes now`);
 
-    const patch: Record<string, unknown> = {};
-    const changes: Record<string, { from: unknown; to: unknown }> = {};
-    const set = (field: string, from: unknown, to: unknown) => {
-      patch[field] = to;
-      changes[field] = { from, to };
+    const edit: IssueEdit = {
+      title: args.title,
+      description: args.description,
+      design: args.design,
+      acceptance: args.acceptance,
+      priority: args.priority,
+      requires: args.requires,
+      deferUntil: args.deferUntil,
+      epic: args.epic === undefined ? undefined : await openEpicArg(ctx, args.actor, args.epic),
     };
-    if (args.title !== undefined) set("title", doc.title, args.title);
-    if (args.description !== undefined) set("description", doc.description, args.description);
-    if (args.design !== undefined) set("design", doc.design, args.design);
-    if (args.acceptance !== undefined) set("acceptance", doc.acceptance, args.acceptance);
-    if (args.priority !== undefined) set("priority", doc.priority, checkPriority(args.priority));
-    if (args.requires !== undefined) set("requires", doc.requires, args.requires);
-    if (args.deferUntil !== undefined) {
-      // null clears the field; the change is recorded as null so the history reads as
-      // "to nothing" rather than dropping the key.
-      patch.deferUntil = args.deferUntil ?? undefined;
-      changes.deferUntil = { from: doc.deferUntil ?? null, to: args.deferUntil };
-    }
-    if (args.epic !== undefined) {
-      const epic = await openEpicArg(ctx, args.actor, args.epic);
-      const was = await ctx.db.get(doc.epicId);
-      patch.epicId = epic._id;
-      // Recorded as the two public ids: nothing outside the deployment knows a Convex id.
-      changes.epic = { from: was?.id, to: epic.id };
-    }
-    if (Object.keys(patch).length === 0) throw invalid("nothing to update");
-
-    // lastActivity is stamped by every write and is noise in a history line, so the
-    // recorded changes are what the caller asked for and not the housekeeping beside it.
-    patch.lastActivity = Date.now();
-    await applyRevision(ctx, { table: "issues", doc }, patch, {
-      kind: "issue.update",
-      actor: args.actor,
-      changes,
-    });
-    return await viewOf(ctx, doc._id);
+    return await issueView(ctx, await editIssue(ctx, args.actor, doc, edit));
   },
 });
 
@@ -308,26 +247,13 @@ export const close = mutation({
     if ("unverified" in proof && proof.unverified.trim() === "")
       throw invalid("an unverified close needs a reason");
 
-    const now = Date.now();
-    await applyRevision(
-      ctx,
-      { table: "issues", doc },
-      {
-        status: "closed",
-        closedAt: now,
-        verification: { ...proof, at: now, by: args.actor },
-        claimedBy: undefined,
-        claimedAt: undefined,
-        lastActivity: now,
-      },
-      { kind: "issue.close", actor: args.actor, changes: closeChanges(doc, proof) },
-    );
+    const closed = await closeIssue(ctx, args.actor, doc, proof);
 
     // The residue is created in the same mutation, so a parent never closes without it.
     const followUp = args.followUp
       ? await createFollowUp(ctx, args.actor, doc, args.followUp)
       : undefined;
-    return { issue: await viewOf(ctx, doc._id), followUp };
+    return { issue: await issueView(ctx, closed), followUp };
   },
 });
 
@@ -340,20 +266,6 @@ export const drop = mutation({
     if (args.reason.trim() === "") throw invalid("dropping needs a reason");
     if (fencedOut(doc, args.actor)) throw heldBy(doc);
 
-    const now = Date.now();
-    await applyRevision(
-      ctx,
-      { table: "issues", doc },
-      {
-        status: "dropped",
-        droppedReason: args.reason,
-        closedAt: now,
-        claimedBy: undefined,
-        claimedAt: undefined,
-        lastActivity: now,
-      },
-      { kind: "issue.drop", actor: args.actor, changes: dropChanges(doc, args.reason) },
-    );
-    return await viewOf(ctx, doc._id);
+    return await issueView(ctx, await dropIssue(ctx, args.actor, doc, args.reason));
   },
 });
