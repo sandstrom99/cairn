@@ -648,7 +648,7 @@ describe("staleLines", () => {
     expect(staleLines({}, now)).toEqual([]);
   });
 
-  it("prints what is not a field map as its JSON, and an append as having no revision", () => {
+  it("reads an append as its kind and first line, with no revision, never as JSON", () => {
     expect(
       staleLines(
         {
@@ -664,7 +664,22 @@ describe("staleLines", () => {
         now,
       ),
     ).toEqual([
-      '  —  mac/claude  5m ago  journal.append  {"kind":"finding","body":"the counter row is created on first use"}',
+      "  —  mac/claude  5m ago  journal.append  finding: the counter row is created on first use",
+    ]);
+  });
+
+  it("reads an edge among the changes since from the end the write named", () => {
+    const added = {
+      actor: { name: "wsl/claude" },
+      at: ago(HOUR),
+      kind: "edge.add",
+      changes: { type: "blocks", from: "cn-1", to: "cn-2" },
+    };
+    expect(staleLines({ id: "cn-2", since: [added] }, now)).toEqual([
+      "  —  wsl/claude  1h ago  edge.add  blocked by cn-1",
+    ]);
+    expect(staleLines({ id: "cn-1", since: [added] }, now)).toEqual([
+      "  —  wsl/claude  1h ago  edge.add  blocks cn-2",
     ]);
   });
 
@@ -713,6 +728,40 @@ describe("staleLines", () => {
 describe("historyLines", () => {
   it("is the same shape, for cn show --history", () => {
     expect(historyLines([changed], now)).toEqual(staleLines({ since: [changed] }, now));
+  });
+
+  it("reads an edge from whichever end's history it is, and whole when it is nobody's", () => {
+    const added = {
+      actor: { name: "wsl/claude" },
+      at: ago(HOUR),
+      kind: "edge.add",
+      changes: { type: "blocks", from: "cn-1", to: "cn-2" },
+    };
+    expect(historyLines([added], now, "cn-1")).toEqual([
+      "  —  wsl/claude  1h ago  edge.add  blocks cn-2",
+    ]);
+    expect(historyLines([added], now, "cn-2")).toEqual([
+      "  —  wsl/claude  1h ago  edge.add  blocked by cn-1",
+    ]);
+    expect(historyLines([added], now)).toEqual([
+      "  —  wsl/claude  1h ago  edge.add  cn-2 blocked by cn-1",
+    ]);
+    // `related` reads the same from either end; a directed type from its far end reads whole.
+    const related = { ...added, changes: { type: "related", from: "cn-1", to: "cn-2" } };
+    expect(historyLines([related], now, "cn-2")).toEqual([
+      "  —  wsl/claude  1h ago  edge.add  related to cn-1",
+    ]);
+    const found = {
+      ...added,
+      kind: "edge.remove",
+      changes: { type: "discovered-from", from: "cn-3", to: "cn-1" },
+    };
+    expect(historyLines([found], now, "cn-3")).toEqual([
+      "  —  wsl/claude  1h ago  edge.remove  discovered from cn-1",
+    ]);
+    expect(historyLines([found], now, "cn-1")).toEqual([
+      "  —  wsl/claude  1h ago  edge.remove  cn-3 discovered from cn-1",
+    ]);
   });
 
   it("reads a lifecycle event's explicit changes whole, not the raw patch", () => {
@@ -788,6 +837,54 @@ describe("logLine", () => {
     };
     expect(logLine(claim, now)).toBe(
       'cn-2 "scratch: second"  issue.claim  wsl/claude  2h ago  status open → in_progress, claimedBy — → wsl/claude',
+    );
+  });
+
+  it("reads a journal entry as its kind and first line, cut where the line is, never as JSON", () => {
+    const noted = {
+      at: ago(5 * MINUTE),
+      actor: { name: "mac/claude", kind: "agent" } as const,
+      kind: "journal.append",
+      revision: undefined,
+      changes: { kind: "finding", body: "the counter row is created on first use\n\nand why" },
+      issue: { id: "cn-2", title: "scratch: second" },
+      epic: undefined,
+      blocker: undefined,
+    };
+    expect(logLine(noted, now)).toBe(
+      'cn-2 "scratch: second"  journal.append  mac/claude  5m ago  finding: the counter row is created on first use…',
+    );
+    const long = { ...noted, changes: { kind: "handoff", body: "a".repeat(80) } };
+    const [piece] = logParts(long, now).changes;
+    expect(piece).toMatch(/^handoff: a+…$/);
+    expect(piece).toHaveLength(80);
+  });
+
+  it("reads an edge from the end its line leads with", () => {
+    const blocked = {
+      at: ago(MINUTE),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "edge.add",
+      revision: undefined,
+      changes: { type: "blocks", from: "cn-1", to: "cn-2" },
+      issue: { id: "cn-2", title: "scratch: second" },
+      epic: undefined,
+      blocker: undefined,
+    };
+    expect(logLine(blocked, now)).toBe(
+      'cn-2 "scratch: second"  edge.add  wsl/claude  1m ago  blocked by cn-1',
+    );
+    const related = {
+      ...blocked,
+      kind: "edge.remove",
+      changes: { type: "related", from: "cn-2", to: "cn-1" },
+    };
+    expect(logLine(related, now)).toBe(
+      'cn-2 "scratch: second"  edge.remove  wsl/claude  1m ago  related to cn-1',
+    );
+    const found = { ...blocked, changes: { type: "discovered-from", from: "cn-2", to: "cn-1" } };
+    expect(logLine(found, now)).toBe(
+      'cn-2 "scratch: second"  edge.add  wsl/claude  1m ago  discovered from cn-1',
     );
   });
 

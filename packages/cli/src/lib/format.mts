@@ -342,9 +342,62 @@ export const changePieces = (changes: unknown): string[] => {
   return kept;
 };
 
+/** The word an edge type reads as, from its `from` end: `cn-1 blocks cn-2`. */
+const EDGE_VERB: Record<string, string> = {
+  blocks: "blocks",
+  related: "related to",
+  "discovered-from": "discovered from",
+  duplicates: "duplicates",
+  supersedes: "supersedes",
+};
+
+/**
+ * One edge as the piece of a line that already names one of its ends, `self`: `blocks
+ * cn-2` from the `from` end, `blocked by cn-1` from the `to` end, `related to` either way.
+ * A directed type read from its `to` end, and a line that names neither end, get the
+ * whole sentence, `cn-3 discovered from cn-1`, the way `edgeLine` reads it.
+ */
+const edgePiece = (
+  { type, from, to }: { type: string; from: string; to: string },
+  self: string | undefined,
+): string => {
+  const verb = EDGE_VERB[type] ?? type;
+  if (self === from) return `${verb} ${to}`;
+  if (self === to && type === "blocks") return `blocked by ${from}`;
+  if (self === to && type === "related") return `related to ${from}`;
+  return type === "blocks" ? `${to} blocked by ${from}` : `${from} ${verb} ${to}`;
+};
+
+const isEdgeChanges = (changes: unknown): changes is { type: string; from: string; to: string } =>
+  typeof changes === "object" &&
+  changes !== null &&
+  typeof (changes as { type?: unknown }).type === "string" &&
+  typeof (changes as { from?: unknown }).from === "string" &&
+  typeof (changes as { to?: unknown }).to === "string";
+
+const isJournalChanges = (changes: unknown): changes is { kind: string; body: string } =>
+  typeof changes === "object" &&
+  changes !== null &&
+  typeof (changes as { kind?: unknown }).kind === "string" &&
+  typeof (changes as { body?: unknown }).body === "string";
+
+/**
+ * One event's payload in pieces, by its kind. A journal append is `finding: <its first
+ * line>`, the way `cn show` lists the entry; an edge is `edgePiece` relative to `self`,
+ * the issue the line is about; a create has no payload, because the reference at the
+ * start of its line already names what was created; anything else is `changePieces`.
+ */
+export const eventPieces = (kind: string, changes: unknown, self: string | undefined): string[] => {
+  if (kind.endsWith(".create")) return [];
+  if (kind === "journal.append" && isJournalChanges(changes))
+    return [clip(`${changes.kind}: ${firstLine(changes.body)}`)];
+  if (kind.startsWith("edge.") && isEdgeChanges(changes)) return [edgePiece(changes, self)];
+  return changePieces(changes);
+};
+
 /** `  r4  wsl/claude  2h ago  issue.update  priority 2 → 1` */
-const eventLine = (e: HistoryEvent, now: number): string => {
-  const { revision, actor, when, kind, changes } = historyParts(e, now);
+const eventLine = (e: HistoryEvent, now: number, self: string | undefined): string => {
+  const { revision, actor, when, kind, changes } = historyParts(e, now, self);
   return ["", revision, actor, when, kind, changes.join(", ")].join("  ").trimEnd();
 };
 
@@ -357,27 +410,42 @@ export type HistoryParts = {
   changes: string[];
 };
 
-export function historyParts(e: HistoryEvent, now: number = Date.now()): HistoryParts {
+/**
+ * `self` is the id whose history this is, which an edge event needs to read from the right
+ * end: `blocks cn-2` on cn-1's page and `blocked by cn-1` on cn-2's. Without it an edge
+ * prints as its whole sentence.
+ */
+export function historyParts(
+  e: HistoryEvent,
+  now: number = Date.now(),
+  self?: string,
+): HistoryParts {
   return {
     revision: e.revision === undefined ? "—" : `r${e.revision}`,
     actor: e.actor.name,
     when: since(e.at, now),
     kind: e.kind,
-    changes: changePieces(e.changes),
+    changes: eventPieces(e.kind, e.changes, self),
   };
 }
 
 /**
  * The events a rejected write came back with. A stale write is not a failure to report:
  * it is what changed, who changed it and when, so the agent re-reads and retries
- * (docs/design.md §9).
+ * (docs/design.md §9). They are the history of the id the write named, so an edge among
+ * them reads from that end.
  */
-export const staleLines = (data: { since?: HistoryEvent[] }, now: number = Date.now()): string[] =>
-  (data.since ?? []).map((e) => eventLine(e, now));
+export const staleLines = (
+  data: { id?: string; since?: HistoryEvent[] },
+  now: number = Date.now(),
+): string[] => (data.since ?? []).map((e) => eventLine(e, now, data.id));
 
-/** The same lines, for `cn show <id> --history`. */
-export const historyLines = (events: HistoryEvent[], now: number = Date.now()): string[] =>
-  events.map((e) => eventLine(e, now));
+/** The same lines, for `cn show <id> --history`: `self` is that id. */
+export const historyLines = (
+  events: HistoryEvent[],
+  now: number = Date.now(),
+  self?: string,
+): string[] => events.map((e) => eventLine(e, now, self));
 
 /** What `cn log` lists: one event, with whatever it names resolved to id and title. */
 export type LogEvent = FunctionReturnType<typeof api.events.recent>[number];
@@ -409,7 +477,7 @@ export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
     kind: e.kind,
     actor: e.actor.name,
     when: since(e.at, now),
-    changes: e.kind.endsWith(".create") ? [] : changePieces(e.changes),
+    changes: eventPieces(e.kind, e.changes, e.issue?.id),
   };
 }
 
@@ -601,7 +669,7 @@ export function brief(shown: Shown, now: number = Date.now()): string {
     const lines = [ref(shown), ...blockerFacts(shown, now).map(factLine)];
     if (shown.events && shown.events.length > 0) {
       lines.push("history");
-      lines.push(...historyLines(shown.events, now));
+      lines.push(...historyLines(shown.events, now, shown.id));
     }
     return lines.join("\n");
   }
@@ -616,7 +684,7 @@ export function brief(shown: Shown, now: number = Date.now()): string {
   }
   if (shown.events && shown.events.length > 0) {
     lines.push("history");
-    lines.push(...historyLines(shown.events, now));
+    lines.push(...historyLines(shown.events, now, shown.id));
   }
   return lines.join("\n");
 }

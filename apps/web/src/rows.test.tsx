@@ -140,6 +140,25 @@ describe("an event in the feed", () => {
     );
   });
 
+  it("reads a journal entry as its kind and first line, and an edge from the end the line leads with", () => {
+    const noted = event({
+      kind: "journal.append",
+      revision: undefined,
+      changes: { kind: "finding", body: "the counter row is created on first use\nand why" },
+    });
+    const notedMarkup = plain(renderToStaticMarkup(<FeedEvent event={noted} now={now} />));
+    expect(notedMarkup).toBe(squeeze(logLine(noted, now)));
+    expect(notedMarkup).toContain("finding: the counter row is created on first use…");
+    const linked = event({
+      kind: "edge.add",
+      revision: undefined,
+      changes: { type: "blocks", from: "cn-21", to: "cn-25" },
+    });
+    const linkedMarkup = plain(renderToStaticMarkup(<FeedEvent event={linked} now={now} />));
+    expect(linkedMarkup).toBe(squeeze(logLine(linked, now)));
+    expect(linkedMarkup).toContain("blocked by cn-21");
+  });
+
   it("prints a create with no payload, and an event that names nothing with a dash", () => {
     const created = event({ kind: "issue.create", changes: { title: { to: "x" } } });
     expect(plain(renderToStaticMarkup(<FeedEvent event={created} now={now} />))).toBe(
