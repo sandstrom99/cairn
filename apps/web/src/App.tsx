@@ -16,7 +16,7 @@
 // A second boundary sits around the page for one id, because an id nobody minted is the
 // deployment answering, not refusing.
 import { api } from "@cairn/backend/convex/_generated/api.js";
-import type { EpicLineView, LogEvent } from "@cairn/cli/src/lib/format.mts";
+import type { LogEvent } from "@cairn/cli/src/lib/format.mts";
 import { ref } from "@cairn/cli/src/lib/ref.mts";
 import { useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -140,14 +140,7 @@ function Window({ host, secret }: { host: string; secret: string | undefined }) 
             <LogPage events={events} now={now} />
           ) : (
             <ErrorBoundary key={route.id} fallback={() => <Lost what={route.id} />}>
-              <Item
-                id={route.id}
-                who={who}
-                now={now}
-                issues={issues}
-                epics={epics}
-                events={events}
-              />
+              <Item id={route.id} who={who} now={now} issues={issues} events={events} />
             </ErrorBoundary>
           )}
         </div>
@@ -174,14 +167,12 @@ function Item({
   who,
   now,
   issues,
-  epics,
   events,
 }: {
   id: string;
   who: Who;
   now: number;
   issues: Listed[] | undefined;
-  epics: EpicLineView[] | undefined;
   events: LogEvent[] | undefined;
 }) {
   const shown = useHeld(useQuery(api.show.get, { ...who, id, history: true, now }), id);
@@ -207,7 +198,6 @@ function Item({
       <IssuePage
         issue={shown}
         siblings={(issues ?? []).filter((i) => i.epic.id === shown.epic.id)}
-        stuck={epics?.find((e) => e.id === shown.epic.id)?.health.stuck}
         now={now}
       />
       <History events={shown.events} now={now} />

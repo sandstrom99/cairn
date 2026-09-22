@@ -1,27 +1,28 @@
 // ItemPages.tsx: the page for one id, `/cn-26`, `/ep-4`, `/bl-2`: what `cn show` prints,
-// with room. An issue is its facts, then everything written into it in full where the
-// brief has a first line, then its proof and its journal. An epic is its health and every
-// issue under it, the finished ones too. A blocker is what it waits for and what it holds.
+// with room. An issue is its state, its facts, then everything written into it in full
+// where the brief has a first line, the output its proof stored, and its journal. An epic
+// is its health and every issue under it, the finished ones too. A blocker is what it
+// waits for and what it holds.
 //
-// Nothing here asks the deployment anything; App.tsx does, and these render what came back.
+// Nothing here asks the deployment anything; App.tsx does, and these render what came
+// back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
+// and the page sets their pieces (sheet.test.tsx).
 import {
-  type EpicLineView,
   type IssueLineView,
   type ShownBlocker,
   type ShownEpic,
   type ShownIssue,
-  age,
   blockerFacts,
   healthParts,
   issueFacts,
   journalParts,
-  since,
+  proofParts,
+  stateParts,
 } from "@cairn/cli/src/lib/format.mts";
 import type { Referable } from "@cairn/cli/src/lib/ref.mts";
 import { IssueRows } from "./IssueRows.tsx";
 import { HealthRows } from "./Overview.tsx";
 import { Prose } from "./Prose.tsx";
-import type { ReactNode } from "react";
 import { Run } from "./Ref.tsx";
 import {
   Crumbs,
@@ -38,69 +39,26 @@ import {
 /** An issue as a list carries it: enough for a row, and which epic and kind it is. */
 export type Listed = IssueLineView & { epic: Referable; type: string };
 
-/** The one line of state at the top of an issue, in cn's words for each. */
-function stateOf(
-  issue: ShownIssue,
-  stuck: EpicLineView["health"]["stuck"],
-  now: number,
-): { tone: Tone; word: string; rest?: ReactNode } {
-  if (issue.status === "in_progress")
-    return {
-      tone: "moving",
-      word: "moving",
-      rest: `${issue.claimedBy?.name ?? ""} ${issue.claimedAt === undefined ? "" : age(issue.claimedAt, now)}`,
-    };
-  if (issue.status === "open" && issue.waitingOn.length > 0)
-    return {
-      tone: "waiting",
-      word: "waiting",
-      rest: (
-        <>
-          on <Refs items={issue.waitingOn} />
-        </>
-      ),
-    };
-  if (stuck?.id === issue.id)
-    return { tone: "stuck", word: "stuck", rest: `silent ${age(stuck.lastActivity, now)}` };
-  if (issue.status === "open" && issue.blockedBy.length > 0)
-    return {
-      tone: "still",
-      word: "blocked",
-      rest: (
-        <>
-          by <Refs items={issue.blockedBy} />
-        </>
-      ),
-    };
-  if (issue.status === "closed")
-    return {
-      tone: "still",
-      word: "closed",
-      rest: issue.closedAt === undefined ? undefined : since(issue.closedAt, now),
-    };
-  if (issue.status === "dropped")
-    return { tone: "still", word: "dropped", rest: issue.droppedReason };
-  return { tone: "still", word: "open", rest: "nobody holds it" };
-}
+/** The colour a state word gets: the three the design names, and grey for the rest. */
+const toneOf = (word: string): Tone =>
+  word === "moving" || word === "stuck" || word === "waiting" ? word : "still";
 
 export function IssuePage({
   issue,
   siblings,
-  stuck,
   now,
 }: {
   issue: ShownIssue;
   /** Every issue of the same epic, in the order the epic lists them. */
   siblings: Referable[];
-  stuck: EpicLineView["health"]["stuck"];
   now: number;
 }) {
   const at = siblings.findIndex((s) => s.id === issue.id);
   const before = at > 0 ? siblings[at - 1] : undefined;
   const after = at >= 0 ? siblings[at + 1] : undefined;
   const where = at >= 0 ? `${at + 1} of ${siblings.length}` : "";
-  const state = stateOf(issue, stuck, now);
-  const proof = issue.verification;
+  const state = stateParts(issue, now);
+  const output = issue.verification && proofParts(issue.verification, now).output;
 
   return (
     <article>
@@ -108,8 +66,14 @@ export function IssuePage({
         <Neighbours compact before={before} after={after} where={where} />
       </Crumbs>
       <Heading item={issue} />
-      <State tone={state.tone} word={state.word}>
-        {state.rest}
+      <State tone={toneOf(state.word)} word={state.word}>
+        {state.refs ? (
+          <>
+            {state.tail} <Refs items={state.refs} />
+          </>
+        ) : (
+          state.tail
+        )}
       </State>
 
       <Sheet facts={issueFacts(issue, now)}>
@@ -128,33 +92,14 @@ export function IssuePage({
             <Prose text={issue.acceptance} />
           </Passage>
         )}
+        {output !== undefined && output.trim() !== "" && (
+          <Passage label="output">
+            <pre className="max-h-72 overflow-auto font-mono text-micro whitespace-pre-wrap text-[#3a4150]">
+              {output}
+            </pre>
+          </Passage>
+        )}
       </Sheet>
-
-      {proof && (
-        <Group title="Proof it is done">
-          <div className="paper divide-y divide-hair">
-            {"command" in proof ? (
-              <>
-                <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-[13px]">
-                  <code className="font-mono text-row">{proof.command}</code>{" "}
-                  <span className="text-small text-slate">
-                    exit {proof.exitCode}, run by {proof.by.name} {since(proof.at, now)}
-                  </span>
-                </p>
-                {proof.output.trim() !== "" && (
-                  <pre className="max-h-72 overflow-auto px-4 py-3 font-mono text-micro whitespace-pre-wrap text-[#3a4150]">
-                    {proof.output}
-                  </pre>
-                )}
-              </>
-            ) : (
-              <p className="px-4 py-[13px] text-row">
-                Closed unverified by {proof.by.name} {since(proof.at, now)}: {proof.unverified}
-              </p>
-            )}
-          </div>
-        </Group>
-      )}
 
       {issue.journal.length > 0 && (
         <Group title="Journal">

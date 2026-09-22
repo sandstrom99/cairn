@@ -16,9 +16,12 @@ import {
   issueLine,
   logLine,
   logParts,
+  proofParts,
   readyLine,
   reconcileLines,
   staleLines,
+  stateLine,
+  stateParts,
 } from "./format.mts";
 
 const now = Date.UTC(2026, 8, 17, 12, 0, 0);
@@ -307,6 +310,7 @@ describe("brief", () => {
   it("prints the neighbourhood and the journal when there is any", () => {
     const shown = {
       ...issue,
+      status: "in_progress",
       claimedBy: { name: "wsl/claude", kind: "agent" },
       claimedAt: ago(5 * MINUTE),
       requires: ["ios", "device"],
@@ -322,10 +326,109 @@ describe("brief", () => {
       ],
     } as unknown as Shown;
     const text = brief(shown, now);
-    expect(text).toContain("claimed         wsl/claude · 5m");
+    expect(text).toContain(
+      "status          moving wsl/claude 5m · P0 · created 2h ago · revision 0",
+    );
+    expect(text).not.toContain("claimed");
     expect(text).toContain("requires        ios, device");
     expect(text).toContain('waiting on      bl-1 "the App Store agreement"');
     expect(text).toContain("  1h wsl/claude finding: the counter row is created on first use");
+  });
+
+  it("opens the status line with the state word alone where the things it names have their own line", () => {
+    const waiting = {
+      ...issue,
+      waitingOn: [{ id: "bl-1", title: "the App Store agreement" }],
+    } as unknown as Shown;
+    expect(brief(waiting, now).split("\n").slice(3, 5)).toEqual([
+      "status          waiting · P0 · created 2h ago · revision 0",
+      'waiting on      bl-1 "the App Store agreement"',
+    ]);
+    const blocked = {
+      ...issue,
+      blockedBy: [{ id: "cn-2", title: "the lifecycle", status: "open" }],
+    } as unknown as Shown;
+    expect(brief(blocked, now).split("\n").slice(3, 5)).toEqual([
+      "status          blocked · P0 · created 2h ago · revision 0",
+      'blocked by      cn-2 "the lifecycle"',
+    ]);
+  });
+
+  it("prints the description's first line before the design's", () => {
+    const shown = {
+      ...issue,
+      description: "Balder, 2026-09-21: the journal is the most context an issue has.\n\nMore.",
+    } as unknown as Shown;
+    expect(brief(shown, now).split("\n").slice(4, 6)).toEqual([
+      "description     Balder, 2026-09-21: the journal is the most context an issue has.…",
+      "design          transcribe §3…",
+    ]);
+  });
+
+  it("prints the proof a close stored, and the reason a drop gave", () => {
+    const closed = {
+      ...issue,
+      status: "closed",
+      closedAt: ago(HOUR),
+      revision: 4,
+      verification: {
+        command: "vp run verify",
+        exitCode: 0,
+        output: "Test Files  33 passed",
+        at: ago(HOUR),
+        by: { name: "wsl/claude", kind: "agent" },
+      },
+    } as unknown as Shown;
+    expect(brief(closed, now).split("\n").slice(3, 5)).toEqual([
+      "status          closed 1h ago · P0 · created 2h ago · revision 4",
+      "proof           vp run verify (exit 0) by wsl/claude 1h ago",
+    ]);
+    expect(brief(closed, now)).not.toContain("33 passed");
+    const unverified = {
+      ...closed,
+      verification: {
+        unverified: "ran on the device, see the evidence entry",
+        at: ago(HOUR),
+        by: { name: "wsl/claude", kind: "agent" },
+      },
+    } as unknown as Shown;
+    expect(brief(unverified, now)).toContain(
+      "proof           unverified by wsl/claude 1h ago: ran on the device, see the evidence entry",
+    );
+    const dropped = {
+      ...issue,
+      status: "dropped",
+      closedAt: ago(2 * HOUR),
+      droppedReason: "not going to happen",
+    } as unknown as Shown;
+    expect(brief(dropped, now).split("\n").slice(3, 5)).toEqual([
+      "status          dropped 2h ago · P0 · created 2h ago · revision 0",
+      "reason          not going to happen",
+    ]);
+  });
+
+  it("marks a blocking edge whose far end is finished as done, and it does not block", () => {
+    const shown = {
+      ...issue,
+      blocks: [{ id: "cn-3", title: "the graph", status: "dropped" }],
+      blockedBy: [
+        { id: "cn-2", title: "the lifecycle", status: "closed" },
+        { id: "cn-4", title: "the brief", status: "in_progress" },
+      ],
+    } as unknown as Shown;
+    const lines = brief(shown, now).split("\n");
+    expect(lines.slice(3, 6)).toEqual([
+      "status          blocked · P0 · created 2h ago · revision 0",
+      'blocks          cn-3 "the graph" dropped',
+      'blocked by      cn-2 "the lifecycle" done, cn-4 "the brief"',
+    ]);
+    const done = {
+      ...shown,
+      blockedBy: [{ id: "cn-2", title: "the lifecycle", status: "closed" }],
+    } as unknown as Shown;
+    expect(brief(done, now).split("\n")[3]).toBe(
+      "status          open · P0 · created 2h ago · revision 0",
+    );
   });
 
   it("prints each edge type on its own line, blocking ones first", () => {
@@ -429,6 +532,82 @@ describe("brief", () => {
     expect(lines).toContain("status          resolved · raised 1d ago by wsl/claude");
     expect(lines).toContain("resolved        by wsl/balder 1h ago: accepted");
     expect(lines.at(-2)).toBe("history");
+  });
+});
+
+describe("stateParts", () => {
+  const shown = issue as Extract<Shown, { kind: "issue" }>;
+  const at = <T extends object>(patch: T) => ({ ...shown, ...patch }) as typeof shown;
+
+  it("is one word and what it rests on, in the order the words matter", () => {
+    expect(
+      stateParts(
+        at({
+          status: "in_progress",
+          claimedBy: { name: "wsl/claude", kind: "agent" },
+          claimedAt: ago(2 * HOUR),
+        }),
+        now,
+      ),
+    ).toEqual({ word: "moving", tail: "wsl/claude 2h" });
+    const held = { id: "bl-4", title: "name the day" };
+    expect(stateParts(at({ waitingOn: [held], stuck: true }), now)).toEqual({
+      word: "waiting",
+      tail: "on",
+      refs: [held],
+    });
+    expect(stateParts(at({ stuck: true, lastActivity: ago(9 * DAY) }), now)).toEqual({
+      word: "stuck",
+      tail: "silent 9d",
+    });
+    const live = { id: "cn-2", title: "the lifecycle", status: "open" as const };
+    const done = { id: "cn-3", title: "the graph", status: "closed" as const };
+    expect(stateParts(at({ blockedBy: [done, live] }), now)).toEqual({
+      word: "blocked",
+      tail: "by",
+      refs: [live],
+    });
+    expect(stateParts(at({ deferUntil: Date.UTC(2026, 9, 1) }), now)).toEqual({
+      word: "deferred",
+      tail: "until 2026-10-01",
+    });
+    expect(stateParts(at({ deferUntil: ago(DAY) }), now)).toEqual({ word: "open" });
+    expect(stateParts(at({ status: "closed", closedAt: ago(HOUR) }), now)).toEqual({
+      word: "closed",
+      tail: "1h ago",
+    });
+    expect(stateParts(at({ status: "dropped", closedAt: ago(HOUR) }), now)).toEqual({
+      word: "dropped",
+      tail: "1h ago",
+    });
+    expect(stateParts(shown, now)).toEqual({ word: "open" });
+  });
+
+  it("joins to one run, the things it names in the reference form", () => {
+    expect(
+      stateLine({ word: "waiting", tail: "on", refs: [{ id: "bl-4", title: "name the day" }] }),
+    ).toBe('waiting on bl-4 "name the day"');
+    expect(stateLine({ word: "moving", tail: "wsl/claude 2h" })).toBe("moving wsl/claude 2h");
+    expect(stateLine({ word: "open" })).toBe("open");
+  });
+});
+
+describe("proofParts", () => {
+  const by = { name: "wsl/claude", kind: "agent" as const };
+
+  it("keeps what ran apart from who closed on it, and carries the output whole", () => {
+    expect(
+      proofParts(
+        { command: "vp run verify", exitCode: 0, output: "all green", at: ago(HOUR), by },
+        now,
+      ),
+    ).toEqual({ ran: "vp run verify (exit 0)", text: "by wsl/claude 1h ago", output: "all green" });
+  });
+
+  it("ends an unverified close with its reason, and has nothing that ran", () => {
+    expect(proofParts({ unverified: "no device to hand", at: ago(HOUR), by }, now)).toEqual({
+      text: "unverified by wsl/claude 1h ago: no device to hand",
+    });
   });
 });
 

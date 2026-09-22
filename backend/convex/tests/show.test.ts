@@ -123,6 +123,48 @@ describe("show.get", () => {
     expect(shown.health.stuck).toBeUndefined();
   });
 
+  it("marks an issue stuck when it is the one the epic's stuck line names", async () => {
+    const t = await seeded();
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "younger" });
+    // A caller's clock four days on: cn-1 has been silent past the threshold, cn-2 just as
+    // long, and the line names the one silent longest, so cn-2 is not stuck.
+    await t.run(async (ctx) => {
+      const doc = await ctx.db
+        .query("issues")
+        .withIndex("by_public_id", (q) => q.eq("id", "cn-2"))
+        .unique();
+      await ctx.db.patch(doc!._id, { lastActivity: doc!.lastActivity + 1 });
+    });
+    const later = Date.now() + 4 * 24 * 60 * 60 * 1000;
+    const epic = await t.query(api.show.get, { id: "ep-1", now: later });
+    if (epic.kind !== "epic") throw new Error("ep-1 is an epic");
+    expect(epic.health.stuck?.id).toBe("cn-1");
+    expect(await t.query(api.show.get, { id: "cn-1", now: later })).toMatchObject({ stuck: true });
+    expect(await t.query(api.show.get, { id: "cn-2", now: later })).toMatchObject({ stuck: false });
+    expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({ stuck: false });
+  });
+
+  it("carries the status of each end of a blocking edge, so a finished one reads as done", async () => {
+    const t = await seeded();
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "the graph" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
+    await t.mutation(api.issues.claim, { actor, id: "cn-1" });
+    await t.mutation(api.issues.close, {
+      actor,
+      id: "cn-1",
+      revision: 1,
+      verification: { command: "vp run verify", exitCode: 0, output: "all green" },
+    });
+    expect(await t.query(api.show.get, { id: "cn-2" })).toMatchObject({
+      blockedBy: [{ id: "cn-1", status: "closed" }],
+    });
+    expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({
+      blocks: [{ id: "cn-2", status: "open" }],
+    });
+    // The edge stays as history and holds nothing back: readiness ignored it already.
+    expect((await t.query(api.ready.list, {})).map((i) => i.id)).toEqual(["cn-2"]);
+  });
+
   it("returns a blocker with the issues it holds", async () => {
     const t = await seeded();
     await t.run(async (ctx) => {

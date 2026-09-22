@@ -69,11 +69,11 @@ change works where it runs:
 | `verbs/doctor.mts` | `cn doctor`, with nothing set in the environment | the last two lines are the deployment answering and `✓ secret accepted by cairn`, not only the config resolving |
 | `verbs/project.mts` | `cn project new cn --name "cairn: backend, cli, plugin"`, then `cn project list` | a slug becomes an id prefix, and the list reads it back |
 | `verbs/epic.mts` | `cn epic new "Create to close"`, then `cn epic list` | the first epic mints `ep-1`, and the list prints its health block |
-| `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "scratch: first"` → cn-1, the same titled "scratch: second" → cn-2, then the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
+| `verbs/create.mts` | `cn create --project cn --epic ep-1 --title "scratch: first" --description "scratch: the first line\n\nand a second paragraph"` → cn-1, the same titled "scratch: second" with no description → cn-2, then the same with no `--epic` | an issue mints in order; with no epic it exits 1 and lists the open ones |
 | `verbs/list.mts` | `cn list --epic ep-1 --json` | priority then age — exactly cn-1 then cn-2 — and `--json` carries id and title |
 | `verbs/ready.mts` | `cn create --project cn --epic ep-1 --title "scratch: needs ios" --requires ios` → cn-3, then `cn ready`, then `cn ready --can web` | open unblocked work in priority order, and the cn-3 row marked `· needs ios` rather than hidden |
 | `verbs/brief.mts` | `cn brief`, then `cn brief --can decision` | under 20 lines, counts and heads; the follow-ups line grows by what `--can` covers, and `cn ready` shows all of them marked |
-| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1`, then `cn show cn-1 --history` | the brief is an issue's neighbourhood, an epic's open issues, and every event in order |
+| `verbs/show.mts` | `cn show cn-1`, then `cn show ep-1`, then `cn show cn-1 --history` | the brief opens its status line with the state, `open · P2 · …`, prints the first line of the description marked as cut, and the neighbourhood; an epic's open issues; and every event in order |
 | `verbs/claim.mts`, `verbs/release.mts` | `cn claim cn-2`, then `CAIRN_ACTOR=other/agent cn claim cn-2`, then `cn release cn-2` and `cn claim cn-2` again | the first wins and prints `in_progress`; the second exits 1 naming who holds it and since when; a release hands it back |
 | `verbs/update.mts` | `cn update cn-2 --revision N --priority 1` twice, against the revision `cn show` printed | the second is refused with every change since that revision and the line to retry with |
 | `verbs/journal.mts` | `cn journal cn-2 --kind finding "scratch: a finding"`, then `cn show cn-2` | the entry lands whatever the revision is, and shows newest first |
@@ -81,8 +81,8 @@ change works where it runs:
 | `verbs/wait.mts` | `cn create --project cn --epic ep-0 --title "scratch: blocker round trip"` → cn-4, then `cn wait cn-4 --kind decision --owner balder --title "scratch" --resolves "the round trip is done"` → bl-1, then `cn ready`, then `cn list` | the issue leaves ready the moment the blocker is raised and stays in list |
 | `verbs/waiting.mts` | `cn waiting`, then `cn waiting --json`, then `cn show bl-1` | one line per unresolved blocker in reference form, the issues it holds under it, and the blocker read on its own |
 | `verbs/ack.mts`, `verbs/resolve.mts` | `cn ack bl-1` (refused: this shell is an agent), then `env -u CLAUDECODE cn ack bl-1`, then `env -u CLAUDECODE cn resolve bl-1 --note "done"`, then `cn ready`, then `cn waiting` | an agent is refused by name; a person moves it raised → waiting → resolved; the issue is back in ready with no recompute, and with nothing waiting `cn waiting` prints nothing and exits 0 |
-| `verbs/drop.mts` | `cn drop cn-4 --revision N`, then the same with `--reason "scratch"` | dropping without a reason exits 2, and with one it records the reason |
-| `verbs/close.mts` | `cn close cn-1 --revision N --run 'exit 3'`, then `cn close cn-2 --revision N --run 'echo proof' --follow-up "scratch: follow-up" --kind verify` | a command that failed cannot close an issue; the stored record is the real exit code and output tail, and the follow-up exists beside the closed parent |
+| `verbs/drop.mts` | `cn drop cn-4 --revision N`, then the same with `--reason "scratch"`, then `cn show cn-4` | dropping without a reason exits 2, and with one it records the reason; the brief reads `dropped just now` and prints the reason on its own line |
+| `verbs/close.mts` | `cn close cn-1 --revision N --run 'exit 3'`, then `cn close cn-2 --revision N --run 'echo proof' --follow-up "scratch: follow-up" --kind verify`, then `cn dep add cn-3 --blocked-by cn-2`, `cn show cn-3` and `cn ready` | a command that failed cannot close an issue; the stored record is the real exit code and output tail, which `cn show` prints as `proof  echo proof (exit 0) by … just now`, and the follow-up exists beside the closed parent; the edge from the closed issue reads `cn-2 "…" done` under `blocked by`, cn-3's state stays `open`, and `cn ready` still lists it |
 | `verbs/log.mts` | `cn log`, then `cn log --limit 3`, then `cn log --limit 200 --json`, then `cn log --limit 0` | one line per event across the deployment, newest first, each led by the reference form or `—`; exactly the three newest; every issue, epic or blocker an event names carrying id and title, with cn-2's close reading `echo proof (exit 0)`; and a limit out of range exiting 2 |
 | `verbs/epic.mts` (close) | `cn epic close ep-1 --revision N` with cn-1 and cn-3 still open | closing over open work is refused, naming it |
 | `verbs/reconcile.mts` | `cn epic new "scratch: reconcile"` → ep-2, two `cn create --project cn --epic ep-2` titled "scratch: the same title" and "scratch: the same title.", then `cn reconcile ep-2` twice, then `env -u CLAUDECODE cn resolve bl-2 --note scratch`, then `cn epic close ep-2 --revision N --drop --reason scratch` | one decision blocker raised by `cairn/reconcile` holding both, a second run does nothing, and the scratch epic and its issues are dropped with the reason |
@@ -160,6 +160,9 @@ two move together.
   verb.
 - **Mutable writes carry `revision`. Journal entries are inserts.**
 - **`epicId` is required. Closing takes a verification record.**
+- **A fact is read where it is read.** `cn show` says what an issue's neighbourhood means
+  now, a `blocks` edge into a closed issue reading `done` rather than being deleted by a
+  run (design §7); the page prints the same words from the same `…Parts` in `format.mts`.
 
 ## Commits and pull requests
 
