@@ -466,11 +466,11 @@ row("verbs/log.mts", () => {
     "the resolve that freed cn-4 does not read as the blocker and the note",
   );
   assert.ok(
-    whole.some(
-      (l) =>
-        l.endsWith(
-          "  blocker.resolve  e2e/balder  just now  resolution — → done, status waiting → resolved",
-        ) && l.startsWith('bl-1 "scratch"'),
+    // The person's actor is the runner's own user, so it is not pinned here.
+    whole.some((l) =>
+      /^bl-1 "scratch"  blocker\.resolve  \S+  just now  resolution — → done, status waiting → resolved$/.test(
+        l,
+      ),
     ),
     "the blocker's own resolve does not read as a field map",
   );
