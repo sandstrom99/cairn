@@ -7,14 +7,12 @@
 // `cn` imports the type alone (`errorData` in packages/cli/src/lib/cli.mts): a type-only
 // import, erased at run time, so the CLI reads what came back by the same names.
 import { ConvexError } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
 import type { Actor } from "./actor";
+import type { EventView } from "./graph";
 import type { Ref } from "./views";
 
 /** One event since the revision a stale writer read: the row, `at` its creation time. */
-export type SinceEvent = Pick<Doc<"events">, "revision" | "actor" | "kind" | "changes"> & {
-  at: number;
-};
+export type SinceEvent = EventView;
 
 /** Every shape a ConvexError from this deployment carries, told apart by `kind`. */
 export type CairnError =

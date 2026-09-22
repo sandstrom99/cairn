@@ -74,7 +74,6 @@ export default defineSchema({
     .index("by_epic", ["epicId", "status"])
     .index("by_project", ["projectId", "status"])
     .index("by_status", ["status", "priority"])
-    .index("by_activity", ["status", "lastActivity"])
     .index("by_parent", ["parentIssueId"]),
 
   // One direction only: `blocked-by` is a `blocks` row read through by_to.
@@ -102,7 +101,7 @@ export default defineSchema({
     revision: v.number(),
   })
     .index("by_public_id", ["id"])
-    .index("by_status", ["status", "nudgeAt"]),
+    .index("by_status", ["status"]),
 
   blockerLinks: defineTable({
     blockerId: v.id("blockers"),

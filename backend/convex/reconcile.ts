@@ -40,6 +40,7 @@ import { deploymentEnv } from "./lib/env";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { createFollowUp } from "./lib/followUp";
+import { edgesFrom, edgesTo, issuesHeldBy, issuesIn, unresolvedBlockersOn } from "./lib/graph";
 import { mutation } from "./lib/guard";
 import { INBOX_ID } from "./lib/inbox";
 import { epicById, findEpic } from "./lib/lookup";
@@ -66,12 +67,6 @@ type Raised = {
   /** The blocker a nudge is about; the other two rules are about issues alone. */
   about?: Ref;
 };
-
-const issuesIn = async (ctx: MutationCtx, epicId: Id<"epics">): Promise<Doc<"issues">[]> =>
-  await ctx.db
-    .query("issues")
-    .withIndex("by_epic", (q) => q.eq("epicId", epicId))
-    .collect();
 
 /**
  * Lowercase, every run of anything but letters and digits one space, trimmed: what "same
@@ -100,26 +95,6 @@ function distance(a: string, b: string): number {
   return prev[b.length]!;
 }
 
-/** The unresolved blockers holding `issue`, newest link last. */
-async function blockersOn(ctx: MutationCtx, issue: Doc<"issues">): Promise<Doc<"blockers">[]> {
-  const links = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_issue", (q) => q.eq("issueId", issue._id))
-    .collect();
-  const docs = await Promise.all(links.map((l) => ctx.db.get(l.blockerId)));
-  return docs.filter((b): b is Doc<"blockers"> => b !== null && b.status !== "resolved");
-}
-
-/** The live issues a blocker holds, in id order. */
-async function issuesHeldBy(ctx: MutationCtx, blocker: Doc<"blockers">): Promise<Doc<"issues">[]> {
-  const links = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_blocker", (q) => q.eq("blockerId", blocker._id))
-    .collect();
-  const docs = await Promise.all(links.map((l) => ctx.db.get(l.issueId)));
-  return docs.filter((i): i is Doc<"issues"> => i !== null && isLive(i)).sort(idOrder);
-}
-
 /**
  * True when reconcile has asked this exact question before, resolved or not. The title is
  * deterministic, so it is the idempotency key: `blockers` has no index on raiser or title
@@ -132,7 +107,9 @@ async function alreadyAsked(ctx: MutationCtx, title: string): Promise<boolean> {
 
 /**
  * The eight rules over one open epic. `run` and the sweep both end here, so the sweep
- * cannot drift from what a person gets by hand.
+ * cannot drift from what a person gets by hand. Each rule reads the epic's issues afresh
+ * rather than sharing one read, because each must see what the rule before it wrote: the
+ * close in R2 has to count the follow-up R4 just created.
  */
 async function reconcileEpic(
   ctx: MutationCtx,
@@ -159,10 +136,7 @@ async function reconcileEpic(
         const parent = await ctx.db.get(issue.parentIssueId);
         if (parent) await consider(parent.epicId);
       }
-      const discovered = await ctx.db
-        .query("edges")
-        .withIndex("by_from", (q) => q.eq("from", issue._id).eq("type", "discovered-from"))
-        .collect();
+      const discovered = await edgesFrom(ctx, issue._id, "discovered-from");
       for (const edge of discovered) {
         const to = await ctx.db.get(edge.to);
         if (to) await consider(to.epicId);
@@ -227,14 +201,8 @@ async function reconcileEpic(
   const seenEdges = new Set<Id<"edges">>();
   for (const issue of await issuesIn(ctx, epic._id)) {
     const touching = [
-      ...(await ctx.db
-        .query("edges")
-        .withIndex("by_from", (q) => q.eq("from", issue._id).eq("type", "blocks"))
-        .collect()),
-      ...(await ctx.db
-        .query("edges")
-        .withIndex("by_to", (q) => q.eq("to", issue._id).eq("type", "blocks"))
-        .collect()),
+      ...(await edgesFrom(ctx, issue._id, "blocks")),
+      ...(await edgesTo(ctx, issue._id, "blocks")),
     ];
     for (const edge of touching) {
       if (seenEdges.has(edge._id)) continue;
@@ -279,14 +247,8 @@ async function reconcileEpic(
       if (left !== right && distance(left, right) > NEAR_TITLE_DISTANCE) continue;
       // A `duplicates` edge is the answer already given, in either direction.
       const marked = [
-        ...(await ctx.db
-          .query("edges")
-          .withIndex("by_from", (q) => q.eq("from", a._id).eq("type", "duplicates"))
-          .collect()),
-        ...(await ctx.db
-          .query("edges")
-          .withIndex("by_from", (q) => q.eq("from", b._id).eq("type", "duplicates"))
-          .collect()),
+        ...(await edgesFrom(ctx, a._id, "duplicates")),
+        ...(await edgesFrom(ctx, b._id, "duplicates")),
       ];
       if (marked.some((e) => e.to === a._id || e.to === b._id)) continue;
       const title = `same title? ${a.id} "${a.title}" and ${b.id} "${b.title}"`;
@@ -321,10 +283,10 @@ async function reconcileEpic(
   // question is asked once per `nudgeAt` and again when somebody moves it.
   const nudged = new Map<Id<"blockers">, Doc<"blockers">>();
   for (const issue of live)
-    for (const blocker of await blockersOn(ctx, issue))
+    for (const blocker of await unresolvedBlockersOn(ctx, issue._id))
       if (blocker.nudgeAt !== undefined && blocker.nudgeAt <= now) nudged.set(blocker._id, blocker);
   for (const blocker of nudged.values()) {
-    const held = await issuesHeldBy(ctx, blocker);
+    const held = (await issuesHeldBy(ctx, blocker._id)).filter(isLive).sort(idOrder);
     const first = held[0];
     if (!first) continue;
     const day = new Date(blocker.nudgeAt!).toISOString().slice(0, 10);

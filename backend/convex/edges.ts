@@ -17,6 +17,7 @@ import type { QueryCtx } from "./_generated/server";
 import { actorValidator } from "./lib/actor";
 import { invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
+import { edgesFrom } from "./lib/graph";
 import { mutation } from "./lib/guard";
 import { issueById } from "./lib/lookup";
 import { type EdgeType, edgeTypeValidator } from "./lib/validators";
@@ -29,11 +30,7 @@ async function edgeBetween(
   to: Id<"issues">,
   type: EdgeType,
 ): Promise<Doc<"edges"> | null> {
-  const rows = await ctx.db
-    .query("edges")
-    .withIndex("by_from", (q) => q.eq("from", from).eq("type", type))
-    .collect();
-  return rows.find((e) => e.to === to) ?? null;
+  return (await edgesFrom(ctx, from, type)).find((e) => e.to === to) ?? null;
 }
 
 /**
@@ -49,10 +46,7 @@ async function blocksRoute(
 ): Promise<string[] | null> {
   const seen = new Set<string>([start._id]);
   const walk = async (doc: Doc<"issues">, route: string[]): Promise<string[] | null> => {
-    const out = await ctx.db
-      .query("edges")
-      .withIndex("by_from", (q) => q.eq("from", doc._id).eq("type", "blocks"))
-      .collect();
+    const out = await edgesFrom(ctx, doc._id, "blocks");
     for (const edge of out) {
       if (seen.has(edge.to)) continue;
       seen.add(edge.to);

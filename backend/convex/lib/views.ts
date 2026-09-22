@@ -5,6 +5,7 @@
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { notFound } from "./errors";
+import { issuesHeldBy } from "./graph";
 import { type IssueStatus, isLive } from "./validators";
 
 export type Ref = { id: string; title: string };
@@ -48,13 +49,11 @@ export type IssueView = Awaited<ReturnType<typeof issueView>>;
 /**
  * An epic with its counts. The four status counts are over `task` issues only and
  * `followUps` is the open follow-up work beside them: a follow-up sits outside the
- * denominator, so an epic's progress cannot be diluted by its own residue (§5).
+ * denominator, so an epic's progress cannot be diluted by its own residue (§5). It takes
+ * the epic's issues rather than reading them, so one read serves the view, the health line
+ * and whatever else the caller does with them.
  */
-export async function epicView(ctx: QueryCtx, doc: Doc<"epics">) {
-  const issues = await ctx.db
-    .query("issues")
-    .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
-    .collect();
+export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
   const tasks = issues.filter((i) => i.type === "task");
   const count = (status: IssueStatus) => tasks.filter((i) => i.status === status).length;
   return {
@@ -62,6 +61,7 @@ export async function epicView(ctx: QueryCtx, doc: Doc<"epics">) {
     title: doc.title,
     description: doc.description,
     status: doc.status,
+    droppedReason: doc.droppedReason,
     lastReconciledAt: doc.lastReconciledAt,
     revision: doc.revision,
     createdAt: doc._creationTime,
@@ -75,7 +75,7 @@ export async function epicView(ctx: QueryCtx, doc: Doc<"epics">) {
   };
 }
 
-export type EpicView = Awaited<ReturnType<typeof epicView>>;
+export type EpicView = ReturnType<typeof epicView>;
 
 /**
  * A blocker with the issues it holds. The blocker's own `kind` travels as `blockerKind`,
@@ -83,11 +83,6 @@ export type EpicView = Awaited<ReturnType<typeof epicView>>;
  * two fields called `kind` would be one field; every JSON spells it the same way.
  */
 export async function blockerView(ctx: QueryCtx, doc: Doc<"blockers">) {
-  const links = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_blocker", (q) => q.eq("blockerId", doc._id))
-    .collect();
-  const issues = await Promise.all(links.map((l) => ctx.db.get(l.issueId)));
   return {
     id: doc.id,
     title: doc.title,
@@ -102,7 +97,7 @@ export async function blockerView(ctx: QueryCtx, doc: Doc<"blockers">) {
     resolvedAt: doc.resolvedAt,
     resolution: doc.resolution,
     revision: doc.revision,
-    issues: issues.filter((i): i is Doc<"issues"> => i !== null).map(ref),
+    issues: (await issuesHeldBy(ctx, doc._id)).map(ref),
   };
 }
 

@@ -253,6 +253,7 @@ describe("a row of a list of issues", () => {
       title: "Humans in the loop",
       description: undefined,
       status: "open" as const,
+      droppedReason: undefined,
       revision: 0,
       createdAt: now - DAY,
       counts: { open: 0, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },

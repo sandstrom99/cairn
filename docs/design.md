@@ -99,7 +99,7 @@ epics         id                string        ep-7. ep-0 is the one inbox
               title             string
               description?      string
               status            open | closed | dropped
-              droppedReason?    string
+              droppedReason?    string        the epic view returns it, like an issue's
               lastReconciledAt? number
               revision          number
               index by_public_id [id], by_status [status]
@@ -127,8 +127,7 @@ issues        id                string        app-14
               closedAt?         number
               revision          number
               index by_public_id [id], by_epic [epicId, status], by_project [projectId, status],
-                    by_status [status, priority], by_activity [status, lastActivity],
-                    by_parent [parentIssueId]
+                    by_status [status, priority], by_parent [parentIssueId]
 
 edges         from              Id<issues>
               to                Id<issues>
@@ -148,7 +147,7 @@ blockers      id                string        bl-3
               resolvedAt?       number
               resolution?       string
               revision          number
-              index by_public_id [id], by_status [status, nudgeAt]
+              index by_public_id [id], by_status [status]
 
 blockerLinks  blockerId         Id<blockers>
               issueId           Id<issues>
