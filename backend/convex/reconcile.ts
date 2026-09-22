@@ -42,10 +42,12 @@ import { record } from "./lib/events";
 import { createFollowUp } from "./lib/followUp";
 import { mutation } from "./lib/guard";
 import { INBOX_ID } from "./lib/inbox";
-import { LIVE, epicById, issueOrder } from "./lib/lookup";
+import { epicById, findEpic } from "./lib/lookup";
+import { idOrder } from "./lib/order";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
 import { applyRevision } from "./lib/revision";
 import { CLAIM_SILENT_MS, INBOX_STALE_MS, NEAR_TITLE_DISTANCE } from "./lib/thresholds";
+import { isLive } from "./lib/validators";
 import { type Ref, ref } from "./lib/views";
 
 /** What reconcile did on its own, one entry per write, named the way `cn` prints it. */
@@ -70,8 +72,6 @@ const issuesIn = async (ctx: MutationCtx, epicId: Id<"epics">): Promise<Doc<"iss
     .query("issues")
     .withIndex("by_epic", (q) => q.eq("epicId", epicId))
     .collect();
-
-const isLive = (doc: Doc<"issues">): boolean => LIVE.includes(doc.status);
 
 /**
  * Lowercase, every run of anything but letters and digits one space, trimmed: what "same
@@ -117,7 +117,7 @@ async function issuesHeldBy(ctx: MutationCtx, blocker: Doc<"blockers">): Promise
     .withIndex("by_blocker", (q) => q.eq("blockerId", blocker._id))
     .collect();
   const docs = await Promise.all(links.map((l) => ctx.db.get(l.issueId)));
-  return docs.filter((i): i is Doc<"issues"> => i !== null && isLive(i)).sort(issueOrder);
+  return docs.filter((i): i is Doc<"issues"> => i !== null && isLive(i)).sort(idOrder);
 }
 
 /**
@@ -139,10 +139,7 @@ async function reconcileEpic(
   epic: Doc<"epics">,
   opts: { by: string; owner: string; recordWhenQuiet: boolean },
 ): Promise<{ epic: Ref; at: number; did: Did[]; raised: Raised[] }> {
-  const inbox = await ctx.db
-    .query("epics")
-    .withIndex("by_public_id", (q) => q.eq("id", INBOX_ID))
-    .unique();
+  const inbox = await findEpic(ctx, INBOX_ID);
   const isInbox = epic.id === INBOX_ID;
   const now = Date.now();
   const did: Did[] = [];
@@ -272,7 +269,7 @@ async function reconcileEpic(
 
   // J6, two live issues that read as the same work. Which one survives is a judgement,
   // and the wrong answer loses work, so both are named and neither is touched.
-  const live = (await issuesIn(ctx, epic._id)).filter(isLive).sort(issueOrder);
+  const live = (await issuesIn(ctx, epic._id)).filter(isLive).sort(idOrder);
   for (let i = 0; i < live.length; i++)
     for (let j = i + 1; j < live.length; j++) {
       const a = live[i]!;
@@ -405,7 +402,7 @@ export const sweep = internalMutation({
       .withIndex("by_status", (q) => q.eq("status", "open"))
       .collect();
     // ep-10 after ep-2, the order `cn epic list` prints.
-    open.sort(issueOrder);
+    open.sort(idOrder);
     for (const epic of open)
       await ctx.scheduler.runAfter(0, internal.reconcile.sweepEpic, { id: epic.id, owner });
     const epics = open.map(ref);

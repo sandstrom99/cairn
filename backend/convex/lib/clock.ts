@@ -1,6 +1,6 @@
 // clock.ts: the one argument a subscriber sends that a one-shot caller does not.
 //
-// A query reads the clock in two places: the stuck line (lib/views.ts) and deferral
+// A query reads the clock in two places: the stuck line (lib/health.ts) and deferral
 // (lib/readiness.ts). `cn` asks once and is always fresh, so it never sends `now`. A
 // `convex/react` subscription re-runs a query only when the data it read changes, never
 // because time passed, so a page left open would never see an issue cross its stuck

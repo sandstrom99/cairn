@@ -8,7 +8,8 @@
 // index lookups over a graph of a few hundred documents.
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { LIVE } from "./lookup";
+import { priorityOrder } from "./order";
+import { isLive } from "./validators";
 import { type Ref, issueView, ref } from "./views";
 
 /** What holds an issue back. Ready is all three empty. */
@@ -40,9 +41,7 @@ export async function blockedBy(
   const blockers = await Promise.all(links.map((l) => ctx.db.get(l.blockerId)));
 
   return {
-    issues: sources
-      .filter((i): i is Doc<"issues"> => i !== null && LIVE.includes(i.status))
-      .map(ref),
+    issues: sources.filter((i): i is Doc<"issues"> => i !== null && isLive(i)).map(ref),
     blockers: blockers
       .filter((b): b is Doc<"blockers"> => b !== null && b.status !== "resolved")
       .map(ref),
@@ -78,7 +77,7 @@ export async function readyIssues(
 
   const ready = [];
   for (const doc of open) if (isReady(await blockedBy(ctx, doc, now))) ready.push(doc);
-  ready.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
+  ready.sort(priorityOrder);
 
   const have = new Set(can ?? []);
   return await Promise.all(

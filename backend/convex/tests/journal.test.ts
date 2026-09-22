@@ -16,7 +16,7 @@ describe("journal.append", () => {
     at("2026-09-17T09:00:00Z");
     const t = await withIssue();
     await t.mutation(api.issues.claim, { actor: other, id: "cn-1" });
-    const before = (await rawIssue(t, "cn-1"))!;
+    const before = await rawIssue(t, "cn-1");
 
     at("2026-09-17T10:00:00Z");
     const entry = await t.mutation(api.journal.append, {
@@ -33,7 +33,7 @@ describe("journal.append", () => {
       at: Date.now(),
     });
 
-    const after = (await rawIssue(t, "cn-1"))!;
+    const after = await rawIssue(t, "cn-1");
     expect(after.revision).toBe(before.revision);
     expect(after.lastActivity).toBe(Date.now());
     expect(after.lastActivity).toBeGreaterThan(before.lastActivity);

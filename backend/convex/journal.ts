@@ -7,9 +7,11 @@
 // a claim heartbeats for free, and any status is fine — evidence arrives after a close.
 import { v } from "convex/values";
 import { actorValidator } from "./lib/actor";
-import { invalid, notFound } from "./lib/errors";
+import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation } from "./lib/guard";
+import { issueById } from "./lib/lookup";
+import { journalKindValidator } from "./lib/validators";
 
 /** As much of a body as belongs in a history line. */
 const SUMMARY = 80;
@@ -18,21 +20,11 @@ export const append = mutation({
   args: {
     actor: actorValidator,
     id: v.string(),
-    kind: v.union(
-      v.literal("finding"),
-      v.literal("decision"),
-      v.literal("handoff"),
-      v.literal("evidence"),
-      v.literal("question"),
-    ),
+    kind: journalKindValidator,
     body: v.string(),
   },
   handler: async (ctx, args) => {
-    const issue = await ctx.db
-      .query("issues")
-      .withIndex("by_public_id", (q) => q.eq("id", args.id))
-      .unique();
-    if (!issue) throw notFound(args.id);
+    const issue = await issueById(ctx, args.id);
     if (args.body.trim() === "") throw invalid("a journal entry needs a body");
 
     const _id = await ctx.db.insert("journal", {

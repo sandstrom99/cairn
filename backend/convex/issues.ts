@@ -10,32 +10,31 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { actorValidator, sameSession } from "./lib/actor";
 import type { Actor } from "./lib/actor";
-import { claimChanges, closeChanges, dropChanges, releaseChanges } from "./lib/changes";
-import { cairnError, claimed, invalid, notFound } from "./lib/errors";
+import {
+  claimChanges,
+  closeChanges,
+  createdChanges,
+  dropChanges,
+  releaseChanges,
+} from "./lib/changes";
+import { claimed, epicRequired, invalid } from "./lib/errors";
 import { record } from "./lib/events";
-import { checkPriority, createFollowUp } from "./lib/followUp";
+import { createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
 import { mint } from "./lib/ids";
-import { INBOX_ID, ensureInbox } from "./lib/inbox";
-import { LIVE, issueById } from "./lib/lookup";
+import { openEpicArg } from "./lib/inbox";
+import { epicById, issueById, projectBySlug } from "./lib/lookup";
+import { idOrder, priorityOrder } from "./lib/order";
+import { DEFAULT_PRIORITY, checkPriority } from "./lib/priority";
 import { applyRevision, expectRevision } from "./lib/revision";
+import {
+  followUpKindValidator,
+  isLive,
+  issueStatusValidator,
+  issueTypeValidator,
+} from "./lib/validators";
 import { verificationInputValidator } from "./lib/verification";
-import { createdChanges, issueView, ref } from "./lib/views";
-
-const statusValidator = v.union(
-  v.literal("open"),
-  v.literal("in_progress"),
-  v.literal("closed"),
-  v.literal("dropped"),
-);
-
-const DEFAULT_PRIORITY = 2;
-
-const followUpKindValidator = v.union(
-  v.literal("verify"),
-  v.literal("decide"),
-  v.literal("cleanup"),
-);
+import { issueView, ref } from "./lib/views";
 
 /** The view of an issue as it now stands, read back after a patch. */
 const viewOf = async (ctx: MutationCtx, _id: Id<"issues">) =>
@@ -70,40 +69,23 @@ export const create = mutation({
     design: v.optional(v.string()),
     acceptance: v.optional(v.string()),
     priority: v.optional(v.number()),
-    type: v.optional(v.union(v.literal("task"), v.literal("follow-up"))),
+    type: v.optional(issueTypeValidator),
     followUpKind: v.optional(followUpKindValidator),
     parent: v.optional(v.string()),
     requires: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    const project = await ctx.db
-      .query("projects")
-      .withIndex("by_slug", (q) => q.eq("slug", args.project))
-      .unique();
-    if (!project) throw notFound(args.project);
+    const project = await projectBySlug(ctx, args.project);
 
     if (args.epic === undefined) {
       const open = await ctx.db
         .query("epics")
         .withIndex("by_status", (q) => q.eq("status", "open"))
         .collect();
-      open.sort((a, b) => Number(a.id.slice(3)) - Number(b.id.slice(3)));
-      throw cairnError({
-        kind: "epic-required",
-        message: "an issue needs an epic",
-        candidates: open.map(ref),
-      });
+      open.sort(idOrder);
+      throw epicRequired(open.map(ref));
     }
-    const epic =
-      args.epic === INBOX_ID
-        ? await ensureInbox(ctx, args.actor)
-        : await ctx.db
-            .query("epics")
-            .withIndex("by_public_id", (q) => q.eq("id", args.epic!))
-            .unique();
-    if (!epic) throw notFound(args.epic);
-    if (epic.status !== "open")
-      throw invalid(`epic ${epic.id} is ${epic.status}; an issue goes in an open epic`);
+    const epic = await openEpicArg(ctx, args.actor, args.epic);
 
     const type = args.type ?? "task";
     if (type === "follow-up" && args.followUpKind === undefined)
@@ -111,14 +93,7 @@ export const create = mutation({
     if (type === "task" && args.followUpKind !== undefined)
       throw invalid("only a follow-up has a kind");
 
-    const parent =
-      args.parent === undefined
-        ? null
-        : await ctx.db
-            .query("issues")
-            .withIndex("by_public_id", (q) => q.eq("id", args.parent!))
-            .unique();
-    if (args.parent !== undefined && !parent) throw notFound(args.parent);
+    const parent = args.parent === undefined ? null : await issueById(ctx, args.parent);
 
     const priority = checkPriority(args.priority ?? DEFAULT_PRIORITY);
 
@@ -157,28 +132,14 @@ export const list = query({
   args: {
     project: v.optional(v.string()),
     epic: v.optional(v.string()),
-    status: v.optional(statusValidator),
+    status: v.optional(issueStatusValidator),
     claimedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // One index does the work and the rest of the filters run in memory: a company's
     // worth of issues is a few hundred documents, two orders off Convex's 16,384 cap.
-    const project =
-      args.project === undefined
-        ? null
-        : await ctx.db
-            .query("projects")
-            .withIndex("by_slug", (q) => q.eq("slug", args.project!))
-            .unique();
-    if (args.project !== undefined && !project) throw notFound(args.project);
-    const epic =
-      args.epic === undefined
-        ? null
-        : await ctx.db
-            .query("epics")
-            .withIndex("by_public_id", (q) => q.eq("id", args.epic!))
-            .unique();
-    if (args.epic !== undefined && !epic) throw notFound(args.epic);
+    const project = args.project === undefined ? null : await projectBySlug(ctx, args.project);
+    const epic = args.epic === undefined ? null : await epicById(ctx, args.epic);
 
     let rows: Doc<"issues">[];
     if (epic) {
@@ -212,7 +173,7 @@ export const list = query({
     if (args.status !== undefined) rows = rows.filter((i) => i.status === args.status);
     if (args.claimedBy !== undefined)
       rows = rows.filter((i) => i.claimedBy?.name === args.claimedBy);
-    rows.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
+    rows.sort(priorityOrder);
     return await Promise.all(rows.map((doc) => issueView(ctx, doc)));
   },
 });
@@ -226,7 +187,7 @@ export const claim = mutation({
   args: { actor: actorValidator, id: v.string() },
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
-    if (!LIVE.includes(doc.status))
+    if (!isLive(doc))
       throw invalid(
         `${doc.id} is ${doc.status}; reopening is not a thing, create a follow-up instead`,
       );
@@ -283,8 +244,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
-    if (!LIVE.includes(doc.status))
-      throw invalid(`${doc.id} is ${doc.status}; nothing about it changes now`);
+    if (!isLive(doc)) throw invalid(`${doc.id} is ${doc.status}; nothing about it changes now`);
 
     const patch: Record<string, unknown> = {};
     const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -305,16 +265,7 @@ export const update = mutation({
       changes.deferUntil = { from: doc.deferUntil ?? null, to: args.deferUntil };
     }
     if (args.epic !== undefined) {
-      const epic =
-        args.epic === INBOX_ID
-          ? await ensureInbox(ctx, args.actor)
-          : await ctx.db
-              .query("epics")
-              .withIndex("by_public_id", (q) => q.eq("id", args.epic!))
-              .unique();
-      if (!epic) throw notFound(args.epic);
-      if (epic.status !== "open")
-        throw invalid(`epic ${epic.id} is ${epic.status}; an issue goes in an open epic`);
+      const epic = await openEpicArg(ctx, args.actor, args.epic);
       const was = await ctx.db.get(doc.epicId);
       patch.epicId = epic._id;
       // Recorded as the two public ids: nothing outside the deployment knows a Convex id.
@@ -352,7 +303,7 @@ export const close = mutation({
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
-    if (!LIVE.includes(doc.status)) throw invalid(`${doc.id} is already ${doc.status}`);
+    if (!isLive(doc)) throw invalid(`${doc.id} is already ${doc.status}`);
     if (fencedOut(doc, args.actor)) throw heldBy(doc);
 
     const proof = args.verification;
@@ -391,7 +342,7 @@ export const drop = mutation({
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
-    if (!LIVE.includes(doc.status)) throw invalid(`${doc.id} is already ${doc.status}`);
+    if (!isLive(doc)) throw invalid(`${doc.id} is already ${doc.status}`);
     if (args.reason.trim() === "") throw invalid("dropping needs a reason");
     if (fencedOut(doc, args.actor)) throw heldBy(doc);
 

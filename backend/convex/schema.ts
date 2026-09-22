@@ -6,9 +6,21 @@
 // `counters` inside the creating mutation. Nothing public ever prints `_id`.
 // `_creationTime` is the created-at everywhere, so no table carries a `createdAt`.
 // Convex reserves the index name `by_id`, which is why the public one is `by_public_id`.
+// The literal unions come from lib/validators.ts, once, because the functions take the
+// same ones as arguments.
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { actorValidator } from "./lib/actor";
+import {
+  blockerKindValidator,
+  blockerStatusValidator,
+  edgeTypeValidator,
+  epicStatusValidator,
+  followUpKindValidator,
+  issueStatusValidator,
+  issueTypeValidator,
+  journalKindValidator,
+} from "./lib/validators";
 import { verificationValidator } from "./lib/verification";
 
 export default defineSchema({
@@ -27,7 +39,7 @@ export default defineSchema({
     id: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
-    status: v.union(v.literal("open"), v.literal("closed"), v.literal("dropped")),
+    status: epicStatusValidator,
     droppedReason: v.optional(v.string()),
     lastReconciledAt: v.optional(v.number()),
     revision: v.number(),
@@ -43,18 +55,11 @@ export default defineSchema({
     description: v.optional(v.string()),
     design: v.optional(v.string()),
     acceptance: v.optional(v.string()),
-    type: v.union(v.literal("task"), v.literal("follow-up")),
-    followUpKind: v.optional(
-      v.union(v.literal("verify"), v.literal("decide"), v.literal("cleanup")),
-    ),
+    type: issueTypeValidator,
+    followUpKind: v.optional(followUpKindValidator),
     parentIssueId: v.optional(v.id("issues")),
     requires: v.array(v.string()),
-    status: v.union(
-      v.literal("open"),
-      v.literal("in_progress"),
-      v.literal("closed"),
-      v.literal("dropped"),
-    ),
+    status: issueStatusValidator,
     priority: v.number(),
     claimedBy: v.optional(actorValidator),
     claimedAt: v.optional(v.number()),
@@ -76,13 +81,7 @@ export default defineSchema({
   edges: defineTable({
     from: v.id("issues"),
     to: v.id("issues"),
-    type: v.union(
-      v.literal("blocks"),
-      v.literal("related"),
-      v.literal("discovered-from"),
-      v.literal("duplicates"),
-      v.literal("supersedes"),
-    ),
+    type: edgeTypeValidator,
     by: actorValidator,
   })
     .index("by_from", ["from", "type"])
@@ -90,18 +89,12 @@ export default defineSchema({
 
   blockers: defineTable({
     id: v.string(),
-    kind: v.union(
-      v.literal("approval"),
-      v.literal("external-wait"),
-      v.literal("decision"),
-      v.literal("credential"),
-      v.literal("purchase"),
-    ),
+    kind: blockerKindValidator,
     owner: v.string(),
     title: v.string(),
     whatResolves: v.string(),
     nudgeAt: v.optional(v.number()),
-    status: v.union(v.literal("raised"), v.literal("waiting"), v.literal("resolved")),
+    status: blockerStatusValidator,
     raisedBy: actorValidator,
     resolvedBy: v.optional(actorValidator),
     resolvedAt: v.optional(v.number()),
@@ -122,13 +115,7 @@ export default defineSchema({
   journal: defineTable({
     issueId: v.id("issues"),
     author: actorValidator,
-    kind: v.union(
-      v.literal("finding"),
-      v.literal("decision"),
-      v.literal("handoff"),
-      v.literal("evidence"),
-      v.literal("question"),
-    ),
+    kind: journalKindValidator,
     body: v.string(),
   }).index("by_issue", ["issueId"]),
 

@@ -19,22 +19,15 @@ import { invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation } from "./lib/guard";
 import { issueById } from "./lib/lookup";
+import { type EdgeType, edgeTypeValidator } from "./lib/validators";
 import { ref } from "./lib/views";
-
-const typeValidator = v.union(
-  v.literal("blocks"),
-  v.literal("related"),
-  v.literal("discovered-from"),
-  v.literal("duplicates"),
-  v.literal("supersedes"),
-);
 
 /** The one `(from, to, type)` row, or null. */
 async function edgeBetween(
   ctx: QueryCtx,
   from: Id<"issues">,
   to: Id<"issues">,
-  type: Doc<"edges">["type"],
+  type: EdgeType,
 ): Promise<Doc<"edges"> | null> {
   const rows = await ctx.db
     .query("edges")
@@ -76,7 +69,7 @@ async function blocksRoute(
 }
 
 export const add = mutation({
-  args: { actor: actorValidator, from: v.string(), to: v.string(), type: typeValidator },
+  args: { actor: actorValidator, from: v.string(), to: v.string(), type: edgeTypeValidator },
   handler: async (ctx, args) => {
     if (args.from === args.to) throw invalid("an issue cannot relate to itself");
     const from = await issueById(ctx, args.from);
@@ -110,7 +103,7 @@ export const add = mutation({
 });
 
 export const remove = mutation({
-  args: { actor: actorValidator, from: v.string(), to: v.string(), type: typeValidator },
+  args: { actor: actorValidator, from: v.string(), to: v.string(), type: edgeTypeValidator },
   handler: async (ctx, args) => {
     const from = await issueById(ctx, args.from);
     const to = await issueById(ctx, args.to);

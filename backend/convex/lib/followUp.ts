@@ -5,19 +5,13 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
-import { invalid, notFound } from "./errors";
+import { createdChanges } from "./changes";
+import { notFound } from "./errors";
 import { record } from "./events";
 import { mint } from "./ids";
-import { type IssueView, createdChanges, issueView } from "./views";
-
-/** 0 is highest, 4 is backlog, and nothing between is a fraction. */
-export function checkPriority(priority: number): number {
-  if (!Number.isInteger(priority) || priority < 0 || priority > 4)
-    throw invalid(`priority ${priority} is not an integer 0 to 4, 0 highest`);
-  return priority;
-}
-
-export type FollowUpKind = NonNullable<Doc<"issues">["followUpKind"]>;
+import { checkPriority } from "./priority";
+import type { FollowUpKind } from "./validators";
+import { type IssueView, issueView } from "./views";
 
 export type FollowUpInput = {
   title: string;

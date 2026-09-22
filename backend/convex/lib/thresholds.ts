@@ -1,7 +1,7 @@
 // thresholds.ts: the numbers reconcile and epic health both measure against
 // (docs/design.md §7, §12). They live here rather than at the top of reconcile.ts because
-// lib/views.ts reads them for the stuck line and reconcile.ts reads views.ts back: one
-// constants module both import is the shape that has no cycle in it.
+// lib/health.ts reads them for the stuck line and reconcile.ts for its rules: one
+// constants module both import, rather than either reading the other.
 
 export const HOUR = 60 * 60 * 1000;
 export const DAY = 24 * HOUR;

@@ -7,6 +7,7 @@ import { actorValidator } from "./lib/actor";
 import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
+import { findProject } from "./lib/lookup";
 
 const SLUG = /^[a-z][a-z0-9]{0,15}$/;
 const RESERVED = ["ep", "bl"];
@@ -20,10 +21,7 @@ export const create = mutation({
       );
     if (RESERVED.includes(slug))
       throw invalid(`slug "${slug}" is reserved: ep is epics and bl is blockers`);
-    const existing = await ctx.db
-      .query("projects")
-      .withIndex("by_slug", (q) => q.eq("slug", slug))
-      .unique();
+    const existing = await findProject(ctx, slug);
     if (existing) throw conflict(`project ${slug} already exists as "${existing.name}"`);
 
     await ctx.db.insert("projects", { slug, name });

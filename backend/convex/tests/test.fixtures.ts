@@ -14,6 +14,7 @@ import type { FunctionArgs } from "convex/server";
 import { vi } from "vitest";
 import { api } from "../_generated/api";
 import type { TableNames } from "../_generated/dataModel";
+import { issueById } from "../lib/lookup";
 import schema from "../schema";
 
 /** This session's agent, an agent on another machine, and the person. */
@@ -67,13 +68,7 @@ export const rows = <T extends TableNames>(t: Harness, table: T) =>
   t.run((ctx) => ctx.db.query(table).collect());
 
 /** An issue as it stands in the table, past any view. */
-export const rawIssue = (t: Harness, id: string) =>
-  t.run((ctx) =>
-    ctx.db
-      .query("issues")
-      .withIndex("by_public_id", (q) => q.eq("id", id))
-      .unique(),
-  );
+export const rawIssue = (t: Harness, id: string) => t.run((ctx) => issueById(ctx, id));
 
 /** Every event, oldest first, or the events of one kind. */
 export const eventsOf = async (t: Harness, kind?: string) => {
