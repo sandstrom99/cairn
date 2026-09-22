@@ -8,11 +8,19 @@
 //
 // --limit is how many, 1 to 200; without it the deployment decides, which is 50 today.
 // --before is a date, anything Date.parse takes, and lists only what happened before it:
-// pass the time of the oldest line you have to read further back. A create prints no
-// payload, because the reference at the start of its line already names what was
-// created; a journal entry prints as `finding: <its first line>`; an edge prints once, on
-// the end that leads its sentence, `cn-2 "…"  edge.add  …  blocked by cn-1`, though both
-// ends' histories carry it.
+// pass the time of the oldest line you have to read further back.
+//
+// Every event reads as a line, never as JSON. A create prints no payload, because the
+// reference at the start of its line already names what was created, except a project,
+// which has no reference to lead with and prints as `cn "cairn"`. A journal entry prints
+// as `finding: <its first line>`. An edge prints once, on the end that leads its sentence,
+// `cn-2 "…"  edge.add  …  blocked by cn-1`, though both ends' histories carry it. A
+// blocker's raise is the blocker's own line on the issue it was raised on, `bl-1 "…"
+// decision · owner balder`, an attach `waits on bl-1`, and the resolve that freed an issue
+// is the blocker and the note, `bl-1 "…": done`. A reconcile run is what it did and who
+// asked, `did 2 · raised 1 · by balder/claude` or `nothing to do · by …`, and a sweep how
+// many epics it visited, `3 epics · owner balder`. A lifecycle move is its fields,
+// `status open → in_progress`.
 //
 // An empty deployment prints nothing and exits 0.
 

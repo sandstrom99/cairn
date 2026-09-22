@@ -381,17 +381,90 @@ const isJournalChanges = (changes: unknown): changes is { kind: string; body: st
   typeof (changes as { kind?: unknown }).kind === "string" &&
   typeof (changes as { body?: unknown }).body === "string";
 
+/** `changes` is an object whose named fields are all strings, whatever else it carries. */
+const hasStrings = <K extends string>(
+  changes: unknown,
+  ...keys: K[]
+): changes is Record<K, string> =>
+  typeof changes === "object" &&
+  changes !== null &&
+  keys.every((key) => typeof (changes as Record<string, unknown>)[key] === "string");
+
+/** `changes` is an object whose named fields are all arrays, whatever else it carries. */
+const hasArrays = <K extends string>(
+  changes: unknown,
+  ...keys: K[]
+): changes is Record<K, unknown[]> =>
+  typeof changes === "object" &&
+  changes !== null &&
+  keys.every((key) => Array.isArray((changes as Record<string, unknown>)[key]));
+
+/**
+ * A raise, the way `blockerLine` opens: `bl-3 "…" decision · owner balder`, on the line of
+ * the issue it was raised on. Read from the blocker's own history the reference is the
+ * page, so the piece names the issue it holds instead, and read from nobody's it carries
+ * both ends, the way an edge does.
+ */
+const raisePiece = (
+  c: Record<"id" | "blockerKind" | "owner" | "title" | "issue", string>,
+  self: string | undefined,
+): string => {
+  const what = `${c.blockerKind} · owner ${c.owner}`;
+  const head = self === c.id ? what : `${ref({ id: c.id, title: c.title })} ${what}`;
+  return self === c.issue ? head : `${head} · holds ${c.issue}`;
+};
+
+/** One more issue a blocker holds: `waits on bl-3` from the issue, `holds cn-18` from the blocker. */
+const attachPiece = (
+  { blocker, issue }: Record<"blocker" | "issue", string>,
+  self: string | undefined,
+) =>
+  self === blocker
+    ? `holds ${issue}`
+    : self === issue
+      ? `waits on ${blocker}`
+      : `${issue} waits on ${blocker}`;
+
+/** What `reconcileLines` heads with, and who asked: `did 2 · raised 1 · by balder/claude`. */
+const runPiece = ({ by, did, raised }: { by: string; did: unknown[]; raised: unknown[] }) =>
+  `${did.length === 0 && raised.length === 0 ? "nothing to do" : `did ${did.length} · raised ${raised.length}`} · by ${by}`;
+
 /**
  * One event's payload in pieces, by its kind. A journal append is `finding: <its first
  * line>`, the way `cn show` lists the entry; an edge is `edgePiece` relative to `self`,
- * the issue the line is about; a create has no payload, because the reference at the
- * start of its line already names what was created; anything else is `changePieces`.
+ * the issue the line is about, and a blocker's raise and attach read relative to it the
+ * same way; the resolve recorded on each issue a blocker held is the blocker and the note,
+ * `bl-3 "…": done`; a reconcile run is the head of `reconcileLines` and who asked, a sweep
+ * how many epics it visited and for whom. A create has no payload, because the reference
+ * at the start of its line already names what was created, except a project, which has no
+ * reference to lead with and so is its slug and name here. Anything else is `changePieces`.
  */
 export const eventPieces = (kind: string, changes: unknown, self: string | undefined): string[] => {
+  if (kind === "project.create" && hasStrings(changes, "slug", "name"))
+    return [clip(ref({ id: changes.slug, title: changes.name }))];
   if (kind.endsWith(".create")) return [];
   if (kind === "journal.append" && isJournalChanges(changes))
     return [clip(`${changes.kind}: ${firstLine(changes.body)}`)];
   if (kind.startsWith("edge.") && isEdgeChanges(changes)) return [edgePiece(changes, self)];
+  if (
+    kind === "blocker.raise" &&
+    hasStrings(changes, "id", "blockerKind", "owner", "title", "issue")
+  )
+    return [clip(raisePiece(changes, self))];
+  if (kind === "blocker.attach" && hasStrings(changes, "blocker", "issue"))
+    return [attachPiece(changes, self)];
+  if (kind === "blocker.resolve" && hasStrings(changes, "blocker", "title", "resolution"))
+    return [
+      clip(
+        `${ref({ id: changes.blocker, title: changes.title })}: ${firstLine(changes.resolution)}`,
+      ),
+    ];
+  if (kind === "reconcile.run" && hasStrings(changes, "by") && hasArrays(changes, "did", "raised"))
+    return [runPiece(changes)];
+  if (kind === "reconcile.sweep" && hasStrings(changes, "owner") && hasArrays(changes, "epics"))
+    return [
+      `${changes.epics.length} ${changes.epics.length === 1 ? "epic" : "epics"} · owner ${changes.owner}`,
+    ];
   return changePieces(changes);
 };
 
