@@ -12,6 +12,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { invalid } from "./lib/errors";
+import { type EventView, eventView } from "./lib/graph";
 import { query } from "./lib/guard";
 import { type Ref, ref } from "./lib/views";
 
@@ -63,11 +64,7 @@ export const recent = query({
         const issue = await resolve(e.issueId);
         if (isMirror(e, issue)) continue;
         out.push({
-          at: e._creationTime,
-          actor: e.actor,
-          kind: e.kind,
-          revision: e.revision,
-          changes: e.changes,
+          ...eventView(e),
           issue,
           epic: await resolve(e.epicId),
           blocker: await resolve(e.blockerId),
@@ -79,12 +76,7 @@ export const recent = query({
   },
 });
 
-type LogEvent = {
-  at: number;
-  actor: Doc<"events">["actor"];
-  kind: string;
-  revision: number | undefined;
-  changes: Doc<"events">["changes"];
+type LogEvent = EventView & {
   issue: Ref | undefined;
   epic: Ref | undefined;
   blocker: Ref | undefined;

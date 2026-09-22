@@ -21,6 +21,7 @@ import { claimed, epicRequired, invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
+import { issuesIn } from "./lib/graph";
 import { mint } from "./lib/ids";
 import { openEpicArg } from "./lib/inbox";
 import { epicById, issueById, projectBySlug } from "./lib/lookup";
@@ -143,14 +144,7 @@ export const list = query({
 
     let rows: Doc<"issues">[];
     if (epic) {
-      rows = await ctx.db
-        .query("issues")
-        .withIndex("by_epic", (q) =>
-          args.status === undefined
-            ? q.eq("epicId", epic._id)
-            : q.eq("epicId", epic._id).eq("status", args.status),
-        )
-        .collect();
+      rows = await issuesIn(ctx, epic._id);
     } else if (project) {
       rows = await ctx.db
         .query("issues")

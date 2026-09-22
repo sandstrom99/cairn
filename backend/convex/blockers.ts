@@ -22,6 +22,7 @@ import type { Doc } from "./_generated/dataModel";
 import { actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
+import { issuesHeldBy } from "./lib/graph";
 import { mutation, query } from "./lib/guard";
 import { blockerById, issueById } from "./lib/lookup";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
@@ -161,15 +162,11 @@ export const resolve = mutation({
     );
 
     // One event per issue it held, so `cn show <issue> --history` says what freed it.
-    const links = await ctx.db
-      .query("blockerLinks")
-      .withIndex("by_blocker", (q) => q.eq("blockerId", doc._id))
-      .collect();
-    for (const link of links)
+    for (const issue of await issuesHeldBy(ctx, doc._id))
       await record(ctx, {
         kind: "blocker.resolve",
         actor: args.actor,
-        issueId: link.issueId,
+        issueId: issue._id,
         changes: { blocker: doc.id, title: doc.title, resolution: args.note },
       });
     return await blockerView(ctx, (await ctx.db.get(doc._id))!);

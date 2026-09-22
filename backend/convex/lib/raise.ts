@@ -3,9 +3,10 @@
 // mechanism as everything else waiting on a person (§7), so the insert, the link and the
 // events live here and `blockers.raise` keeps only the validation around them.
 import type { Doc } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
 import { record } from "./events";
+import { linkBetween } from "./graph";
 import { mint } from "./ids";
 
 export type BlockerFields = {
@@ -15,19 +16,6 @@ export type BlockerFields = {
   whatResolves: string;
   nudgeAt?: number;
 };
-
-/** The link row for this blocker and issue, or null. */
-export async function linkBetween(
-  ctx: QueryCtx,
-  blocker: Doc<"blockers">,
-  issue: Doc<"issues">,
-): Promise<Doc<"blockerLinks"> | null> {
-  const rows = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_blocker", (q) => q.eq("blockerId", blocker._id))
-    .collect();
-  return rows.find((l) => l.issueId === issue._id) ?? null;
-}
 
 /**
  * A new `bl-N` on `issue`, linked and recorded. The event names the blocker in its
@@ -77,7 +65,7 @@ export async function attachBlocker(
   blocker: Doc<"blockers">,
   issue: Doc<"issues">,
 ): Promise<void> {
-  if (await linkBetween(ctx, blocker, issue)) return;
+  if (await linkBetween(ctx, blocker._id, issue._id)) return;
   await ctx.db.insert("blockerLinks", { blockerId: blocker._id, issueId: issue._id });
   await record(ctx, {
     kind: "blocker.attach",

@@ -13,6 +13,14 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { nowArg } from "./lib/clock";
+import {
+  edgesFrom,
+  edgesTo,
+  eventView,
+  eventsOn,
+  issuesIn,
+  unresolvedBlockersOn,
+} from "./lib/graph";
 import { query } from "./lib/guard";
 import { epicHealth, stuckOf } from "./lib/health";
 import { blockerById, epicById, issueById } from "./lib/lookup";
@@ -34,45 +42,19 @@ const endsOf = async (ctx: QueryCtx, ids: Id<"issues">[]) =>
 
 /** Every event on an issue, oldest first: what changed, who changed it and when. */
 async function history(ctx: QueryCtx, doc: Doc<"issues">) {
-  const rows = await ctx.db
-    .query("events")
-    .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
-    .collect();
-  // The index orders by revision, and an append carries none, so time is the order here.
-  rows.sort((a, b) => a._creationTime - b._creationTime);
-  return rows.map((e) => ({
-    at: e._creationTime,
-    actor: e.actor,
-    kind: e.kind,
-    revision: e.revision,
-    changes: e.changes,
-  }));
+  return (await eventsOn(ctx, { table: "issues", doc })).map(eventView);
 }
 
 async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean, now?: number) {
   const view = await issueView(ctx, doc);
-  const siblings = await ctx.db
-    .query("issues")
-    .withIndex("by_epic", (q) => q.eq("epicId", doc.epicId))
-    .collect();
+  const siblings = await issuesIn(ctx, doc.epicId);
   const entries = await ctx.db
     .query("journal")
     .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
     .order("desc")
     .take(5);
-  const outgoing = await ctx.db
-    .query("edges")
-    .withIndex("by_from", (q) => q.eq("from", doc._id))
-    .collect();
-  const incoming = await ctx.db
-    .query("edges")
-    .withIndex("by_to", (q) => q.eq("to", doc._id))
-    .collect();
-  const links = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
-    .collect();
-  const blockers = await Promise.all(links.map((l) => ctx.db.get(l.blockerId)));
+  const outgoing = await edgesFrom(ctx, doc._id);
+  const incoming = await edgesTo(ctx, doc._id);
   const followUps = await ctx.db
     .query("issues")
     .withIndex("by_parent", (q) => q.eq("parentIssueId", doc._id))
@@ -114,45 +96,29 @@ async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean, no
       ctx,
       outgoing.filter((e) => e.type === "supersedes").map((e) => e.to),
     ),
-    waitingOn: blockers
-      .filter((b): b is Doc<"blockers"> => b !== null && b.status !== "resolved")
-      .map(ref),
+    waitingOn: (await unresolvedBlockersOn(ctx, doc._id)).map(ref),
     followUps: followUps.map(ref),
     events: withHistory ? await history(ctx, doc) : undefined,
   };
 }
 
 async function epic(ctx: QueryCtx, doc: Doc<"epics">, now?: number) {
-  const rows = await ctx.db
-    .query("issues")
-    .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
-    .collect();
+  const rows = await issuesIn(ctx, doc._id);
   const live = rows.filter(isLive);
   live.sort(priorityOrder);
   return {
     kind: "epic" as const,
-    ...(await epicHealth(ctx, doc, now)),
+    ...(await epicHealth(ctx, doc, rows, now)),
     issues: live.map((i) => ({ id: i.id, title: i.title, status: i.status, priority: i.priority })),
   };
 }
 
 async function blocker(ctx: QueryCtx, doc: Doc<"blockers">, withHistory: boolean) {
-  const events = await ctx.db
-    .query("events")
-    .withIndex("by_blocker", (q) => q.eq("blockerId", doc._id))
-    .collect();
-  events.sort((a, b) => a._creationTime - b._creationTime);
   return {
     kind: "blocker" as const,
     ...(await blockerView(ctx, doc)),
     events: withHistory
-      ? events.map((e) => ({
-          at: e._creationTime,
-          actor: e.actor,
-          kind: e.kind,
-          revision: e.revision,
-          changes: e.changes,
-        }))
+      ? (await eventsOn(ctx, { table: "blockers", doc })).map(eventView)
       : undefined,
   };
 }

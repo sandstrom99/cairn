@@ -6,13 +6,15 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import { claimChanges, closeChanges, dropChanges, releaseChanges } from "../lib/changes";
+import { eventsOn, issuesHeldBy, unresolvedBlockersOn } from "../lib/graph";
 import { mint } from "../lib/ids";
 import { ensureInbox } from "../lib/inbox";
 import { idOrder, priorityOrder } from "../lib/order";
 import { checkPriority } from "../lib/priority";
 import { applyRevision, expectRevision } from "../lib/revision";
 import { isLive } from "../lib/validators";
-import { actor, balder, eventsOf, fresh, rawIssue, rows, seed } from "./test.fixtures";
+import { epicView } from "../lib/views";
+import { actor, balder, eventsOf, fresh, raise, rawIssue, rows, seed } from "./test.fixtures";
 
 /** A deployment with cn-1 "one", open at revision 0. */
 const withOne = () => seed({ issues: ["one"] });
@@ -239,5 +241,60 @@ describe("revision", () => {
         data: { kind: "stale", current: 1, since: [{ revision: 1, kind: "epic.update" }] },
       });
     });
+  });
+});
+
+describe("graph", () => {
+  it("eventsOn reads an issue's events oldest first, the unrevisioned append among them", async () => {
+    const t = await withOne();
+    await t.mutation(api.issues.claim, { actor, id: "cn-1" });
+    await t.mutation(api.journal.append, { actor, id: "cn-1", kind: "finding", body: "a finding" });
+    const doc = await rawIssue(t, "cn-1");
+    const events = await t.run((ctx) => eventsOn(ctx, { table: "issues", doc }));
+    expect(events.map((e) => e.kind)).toEqual(["issue.create", "issue.claim", "journal.append"]);
+    const times = events.map((e) => e._creationTime);
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+  });
+
+  it("eventsOn reads an epic's events through its own index", async () => {
+    const t = await seed();
+    const doc = (await rows(t, "epics")).find((e) => e.id === "ep-1")!;
+    const events = await t.run((ctx) => eventsOn(ctx, { table: "epics", doc }));
+    expect(events.map((e) => e.kind)).toEqual(["epic.create"]);
+  });
+
+  it("unresolvedBlockersOn drops a resolved blocker, and issuesHeldBy still names its issue", async () => {
+    const t = await withOne();
+    await raise(t, "cn-1");
+    await raise(t, "cn-1", { title: "the Play Console agreement" });
+    const issue = await rawIssue(t, "cn-1");
+    const bl1 = (await rows(t, "blockers")).find((b) => b.id === "bl-1")!;
+    const read = () =>
+      t.run(async (ctx) => ({
+        on: (await unresolvedBlockersOn(ctx, issue._id)).map((b) => b.id),
+        held: (await issuesHeldBy(ctx, bl1._id)).map((i) => i.id),
+      }));
+
+    expect(await read()).toEqual({ on: ["bl-1", "bl-2"], held: ["cn-1"] });
+    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "accepted" });
+    expect(await read()).toEqual({ on: ["bl-2"], held: ["cn-1"] });
+  });
+
+  it("epicView over no issues counts nothing, and a dropped epic carries its reason", async () => {
+    const t = await withOne();
+    const doc = (await rows(t, "epics")).find((e) => e.id === "ep-1")!;
+    const view = epicView(doc, []);
+    expect(view.counts).toEqual({ open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 });
+    expect(view.droppedReason).toBeUndefined();
+
+    await t.mutation(api.epics.close, {
+      actor,
+      id: "ep-1",
+      revision: 0,
+      drop: true,
+      reason: "not shipping",
+    });
+    const listed = await t.query(api.epics.list, { all: true });
+    expect(listed.find((e) => e.id === "ep-1")?.droppedReason).toBe("not shipping");
   });
 });

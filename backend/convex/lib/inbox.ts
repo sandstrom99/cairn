@@ -30,7 +30,8 @@ export async function ensureInbox(ctx: MutationCtx, actor: Actor): Promise<Doc<"
     kind: "epic.create",
     actor,
     epicId: _id,
-    changes: createdChanges(await epicView(ctx, doc)),
+    // Inserted this instant, so nothing points at it yet and it has no issues to read.
+    changes: createdChanges(epicView(doc, [])),
   });
   return doc;
 }

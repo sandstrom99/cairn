@@ -7,6 +7,7 @@ import { createdChanges, dropChanges } from "./lib/changes";
 import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
+import { issuesIn } from "./lib/graph";
 import { mint } from "./lib/ids";
 import { INBOX_ID } from "./lib/inbox";
 import { nowArg } from "./lib/clock";
@@ -28,7 +29,8 @@ export const create = mutation({
       status: "open",
       revision: 0,
     });
-    const view = await epicView(ctx, (await ctx.db.get(_id))!);
+    // Inserted this instant, so nothing points at it yet and it has no issues to read.
+    const view = epicView((await ctx.db.get(_id))!, []);
     await record(ctx, {
       kind: "epic.create",
       actor,
@@ -50,14 +52,19 @@ export const list = query({
           .withIndex("by_status", (q) => q.eq("status", "open"))
           .collect();
     rows.sort(idOrder);
-    return await Promise.all(rows.map((doc) => epicHealth(ctx, doc, now)));
+    return await Promise.all(
+      rows.map(async (doc) => epicHealth(ctx, doc, await issuesIn(ctx, doc._id), now)),
+    );
   },
 });
 
 /** One epic's health, the three lines of §8 with the counts above them. */
 export const health = query({
   args: { id: v.string(), ...nowArg },
-  handler: async (ctx, { id, now }) => epicHealth(ctx, await epicById(ctx, id), now),
+  handler: async (ctx, { id, now }) => {
+    const doc = await epicById(ctx, id);
+    return await epicHealth(ctx, doc, await issuesIn(ctx, doc._id), now);
+  },
 });
 
 /**
@@ -86,10 +93,7 @@ export const close = mutation({
     await expectRevision(ctx, { table: "epics", doc }, args.revision);
     if (doc.status !== "open") throw invalid(`${doc.id} is already ${doc.status}`);
 
-    const issues = await ctx.db
-      .query("issues")
-      .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
-      .collect();
+    const issues = await issuesIn(ctx, doc._id);
     const live = issues.filter(isLive);
 
     if (!args.drop) {
@@ -104,7 +108,8 @@ export const close = mutation({
         { status: "closed" },
         { kind: "epic.close", actor: args.actor },
       );
-      return { epic: await epicHealth(ctx, (await ctx.db.get(doc._id))!), dropped: [] };
+      // Only the epic moved, so the issues read above are still the ones in it.
+      return { epic: await epicHealth(ctx, (await ctx.db.get(doc._id))!, issues), dropped: [] };
     }
 
     const reason = args.reason ?? "";
@@ -132,8 +137,9 @@ export const close = mutation({
       { status: "dropped", droppedReason: reason },
       { kind: "epic.drop", actor: args.actor },
     );
+    // Every live issue was just dropped, so the rows read above are stale: read them again.
     return {
-      epic: await epicHealth(ctx, (await ctx.db.get(doc._id))!),
+      epic: await epicHealth(ctx, (await ctx.db.get(doc._id))!, await issuesIn(ctx, doc._id)),
       dropped: live.map(ref),
     };
   },

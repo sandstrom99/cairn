@@ -4,6 +4,7 @@
 // shape of one document.
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { unresolvedBlockersOn } from "./graph";
 import { idOrder } from "./order";
 import { STUCK_AFTER_MS } from "./thresholds";
 import { isLive } from "./validators";
@@ -39,13 +40,16 @@ export function stuckOf(issues: Doc<"issues">[], now: number): Doc<"issues"> | u
  *
  * `now` is the caller's clock when a subscriber sends one, because a subscription re-runs
  * on data and never on time.
+ *
+ * It takes the epic's issues preloaded, so a caller that already holds them (`show.get`,
+ * `epics.list`) reads them once.
  */
-export async function epicHealth(ctx: QueryCtx, doc: Doc<"epics">, now: number = Date.now()) {
-  const issues = await ctx.db
-    .query("issues")
-    .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
-    .collect();
-
+export async function epicHealth(
+  ctx: QueryCtx,
+  doc: Doc<"epics">,
+  issues: Doc<"issues">[],
+  now: number = Date.now(),
+) {
   const moving = issues
     .filter((i) => i.status === "in_progress")
     .map((i) => ({
@@ -67,21 +71,15 @@ export async function epicHealth(ctx: QueryCtx, doc: Doc<"epics">, now: number =
   const seen = new Set<string>();
   const waiting: { id: string; title: string; owner: string }[] = [];
   for (const issue of live) {
-    const links = await ctx.db
-      .query("blockerLinks")
-      .withIndex("by_issue", (q) => q.eq("issueId", issue._id))
-      .collect();
-    for (const link of links) {
-      if (seen.has(link.blockerId)) continue;
-      seen.add(link.blockerId);
-      const blocker = await ctx.db.get(link.blockerId);
-      if (!blocker || blocker.status === "resolved") continue;
+    for (const blocker of await unresolvedBlockersOn(ctx, issue._id)) {
+      if (seen.has(blocker._id)) continue;
+      seen.add(blocker._id);
       waiting.push({ id: blocker.id, title: blocker.title, owner: blocker.owner });
     }
   }
   waiting.sort(idOrder);
 
-  return { ...(await epicView(ctx, doc)), health: { moving, stuck, waiting } };
+  return { ...epicView(doc, issues), health: { moving, stuck, waiting } };
 }
 
 export type EpicHealth = Awaited<ReturnType<typeof epicHealth>>;

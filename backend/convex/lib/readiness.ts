@@ -8,6 +8,7 @@
 // index lookups over a graph of a few hundred documents.
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { edgesTo, unresolvedBlockersOn } from "./graph";
 import { priorityOrder } from "./order";
 import { isLive } from "./validators";
 import { type Ref, issueView, ref } from "./views";
@@ -28,23 +29,12 @@ export async function blockedBy(
   doc: Doc<"issues">,
   now: number = Date.now(),
 ): Promise<Blocked> {
-  const incoming = await ctx.db
-    .query("edges")
-    .withIndex("by_to", (q) => q.eq("to", doc._id).eq("type", "blocks"))
-    .collect();
+  const incoming = await edgesTo(ctx, doc._id, "blocks");
   const sources = await Promise.all(incoming.map((e) => ctx.db.get(e.from)));
-
-  const links = await ctx.db
-    .query("blockerLinks")
-    .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
-    .collect();
-  const blockers = await Promise.all(links.map((l) => ctx.db.get(l.blockerId)));
 
   return {
     issues: sources.filter((i): i is Doc<"issues"> => i !== null && isLive(i)).map(ref),
-    blockers: blockers
-      .filter((b): b is Doc<"blockers"> => b !== null && b.status !== "resolved")
-      .map(ref),
+    blockers: (await unresolvedBlockersOn(ctx, doc._id)).map(ref),
     ...(doc.deferUntil !== undefined && doc.deferUntil > now
       ? { deferredUntil: doc.deferUntil }
       : {}),

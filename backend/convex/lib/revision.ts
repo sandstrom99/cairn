@@ -8,11 +8,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Actor } from "./actor";
 import { stale } from "./errors";
 import { record } from "./events";
-
-export type Target =
-  | { table: "issues"; doc: Doc<"issues"> }
-  | { table: "epics"; doc: Doc<"epics"> }
-  | { table: "blockers"; doc: Doc<"blockers"> };
+import { type Target, eventView, eventsOn } from "./graph";
 
 /** The event row's foreign key for this target, the one key `record` needs. */
 const targetKey = (
@@ -29,25 +25,9 @@ async function eventsSince(
   target: Target,
   revision: number,
 ): Promise<Doc<"events">[]> {
-  if (target.table === "issues") {
-    const id = target.doc._id;
-    return await ctx.db
-      .query("events")
-      .withIndex("by_issue", (q) => q.eq("issueId", id).gt("revision", revision))
-      .collect();
-  }
-  // Epics and blockers index only the foreign key, so the revision test is in memory.
-  const rows =
-    target.table === "epics"
-      ? await ctx.db
-          .query("events")
-          .withIndex("by_epic", (q) => q.eq("epicId", target.doc._id))
-          .collect()
-      : await ctx.db
-          .query("events")
-          .withIndex("by_blocker", (q) => q.eq("blockerId", target.doc._id))
-          .collect();
-  return rows.filter((e) => e.revision !== undefined && e.revision > revision);
+  return (await eventsOn(ctx, target)).filter(
+    (e) => e.revision !== undefined && e.revision > revision,
+  );
 }
 
 /** Throws `kind: "stale"` with the history since `revision`, or returns having agreed. */
@@ -58,13 +38,7 @@ export async function expectRevision(
 ): Promise<void> {
   const doc = target.doc;
   if (doc.revision === revision) return;
-  const since = (await eventsSince(ctx, target, revision)).map((e) => ({
-    revision: e.revision,
-    actor: e.actor,
-    at: e._creationTime,
-    kind: e.kind,
-    changes: e.changes,
-  }));
+  const since = (await eventsSince(ctx, target, revision)).map(eventView);
   throw stale(doc, revision, since);
 }
 

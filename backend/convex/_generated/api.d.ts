@@ -23,6 +23,7 @@ import type * as lib_env from "../lib/env.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_followUp from "../lib/followUp.js";
+import type * as lib_graph from "../lib/graph.js";
 import type * as lib_guard from "../lib/guard.js";
 import type * as lib_health from "../lib/health.js";
 import type * as lib_ids from "../lib/ids.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "lib/errors": typeof lib_errors;
   "lib/events": typeof lib_events;
   "lib/followUp": typeof lib_followUp;
+  "lib/graph": typeof lib_graph;
   "lib/guard": typeof lib_guard;
   "lib/health": typeof lib_health;
   "lib/ids": typeof lib_ids;
