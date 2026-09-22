@@ -107,6 +107,58 @@ describe("events.recent", () => {
     expect(new Set(seen).size).toBe(seen.length);
   });
 
+  it("lists an edge once, on the end that leads its sentence, while both ends' histories carry it", async () => {
+    const t = await seeded();
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
+    await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-1", type: "related" });
+    const events = await t.query(api.events.recent, {});
+    const edges = events.filter((e) => e.kind === "edge.add");
+    // `blocks` leads with its `to` end, the way `cn dep add cn-2 --blocked-by cn-1` asked
+    // for it; every other type leads with its `from` end.
+    expect(edges.map((e) => [e.issue?.id, e.changes])).toEqual([
+      ["cn-2", { type: "related", from: "cn-2", to: "cn-1" }],
+      ["cn-2", { type: "blocks", from: "cn-1", to: "cn-2" }],
+    ]);
+    for (const id of ["cn-1", "cn-2"]) {
+      const shown = await t.query(api.show.get, { id, history: true });
+      if (shown.kind !== "issue") throw new Error(`${id} is an issue`);
+      expect(shown.events?.filter((e) => e.kind === "edge.add")).toHaveLength(2);
+    }
+  });
+
+  it("keeps limit honest: a dropped mirror does not shorten a page, and before walks on past it", async () => {
+    const t = await seeded();
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
+    await t.mutation(api.edges.remove, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
+    const all = await t.query(api.events.recent, { limit: 200 });
+    expect(all.map((e) => e.kind)).toEqual([
+      "edge.remove",
+      "edge.add",
+      "issue.claim",
+      "issue.create",
+      "issue.create",
+      "epic.create",
+      "project.create",
+    ]);
+    expect((await t.query(api.events.recent, { limit: 3 })).map((e) => e.kind)).toEqual([
+      "edge.remove",
+      "edge.add",
+      "issue.claim",
+    ]);
+    const seen: string[] = [];
+    let before: number | undefined;
+    for (;;) {
+      const page = await t.query(api.events.recent, {
+        limit: 2,
+        ...(before === undefined ? {} : { before }),
+      });
+      if (page.length === 0) break;
+      seen.push(...page.map((e) => e.kind));
+      before = page[page.length - 1]!.at;
+    }
+    expect(seen).toEqual(all.map((e) => e.kind));
+  });
+
   it("refuses a limit that is not a whole number from 1 to 200", async () => {
     const t = await seeded();
     for (const limit of [0, 201, 1.5]) {

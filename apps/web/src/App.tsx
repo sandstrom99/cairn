@@ -190,7 +190,7 @@ function Item({
     return (
       <>
         <BlockerPage blocker={shown} now={now} />
-        <History events={shown.events} now={now} />
+        <History events={shown.events} now={now} self={shown.id} />
       </>
     );
   return (
@@ -200,7 +200,7 @@ function Item({
         siblings={(issues ?? []).filter((i) => i.epic.id === shown.epic.id)}
         now={now}
       />
-      <History events={shown.events} now={now} />
+      <History events={shown.events} now={now} self={shown.id} />
     </>
   );
 }

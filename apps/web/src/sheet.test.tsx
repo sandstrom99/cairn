@@ -280,6 +280,20 @@ describe("an entry of a thing's own history", () => {
       squeeze(historyLines([event], now)[0]!),
     );
   });
+
+  it("reads an edge from the end whose history it is", () => {
+    const event: HistoryEvent = {
+      at: now - HOUR,
+      actor: agent,
+      kind: "edge.add",
+      changes: { type: "blocks", from: "cn-21", to: "cn-25" },
+    };
+    const markup = plain(
+      renderToStaticMarkup(<HistoryEntry event={event} now={now} self="cn-25" />),
+    );
+    expect(markup).toBe(squeeze(historyLines([event], now, "cn-25")[0]!));
+    expect(markup).toContain("blocked by cn-21");
+  });
 });
 
 describe("a blocker's page", () => {

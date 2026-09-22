@@ -192,8 +192,17 @@ export function Feed({ events, now }: { events: LogEvent[] | undefined; now: num
 /**
  * One thing's own history, newest first: `cn show <id> --history`, which prints it oldest
  * first because a terminal is read downwards and a column beside a page is read from the top.
+ * `self` is that id, so an edge among the events reads from this end.
  */
-export function History({ events, now }: { events: HistoryEvent[] | undefined; now: number }) {
+export function History({
+  events,
+  now,
+  self,
+}: {
+  events: HistoryEvent[] | undefined;
+  now: number;
+  self: string;
+}) {
   const newestFirst = events === undefined ? undefined : [...events].reverse();
   const landed = useLanded(newestFirst?.[0]?.at);
   return (
@@ -207,6 +216,7 @@ export function History({ events, now }: { events: HistoryEvent[] | undefined; n
               key={`${event.at} ${event.kind}`}
               event={event}
               now={now}
+              self={self}
               landed={landed(event.at)}
             />
           ))}
@@ -223,13 +233,15 @@ const ENTRY =
 export function HistoryEntry({
   event,
   now,
+  self,
   landed = false,
 }: {
   event: HistoryEvent;
   now: number;
+  self?: string;
   landed?: boolean;
 }) {
-  const { revision, actor, when, kind, changes } = historyParts(event, now);
+  const { revision, actor, when, kind, changes } = historyParts(event, now, self);
   const Icon = ICONS[kind.split(".")[1] ?? ""] ?? CircleDot;
   return (
     <li className={cn(ENTRY, landed && "landed")}>

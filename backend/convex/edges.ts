@@ -9,7 +9,8 @@
 //
 // An edge is not a mutable field: it carries no `revision`, bumps none, and stamps no
 // `lastActivity`. It records `edge.add` on both endpoints, so either issue's history
-// shows it.
+// shows it; `cn log` lists the edge once, on the end that leads its sentence, which
+// `events.recent` decides.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";

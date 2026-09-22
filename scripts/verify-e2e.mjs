@@ -444,6 +444,27 @@ row("verbs/log.mts", () => {
   for (const line of lines(seen.stdout))
     assert.match(line, /^((cn|ep|bl)-\d+ "|—)/, `cn log printed a line with no lead: ${line}`);
 
+  const whole = lines(cn(["log", "--limit", "200"]).stdout);
+  for (const line of whole)
+    if (/ {2}(journal\.append|edge\.(add|remove)) {2}/.test(line))
+      assert.ok(
+        !line.includes("{"),
+        `cn log printed raw JSON for an event it has a line for: ${line}`,
+      );
+  assert.ok(
+    whole.some((l) =>
+      l.endsWith("  journal.append  e2e/claude  just now  finding: scratch: a finding"),
+    ),
+    "the journal entry does not read as its kind and first line",
+  );
+  const added = whole.filter((l) => / {2}edge\.add {2}.* {2}blocked by cn-1$/.test(l));
+  assert.equal(
+    added.length,
+    1,
+    `cn dep add cn-2 --blocked-by cn-1 is listed ${added.length} times, not once`,
+  );
+  assert.match(added[0], /^cn-2 "/, "the edge is not listed on the end that leads its sentence");
+
   const capped = cn(["log", "--limit", "3"]);
   assert.equal(capped.status, 0, "cn log --limit 3 was refused");
   assert.equal(lines(capped.stdout).length, 3, "cn log --limit 3 did not print exactly 3 lines");

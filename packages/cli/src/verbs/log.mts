@@ -9,7 +9,9 @@
 // --limit is how many, 1 to 200, and defaults to 20. --before is a date, anything
 // Date.parse takes, and lists only what happened before it: pass the time of the oldest
 // line you have to read further back. A create prints no payload, because the reference
-// at the start of its line already names what was created.
+// at the start of its line already names what was created; a journal entry prints as
+// `finding: <its first line>`; an edge prints once, on the end that leads its sentence,
+// `cn-2 "…"  edge.add  …  blocked by cn-1`, though both ends' histories carry it.
 //
 // An empty deployment prints nothing and exits 0.
 

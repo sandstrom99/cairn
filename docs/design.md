@@ -762,7 +762,7 @@ teaches and the `--help` headers restate.
 | `cn ready [--can ios web …]` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine]` | `issues.list` | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
-| `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title | query |
+| `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
 | `cn create --project app --epic ep-3 --title … [--priority] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
 | `cn update <id> --revision N [--title] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires]` | `issues.update` | mutation |
