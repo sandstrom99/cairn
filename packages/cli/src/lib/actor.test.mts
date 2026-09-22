@@ -22,4 +22,20 @@ describe("actor", () => {
       kind: "agent",
     });
   });
+
+  it("carries the session beside the name, and the name does not change", () => {
+    expect(actor({ CLAUDECODE: "1", CAIRN_SESSION: "s-1" }, sys)).toEqual({
+      name: "wsl/claude",
+      kind: "agent",
+      session: "s-1",
+    });
+  });
+
+  it("sends no session key at all when CAIRN_SESSION is unset or empty", () => {
+    expect(actor({ CLAUDECODE: "1", CAIRN_SESSION: "" }, sys)).toEqual({
+      name: "wsl/claude",
+      kind: "agent",
+    });
+    expect("session" in actor({}, sys)).toBe(false);
+  });
 });

@@ -292,6 +292,61 @@ describe("issues.claim", () => {
     expect(await eventsOf(t, "issue.claim")).toHaveLength(1);
   });
 
+  it("tells two sessions of one name apart: the second is refused, as another session", async () => {
+    const t = await withIssue();
+    const one = { ...actor, session: "s-1" };
+    const two = { ...actor, session: "s-2" };
+    const mine = await t.mutation(api.issues.claim, { actor: one, id: "cn-1" });
+    expect(mine.claimedBy).toEqual(one);
+    await expect(t.mutation(api.issues.claim, { actor: two, id: "cn-1" })).rejects.toMatchObject({
+      data: {
+        kind: "claimed",
+        by: one,
+        since: mine.claimedAt,
+        message: expect.stringContaining("held by wsl/claude in another session"),
+      },
+    });
+    // A shell with no session is not the session that holds it either.
+    await expect(t.mutation(api.issues.claim, { actor, id: "cn-1" })).rejects.toMatchObject({
+      data: { kind: "claimed", by: one },
+    });
+    // The same session again has claimed once, and the one event carries the session.
+    const again = await t.mutation(api.issues.claim, { actor: one, id: "cn-1" });
+    expect(again.revision).toBe(mine.revision);
+    const events = await eventsOf(t, "issue.claim");
+    expect(events).toHaveLength(1);
+    expect(events[0]!.actor).toEqual(one);
+  });
+
+  it("holds a claim written before sessions existed against a session of the same name", async () => {
+    const t = await withIssue();
+    const held = await t.mutation(api.issues.claim, { actor, id: "cn-1" });
+    expect(held.claimedBy).toEqual(actor);
+    await expect(
+      t.mutation(api.issues.claim, { actor: { ...actor, session: "s-1" }, id: "cn-1" }),
+    ).rejects.toMatchObject({
+      data: { kind: "claimed", by: actor, message: expect.stringContaining("another session") },
+    });
+    // A different name is refused without the session clause: it is simply held.
+    await expect(t.mutation(api.issues.claim, { actor: other, id: "cn-1" })).rejects.toMatchObject({
+      data: {
+        kind: "claimed",
+        message: `cn-1 is held by wsl/claude since ${new Date(held.claimedAt!).toISOString()}`,
+      },
+    });
+  });
+
+  it("leaves release on the name alone, so another session of it can hand a claim back", async () => {
+    const t = await withIssue();
+    const one = { ...actor, session: "s-1" };
+    const two = { ...actor, session: "s-2" };
+    await t.mutation(api.issues.claim, { actor: one, id: "cn-1" });
+    const released = await t.mutation(api.issues.release, { actor: two, id: "cn-1" });
+    expect(released.status).toBe("open");
+    const taken = await t.mutation(api.issues.claim, { actor: two, id: "cn-1" });
+    expect(taken.claimedBy).toEqual(two);
+  });
+
   it("refuses what is closed or dropped, because reopening is not a thing", async () => {
     const t = await withIssue();
     for (const status of ["closed", "dropped"] as const) {

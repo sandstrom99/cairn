@@ -16,7 +16,9 @@ describe("headline", () => {
     const clauses = headline(
       view({
         waiting: 1,
-        inProgress: [{ id: "cn-26", title: "t", claimedBy: undefined, claimedAt: undefined }],
+        inProgress: [
+          { id: "cn-26", title: "t", claimedBy: undefined, claimedAt: undefined, mine: false },
+        ],
         ready: { count: 2, top: [] },
       }),
     );

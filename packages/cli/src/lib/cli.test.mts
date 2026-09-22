@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { UsageError, main, usageFromHeader } from "./cli.mts";
+import { UsageError, main, redacted, usageFromHeader } from "./cli.mts";
 
 describe("main", () => {
   afterEach(() => {
@@ -38,6 +38,29 @@ describe("main", () => {
       { argv: [] },
     );
     expect(process.exitCode).toBe(1);
+  });
+});
+
+describe("redacted", () => {
+  it("strikes the secret from a message that echoes the arguments, and nothing else", () => {
+    const echoed =
+      'ArgumentValidationError: Object contains extra field `actor` that is not in the validator.\n\nObject: {actor: {kind: "agent", name: "wsl/claude"}, can: ["web"], secret: "s3cret/+="}\nValidator: v.object({secret: v.optional(v.string())})';
+    const out = redacted(echoed);
+    expect(out).not.toContain("s3cret");
+    expect(out).toContain('secret: "…"');
+    expect(out).toContain('name: "wsl/claude"');
+    expect(redacted("deployment unreachable")).toBe("deployment unreachable");
+  });
+
+  it("is what main prints, on both error arms", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await main(
+      async () => {
+        throw new Error('Object: {secret: "s3cret"}');
+      },
+      { argv: [] },
+    );
+    expect(err).toHaveBeenCalledWith('✗ Object: {secret: "…"}');
   });
 });
 

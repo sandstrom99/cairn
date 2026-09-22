@@ -61,7 +61,7 @@ doing that.
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
 | Residue | A `follow-up` issue with `requires[]`, linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
-| Claiming | Atomic claim, no lease. `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released by a person; nothing releases one alone (§7, revised 2026-09-22). |
+| Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5, 2026-09-22). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released by a person; nothing releases one alone (§7, revised 2026-09-22). |
 | Blockers | Own table, own lifecycle. Agents raise them and may never resolve them. |
 | Blocker channel | Pull-only: on request, and in-session when an agent hits one. The UI becomes the channel later. |
 | Reconcile | Revised 2026-09-22: no automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
@@ -305,12 +305,21 @@ create ──→ claim ──→ journal… ──→ close(verification)
 **Create.** `epicId` required; the create tool hands back candidate epics so
 choosing is cheaper than dumping into `inbox`.
 
-**Claim.** Atomic, first writer wins, idempotent for the same actor. Sets
+**Claim.** Atomic, first writer wins, idempotent for the same session. Sets
 `status = in_progress` and `claimedBy`. **No lease and no TTL** — a lease
 forecloses the cooperative behaviour that is the whole point. `lastActivity` is
 stamped by every journal append, so heartbeat costs the agent nothing. A claim
 silent past the threshold in §12 is shown as silent in the brief and in
 `cn review`, and a person releases it: nothing releases a claim on its own (§7).
+
+"The same session" is the actor's name and its `session` together (§12). Every
+Claude session on a machine is the same `wsl/claude`, so on the name alone two
+parallel sessions both won one claim and, after compaction, nothing could say
+which claim was this session's. A second session of the same name is refused
+like any other claimant, told it is held `in another session`; a shell with no
+session is not the session that holds it either. Release and the human override
+stay on the name: another session of the same name may hand a claim back, and
+a person may release anybody's (2026-09-22).
 
 **Close.** Takes a verification record. In beads, close is a free-text
 `close_reason` that nothing checks, which is exactly how work gets marked done
@@ -486,10 +495,10 @@ no command at all.
 A hook injects **under 20 lines**:
 
 - ready count, and the top 3 by priority
-- in progress, with actor and age
+- in progress, with actor and age, marked `yours` where the claim is this session's
 - follow-ups this session's capabilities can finish
 - waiting-on-you as a **count only**
-- a claim silent past the threshold, marked
+- a claim silent past the threshold, marked `silent 26h`
 
 Scenario 1 answers without a tool call; scenario 2 starts warm. With `cn` on
 PATH and no deployment configured the hook prints two lines pointing at
@@ -500,11 +509,19 @@ means to use it. One query, `brief.get(can)`, returns the numbers and the heads;
 ```
 cairn · invyte · wsl/claude can web android
 ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
-in progress    app-14 "fix connection retry" wsl/claude 2h · web-9 "…" mac/claude 1d
+in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
 follow-ups     app-22 "[verify] confirm retry path on a device" (web)
 waiting on you 3
 flagged        2 inbox items older than 7d
 ```
+
+`yours` and `silent 26h` are the deployment's facts, not the line's: `brief.get`
+takes the caller's actor and marks a claim `mine` on the same test `issues.claim`
+is idempotent on (§5), and `silentSince` is the last activity of a claim silent
+past the threshold in §12. The hook passes the session to `cn` by appending
+`export CAIRN_SESSION=<session_id>` to the file Claude Code sources before every
+Bash command of the session, `CLAUDE_ENV_FILE`, which it names to the
+SessionStart hook alone; a human terminal has no session.
 
 > **The trap to avoid.** `bd prime` is exactly this, and it grew until it
 > contradicted the skill shipped beside it: prime says *"Prohibited: Do NOT use
@@ -854,7 +871,11 @@ Added when the solution was mapped, 2026-09-17:
 - **The actor `cn` sends** is `CAIRN_ACTOR` when set, else `<host>/<user>`, with
   `kind: agent` when `CLAUDECODE` is in the environment (Claude Code sets it for
   every shell it runs) and `human` otherwise. So a session on this machine is
-  `wsl/claude` and Balder at a terminal is `wsl/balder`.
+  `wsl/claude` and Balder at a terminal is `wsl/balder`. Since 2026-09-22 it
+  carries `session` beside the name when `CAIRN_SESSION` is set, which the
+  SessionStart hook exports from the `session_id` Claude Code hands it. The
+  name does not change with it, so the log and `--mine` keep one stable actor;
+  every event carries the session, and events before that date carry none.
 - **`cn close` runs the command.** The verification record is what the command
   did, captured by `cn`, with the last 40 lines of output and a 10-minute
   timeout. Proof that ran on another machine goes in as an `evidence` journal
@@ -896,7 +917,7 @@ implementation.
 | Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |
 | The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The UI becomes the channel |
-| Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified and whether a session needs an identifier of its own, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself is `cn-11` |
+| Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself is `cn-11` |
 
 ---
 

@@ -69,7 +69,7 @@ export async function main(
       const data = e.data as
         | { kind?: string; message?: string; since?: HistoryEvent[] }
         | undefined;
-      console.error(`✗ ${data?.message ?? e.message}`);
+      console.error(`✗ ${redacted(data?.message ?? e.message)}`);
       // A stale write is the one error worth more than its message: the events since the
       // revision the caller read are what it needs to decide and retry (design §9).
       if (data?.kind === "stale") {
@@ -79,7 +79,16 @@ export async function main(
       process.exitCode = 1;
       return;
     }
-    console.error(`✗ ${(e as Error)?.message ?? e}`);
+    console.error(`✗ ${redacted(String((e as Error)?.message ?? e))}`);
     process.exitCode = 1;
   }
 }
+
+/**
+ * The deployment's secret, struck from a message before it is printed. Convex echoes the
+ * whole argument object in an ArgumentValidationError, and `secret` is an argument on
+ * every call, so a CLI ahead of its deployment would otherwise print the secret on every
+ * refusal, into a terminal, a transcript or a CI log.
+ */
+export const redacted = (message: string): string =>
+  message.replace(/(secret:\s*)"[^"]*"/g, '$1"…"');

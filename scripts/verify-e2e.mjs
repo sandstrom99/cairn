@@ -37,10 +37,11 @@ let bin;
 let last;
 
 /** The environment every call gets: nothing of this machine's cairn, everything of this run's. */
-function environment({ as, xdg, viaConfig }) {
+function environment({ as, xdg, viaConfig, session }) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("CAIRN_")) delete env[key];
   delete env.CLAUDECODE;
+  delete env.CLAUDE_ENV_FILE;
   // A `viaConfig` call names no deployment in the environment, so the only place one can
   // come from is the file under XDG_CONFIG_HOME — which is what `cn init` writes.
   if (!viaConfig) env.CAIRN_URL = url;
@@ -48,16 +49,20 @@ function environment({ as, xdg, viaConfig }) {
   env.XDG_CONFIG_HOME = xdg;
   if (as !== "human") env.CLAUDECODE = "1";
   if (as === "other") env.CAIRN_ACTOR = "other/agent";
+  // What the SessionStart hook exports into a session: two shells of one name with two
+  // of these are two sessions, and one with none is a shell the hook never ran in.
+  if (session !== undefined) env.CAIRN_SESSION = session;
   return env;
 }
 
 /**
  * One `cn` run. `as` is who the call is: an agent (CLAUDECODE set, actor `e2e/claude`),
  * a person (no CLAUDECODE), or a second agent on another machine (CAIRN_ACTOR set).
- * `xdg` is the config home it reads, and `viaConfig` withholds CAIRN_URL so it has to.
+ * `session` is the Claude Code session it runs in, when it runs in one. `xdg` is the
+ * config home it reads, and `viaConfig` withholds CAIRN_URL so it has to.
  */
-function cn(args, { as = "agent", xdg = home, viaConfig = false } = {}) {
-  const env = environment({ as, xdg, viaConfig });
+function cn(args, { as = "agent", xdg = home, viaConfig = false, session } = {}) {
+  const env = environment({ as, xdg, viaConfig, session });
   const result = spawnSync(process.execPath, [MAIN, ...args], { encoding: "utf8", cwd: xdg, env });
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
@@ -65,11 +70,20 @@ function cn(args, { as = "agent", xdg = home, viaConfig = false } = {}) {
   return last;
 }
 
-/** The SessionStart hook, run as a cold machine with `cn` on PATH and no deployment. */
-function hook() {
+/**
+ * The SessionStart hook, run as a cold machine with `cn` on PATH and no deployment, and
+ * as Claude Code runs it: the session's JSON on stdin, and CLAUDE_ENV_FILE naming the
+ * file it sources before every Bash command of that session.
+ */
+function hook({ session, envFile } = {}) {
   const env = environment({ as: "agent", xdg: cold, viaConfig: true });
   env.PATH = `${bin}:${env.PATH ?? ""}`;
-  const result = spawnSync("bash", [HOOK], { encoding: "utf8", cwd: cold, env });
+  if (envFile !== undefined) env.CLAUDE_ENV_FILE = envFile;
+  const input =
+    session === undefined
+      ? ""
+      : JSON.stringify({ session_id: session, hook_event_name: "SessionStart", source: "startup" });
+  const result = spawnSync("bash", [HOOK], { encoding: "utf8", cwd: cold, env, input });
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
   last = { args: ["(hook)"], status: result.status, stdout, stderr, out: stdout + stderr };
@@ -213,6 +227,45 @@ row("verbs/claim.mts, verbs/release.mts", () => {
   assert.match(theirs.out, /e2e\/claude/, "the refusal does not name who holds it");
   assert.equal(cn(["release", "cn-2"]).status, 0, "cn release cn-2 was refused");
   assert.equal(cn(["claim", "cn-2"]).status, 0, "cn claim after a release was refused");
+
+  // Two shells of one name in two sessions are two claimants; the same session claims once.
+  assert.equal(
+    cn(["release", "cn-2"]).status,
+    0,
+    "cn release before the session round was refused",
+  );
+  const first = cn(["claim", "cn-2"], { session: "s-1" });
+  assert.equal(first.status, 0, "a claim from a session was refused");
+  const second = cn(["claim", "cn-2"], { session: "s-2" });
+  assert.equal(second.status, 1, "a second session of the same name was not refused");
+  assert.match(
+    second.out,
+    /e2e\/claude in another session/,
+    "the refusal does not say it is another session",
+  );
+  const noSession = cn(["claim", "cn-2"]);
+  assert.equal(noSession.status, 1, "a shell with no session took a session's claim");
+  const again = cn(["claim", "cn-2"], { session: "s-1" });
+  assert.equal(again.status, 0, "the same session claiming again was refused");
+  assert.match(again.out, /r\d+$/m, "the idempotent claim did not print the issue line");
+  const brief = json(["brief"], { session: "s-1" });
+  const held = brief.inProgress.find((i) => i.id === "cn-2");
+  assert.ok(held?.mine === true, "cn brief does not mark the claim as this session's");
+  assert.ok(
+    json(["brief"], { session: "s-2" }).inProgress.find((i) => i.id === "cn-2")?.mine === false,
+    "cn brief marks another session's claim as this one's",
+  );
+  assert.match(
+    cn(["brief"], { session: "s-1" }).out,
+    /cn-2 "[^"]*" e2e\/claude [^·]*· yours/,
+    "the brief line does not read `· yours`",
+  );
+  assert.equal(
+    cn(["release", "cn-2"], { session: "s-1" }).status,
+    0,
+    "the session could not release its own claim",
+  );
+  assert.equal(cn(["claim", "cn-2"]).status, 0, "cn claim after the session round was refused");
 });
 
 row("verbs/update.mts", () => {
@@ -485,6 +538,25 @@ row("verbs/init.mts", () => {
   assert.ok(!warm.stdout.includes("/cairn:init"), "the hook still asks for setup after cn init");
   assert.match(warm.stdout, /e2e/, "the brief does not name the deployment");
   assert.match(warm.stdout, /can web android/, "the brief does not carry what the config said");
+
+  // Run as Claude Code runs it, the hook hands the session on to every later Bash command.
+  const envFile = join(cold, "claude-env");
+  const inSession = hook({ session: "s-hook", envFile });
+  assert.equal(inSession.status, 0, "the hook exited non-zero with a session on stdin");
+  assert.equal(
+    readFileSync(envFile, "utf8"),
+    "export CAIRN_SESSION=s-hook\n",
+    "the hook did not export the session id to CLAUDE_ENV_FILE",
+  );
+  hook({ session: "s-hook", envFile });
+  assert.equal(
+    readFileSync(envFile, "utf8"),
+    "export CAIRN_SESSION=s-hook\nexport CAIRN_SESSION=s-hook\n",
+    "the hook does not append to a file another hook may have written",
+  );
+  const ttyless = hook({ envFile });
+  assert.equal(ttyless.status, 0, "the hook exited non-zero with empty stdin");
+  assert.equal(readFileSync(envFile, "utf8").split("\n").length, 3, "empty stdin wrote a line");
 });
 
 // ---------------------------------------------------------------------------

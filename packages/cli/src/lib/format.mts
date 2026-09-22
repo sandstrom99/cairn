@@ -627,6 +627,16 @@ export type BriefView = FunctionReturnType<typeof api.brief.get>;
 /** Where this session is, for the brief's first line. */
 export type BriefWhere = { deployment: string; actor: string; can: string[] };
 
+/**
+ * How long a claim has been silent: `26h`, `47h`, then `2d`, `9d`. It is only ever printed
+ * past the 24-hour threshold, so the first two days stay in hours, where `1d` would hide
+ * how far past the line a claim is; beyond that a day is the unit that means anything.
+ */
+const silence = (sinceMs: number, now: number): string => {
+  const ms = Math.max(0, now - sinceMs);
+  return ms < 2 * DAY ? `${Math.floor(ms / HOUR)}h` : age(sinceMs, now);
+};
+
 /** As many rows as a glance holds, then `+N more`. */
 const capped = (rows: string[], cap: number): string =>
   rows.length > cap
@@ -642,7 +652,7 @@ const FOLLOW_UP_CAP = 3;
  * ```
  * cairn · invyte · wsl/claude can web
  * ready 4         app-31 "retry on reconnect" P1 · app-40 "…" P2
- * in progress     app-14 "fix connection retry" wsl/claude 2h
+ * in progress     app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
  * follow-ups      app-22 "confirm the retry path" [verify] · 1 more needs what you lack
  * waiting on you  3
  * flagged         2
@@ -652,6 +662,10 @@ const FOLLOW_UP_CAP = 3;
  * always loads. The follow-ups line is the one place a capability list subtracts rather
  * than marks, and it says how many it left out, because `cn ready` is where every row
  * lives and none of them is ever hidden there.
+ *
+ * An in-progress row is marked `yours` when the deployment says the claim is this
+ * session's, and `silent 26h` when it has been silent past the threshold (design §7,
+ * §8): both are facts the deployment states, and the line only prints them.
  */
 export function briefLines(view: BriefView, where: BriefWhere, now: number = Date.now()): string[] {
   const head = `cairn · ${where.deployment} · ${where.actor}`;
@@ -666,11 +680,20 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
     `${label(`ready ${view.ready.count}`)}${view.ready.count === 0 ? "none" : ready.join(" · ")}`,
   );
 
-  const holding = view.inProgress.map((i) =>
-    [ref(i), i.claimedBy?.name, i.claimedAt === undefined ? undefined : age(i.claimedAt, now)]
+  const holding = view.inProgress.map((i) => {
+    const who = [
+      ref(i),
+      i.claimedBy?.name,
+      i.claimedAt === undefined ? undefined : age(i.claimedAt, now),
+    ]
       .filter((part): part is string => part !== undefined)
-      .join(" "),
-  );
+      .join(" ");
+    const marks = [
+      i.silentSince === undefined ? undefined : `silent ${silence(i.silentSince, now)}`,
+      i.mine ? "yours" : undefined,
+    ].filter((part): part is string => part !== undefined);
+    return [who, ...marks].join(" · ");
+  });
   lines.push(
     `${label("in progress")}${holding.length === 0 ? "none" : capped(holding, IN_PROGRESS_CAP)}`,
   );

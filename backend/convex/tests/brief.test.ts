@@ -71,7 +71,7 @@ describe("brief.get", () => {
     expect(brief.ready.top).toEqual([{ id: "cn-2", title: "b", priority: 0, cannot: [] }]);
 
     expect(brief.inProgress).toEqual([
-      { id: "cn-4", title: "d", claimedBy: other, claimedAt: expect.any(Number) },
+      { id: "cn-4", title: "d", claimedBy: other, claimedAt: expect.any(Number), mine: false },
     ]);
 
     // Two are ready; one needs `ios`, which a session that declared nothing does not have.
@@ -122,6 +122,64 @@ describe("brief.get", () => {
     await t.mutation(api.issues.update, { actor, id: "cn-7", revision: 0, deferUntil });
     expect((await t.query(api.brief.get, { now: deferUntil - 1 })).ready.count).toBe(1);
     expect((await t.query(api.brief.get, { now: deferUntil })).ready.count).toBe(2);
+  });
+
+  it("marks a claim as this session's on the same test the claim is idempotent on", async () => {
+    const t = await seeded();
+    const one = { ...actor, session: "s-1" };
+    const two = { ...actor, session: "s-2" };
+    await t.mutation(api.issues.claim, { actor: one, id: "cn-2" });
+
+    const mine = (await t.query(api.brief.get, { actor: one })).inProgress;
+    expect(mine.map((i) => [i.id, i.mine])).toEqual([
+      ["cn-4", false],
+      ["cn-2", true],
+    ]);
+    // The same name from another session, or from no session, is not the holder.
+    expect((await t.query(api.brief.get, { actor: two })).inProgress.map((i) => i.mine)).toEqual([
+      false,
+      false,
+    ]);
+    expect((await t.query(api.brief.get, { actor })).inProgress.map((i) => i.mine)).toEqual([
+      false,
+      false,
+    ]);
+    // A caller with no actor at all, the page, is nobody's session.
+    expect((await t.query(api.brief.get, {})).inProgress.map((i) => i.mine)).toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  it("shows a claim silent past the threshold as silent since its last activity, and releases nothing", async () => {
+    const t = await seeded();
+    const claimedAt = (await t.query(api.brief.get, {})).inProgress[0]!.claimedAt!;
+    const day = 24 * 60 * 60 * 1000;
+
+    const fresh = (await t.query(api.brief.get, { now: claimedAt + day })).inProgress[0]!;
+    expect(fresh.silentSince).toBeUndefined();
+
+    const silent = (await t.query(api.brief.get, { now: claimedAt + day + 1 })).inProgress[0]!;
+    expect(silent).toMatchObject({ id: "cn-4", silentSince: claimedAt });
+
+    // A journal entry is activity: a day after it, the same claim is not silent.
+    await t.mutation(api.journal.append, {
+      actor: other,
+      id: "cn-4",
+      kind: "finding",
+      body: "here",
+    });
+    const { lastActivity } = await t.run(
+      async (ctx) =>
+        (await ctx.db
+          .query("issues")
+          .withIndex("by_public_id", (q) => q.eq("id", "cn-4"))
+          .unique())!,
+    );
+    expect(lastActivity).toBeGreaterThanOrEqual(claimedAt);
+    const heard = (await t.query(api.brief.get, { now: lastActivity + day })).inProgress[0]!;
+    expect(heard.silentSince).toBeUndefined();
+    expect(heard.claimedBy).toEqual(other);
   });
 
   it("leaves the row the brief filtered in ready, marked", async () => {
