@@ -100,7 +100,7 @@ epics         id                string        ep-7. ep-0 is the one inbox
               description?      string
               status            open | closed | dropped
               droppedReason?    string        the epic view returns it, like an issue's
-              lastReconciledAt? number
+              lastReconciledAt? number        unread since 2026-09-22 (§7); declared until the two worklist rows carrying it are patched
               revision          number
               index by_public_id [id], by_status [status]
               ↑ no projectId: an epic is an outcome, not a place
@@ -222,8 +222,7 @@ write's retry lines and the web window's feed and history all go through. A fiel
 its fields, `status open → in_progress`; a journal append its kind and first line; an
 edge, a blocker's raise and an attach read relative to the id whose line it is, the way
 §7 reads an edge from either end, `blocked by cn-1`, `waits on bl-3`, `holds cn-18`; the
-resolve recorded on each issue a blocker held is the blocker and the note; a reconcile
-run is what it did and who asked; a sweep how many epics it visited. A create has no
+resolve recorded on each issue a blocker held is the blocker and the note. A create has no
 payload, since the reference leading its line already names what was created, except a
 project, which has no reference to lead with and prints as its slug and name.
 
@@ -459,7 +458,7 @@ mechanisms, and neither runs on its own:
 | `blocks` edge pointing at a closed issue: drop it | `cn show` reads it as done. Readiness ignored it already; the edge stays as history |
 | Epic with every child closed and no open follow-ups: close it | `cn close` on the last open issue answers that the epic can close and prints the `cn epic close` line. An offer, never a close |
 | Closed `unverified` with no follow-up: spawn one | Inside `issues.close`, in the same mutation |
-| Issue in the inbox, exactly one epic matches: reparent it | At `cn create`: an issue bound for the inbox whose parent or discovered-from sits in exactly one open epic goes there, and the answer says so |
+| Issue in the inbox, exactly one epic matches: reparent it | At `cn create`: an issue bound for the inbox with a `--parent` in an open epic goes beside the parent, and the answer says so. A `discovered-from` edge is added after the create, so it does not place; `cn review ep-0` lists what sits there past 7 days |
 | Claim with no activity past 24 hours: release it | The brief and `cn review` show it as silent. A person releases it. **Nothing releases a claim on its own** |
 | Two open issues, same epic, near-identical title: raise | `cn create` hands the matches back before the duplicate exists, and `cn review` lists any that got through |
 | Inbox item older than 7 days: raise | A `cn review` line |
@@ -491,9 +490,10 @@ printing it. The thresholds are the constants of §12.
 agent going through an epic together"` is the decision; `cn-43 "reconcile
 becomes a sitting: the fact rules move into close, create and show, cn review
 replaces cn reconcile, and the sweep is deleted"` is the implementation, the
-last issue of the backend refactor epic. Until it lands, `cn reconcile` and the
-switched-off sweep are still in the tree, and §3, §8's example and §10's table
-describe them.
+last issue of the backend refactor epic. It landed on 2026-09-22. One residue:
+`epics.lastReconciledAt` stays declared in the schema, unread, because `ep-1` and
+`ep-6` on the worklist still carry it and a schema that forbids the field will not
+push over them; it goes once those rows are patched.
 
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
@@ -532,7 +532,6 @@ ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1
 in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
 follow-ups     app-22 "[verify] confirm retry path on a device" (web)
 waiting on you 3
-flagged        2 inbox items older than 7d
 ```
 
 `yours` and `silent 26h` are the deployment's facts, not the line's: `brief.get`
@@ -737,13 +736,13 @@ package then, not before.
  │ hooks (start, stop) ──  cn brief … │              │ schema.ts     the tables of §3     │
  │ SKILL.md           teaches the verbs│              │ issues.ts  epics.ts  journal.ts    │
  │ /cairn:* commands  ──  cn …        │  ── HTTPS ─► │ edges.ts  blockers.ts  ready.ts    │
- │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  reconcile.ts    │
- └────────────────────────────────────┘  call per    │ projects.ts  events.ts  crons.ts   │
+ │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  review.ts       │
+ └────────────────────────────────────┘  call per    │ projects.ts  events.ts             │
        cn  (Node 24, .mts, no build)     verb        │ lib/  ids · revision · actor ·     │
        config.mts → url, secret, can[]               │       events · guard · verification│
-       actor.mts  → { name, kind }                   │ crons ── reconcile.sweep, §7       │
-       client.mts → ConvexHttpClient                 └────────────────────────────────────┘
-       verbs/*    → api.<module>.<fn> → ref()                        ▲
+       actor.mts  → { name, kind }                   └────────────────────────────────────┘
+       client.mts → ConvexHttpClient                                 ▲
+       verbs/*    → api.<module>.<fn> → ref()                        │
                                                                      │
  apps/web, later  ──  convex/react subscriptions to the same functions
 ```
@@ -795,7 +794,7 @@ teaches and the `--help` headers restate.
 | `cn ack <bl>` · `cn resolve <bl> --note …` | `blockers.ack` · `blockers.resolve` | mutation, human only |
 | `cn epic new\|list\|close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
 | `cn project new\|list` | `projects.create` · `projects.list` | |
-| `cn reconcile <epic> [--owner <who>]` | `reconcile.run` | mutation |
+| `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping | query |
 | `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` | `projects.list`, as the check; then it writes this machine's config | query, local |
 
@@ -936,8 +935,9 @@ Added when the solution was mapped, 2026-09-17:
   added 2026-09-22).
 - **Near-identical titles** are titles equal after lowercasing and replacing every
   run of non-alphanumerics with one space, or within Levenshtein distance 2 of
-  each other after that (`NEAR_TITLE_DISTANCE`). Each raise carries a
-  deterministic title and is asked once, resolved or not.
+  each other after that (`NEAR_TITLE_DISTANCE`). `cn create` hands the matches
+  back before the duplicate exists and `cn review` lists any pair that got
+  through; a `duplicates` edge between them is the answer given (§7).
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
   `{ "default": "invyte", "can": ["web", "android"], "deployments": { "invyte": { "url": …, "secret": … } } }`.
