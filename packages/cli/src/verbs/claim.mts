@@ -3,8 +3,9 @@
 //   cn claim <id>
 //
 // Sets it in progress and writes this machine's actor on it. There is no lease and no
-// TTL: a claim is a cooperative signal, not a lock, and reconcile releases one that has
-// gone silent. Claiming what you already hold changes nothing, so it is safe to repeat.
+// TTL: a claim is a cooperative signal, not a lock. Nothing releases a claim on its own; a
+// silent one is a line in the brief and in cn review, and a person releases it. Claiming
+// what you already hold changes nothing, so it is safe to repeat.
 //
 // A second actor is not told it is stale — it is told who holds the issue and since when,
 // which is what it needs to decide whether to wait, ask, or take something else.

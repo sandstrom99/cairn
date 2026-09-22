@@ -41,6 +41,10 @@ export default defineSchema({
     description: v.optional(v.string()),
     status: epicStatusValidator,
     droppedReason: v.optional(v.string()),
+    // Written by `cn reconcile` until it was deleted on 2026-09-22 (docs/design.md §7),
+    // and read by nothing since. It stays declared because two epics on the worklist
+    // deployment still carry it and a schema that forbids it will not push over them;
+    // it goes once those rows are patched.
     lastReconciledAt: v.optional(v.number()),
     revision: v.number(),
   })

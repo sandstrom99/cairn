@@ -1,7 +1,7 @@
-// followUp.ts: the routed residue of §5, minted in one place. `issues.close --follow-up`
-// creates it beside the parent it closes, and reconcile's R4 creates the one a close
-// marked `unverified` never got, so the insert and its `issue.create` event live here
-// rather than in two copies that would drift apart at the first field added.
+// followUp.ts: the routed residue of §5, minted in one place. `issues.close` creates it
+// beside the parent, with `--follow-up` or, for an unverified close with none, on its own,
+// so the insert and its `issue.create` event live here rather than in two copies that
+// would drift apart at the first field added.
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";

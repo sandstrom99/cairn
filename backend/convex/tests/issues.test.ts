@@ -173,6 +173,97 @@ describe("issues.create", () => {
     expect(events[0]!.issueId).toBeDefined();
     expect(events[0]!.epicId).toBeDefined();
   });
+
+  it("hands back the near-identical live titles in the epic, and still creates", async () => {
+    const t = await seed({ issues: ["fix connection retry", "the graph"] });
+    const created = await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "Fix connection retry.",
+    });
+    expect(created).toMatchObject({
+      id: "cn-3",
+      near: [{ id: "cn-1", title: "fix connection retry" }],
+      placed: false,
+    });
+    expect(await rawIssue(t, "cn-3")).toMatchObject({ title: "Fix connection retry." });
+
+    const apart = await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "the lifecycle",
+    });
+    expect(apart.near).toEqual([]);
+  });
+
+  it("does not match a finished issue, or one in another epic", async () => {
+    const t = await seed({ issues: ["fix connection retry"] });
+    await closeIssue(t, "cn-1");
+    const after = await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "Fix connection retry.",
+    });
+    expect(after.near).toEqual([]);
+
+    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "the graph" });
+    const elsewhere = await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "The graph.",
+    });
+    expect(elsewhere.near).toEqual([]);
+  });
+
+  it("places an inbox issue beside its parent when the parent's epic is open", async () => {
+    const t = await seed({ issues: ["the lifecycle"] });
+    const created = await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-0",
+      title: "the retry path",
+      parent: "cn-1",
+    });
+    expect(created).toMatchObject({
+      id: "cn-2",
+      epic: { id: "ep-1", title: "Create to close" },
+      parent: { id: "cn-1", title: "the lifecycle" },
+      placed: true,
+    });
+    expect(await t.query(api.show.get, { id: "cn-2" })).toMatchObject({
+      epic: { id: "ep-1" },
+    });
+  });
+
+  it("leaves an inbox issue in ep-0 with no parent, a parent in ep-0, or a parent in a closed epic", async () => {
+    const t = await seed({ issues: ["the lifecycle"] });
+    const inbox = (title: string, parent?: string) =>
+      t.mutation(api.issues.create, {
+        actor,
+        project: "cn",
+        epic: "ep-0",
+        title,
+        ...(parent === undefined ? {} : { parent }),
+      });
+
+    const alone = await inbox("the retry path");
+    expect(alone).toMatchObject({ id: "cn-2", epic: { id: "ep-0" }, placed: false });
+
+    const underInbox = await inbox("the retry path, again", "cn-2");
+    expect(underInbox).toMatchObject({ id: "cn-3", epic: { id: "ep-0" }, placed: false });
+
+    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "the hook" });
+    await closeIssue(t, "cn-4");
+    await t.mutation(api.epics.close, { actor, id: "ep-2", revision: 0 });
+    const underClosed = await inbox("the hook, later", "cn-4");
+    expect(underClosed).toMatchObject({ id: "cn-5", epic: { id: "ep-0" }, placed: false });
+  });
 });
 
 describe("issues.list", () => {
@@ -549,6 +640,83 @@ describe("issues.close", () => {
     ).rejects.toThrow();
     expect((await rawIssue(t, "cn-1")).status).toBe("open");
     expect((await t.query(api.issues.list, {})).map((i) => i.id)).toEqual(["cn-1"]);
+  });
+
+  it("spawns the verify follow-up an unverified close never got, by the closer", async () => {
+    const t = await withIssue();
+    const { followUp } = await closeIssue(t, "cn-1", 0, {
+      verification: { unverified: "no device here" },
+    });
+    expect(followUp).toMatchObject({
+      id: "cn-2",
+      title: "verify: the lifecycle, claim to close with evidence",
+      type: "follow-up",
+      followUpKind: "verify",
+      parent: { id: "cn-1" },
+      priority: 0,
+      description: "closed unverified: no device here",
+      epic: { id: "ep-1" },
+    });
+    const created = (await eventsOf(t, "issue.create")).find(
+      (e) => (e.changes as { id: string }).id === "cn-2",
+    );
+    expect(created).toMatchObject({ actor });
+  });
+
+  it("spawns nothing when --follow-up came with the close, or a child already exists, or the close ran a command", async () => {
+    const children = async (t: Harness) =>
+      (await t.query(api.issues.list, {})).filter((i) => i.parent?.id === "cn-1");
+
+    const given = await withIssue();
+    const { followUp } = await closeIssue(given, "cn-1", 0, {
+      verification: { unverified: "no device here" },
+      followUp: { title: "confirm on a device", kind: "verify" },
+    });
+    expect(followUp).toMatchObject({ title: "confirm on a device" });
+    expect(await children(given)).toHaveLength(1);
+
+    const existing = await withIssue();
+    await existing.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "check it on a device",
+      type: "follow-up",
+      followUpKind: "verify",
+      parent: "cn-1",
+    });
+    const second = await closeIssue(existing, "cn-1", 0, {
+      verification: { unverified: "no device here" },
+    });
+    expect(second.followUp).toBeUndefined();
+    expect(await children(existing)).toHaveLength(1);
+
+    const proven = await withIssue();
+    expect((await closeIssue(proven, "cn-1")).followUp).toBeUndefined();
+    expect(await children(proven)).toEqual([]);
+  });
+
+  it("answers that the epic can close on its last issue, and not before", async () => {
+    const t = await seed({ issues: ["the lifecycle", "the graph"] });
+    expect((await closeIssue(t, "cn-1")).epicDone).toBeUndefined();
+    expect((await closeIssue(t, "cn-2")).epicDone).toEqual({
+      id: "ep-1",
+      title: "Create to close",
+      revision: 0,
+    });
+    // An offer, never a close.
+    expect(await t.query(api.show.get, { id: "ep-1" })).toMatchObject({ status: "open" });
+  });
+
+  it("does not offer while a follow-up is open, and never for the inbox", async () => {
+    const t = await withIssue();
+    const { epicDone } = await closeIssue(t, "cn-1", 0, {
+      followUp: { title: "confirm on a device", kind: "verify" },
+    });
+    expect(epicDone).toBeUndefined();
+
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
+    expect((await closeIssue(t, "cn-3")).epicDone).toBeUndefined();
   });
 });
 

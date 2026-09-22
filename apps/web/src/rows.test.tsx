@@ -40,7 +40,6 @@ describe("an epic's health block", () => {
     id: "ep-4",
     title: 'Humans in the "loop"',
     counts: { open: 1, inProgress: 1, closed: 5, followUps: 1 },
-    lastReconciledAt: now - 3 * DAY,
     health: {
       moving: [
         {
@@ -78,15 +77,15 @@ describe("an epic's health block", () => {
 describe("what waits on a person", () => {
   const blocker: WaitingBlocker = {
     id: "bl-4",
-    title: "name the day the sweep turns on",
+    title: "name the day the page goes live",
     blockerKind: "decision",
     owner: "balder",
     status: "waiting",
     raisedAt: now - 2 * HOUR,
     raisedBy: { name: "balder/claude" },
     issues: [
-      { id: "cn-21", title: "turn the reconcile sweep on" },
-      { id: "cn-9", title: "the reconcile sweep" },
+      { id: "cn-21", title: "put the page on a public URL" },
+      { id: "cn-9", title: "the page's live feed" },
     ],
   };
 
@@ -159,7 +158,7 @@ describe("an event in the feed", () => {
     expect(linkedMarkup).toContain("blocked by cn-21");
   });
 
-  it("reads a raised blocker as its line, and a reconcile run as what it did", () => {
+  it("reads a raised blocker as its line", () => {
     const raised = event({
       kind: "blocker.raise",
       revision: undefined,
@@ -176,17 +175,6 @@ describe("an event in the feed", () => {
     const raisedMarkup = plain(renderToStaticMarkup(<FeedEvent event={raised} now={now} />));
     expect(raisedMarkup).toBe(squeeze(logLine(raised, now)));
     expect(raisedMarkup).toContain('bl-4 "name the day" decision · owner balder');
-    const ran = event({
-      kind: "reconcile.run",
-      revision: undefined,
-      actor: { kind: "agent", name: "cairn/reconcile" },
-      changes: { by: "balder/claude", owner: "balder", did: [{ rule: "release" }], raised: [] },
-      issue: undefined,
-      epic: { id: "ep-5", title: "the web window" },
-    });
-    const ranMarkup = plain(renderToStaticMarkup(<FeedEvent event={ran} now={now} />));
-    expect(ranMarkup).toBe(squeeze(logLine(ran, now)));
-    expect(ranMarkup).toContain("did 1 · raised 0 · by balder/claude");
   });
 
   it("prints a create with no payload, and an event that names nothing with a dash", () => {
@@ -194,9 +182,9 @@ describe("an event in the feed", () => {
     expect(plain(renderToStaticMarkup(<FeedEvent event={created} now={now} />))).toBe(
       squeeze(logLine(created, now)),
     );
-    const swept = event({ kind: "reconcile.sweep", issue: undefined });
-    expect(plain(renderToStaticMarkup(<FeedEvent event={swept} now={now} />))).toBe(
-      squeeze(logLine(swept, now)),
+    const unnamed = event({ kind: "project.create", issue: undefined });
+    expect(plain(renderToStaticMarkup(<FeedEvent event={unnamed} now={now} />))).toBe(
+      squeeze(logLine(unnamed, now)),
     );
   });
 });

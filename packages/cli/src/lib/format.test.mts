@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type BriefView,
+  type ReviewView,
   type Shown,
   age,
   blockerLine,
@@ -9,6 +10,7 @@ import {
   briefLines,
   changePieces,
   edgeLine,
+  epicDoneLine,
   healthLines,
   healthParts,
   historyLines,
@@ -16,9 +18,11 @@ import {
   issueLine,
   logLine,
   logParts,
+  nearLine,
+  placedLine,
   proofParts,
   readyLine,
-  reconcileLines,
+  reviewLines,
   staleLines,
   stateLine,
   stateParts,
@@ -82,23 +86,14 @@ describe("healthLines", () => {
 
   it("is one line for an epic with nothing behind the other three", () => {
     expect(healthLines(bare, now)).toEqual([
-      'ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up · never reconciled',
+      'ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up',
     ]);
   });
 
-  it("pluralises the follow-ups, and dates the last reconcile when there was one", () => {
+  it("pluralises the follow-ups", () => {
     expect(
-      healthLines(
-        {
-          ...bare,
-          counts: { open: 1, inProgress: 1, closed: 2, followUps: 2 },
-          lastReconciledAt: ago(3 * DAY),
-        },
-        now,
-      )[0],
-    ).toBe(
-      'ep-3 "An epic tells the truth"  2 done · 2 open · 2 follow-ups · last reconciled 3d ago',
-    );
+      healthLines({ ...bare, counts: { open: 1, inProgress: 1, closed: 2, followUps: 2 } }, now)[0],
+    ).toBe('ep-3 "An epic tells the truth"  2 done · 2 open · 2 follow-ups');
   });
 
   it("names what is moving, what is stuck and what waits on a person", () => {
@@ -110,74 +105,148 @@ describe("healthLines", () => {
             moving: [
               {
                 id: "cn-7",
-                title: "epic health and reconcile by hand",
+                title: "the web window's first page",
                 claimedBy: { name: "wsl/claude" },
                 claimedAt: ago(2 * HOUR),
               },
             ],
-            stuck: { id: "cn-9", title: "the reconcile sweep", lastActivity: ago(9 * DAY) },
+            stuck: { id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) },
             waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
           },
         },
         now,
       ).slice(1),
     ).toEqual([
-      '  moving   cn-7 "epic health and reconcile by hand" wsl/claude 2h',
-      '  stuck    cn-9 "the reconcile sweep" silent 9d',
+      '  moving   cn-7 "the web window\'s first page" wsl/claude 2h',
+      '  stuck    cn-9 "the page\'s live feed" silent 9d',
       '  waiting  bl-3 "confirm the invite copy" · owner balder',
     ]);
   });
 });
 
-describe("reconcileLines", () => {
-  const epic = { id: "ep-3", title: "An epic tells the truth" };
+describe("reviewLines", () => {
+  const epic = {
+    id: "ep-1",
+    title: "Create to close",
+    revision: 0,
+    counts: { open: 2, inProgress: 1, closed: 1, dropped: 0, followUps: 1 },
+  };
+  const quiet = {
+    epic,
+    canClose: false,
+    near: [],
+    inbox: [],
+    nudges: [],
+    silent: [],
+    unverified: [],
+    edges: [],
+  };
+  const review = (over: Record<string, unknown>): ReviewView => ({ ...quiet, ...over }) as never;
 
-  it("says so when a run had nothing to do", () => {
-    expect(reconcileLines({ epic, at: now, did: [], raised: [] } as never, "balder", now)).toEqual([
-      'ep-3 "An epic tells the truth" reconciled · nothing to do',
+  it("prints every finding under the epic, one line each, in the order the verb lists them", () => {
+    const view = review({
+      near: [
+        {
+          a: { id: "cn-3", title: "fix connection retry" },
+          b: { id: "cn-4", title: "Fix connection retry." },
+        },
+      ],
+      inbox: [{ id: "cn-7", title: "the retry path", createdAt: ago(8 * DAY) }],
+      nudges: [
+        {
+          id: "bl-1",
+          title: "App Store review",
+          owner: "balder",
+          nudgeAt: Date.UTC(2026, 8, 3),
+          holds: [{ id: "cn-1", title: "the lifecycle" }],
+        },
+      ],
+      silent: [
+        {
+          id: "cn-2",
+          title: "the graph",
+          claimedBy: { name: "wsl/claude", kind: "agent" },
+          lastActivity: ago(8 * DAY),
+        },
+      ],
+      unverified: [
+        { id: "cn-5", title: "the brief", closedAt: ago(8 * DAY), reason: "no device here" },
+      ],
+      edges: [
+        {
+          from: { id: "cn-5", title: "the brief", status: "closed" },
+          to: { id: "cn-1", title: "the lifecycle", status: "open" },
+        },
+      ],
+      canClose: true,
+    });
+    expect(reviewLines(view, now)).toEqual([
+      'ep-1 "Create to close"  1 done · 3 open · 1 follow-up',
+      '  near        cn-3 "fix connection retry" and cn-4 "Fix connection retry."',
+      '  inbox       cn-7 "the retry path" 8d',
+      '  nudge       bl-1 "App Store review" · owner balder · nudge 2026-09-03 · holds cn-1 "the lifecycle"',
+      '  silent      cn-2 "the graph" wsl/claude · silent 8d',
+      '  unverified  cn-5 "the brief" closed 8d ago · no follow-up · no device here',
+      '  edge        cn-5 "the brief" done blocks cn-1 "the lifecycle"',
+      "  can close   cn epic close ep-1 --revision 0",
     ]);
   });
 
-  it("counts what it did and what it raised, then names each of them", () => {
-    const result = {
-      epic,
-      at: now,
-      did: [
+  it("marks each finished end of an edge, dropped as well as done", () => {
+    const view = review({
+      edges: [
         {
-          rule: "reparent",
-          issue: { id: "cn-8", title: "the retry path" },
-          to: { id: "ep-1", title: "Create to close" },
+          from: { id: "cn-5", title: "the brief", status: "open" },
+          to: { id: "cn-1", title: "the lifecycle", status: "dropped" },
         },
-        {
-          rule: "release",
-          issue: { id: "cn-7", title: "epic health" },
-          from: { name: "wsl/claude", kind: "agent" },
-          silentMs: 25 * HOUR,
-        },
-        {
-          rule: "spawn-follow-up",
-          issue: { id: "cn-5", title: "the brief" },
-          followUp: { id: "cn-9", title: "verify: the brief" },
-        },
-        {
-          rule: "drop-edge",
-          from: { id: "cn-1", title: "the schema" },
-          to: { id: "cn-2", title: "the lifecycle" },
-        },
-        { rule: "close-epic", epic },
       ],
-      raised: [{ rule: "duplicate", blocker: { id: "bl-4", title: "same title? …" }, issues: [] }],
-    };
-    expect(reconcileLines(result as never, "balder", now)).toEqual([
-      'ep-3 "An epic tells the truth" reconciled · did 5 · raised 1',
-      '  reparented  cn-8 "the retry path" → ep-1 "Create to close"',
-      // The silence is an age like any other, so 25 hours coarsens to a day.
-      '  released    cn-7 "epic health" from wsl/claude, silent 1d',
-      '  spawned     cn-9 "verify: the brief" for cn-5 "the brief"',
-      '  dropped     cn-1 "the schema" blocks cn-2 "the lifecycle"',
-      '  closed      ep-3 "An epic tells the truth"',
-      '  raised      bl-4 "same title? …" · owner balder',
+    });
+    expect(reviewLines(view, now)[1]).toBe(
+      '  edge        cn-5 "the brief" blocks cn-1 "the lifecycle" dropped',
+    );
+  });
+
+  it("says there is nothing to look at when there is nothing", () => {
+    expect(reviewLines(review({}), now)).toEqual([
+      'ep-1 "Create to close"  1 done · 3 open · 1 follow-up',
+      "  nothing to look at",
     ]);
+  });
+
+  it("prints the can close row alone when that is the one finding", () => {
+    const done = {
+      ...epic,
+      revision: 4,
+      counts: { open: 0, inProgress: 0, closed: 4, dropped: 0, followUps: 0 },
+    };
+    expect(reviewLines(review({ canClose: true, epic: done }), now)).toEqual([
+      'ep-1 "Create to close"  4 done · 0 open · 0 follow-ups',
+      "  can close   cn epic close ep-1 --revision 4",
+    ]);
+  });
+});
+
+describe("epicDoneLine", () => {
+  it("offers the epic close under a close, at the follow-up line's width", () => {
+    expect(epicDoneLine({ id: "ep-1", title: "Create to close", revision: 2 })).toBe(
+      '  epic       ep-1 "Create to close" can close · cn epic close ep-1 --revision 2',
+    );
+  });
+});
+
+describe("nearLine", () => {
+  it("names the near-identical title under a create", () => {
+    expect(nearLine({ id: "cn-1", title: "fix connection retry" })).toBe(
+      '  near       cn-1 "fix connection retry"',
+    );
+  });
+});
+
+describe("placedLine", () => {
+  it("says the issue went beside its parent rather than into the inbox", () => {
+    expect(placedLine({ id: "cn-1", title: "the lifecycle" })).toBe(
+      '  placed     beside its parent cn-1 "the lifecycle", not in the inbox',
+    );
   });
 });
 
@@ -480,7 +549,7 @@ describe("brief", () => {
       issues: [{ id: "cn-1", title: "schema, ids", status: "open", priority: 0 }],
     } as unknown as Shown;
     expect(brief(shown, now).split("\n")).toEqual([
-      'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups · never reconciled',
+      'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups',
       '  waiting  bl-3 "confirm the invite copy" · owner balder',
       "an agent creates, claims, journals and closes work",
       '  cn-1 "schema, ids" P0 open',
@@ -766,7 +835,7 @@ describe("historyLines", () => {
 
   it("reads a blocker's raise and attach from whichever end's history it is, and whole when it is nobody's", () => {
     const raised = {
-      actor: { name: "cairn/reconcile" },
+      actor: { name: "wsl/claude" },
       at: ago(HOUR),
       kind: "blocker.raise",
       changes: {
@@ -779,13 +848,13 @@ describe("historyLines", () => {
       },
     };
     expect(historyLines([raised], now, "cn-17")).toEqual([
-      '  —  cairn/reconcile  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder',
+      '  —  wsl/claude  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder',
     ]);
     expect(historyLines([raised], now, "bl-3")).toEqual([
-      "  —  cairn/reconcile  1h ago  blocker.raise  decision · owner balder · holds cn-17",
+      "  —  wsl/claude  1h ago  blocker.raise  decision · owner balder · holds cn-17",
     ]);
     expect(historyLines([raised], now)).toEqual([
-      '  —  cairn/reconcile  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder · holds cn-17',
+      '  —  wsl/claude  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder · holds cn-17',
     ]);
     const attached = {
       ...raised,
@@ -793,13 +862,13 @@ describe("historyLines", () => {
       changes: { blocker: "bl-3", issue: "cn-18" },
     };
     expect(historyLines([attached], now, "cn-18")).toEqual([
-      "  —  cairn/reconcile  1h ago  blocker.attach  waits on bl-3",
+      "  —  wsl/claude  1h ago  blocker.attach  waits on bl-3",
     ]);
     expect(historyLines([attached], now, "bl-3")).toEqual([
-      "  —  cairn/reconcile  1h ago  blocker.attach  holds cn-18",
+      "  —  wsl/claude  1h ago  blocker.attach  holds cn-18",
     ]);
     expect(historyLines([attached], now)).toEqual([
-      "  —  cairn/reconcile  1h ago  blocker.attach  cn-18 waits on bl-3",
+      "  —  wsl/claude  1h ago  blocker.attach  cn-18 waits on bl-3",
     ]);
   });
 
@@ -951,11 +1020,11 @@ describe("logLine", () => {
     const attach = {
       ...raise,
       kind: "blocker.attach",
-      actor: { name: "cairn/reconcile", kind: "agent" } as const,
+      actor: { name: "wsl/claude", kind: "agent" } as const,
       changes: { blocker: "bl-1", issue: "cn-2" },
     };
     expect(logLine(attach, now)).toBe(
-      'cn-2 "scratch: second"  blocker.attach  cairn/reconcile  1m ago  waits on bl-1',
+      'cn-2 "scratch: second"  blocker.attach  wsl/claude  1m ago  waits on bl-1',
     );
   });
 
@@ -996,53 +1065,6 @@ describe("logLine", () => {
     };
     expect(logLine(resolve, now)).toBe(
       'bl-1 "confirm the invite copy"  blocker.resolve  wsl/balder  1m ago  status raised → resolved, resolution — → the short one',
-    );
-  });
-
-  it("reads a reconcile run as what it did and who asked, and a sweep as what it visited", () => {
-    const run = {
-      at: ago(MINUTE),
-      actor: { name: "cairn/reconcile", kind: "agent" } as const,
-      kind: "reconcile.run",
-      revision: undefined,
-      changes: { by: "wsl/claude", owner: "balder", did: [], raised: [] },
-      issue: undefined,
-      blocker: undefined,
-      epic: { id: "ep-1", title: "Create to close" },
-    };
-    expect(logLine(run, now)).toBe(
-      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  1m ago  nothing to do · by wsl/claude',
-    );
-    const busy = {
-      ...run,
-      changes: {
-        by: "cairn/sweep",
-        owner: "balder",
-        did: [{ rule: "release" }, { rule: "drop-edge" }],
-        raised: [{ rule: "nudge" }],
-      },
-    };
-    expect(logLine(busy, now)).toBe(
-      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  1m ago  did 2 · raised 1 · by cairn/sweep',
-    );
-    const swept = {
-      ...run,
-      kind: "reconcile.sweep",
-      epic: undefined,
-      changes: {
-        owner: "balder",
-        epics: [
-          { id: "ep-1", title: "Create to close" },
-          { id: "ep-2", title: "An epic tells the truth" },
-        ],
-      },
-    };
-    expect(logLine(swept, now)).toBe(
-      "—  reconcile.sweep  cairn/reconcile  1m ago  2 epics · owner balder",
-    );
-    const one = { ...swept, changes: { owner: "balder", epics: [{ id: "ep-1", title: "x" }] } };
-    expect(logLine(one, now)).toBe(
-      "—  reconcile.sweep  cairn/reconcile  1m ago  1 epic · owner balder",
     );
   });
 
@@ -1099,16 +1121,15 @@ describe("briefLines", () => {
     inProgress: [],
     followUps: { count: 0, covered: [] },
     waiting: 0,
-    flagged: 0,
   };
 
-  it("is the six lines of design §8", () => {
+  it("is the five lines of design §8", () => {
     const lines = briefLines(
       {
         ready: {
           count: 4,
           top: [
-            { id: "cn-7", title: "epic health and reconcile by hand", priority: 1, cannot: [] },
+            { id: "cn-7", title: "the web window's first page", priority: 1, cannot: [] },
             { id: "cn-8", title: "the deployment story", priority: 2, cannot: [] },
             { id: "cn-9", title: "the web view", priority: 2, cannot: ["decision"] },
           ],
@@ -1134,23 +1155,21 @@ describe("briefLines", () => {
           ],
         },
         waiting: 0,
-        flagged: 2,
       },
       where,
       now,
     );
     expect(lines).toEqual([
       "cairn · local · balder/claude can web",
-      'ready 4         cn-7 "epic health and reconcile by hand" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2 · needs decision',
+      'ready 4         cn-7 "the web window\'s first page" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2 · needs decision',
       'in progress     cn-6 "the brief and the plugin" balder/claude 2h',
       'follow-ups      cn-12 "record explicit changes on close" [cleanup] · 1 more needs what you lack',
       "waiting on you  0",
-      "flagged         2",
     ]);
     expect(lines.length).toBeLessThan(20);
   });
 
-  it("says none rather than nothing, and drops the flagged line when nothing is flagged", () => {
+  it("says none rather than nothing", () => {
     const lines = briefLines(empty, where, now);
     expect(lines).toEqual([
       "cairn · local · balder/claude can web",
@@ -1246,7 +1265,6 @@ describe("unjournaledLine", () => {
     inProgress: [],
     followUps: { count: 0, covered: [] },
     waiting: 0,
-    flagged: 0,
   };
   const held = (over: Partial<BriefView["inProgress"][number]> = {}) => ({
     id: "cn-38",
@@ -1329,12 +1347,12 @@ describe("the parts a line is joined from", () => {
             claimedAt: ago(2 * HOUR),
           },
         ],
-        stuck: { id: "cn-9", title: "the reconcile sweep", lastActivity: ago(9 * DAY) },
+        stuck: { id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) },
         waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
       },
     };
     const parts = healthParts(view, now);
-    expect(parts.counts).toBe("2 done · 2 open · 1 follow-up · never reconciled");
+    expect(parts.counts).toBe("2 done · 2 open · 1 follow-up");
     expect(parts.rows.map((row) => [row.fact, row.target.id, row.tail])).toEqual([
       ["moving", "cn-7", "wsl/claude 2h"],
       ["stuck", "cn-9", "silent 9d"],
@@ -1416,7 +1434,7 @@ describe("the parts a line is joined from", () => {
       changes: [],
     });
     expect(
-      logParts({ ...created, kind: "reconcile.sweep", issue: undefined }, now).target,
+      logParts({ ...created, kind: "project.create", issue: undefined }, now).target,
     ).toBeUndefined();
   });
 });

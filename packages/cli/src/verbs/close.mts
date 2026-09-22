@@ -19,12 +19,18 @@
 // run, the decision that surfaced on the way. It is counted outside the epic's
 // denominator, so "12 done" keeps meaning what it says. --requires is what a session
 // needs to finish it: ios, android, web, device, decision.
+//
+// An --unverified close with no --follow-up gets one anyway: a `verify:` follow-up is
+// spawned beside it in the same mutation, by you, unless the issue already has a child. And
+// when the close finishes the last issue of its epic, follow-ups included, the answer
+// says the epic can close and prints the `cn epic close` line. It is an offer; the close
+// of the epic is yours to run.
 
 import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { issueLine } from "../lib/format.mts";
+import { epicDoneLine, issueLine } from "../lib/format.mts";
 import { runCommand } from "../lib/run.mts";
 
 export const name = "close";
@@ -132,6 +138,7 @@ export async function run(argv: string[]): Promise<number> {
     });
     console.log(issueLine(closed.issue));
     if (closed.followUp) console.log(`  follow-up  ${issueLine(closed.followUp)}`);
+    if (closed.epicDone) console.log(epicDoneLine(closed.epicDone));
     return 0;
   } catch (e) {
     // The deployment refuses a failed command, and the refusal names the exit code but

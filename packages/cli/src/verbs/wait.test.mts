@@ -16,7 +16,7 @@ const NEW = [
 
 describe("cn wait", () => {
   it("describes a new blocker", () => {
-    expect(parse(NEW, {})).toEqual({
+    expect(parse(NEW)).toEqual({
       action: "wait",
       args: {
         issue: "cn-1",
@@ -29,33 +29,30 @@ describe("cn wait", () => {
   });
 
   it("attaches an existing blocker with --on and nothing else", () => {
-    expect(parse(["cn-2", "--on", "bl-3"], {})).toEqual({
+    expect(parse(["cn-2", "--on", "bl-3"])).toEqual({
       action: "wait",
       args: { issue: "cn-2", on: "bl-3" },
     });
-    expect(() => parse(["cn-2", "--on", "bl-3", "--kind", "approval"], {})).toThrow(UsageError);
-    expect(() => parse(["cn-2", "--on", "bl-3", "--nudge", "2026-10-01"], {})).toThrow(UsageError);
-  });
-
-  it("takes --owner from CAIRN_OWNER when it is not given", () => {
-    const argv = ["cn-1", "--kind", "approval", "--title", "the agreement", "--resolves", "sign"];
-    expect(() => parse(argv, {})).toThrow(/needs --owner/);
-    expect(parse(argv, { CAIRN_OWNER: "balder" })).toMatchObject({ args: { owner: "balder" } });
+    expect(() => parse(["cn-2", "--on", "bl-3", "--kind", "approval"])).toThrow(UsageError);
+    expect(() => parse(["cn-2", "--on", "bl-3", "--nudge", "2026-10-01"])).toThrow(UsageError);
   });
 
   it("turns --nudge into a number, and refuses what is not a date", () => {
-    expect(parse([...NEW, "--nudge", "2026-10-01"], {})).toMatchObject({
+    expect(parse([...NEW, "--nudge", "2026-10-01"])).toMatchObject({
       args: { nudgeAt: Date.parse("2026-10-01") },
     });
-    expect(() => parse([...NEW, "--nudge", "next tuesday"], {})).toThrow(UsageError);
+    expect(() => parse([...NEW, "--nudge", "next tuesday"])).toThrow(UsageError);
   });
 
   it("needs an issue, a known kind, and the fields that describe the wait", () => {
-    expect(() => parse([], {})).toThrow(UsageError);
-    expect(() => parse(["cn-1", "cn-2", "--on", "bl-3"], {})).toThrow(UsageError);
-    expect(() => parse(["cn-1", "--kind", "vibes", "--owner", "balder"], {})).toThrow(UsageError);
+    expect(() => parse([])).toThrow(UsageError);
+    expect(() => parse(["cn-1", "cn-2", "--on", "bl-3"])).toThrow(UsageError);
+    expect(() => parse(["cn-1", "--kind", "vibes", "--owner", "balder"])).toThrow(UsageError);
     expect(() =>
-      parse(["cn-1", "--kind", "approval", "--owner", "balder", "--title", "x"], {}),
+      parse(["cn-1", "--kind", "approval", "--owner", "balder", "--title", "x"]),
     ).toThrow(/needs --resolves/);
+    expect(() =>
+      parse(["cn-1", "--kind", "approval", "--title", "the agreement", "--resolves", "sign"]),
+    ).toThrow(/needs --owner/);
   });
 });

@@ -257,7 +257,6 @@ describe("a row of a list of issues", () => {
       revision: 0,
       createdAt: now - DAY,
       counts: { open: 0, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
-      lastReconciledAt: undefined,
       health: { moving: [], stuck: undefined, waiting: [] },
       issues: [],
     };
@@ -301,7 +300,7 @@ describe("a blocker's page", () => {
   const blocker: ShownBlocker = {
     kind: "blocker",
     id: "bl-4",
-    title: "name the day the sweep turns on",
+    title: "name the day the page goes live",
     blockerKind: "decision",
     owner: "balder",
     whatResolves: "a date on or after 2026-09-24",
@@ -313,7 +312,7 @@ describe("a blocker's page", () => {
     resolvedAt: undefined,
     resolution: undefined,
     revision: 0,
-    issues: [{ id: "cn-21", title: "turn the reconcile sweep on" }],
+    issues: [{ id: "cn-21", title: "put the page on a public URL" }],
     events: undefined,
   };
 

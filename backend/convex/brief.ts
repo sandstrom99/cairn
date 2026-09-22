@@ -1,7 +1,6 @@
 // brief.ts: the situation report a session opens with (docs/design.md §8), in one query.
 // Counts and the head of each queue: what is ready, what is in progress and by whom, the
-// follow-ups this session could actually finish, how much waits on a person, and what
-// reconcile flagged.
+// follow-ups this session could actually finish, and how much waits on a person.
 //
 // **It carries state and never doctrine.** The rules live in the skill, which loads on
 // demand; a hook always loads, and beads' `bd prime` grew until it contradicted the skill
@@ -22,7 +21,7 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { RECONCILE, actorValidator, sameSession } from "./lib/actor";
+import { actorValidator, sameSession } from "./lib/actor";
 import { nowArg } from "./lib/clock";
 import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
@@ -123,7 +122,6 @@ export const get = query({
           })),
       },
       waiting: waiting.length,
-      flagged: waiting.filter((b) => b.raisedBy.name === RECONCILE.name).length,
     };
   },
 });

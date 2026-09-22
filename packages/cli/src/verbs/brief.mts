@@ -5,7 +5,7 @@
 //
 // Under 20 lines: the counts and the head of each queue — what is ready, what is in
 // progress and who holds it, the follow-ups this session could finish, how much waits on
-// a person, what reconcile flagged. State, and never rules: the rules are in the skill,
+// a person. State, and never rules: the rules are in the skill,
 // which loads on demand, and a hook always loads.
 //
 // With no deployment configured it prints nothing and exits 0, so the SessionStart hook

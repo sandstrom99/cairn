@@ -1,6 +1,6 @@
 // skill.test.mts: the plugin cannot teach a verb that does not exist. SKILL.md and the
 // slash commands are prose, so nothing else fails when a verb is renamed, dropped or
-// written down before it is built — and an agent told to run `cn reconcile` runs it,
+// written down before it is built — and an agent told to run `cn review` runs it,
 // gets `unknown verb`, and has no way to tell a typo from a missing feature. This test
 // reads the shipped markdown and checks every `cn <word>` in it against the registry.
 

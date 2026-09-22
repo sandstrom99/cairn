@@ -82,7 +82,7 @@ export const add = mutation({
     }
 
     // A closed or dropped endpoint is allowed. A closed blocker does not block (§4), and
-    // reconcile drops the edge later rather than the write refusing it now.
+    // `cn show` reads the finished end as done (§7) rather than the write refusing it now.
     await ctx.db.insert("edges", {
       from: from._id,
       to: to._id,
