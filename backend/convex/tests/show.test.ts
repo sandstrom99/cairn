@@ -1,31 +1,20 @@
-// One id in, the thing and its neighbourhood out. The neighbourhood fields read empty
-// until the edge and blocker verbs land, and that is the point of asserting them now:
-// the shape is the contract `cn show` formats against.
-import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+// One id in, the thing and its neighbourhood out. Every list of the neighbourhood is
+// asserted, the empty ones too, because the shape is the contract `cn show` formats
+// against.
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import schema from "../schema";
+import { DAY } from "../lib/thresholds";
+import { actor, at, closeIssue, raise, seed } from "./test.fixtures";
 
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const modules = import.meta.glob("../**/*.ts");
+afterEach(() => vi.useRealTimers());
 
-async function seeded() {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  await t.mutation(api.issues.create, {
-    actor,
-    project: "cn",
-    epic: "ep-1",
-    title: "schema, ids, revision, events, and the first verbs",
-    priority: 0,
-  });
-  return t;
-}
+const FIRST = { title: "schema, ids, revision, events, and the first verbs", priority: 0 };
+
+const withFirst = () => seed({ issues: [FIRST] });
 
 describe("show.get", () => {
   it("returns an issue with its journal and its neighbourhood", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     await t.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -35,17 +24,11 @@ describe("show.get", () => {
       followUpKind: "verify",
       parent: "cn-1",
     });
-    await t.run(async (ctx) => {
-      const doc = await ctx.db
-        .query("issues")
-        .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
-        .unique();
-      await ctx.db.insert("journal", {
-        issueId: doc!._id,
-        author: actor,
-        kind: "finding",
-        body: "the counter row is created on first use",
-      });
+    await t.mutation(api.journal.append, {
+      actor,
+      id: "cn-1",
+      kind: "finding",
+      body: "the counter row is created on first use",
     });
     const shown = await t.query(api.show.get, { id: "cn-1" });
     expect(shown).toMatchObject({
@@ -73,7 +56,7 @@ describe("show.get", () => {
   });
 
   it("puts each edge type in its own list, and reads related both ways", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     for (const title of ["the lifecycle", "the graph", "the brief", "a duplicate"])
       await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title });
     await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-1", type: "blocks" });
@@ -96,7 +79,7 @@ describe("show.get", () => {
   });
 
   it("returns an epic with its open issues in list order", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     const shown = await t.query(api.show.get, { id: "ep-1" });
     expect(shown).toMatchObject({
       kind: "epic",
@@ -117,25 +100,20 @@ describe("show.get", () => {
   });
 
   it("leaves an epic with nothing neglected in it without a stuck line", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     const shown = await t.query(api.show.get, { id: "ep-1" });
     if (shown.kind !== "epic") throw new Error("ep-1 is an epic");
     expect(shown.health.stuck).toBeUndefined();
   });
 
   it("marks an issue stuck when it is the one the epic's stuck line names", async () => {
-    const t = await seeded();
+    at("2026-09-17T09:00:00Z");
+    const t = await withFirst();
+    // A second later, so cn-1 is the one silent longest; four days on, both are past the
+    // threshold, the line names cn-1, and cn-2 is not stuck.
+    at("2026-09-17T09:00:01Z");
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "younger" });
-    // A caller's clock four days on: cn-1 has been silent past the threshold, cn-2 just as
-    // long, and the line names the one silent longest, so cn-2 is not stuck.
-    await t.run(async (ctx) => {
-      const doc = await ctx.db
-        .query("issues")
-        .withIndex("by_public_id", (q) => q.eq("id", "cn-2"))
-        .unique();
-      await ctx.db.patch(doc!._id, { lastActivity: doc!.lastActivity + 1 });
-    });
-    const later = Date.now() + 4 * 24 * 60 * 60 * 1000;
+    const later = Date.now() + 4 * DAY;
     const epic = await t.query(api.show.get, { id: "ep-1", now: later });
     if (epic.kind !== "epic") throw new Error("ep-1 is an epic");
     expect(epic.health.stuck?.id).toBe("cn-1");
@@ -145,16 +123,11 @@ describe("show.get", () => {
   });
 
   it("carries the status of each end of a blocking edge, so a finished one reads as done", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "the graph" });
     await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 1,
-      verification: { command: "vp run verify", exitCode: 0, output: "all green" },
-    });
+    await closeIssue(t, "cn-1", 1);
     expect(await t.query(api.show.get, { id: "cn-2" })).toMatchObject({
       blockedBy: [{ id: "cn-1", status: "closed" }],
     });
@@ -166,24 +139,8 @@ describe("show.get", () => {
   });
 
   it("returns a blocker with the issues it holds", async () => {
-    const t = await seeded();
-    await t.run(async (ctx) => {
-      const issue = await ctx.db
-        .query("issues")
-        .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
-        .unique();
-      const blockerId = await ctx.db.insert("blockers", {
-        id: "bl-1",
-        kind: "approval",
-        owner: "balder",
-        title: "the App Store agreement",
-        whatResolves: "accept it in App Store Connect",
-        status: "raised",
-        raisedBy: actor,
-        revision: 0,
-      });
-      await ctx.db.insert("blockerLinks", { blockerId, issueId: issue!._id });
-    });
+    const t = await withFirst();
+    await raise(t, "cn-1");
     expect(await t.query(api.show.get, { id: "bl-1" })).toMatchObject({
       kind: "blocker",
       id: "bl-1",
@@ -198,7 +155,7 @@ describe("show.get", () => {
   });
 
   it("returns the events in order with history, and none without it", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     await t.mutation(api.journal.append, {
       actor,
@@ -207,12 +164,7 @@ describe("show.get", () => {
       body: "the counter row is created on first use",
     });
     await t.mutation(api.issues.update, { actor, id: "cn-1", revision: 1, priority: 1 });
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 2,
-      verification: { command: "vp run verify", exitCode: 0, output: "all green" },
-    });
+    await closeIssue(t, "cn-1", 2);
 
     const plain = await t.query(api.show.get, { id: "cn-1" });
     expect(plain.kind === "issue" ? plain.events : "not an issue").toBeUndefined();
@@ -235,7 +187,7 @@ describe("show.get", () => {
   });
 
   it("refuses an id nothing answers to", async () => {
-    const t = await seeded();
+    const t = await withFirst();
     for (const id of ["cn-9", "ep-9", "bl-9"]) {
       await expect(t.query(api.show.get, { id })).rejects.toMatchObject({
         data: { kind: "not-found", message: `no such id ${id}` },

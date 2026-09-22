@@ -1,31 +1,16 @@
 // The one read over the whole deployment's audit trail: newest first, with whatever an
 // event names resolved to id and title, and never a Convex id.
-import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
-import schema from "../schema";
-
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const modules = import.meta.glob("../**/*.ts");
+import { actor, historyOf, raise, seed } from "./test.fixtures";
 
 /** A deployment with one project, one epic, two issues and the first claimed. */
-async function seeded() {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  await t.mutation(api.issues.create, {
-    actor,
-    project: "cn",
-    epic: "ep-1",
-    title: "the first issue",
-    priority: 0,
-  });
-  await t.mutation(api.issues.create, {
-    actor,
-    project: "cn",
-    epic: "ep-1",
-    title: "the second issue",
-    priority: 0,
+async function withClaim() {
+  const t = await seed({
+    issues: [
+      { title: "the first issue", priority: 0 },
+      { title: "the second issue", priority: 0 },
+    ],
   });
   await t.mutation(api.issues.claim, { actor, id: "cn-1" });
   return t;
@@ -33,7 +18,7 @@ async function seeded() {
 
 describe("events.recent", () => {
   it("returns the newest event first, and every `at` non-increasing", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     const events = await t.query(api.events.recent, {});
     expect(events.map((e) => e.kind)).toEqual([
       "issue.claim",
@@ -47,31 +32,28 @@ describe("events.recent", () => {
   });
 
   it("resolves what an event names, an issue, an epic or a blocker", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     const events = await t.query(api.events.recent, {});
     const claim = events.find((e) => e.kind === "issue.claim");
     expect(claim?.issue).toEqual({ id: "cn-1", title: "the first issue" });
     const epicCreate = events.find((e) => e.kind === "epic.create");
     expect(epicCreate?.epic).toEqual({ id: "ep-1", title: "Create to close" });
 
-    await t.mutation(api.blockers.raise, {
-      actor,
-      issue: "cn-2",
+    await raise(t, "cn-2", {
       kind: "decision",
-      owner: "balder",
       title: "which onboarding copy ships",
       whatResolves: "balder picks one",
     });
     const withBlocker = await t.query(api.events.recent, {});
-    const raise = withBlocker.find((e) => e.kind === "blocker.raise");
-    expect(raise?.blocker).toEqual({
+    const raised = withBlocker.find((e) => e.kind === "blocker.raise");
+    expect(raised?.blocker).toEqual({
       id: "bl-1",
       title: "which onboarding copy ships",
     });
   });
 
   it("carries the same changes cn-12 recorded for a claim", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     const events = await t.query(api.events.recent, {});
     const claim = events.find((e) => e.kind === "issue.claim");
     expect(claim?.changes).toEqual({
@@ -81,7 +63,7 @@ describe("events.recent", () => {
   });
 
   it("pages with limit and before, and walks the whole table with no gap or duplicate", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     const first = await t.query(api.events.recent, { limit: 2 });
     expect(first).toHaveLength(2);
 
@@ -108,7 +90,7 @@ describe("events.recent", () => {
   });
 
   it("lists an edge once, on the end that leads its sentence, while both ends' histories carry it", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
     await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-1", type: "related" });
     const events = await t.query(api.events.recent, {});
@@ -119,15 +101,12 @@ describe("events.recent", () => {
       ["cn-2", { type: "related", from: "cn-2", to: "cn-1" }],
       ["cn-2", { type: "blocks", from: "cn-1", to: "cn-2" }],
     ]);
-    for (const id of ["cn-1", "cn-2"]) {
-      const shown = await t.query(api.show.get, { id, history: true });
-      if (shown.kind !== "issue") throw new Error(`${id} is an issue`);
-      expect(shown.events?.filter((e) => e.kind === "edge.add")).toHaveLength(2);
-    }
+    for (const id of ["cn-1", "cn-2"])
+      expect((await historyOf(t, id)).filter((e) => e.kind === "edge.add")).toHaveLength(2);
   });
 
   it("keeps limit honest: a dropped mirror does not shorten a page, and before walks on past it", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
     await t.mutation(api.edges.remove, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
     const all = await t.query(api.events.recent, { limit: 200 });
@@ -160,7 +139,7 @@ describe("events.recent", () => {
   });
 
   it("refuses a limit that is not a whole number from 1 to 200", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     for (const limit of [0, 201, 1.5]) {
       await expect(t.query(api.events.recent, { limit })).rejects.toMatchObject({
         data: { kind: "invalid" },
@@ -169,7 +148,7 @@ describe("events.recent", () => {
   });
 
   it("never carries a Convex id", async () => {
-    const t = await seeded();
+    const t = await withClaim();
     const events = await t.query(api.events.recent, {});
     for (const event of events) {
       const text = JSON.stringify(event);

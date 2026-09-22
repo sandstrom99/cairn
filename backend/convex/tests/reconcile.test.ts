@@ -3,46 +3,32 @@
 // the document it changed, and the event it recorded as `cairn/reconcile` — and the three
 // that ask are asserted on the blocker they raised and on the documents they left alone.
 //
-// Ages are what most of these rules test, so the clock is faked with `toFake: ["Date"]`
-// alone: convex-test's own async stays real, and `_creationTime` follows the faked clock,
-// which is what J7 measures against.
-import { convexTest } from "convex-test";
+// Ages are what most of these rules test, so the clock is faked with `at`, which fakes
+// `Date` alone: convex-test's own async stays real, and `_creationTime` follows the faked
+// clock, which is what J7 measures against.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { RECONCILE } from "../lib/actor";
 import { HOUR } from "../lib/thresholds";
-import schema from "../schema";
-
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const balder = { name: "wsl/balder", kind: "human" } as const;
-const modules = import.meta.glob("../**/*.ts");
-
-/** Only the clock is faked, so convex-test's own async is untouched. */
-const at = (iso: string) => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(iso));
-};
+import {
+  type Harness,
+  actor,
+  at,
+  balder,
+  closeIssue,
+  eventsOf,
+  raise,
+  rawIssue,
+  rows,
+  seed,
+} from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
-
-/** A deployment with one project and `titles.length` open issues under ep-1. */
-async function seeded(titles: string[] = []) {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  for (const title of titles)
-    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title });
-  return t;
-}
-
-type Harness = Awaited<ReturnType<typeof seeded>>;
 
 const run = (t: Harness, id: string) =>
   t.mutation(api.reconcile.run, { actor, id, owner: "balder" });
 
-const events = (t: Harness) => t.run((ctx) => ctx.db.query("events").collect());
-
-const blockers = (t: Harness) => t.run((ctx) => ctx.db.query("blockers").collect());
+const blockers = (t: Harness) => rows(t, "blockers");
 
 /** The epic an issue sits in, read back through `show.get` and narrowed past its union. */
 const epicOf = async (t: Harness, id: string) => {
@@ -51,17 +37,18 @@ const epicOf = async (t: Harness, id: string) => {
   return shown.epic;
 };
 
-const issueDoc = (t: Harness, id: string) =>
-  t.run((ctx) =>
-    ctx.db
-      .query("issues")
-      .withIndex("by_public_id", (q) => q.eq("id", id))
-      .unique(),
-  );
+/** A blocker whose nudge date is `nudgeAt`, on an issue. */
+const review = (t: Harness, issue: string, nudgeAt: number) =>
+  raise(t, issue, {
+    kind: "external-wait",
+    title: "App Store review",
+    whatResolves: "the build is approved",
+    nudgeAt,
+  });
 
 describe("R1, reparent an inbox issue with exactly one candidate epic", () => {
   it("moves it when its parent sits in one open epic, from either end", async () => {
-    const t = await seeded(["the lifecycle"]);
+    const t = await seed({ issues: ["the lifecycle"] });
     await t.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -77,15 +64,14 @@ describe("R1, reparent an inbox issue with exactly one candidate epic", () => {
         to: { id: "ep-1", title: "Create to close" },
       },
     ]);
-    expect(await issueDoc(t, "cn-2")).toMatchObject({ revision: 1 });
+    expect(await rawIssue(t, "cn-2")).toMatchObject({ revision: 1 });
     expect(await epicOf(t, "cn-2")).toEqual({ id: "ep-1", title: "Create to close" });
-    const moved = (await events(t)).filter((e) => e.kind === "issue.update");
-    expect(moved).toMatchObject([
+    expect(await eventsOf(t, "issue.update")).toMatchObject([
       { actor: RECONCILE, changes: { epic: { from: "ep-0", to: "ep-1" } } },
     ]);
 
     // The same move, asked for from the inbox's own side.
-    const other = await seeded(["the lifecycle"]);
+    const other = await seed({ issues: ["the lifecycle"] });
     await other.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -97,7 +83,7 @@ describe("R1, reparent an inbox issue with exactly one candidate epic", () => {
   });
 
   it("leaves it alone when its parent and what it came from are in two epics", async () => {
-    const t = await seeded(["the lifecycle"]);
+    const t = await seed({ issues: ["the lifecycle"] });
     await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "the hook" });
     await t.mutation(api.issues.create, {
@@ -121,7 +107,7 @@ describe("R1, reparent an inbox issue with exactly one candidate epic", () => {
 describe("R3, release a silent claim", () => {
   it("releases one silent past 24 hours and leaves one silent 23", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(["the lifecycle", "the graph"]);
+    const t = await seed({ issues: ["the lifecycle", "the graph"] });
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     at("2026-09-18T08:00:00Z");
     await t.mutation(api.issues.claim, { actor, id: "cn-2" });
@@ -136,11 +122,11 @@ describe("R3, release a silent claim", () => {
         silentMs: 25 * HOUR,
       },
     ]);
-    const released = await issueDoc(t, "cn-1");
+    const released = await rawIssue(t, "cn-1");
     expect(released).toMatchObject({ status: "open" });
     expect(released!.claimedBy).toBeUndefined();
-    expect(await issueDoc(t, "cn-2")).toMatchObject({ status: "in_progress", claimedBy: actor });
-    expect((await events(t)).filter((e) => e.kind === "issue.release")).toMatchObject([
+    expect(await rawIssue(t, "cn-2")).toMatchObject({ status: "in_progress", claimedBy: actor });
+    expect(await eventsOf(t, "issue.release")).toMatchObject([
       {
         actor: RECONCILE,
         changes: {
@@ -154,17 +140,11 @@ describe("R3, release a silent claim", () => {
 
 describe("R4, spawn the follow-up an unverified close never got", () => {
   it("spawns one for a close with no child, and none for a close that has one", async () => {
-    const t = await seeded(["the lifecycle", "the graph"]);
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
+    const t = await seed({ issues: ["the lifecycle", "the graph"] });
+    await closeIssue(t, "cn-1", 0, {
       verification: { unverified: "verified on web; this machine has no ios" },
     });
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-2",
-      revision: 0,
+    await closeIssue(t, "cn-2", 0, {
       verification: { unverified: "no device here" },
       followUp: { title: "confirm it on a device", kind: "verify" },
     });
@@ -187,8 +167,8 @@ describe("R4, spawn the follow-up an unverified close never got", () => {
       parent: { id: "cn-1" },
       description: "closed unverified: verified on web; this machine has no ios",
     });
-    const created = (await events(t)).filter(
-      (e) => e.kind === "issue.create" && e.actor.name === RECONCILE.name,
+    const created = (await eventsOf(t, "issue.create")).filter(
+      (e) => e.actor.name === RECONCILE.name,
     );
     expect(created).toHaveLength(1);
   });
@@ -196,15 +176,10 @@ describe("R4, spawn the follow-up an unverified close never got", () => {
 
 describe("R5, drop a `blocks` edge with a finished end", () => {
   it("deletes the edge into a closed issue and records it on both, and keeps a live one", async () => {
-    const t = await seeded(["the lifecycle", "the graph", "the brief"]);
+    const t = await seed({ issues: ["the lifecycle", "the graph", "the brief"] });
     await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
     await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-3", type: "blocks" });
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
-      verification: { command: "vp run verify", exitCode: 0, output: "pass" },
-    });
+    await closeIssue(t, "cn-1");
 
     const { did } = await run(t, "ep-1");
     expect(did).toEqual([
@@ -214,8 +189,8 @@ describe("R5, drop a `blocks` edge with a finished end", () => {
         to: { id: "cn-2", title: "the graph" },
       },
     ]);
-    expect(await t.run((ctx) => ctx.db.query("edges").collect())).toHaveLength(1);
-    const removed = (await events(t)).filter((e) => e.kind === "edge.remove");
+    expect(await rows(t, "edges")).toHaveLength(1);
+    const removed = await eventsOf(t, "edge.remove");
     expect(removed).toHaveLength(2);
     expect(removed[0]).toMatchObject({
       actor: RECONCILE,
@@ -226,30 +201,20 @@ describe("R5, drop a `blocks` edge with a finished end", () => {
 
 describe("R2, close an epic with nothing live left in it", () => {
   it("closes it once every task is done", async () => {
-    const t = await seeded(["the lifecycle"]);
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
-      verification: { command: "vp run verify", exitCode: 0, output: "pass" },
-    });
+    const t = await seed({ issues: ["the lifecycle"] });
+    await closeIssue(t, "cn-1");
     const { did } = await run(t, "ep-1");
     expect(did).toEqual([{ rule: "close-epic", epic: { id: "ep-1", title: "Create to close" } }]);
     expect(await t.query(api.epics.health, { id: "ep-1" })).toMatchObject({
       status: "closed",
       revision: 1,
     });
-    expect((await events(t)).filter((e) => e.kind === "epic.close")).toMatchObject([
-      { actor: RECONCILE, revision: 1 },
-    ]);
+    expect(await eventsOf(t, "epic.close")).toMatchObject([{ actor: RECONCILE, revision: 1 }]);
   });
 
   it("waits for an open follow-up, which a person closing by hand does not", async () => {
-    const t = await seeded(["the lifecycle"]);
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
+    const t = await seed({ issues: ["the lifecycle"] });
+    await closeIssue(t, "cn-1", 0, {
       verification: { unverified: "no device here" },
       followUp: { title: "confirm it on a device", kind: "verify" },
     });
@@ -258,7 +223,7 @@ describe("R2, close an epic with nothing live left in it", () => {
   });
 
   it("leaves an epic with no issues at all open, and never closes the inbox", async () => {
-    const t = await seeded();
+    const t = await seed();
     expect((await run(t, "ep-1")).did).toEqual([]);
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
     await t.mutation(api.issues.drop, { actor, id: "cn-1", revision: 0, reason: "not wanted" });
@@ -269,8 +234,8 @@ describe("R2, close an epic with nothing live left in it", () => {
 
 describe("J6, two live issues that read as the same work", () => {
   it("raises one decision holding both, and changes neither issue", async () => {
-    const t = await seeded(["fix connection retry", "Fix connection retry."]);
-    const before = await t.run((ctx) => ctx.db.query("issues").collect());
+    const t = await seed({ issues: ["fix connection retry", "Fix connection retry."] });
+    const before = await rows(t, "issues");
 
     const { raised } = await run(t, "ep-1");
     expect(raised).toEqual([
@@ -296,11 +261,11 @@ describe("J6, two live issues that read as the same work", () => {
     expect(await t.query(api.show.get, { id: "bl-1" })).toMatchObject({
       issues: [{ id: "cn-1" }, { id: "cn-2" }],
     });
-    expect(await t.run((ctx) => ctx.db.query("issues").collect())).toEqual(before);
+    expect(await rows(t, "issues")).toEqual(before);
   });
 
   it("asks nothing once a duplicates edge says which is which", async () => {
-    const t = await seeded(["fix connection retry", "Fix connection retry."]);
+    const t = await seed({ issues: ["fix connection retry", "Fix connection retry."] });
     await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-1", type: "duplicates" });
     expect((await run(t, "ep-1")).raised).toEqual([]);
     expect(await blockers(t)).toEqual([]);
@@ -310,7 +275,7 @@ describe("J6, two live issues that read as the same work", () => {
 describe("J7, an inbox item nobody has placed", () => {
   it("raises one for an item eight days old, from the inbox alone", async () => {
     at("2026-09-01T09:00:00Z");
-    const t = await seeded(["the lifecycle"]);
+    const t = await seed({ issues: ["the lifecycle"] });
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
     at("2026-09-09T10:00:00Z");
 
@@ -334,7 +299,7 @@ describe("J7, an inbox item nobody has placed", () => {
 
   it("says nothing about one six days old", async () => {
     at("2026-09-01T09:00:00Z");
-    const t = await seeded();
+    const t = await seed();
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
     at("2026-09-07T09:00:00Z");
     expect((await run(t, "ep-0")).raised).toEqual([]);
@@ -344,16 +309,8 @@ describe("J7, an inbox item nobody has placed", () => {
 describe("J8, a blocker past the day it said to look again", () => {
   it("asks about it once, naming the date, and leaves the original alone", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(["the lifecycle", "the graph"]);
-    await t.mutation(api.blockers.raise, {
-      actor,
-      issue: "cn-1",
-      kind: "external-wait",
-      owner: "balder",
-      title: "App Store review",
-      whatResolves: "the build is approved",
-      nudgeAt: Date.UTC(2026, 8, 16),
-    });
+    const t = await seed({ issues: ["the lifecycle", "the graph"] });
+    await review(t, "cn-1", Date.UTC(2026, 8, 16));
     await t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1" });
     const before = (await blockers(t))[0];
 
@@ -383,16 +340,8 @@ describe("J8, a blocker past the day it said to look again", () => {
 
   it("says nothing while the nudge is still ahead", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(["the lifecycle"]);
-    await t.mutation(api.blockers.raise, {
-      actor,
-      issue: "cn-1",
-      kind: "external-wait",
-      owner: "balder",
-      title: "App Store review",
-      whatResolves: "the build is approved",
-      nudgeAt: Date.UTC(2026, 9, 1),
-    });
+    const t = await seed({ issues: ["the lifecycle"] });
+    await review(t, "cn-1", Date.UTC(2026, 9, 1));
     expect((await run(t, "ep-1")).raised).toEqual([]);
   });
 });
@@ -401,23 +350,20 @@ describe("the run itself", () => {
   /** A deployment where every rule has something to act on. */
   async function everything() {
     at("2026-09-01T09:00:00Z");
-    const t = await seeded([
-      "the lifecycle",
-      "the graph",
-      "fix connection retry",
-      "Fix connection retry.",
-      "the brief",
-    ]);
+    const t = await seed({
+      issues: [
+        "the lifecycle",
+        "the graph",
+        "fix connection retry",
+        "Fix connection retry.",
+        "the brief",
+      ],
+    });
     // R5: an edge into what will be a closed issue. R3: a claim that goes silent.
     await t.mutation(api.edges.add, { actor, from: "cn-5", to: "cn-1", type: "blocks" });
     await t.mutation(api.issues.claim, { actor, id: "cn-2" });
     // R4: a close with no follow-up beside it. R1: an inbox issue with one candidate.
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-5",
-      revision: 0,
-      verification: { unverified: "no device here" },
-    });
+    await closeIssue(t, "cn-5", 0, { verification: { unverified: "no device here" } });
     await t.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -426,24 +372,16 @@ describe("the run itself", () => {
       parent: "cn-1",
     });
     // J8: a blocker whose nudge has passed.
-    await t.mutation(api.blockers.raise, {
-      actor,
-      issue: "cn-1",
-      kind: "external-wait",
-      owner: "balder",
-      title: "App Store review",
-      whatResolves: "the build is approved",
-      nudgeAt: Date.UTC(2026, 8, 3),
-    });
+    await review(t, "cn-1", Date.UTC(2026, 8, 3));
     at("2026-09-09T10:00:00Z");
     return t;
   }
 
   const counts = async (t: Harness) => ({
-    issues: (await t.run((ctx) => ctx.db.query("issues").collect())).length,
+    issues: (await rows(t, "issues")).length,
     blockers: (await blockers(t)).length,
-    edges: (await t.run((ctx) => ctx.db.query("edges").collect())).length,
-    events: (await events(t)).filter((e) => e.kind !== "reconcile.run").length,
+    edges: (await rows(t, "edges")).length,
+    events: (await eventsOf(t)).filter((e) => e.kind !== "reconcile.run").length,
   });
 
   it("acts on everything once and on nothing the second time", async () => {
@@ -462,7 +400,7 @@ describe("the run itself", () => {
     expect(second.did).toEqual([]);
     expect(second.raised).toEqual([]);
     expect(await counts(t)).toEqual(after);
-    expect((await events(t)).filter((e) => e.kind === "reconcile.run")).toHaveLength(2);
+    expect(await eventsOf(t, "reconcile.run")).toHaveLength(2);
   });
 
   it("does not ask again once a person has resolved the raise", async () => {
@@ -479,7 +417,7 @@ describe("the run itself", () => {
 
   it("stamps lastReconciledAt without moving the revision, and records one event", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(["the lifecycle"]);
+    const t = await seed({ issues: ["the lifecycle"] });
     const { epic, at: ran, did, raised } = await run(t, "ep-1");
     expect(epic).toEqual({ id: "ep-1", title: "Create to close" });
     expect(ran).toBe(Date.now());
@@ -487,16 +425,16 @@ describe("the run itself", () => {
       lastReconciledAt: ran,
       revision: 0,
     });
-    const ran_ = (await events(t)).filter((e) => e.kind === "reconcile.run");
-    expect(ran_).toMatchObject([
+    const runs = await eventsOf(t, "reconcile.run");
+    expect(runs).toMatchObject([
       { actor: RECONCILE, changes: { by: actor.name, owner: "balder", did, raised } },
     ]);
     // A stamp is not an edit, so the run event carries no revision either.
-    expect(ran_[0]!.revision).toBeUndefined();
+    expect(runs[0]!.revision).toBeUndefined();
   });
 
   it("refuses an epic that is not open, and an id that is not there", async () => {
-    const t = await seeded(["the lifecycle"]);
+    const t = await seed({ issues: ["the lifecycle"] });
     await t.mutation(api.issues.drop, { actor, id: "cn-1", revision: 0, reason: "not wanted" });
     await t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 });
     await expect(run(t, "ep-1")).rejects.toMatchObject({

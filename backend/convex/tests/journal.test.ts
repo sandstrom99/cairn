@@ -1,45 +1,24 @@
 // An append is an insert: it takes no revision, bumps none, and therefore always lands.
 // That is the guarantee the beads `--append-notes` bug broke, where 3 of 16 writes
 // disappeared under load, and it is why a finding is never a field that gets rewritten.
-import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import schema from "../schema";
+import { actor, at, closeIssue, eventsOf, other, rawIssue, seed } from "./test.fixtures";
 
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const other = { name: "mac/claude", kind: "agent" } as const;
-const modules = import.meta.glob("../**/*.ts");
+afterEach(() => vi.useRealTimers());
 
 /** A deployment with cn-1, open at revision 0. */
-async function seeded() {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  await t.mutation(api.issues.create, {
-    actor,
-    project: "cn",
-    epic: "ep-1",
-    title: "the lifecycle, claim to close with evidence",
-    priority: 0,
-  });
-  return t;
-}
-
-const raw = (t: Awaited<ReturnType<typeof seeded>>) =>
-  t.run((ctx) =>
-    ctx.db
-      .query("issues")
-      .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
-      .unique(),
-  );
+const withIssue = () =>
+  seed({ issues: [{ title: "the lifecycle, claim to close with evidence", priority: 0 }] });
 
 describe("journal.append", () => {
   it("lands while another actor holds a newer revision, without moving it", async () => {
-    const t = await seeded();
+    at("2026-09-17T09:00:00Z");
+    const t = await withIssue();
     await t.mutation(api.issues.claim, { actor: other, id: "cn-1" });
-    const before = await raw(t);
-    await t.run((ctx) => ctx.db.patch(before!._id, { lastActivity: 0 }));
+    const before = (await rawIssue(t, "cn-1"))!;
 
+    at("2026-09-17T10:00:00Z");
     const entry = await t.mutation(api.journal.append, {
       actor,
       id: "cn-1",
@@ -51,35 +30,28 @@ describe("journal.append", () => {
       kind: "finding",
       body: "the counter row is created on first use",
       author: actor,
-      at: expect.any(Number),
+      at: Date.now(),
     });
 
-    const after = await raw(t);
-    expect(after!.revision).toBe(before!.revision);
-    expect(after!.lastActivity).toBeGreaterThan(0);
+    const after = (await rawIssue(t, "cn-1"))!;
+    expect(after.revision).toBe(before.revision);
+    expect(after.lastActivity).toBe(Date.now());
+    expect(after.lastActivity).toBeGreaterThan(before.lastActivity);
   });
 
   it("records an event with no revision and the head of the body", async () => {
-    const t = await seeded();
+    const t = await withIssue();
     const body = "e".repeat(120);
     await t.mutation(api.journal.append, { actor, id: "cn-1", kind: "evidence", body });
-    const events = await t.run((ctx) =>
-      ctx.db
-        .query("events")
-        .filter((q) => q.eq(q.field("kind"), "journal.append"))
-        .collect(),
-    );
+    const events = await eventsOf(t, "journal.append");
     expect(events).toHaveLength(1);
     expect(events[0]!.revision).toBeUndefined();
     expect(events[0]!.changes).toEqual({ kind: "evidence", body: "e".repeat(80) });
   });
 
   it("takes an entry after a close, because evidence arrives late", async () => {
-    const t = await seeded();
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
+    const t = await withIssue();
+    await closeIssue(t, "cn-1", 0, {
       verification: { unverified: "checked by hand on the device" },
     });
     await expect(
@@ -93,7 +65,7 @@ describe("journal.append", () => {
   });
 
   it("refuses a blank body and an id nothing answers to", async () => {
-    const t = await seeded();
+    const t = await withIssue();
     await expect(
       t.mutation(api.journal.append, { actor, id: "cn-1", kind: "finding", body: "  " }),
     ).rejects.toMatchObject({ data: { kind: "invalid" } });
@@ -103,7 +75,7 @@ describe("journal.append", () => {
   });
 
   it("shows the last five, newest first", async () => {
-    const t = await seeded();
+    const t = await withIssue();
     for (const n of [1, 2, 3, 4, 5, 6]) {
       await t.mutation(api.journal.append, {
         actor,

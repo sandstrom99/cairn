@@ -28,7 +28,7 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  15 passed (15)      ← backend
+ Test Files  14 passed (14)      ← backend
  Test Files  33 passed (33)      ← cli
  Test Files  7 passed (7)        ← web
 ```

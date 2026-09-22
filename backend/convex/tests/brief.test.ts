@@ -3,16 +3,13 @@
 // something it cannot move, and a follow-ups line that hides what it left out reads as
 // "there is nothing". Follow-ups are the one place `can[]` filters rather than marks, and
 // the last test here is the other half of that rule — `ready.list` still shows the row.
-import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { RECONCILE } from "../lib/actor";
-import schema from "../schema";
+import { DAY, HOUR } from "../lib/thresholds";
+import { actor, at, balder, other, raise, rawIssue, seed } from "./test.fixtures";
 
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const other = { name: "mac/claude", kind: "agent" } as const;
-const human = { name: "wsl/balder", kind: "human" } as const;
-const modules = import.meta.glob("../**/*.ts");
+afterEach(() => vi.useRealTimers());
 
 /**
  * Three tasks at P1, P0 and P2 (cn-1 to cn-3), a fourth claimed by another machine
@@ -20,16 +17,15 @@ const modules = import.meta.glob("../**/*.ts");
  * — and two blockers: bl-1 on the P2 task from this session, bl-2 on the P1 task from
  * reconcile. So one task alone is ready, and one follow-up alone is coverable.
  */
-async function seeded() {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  const task = (title: string, priority: number) =>
-    t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title, priority });
-  await task("a", 1);
-  await task("b", 0);
-  await task("c", 2);
-  await task("d", 1);
+async function worklist() {
+  const t = await seed({
+    issues: [
+      { title: "a", priority: 1 },
+      { title: "b", priority: 0 },
+      { title: "c", priority: 2 },
+      { title: "d", priority: 1 },
+    ],
+  });
   await t.mutation(api.issues.claim, { actor: other, id: "cn-4" });
   for (const requires of [["ios"], []])
     await t.mutation(api.issues.create, {
@@ -42,19 +38,13 @@ async function seeded() {
       parent: "cn-4",
       requires,
     });
-  await t.mutation(api.blockers.raise, {
-    actor,
-    issue: "cn-3",
+  await raise(t, "cn-3", {
     kind: "decision",
-    owner: "balder",
     title: "which retry policy",
     whatResolves: "balder picks one",
   });
-  await t.mutation(api.blockers.raise, {
+  await raise(t, "cn-1", {
     actor: RECONCILE,
-    issue: "cn-1",
-    kind: "approval",
-    owner: "balder",
     title: "ep-1 has been silent for 9d",
     whatResolves: "balder says what happens to it",
   });
@@ -63,7 +53,7 @@ async function seeded() {
 
 describe("brief.get", () => {
   it("counts and heads what a session can actually act on", async () => {
-    const t = await seeded();
+    const t = await worklist();
     const brief = await t.query(api.brief.get, {});
 
     // cn-1 and cn-3 are held by blockers; cn-4 is claimed; the follow-ups are not tasks.
@@ -85,15 +75,15 @@ describe("brief.get", () => {
   });
 
   it("covers a follow-up the moment the session says it can do it", async () => {
-    const t = await seeded();
+    const t = await worklist();
     const brief = await t.query(api.brief.get, { can: ["ios"] });
     expect(brief.followUps.covered.map((f) => f.id)).toEqual(["cn-5", "cn-6"]);
     expect(brief.followUps.count).toBe(2);
   });
 
   it("frees what a resolved blocker held, and unflags it", async () => {
-    const t = await seeded();
-    await t.mutation(api.blockers.resolve, { actor: human, id: "bl-2", note: "it ships as is" });
+    const t = await worklist();
+    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-2", note: "it ships as is" });
 
     const brief = await t.query(api.brief.get, {});
     expect(brief.ready.count).toBe(2);
@@ -103,21 +93,16 @@ describe("brief.get", () => {
   });
 
   it("heads three and counts all of them", async () => {
-    const t = convexTest(schema, modules);
-    await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-    await t.mutation(api.epics.create, { actor, title: "Create to close" });
-    for (const title of ["a", "b", "c", "d"])
-      await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title });
-
+    const t = await seed({ issues: ["a", "b", "c", "d"] });
     const brief = await t.query(api.brief.get, {});
     expect(brief.ready.count).toBe(4);
     expect(brief.ready.top.map((i) => i.id)).toEqual(["cn-1", "cn-2", "cn-3"]);
   });
 
   it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
-    const t = await seeded();
+    const t = await worklist();
     // cn-2 is already ready; a second task, deferred, joins it once the defer date passes.
-    const deferUntil = Date.now() + 24 * 60 * 60 * 1000;
+    const deferUntil = Date.now() + DAY;
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "e" });
     await t.mutation(api.issues.update, { actor, id: "cn-7", revision: 0, deferUntil });
     expect((await t.query(api.brief.get, { now: deferUntil - 1 })).ready.count).toBe(1);
@@ -125,7 +110,7 @@ describe("brief.get", () => {
   });
 
   it("marks a claim as this session's on the same test the claim is idempotent on", async () => {
-    const t = await seeded();
+    const t = await worklist();
     const one = { ...actor, session: "s-1" };
     const two = { ...actor, session: "s-2" };
     await t.mutation(api.issues.claim, { actor: one, id: "cn-2" });
@@ -152,14 +137,13 @@ describe("brief.get", () => {
   });
 
   it("shows a claim silent past the threshold as silent since its last activity, and releases nothing", async () => {
-    const t = await seeded();
+    const t = await worklist();
     const claimedAt = (await t.query(api.brief.get, {})).inProgress[0]!.claimedAt!;
-    const day = 24 * 60 * 60 * 1000;
 
-    const fresh = (await t.query(api.brief.get, { now: claimedAt + day })).inProgress[0]!;
+    const fresh = (await t.query(api.brief.get, { now: claimedAt + DAY })).inProgress[0]!;
     expect(fresh.silentSince).toBeUndefined();
 
-    const silent = (await t.query(api.brief.get, { now: claimedAt + day + 1 })).inProgress[0]!;
+    const silent = (await t.query(api.brief.get, { now: claimedAt + DAY + 1 })).inProgress[0]!;
     expect(silent).toMatchObject({ id: "cn-4", silentSince: claimedAt });
 
     // A journal entry is activity: a day after it, the same claim is not silent.
@@ -169,31 +153,24 @@ describe("brief.get", () => {
       kind: "finding",
       body: "here",
     });
-    const { lastActivity } = await t.run(
-      async (ctx) =>
-        (await ctx.db
-          .query("issues")
-          .withIndex("by_public_id", (q) => q.eq("id", "cn-4"))
-          .unique())!,
-    );
+    const { lastActivity } = (await rawIssue(t, "cn-4"))!;
     expect(lastActivity).toBeGreaterThanOrEqual(claimedAt);
-    const heard = (await t.query(api.brief.get, { now: lastActivity + day })).inProgress[0]!;
+    const heard = (await t.query(api.brief.get, { now: lastActivity + DAY })).inProgress[0]!;
     expect(heard.silentSince).toBeUndefined();
     expect(heard.claimedBy).toEqual(other);
   });
 
   it("says when a claim last had anything journaled, and marks it quiet past the threshold", async () => {
-    const t = await seeded();
+    const t = await worklist();
     const one = { ...actor, session: "s-1" };
-    const hour = 60 * 60 * 1000;
     const held = async (now?: number) =>
       (await t.query(api.brief.get, { actor: one, now })).inProgress.find((i) => i.id === "cn-2")!;
 
     await t.mutation(api.issues.claim, { actor: one, id: "cn-2" });
     const claimedAt = (await held()).claimedAt!;
     // Nothing journaled yet: quiet counts from the claim, and only once the hour is past.
-    expect(await held(claimedAt + hour)).not.toHaveProperty("unjournaledSince");
-    const quiet = await held(claimedAt + hour + 1);
+    expect(await held(claimedAt + HOUR)).not.toHaveProperty("unjournaledSince");
+    const quiet = await held(claimedAt + HOUR + 1);
     expect(quiet).toMatchObject({ mine: true, unjournaledSince: claimedAt });
     expect(quiet).not.toHaveProperty("lastJournal");
 
@@ -204,19 +181,19 @@ describe("brief.get", () => {
       kind: "finding",
       body: "here",
     });
-    const heard = await held(entry.at + hour);
+    const heard = await held(entry.at + HOUR);
     expect(heard).toMatchObject({ lastJournal: entry.at });
     expect(heard).not.toHaveProperty("unjournaledSince");
-    expect(await held(entry.at + hour + 1)).toMatchObject({
+    expect(await held(entry.at + HOUR + 1)).toMatchObject({
       lastJournal: entry.at,
       unjournaledSince: entry.at,
     });
   });
 
   it("counts quiet from the claim when the only entries are older than it", async () => {
-    const t = await seeded();
+    at("2026-09-17T09:00:00Z");
+    const t = await worklist();
     const one = { ...actor, session: "s-1" };
-    const hour = 60 * 60 * 1000;
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "e" });
     const entry = await t.mutation(api.journal.append, {
       actor,
@@ -224,21 +201,23 @@ describe("brief.get", () => {
       kind: "finding",
       body: "before the claim",
     });
+    // A second on, so the claim is younger than the entry by the clock and not by luck.
+    at("2026-09-17T09:00:01Z");
     await t.mutation(api.issues.claim, { actor: one, id: "cn-7" });
     const row = async (now: number) =>
       (await t.query(api.brief.get, { actor: one, now })).inProgress.find((i) => i.id === "cn-7")!;
     const claimedAt = (await row(Date.now())).claimedAt!;
-    expect(claimedAt).toBeGreaterThanOrEqual(entry.at);
+    expect(claimedAt).toBeGreaterThan(entry.at);
     // An hour past the entry is not an hour past the claim.
-    expect(await row(claimedAt + hour)).not.toHaveProperty("unjournaledSince");
-    expect(await row(claimedAt + hour + 1)).toMatchObject({
+    expect(await row(claimedAt + HOUR)).not.toHaveProperty("unjournaledSince");
+    expect(await row(claimedAt + HOUR + 1)).toMatchObject({
       lastJournal: entry.at,
       unjournaledSince: claimedAt,
     });
   });
 
   it("leaves the row the brief filtered in ready, marked", async () => {
-    const t = await seeded();
+    const t = await worklist();
     const rows = await t.query(api.ready.list, {});
     const ios = rows.find((i) => i.id === "cn-5");
     expect(ios?.cannot).toEqual(["ios"]);
