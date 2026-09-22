@@ -764,6 +764,45 @@ describe("historyLines", () => {
     ]);
   });
 
+  it("reads a blocker's raise and attach from whichever end's history it is, and whole when it is nobody's", () => {
+    const raised = {
+      actor: { name: "cairn/reconcile" },
+      at: ago(HOUR),
+      kind: "blocker.raise",
+      changes: {
+        id: "bl-3",
+        blockerKind: "decision",
+        owner: "balder",
+        title: "same title?",
+        whatResolves: "drop one",
+        issue: "cn-17",
+      },
+    };
+    expect(historyLines([raised], now, "cn-17")).toEqual([
+      '  —  cairn/reconcile  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder',
+    ]);
+    expect(historyLines([raised], now, "bl-3")).toEqual([
+      "  —  cairn/reconcile  1h ago  blocker.raise  decision · owner balder · holds cn-17",
+    ]);
+    expect(historyLines([raised], now)).toEqual([
+      '  —  cairn/reconcile  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder · holds cn-17',
+    ]);
+    const attached = {
+      ...raised,
+      kind: "blocker.attach",
+      changes: { blocker: "bl-3", issue: "cn-18" },
+    };
+    expect(historyLines([attached], now, "cn-18")).toEqual([
+      "  —  cairn/reconcile  1h ago  blocker.attach  waits on bl-3",
+    ]);
+    expect(historyLines([attached], now, "bl-3")).toEqual([
+      "  —  cairn/reconcile  1h ago  blocker.attach  holds cn-18",
+    ]);
+    expect(historyLines([attached], now)).toEqual([
+      "  —  cairn/reconcile  1h ago  blocker.attach  cn-18 waits on bl-3",
+    ]);
+  });
+
   it("reads a lifecycle event's explicit changes whole, not the raw patch", () => {
     const claim = {
       revision: 1,
@@ -888,32 +927,123 @@ describe("logLine", () => {
     );
   });
 
-  it("leads with the issue when a row names both an issue and a blocker", () => {
+  it("leads with the issue when a row names both an issue and a blocker, and reads a raise as the blocker's line", () => {
     const raise = {
       at: ago(MINUTE),
       actor: { name: "wsl/claude", kind: "agent" } as const,
       kind: "blocker.raise",
       revision: undefined,
-      changes: { id: "bl-1" },
+      changes: {
+        id: "bl-1",
+        blockerKind: "decision",
+        owner: "balder",
+        title: "confirm the invite copy",
+        whatResolves: "say which of the two",
+        issue: "cn-2",
+      },
       issue: { id: "cn-2", title: "scratch: second" },
       blocker: { id: "bl-1", title: "confirm the invite copy" },
       epic: undefined,
     };
-    expect(logLine(raise, now).startsWith('cn-2 "scratch: second"')).toBe(true);
+    expect(logLine(raise, now)).toBe(
+      'cn-2 "scratch: second"  blocker.raise  wsl/claude  1m ago  bl-1 "confirm the invite copy" decision · owner balder',
+    );
+    const attach = {
+      ...raise,
+      kind: "blocker.attach",
+      actor: { name: "cairn/reconcile", kind: "agent" } as const,
+      changes: { blocker: "bl-1", issue: "cn-2" },
+    };
+    expect(logLine(attach, now)).toBe(
+      'cn-2 "scratch: second"  blocker.attach  cairn/reconcile  1m ago  waits on bl-1',
+    );
   });
 
-  it("leads with the blocker when a row names no issue", () => {
+  it("reads the resolve an issue was freed by as the blocker and the note, never as JSON", () => {
+    const freed = {
+      at: ago(MINUTE),
+      actor: { name: "wsl/balder", kind: "human" } as const,
+      kind: "blocker.resolve",
+      revision: undefined,
+      changes: {
+        blocker: "bl-1",
+        title: "confirm the invite copy",
+        resolution: "the short one\nit fits the card",
+      },
+      issue: { id: "cn-2", title: "scratch: second" },
+      blocker: undefined,
+      epic: undefined,
+    };
+    expect(logLine(freed, now)).toBe(
+      'cn-2 "scratch: second"  blocker.resolve  wsl/balder  1m ago  bl-1 "confirm the invite copy": the short one…',
+    );
+    const long = { ...freed, changes: { ...freed.changes, resolution: "a".repeat(80) } };
+    const [piece] = logParts(long, now).changes;
+    expect(piece).toMatch(/^bl-1 "confirm the invite copy": a+…$/);
+    expect(piece).toHaveLength(80);
+  });
+
+  it("leads with the blocker when a row names no issue, its own resolve a field map", () => {
     const resolve = {
       at: ago(MINUTE),
       actor: { name: "wsl/balder", kind: "human" } as const,
       kind: "blocker.resolve",
       revision: 1,
-      changes: { status: { from: "raised", to: "resolved" } },
+      changes: { status: { from: "raised", to: "resolved" }, resolution: { to: "the short one" } },
       issue: undefined,
       blocker: { id: "bl-1", title: "confirm the invite copy" },
       epic: undefined,
     };
-    expect(logLine(resolve, now).startsWith('bl-1 "confirm the invite copy"')).toBe(true);
+    expect(logLine(resolve, now)).toBe(
+      'bl-1 "confirm the invite copy"  blocker.resolve  wsl/balder  1m ago  status raised → resolved, resolution — → the short one',
+    );
+  });
+
+  it("reads a reconcile run as what it did and who asked, and a sweep as what it visited", () => {
+    const run = {
+      at: ago(MINUTE),
+      actor: { name: "cairn/reconcile", kind: "agent" } as const,
+      kind: "reconcile.run",
+      revision: undefined,
+      changes: { by: "wsl/claude", owner: "balder", did: [], raised: [] },
+      issue: undefined,
+      blocker: undefined,
+      epic: { id: "ep-1", title: "Create to close" },
+    };
+    expect(logLine(run, now)).toBe(
+      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  1m ago  nothing to do · by wsl/claude',
+    );
+    const busy = {
+      ...run,
+      changes: {
+        by: "cairn/sweep",
+        owner: "balder",
+        did: [{ rule: "release" }, { rule: "drop-edge" }],
+        raised: [{ rule: "nudge" }],
+      },
+    };
+    expect(logLine(busy, now)).toBe(
+      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  1m ago  did 2 · raised 1 · by cairn/sweep',
+    );
+    const swept = {
+      ...run,
+      kind: "reconcile.sweep",
+      epic: undefined,
+      changes: {
+        owner: "balder",
+        epics: [
+          { id: "ep-1", title: "Create to close" },
+          { id: "ep-2", title: "An epic tells the truth" },
+        ],
+      },
+    };
+    expect(logLine(swept, now)).toBe(
+      "—  reconcile.sweep  cairn/reconcile  1m ago  2 epics · owner balder",
+    );
+    const one = { ...swept, changes: { owner: "balder", epics: [{ id: "ep-1", title: "x" }] } };
+    expect(logLine(one, now)).toBe(
+      "—  reconcile.sweep  cairn/reconcile  1m ago  1 epic · owner balder",
+    );
   });
 
   it("leads with the epic when a row names neither an issue nor a blocker", () => {
@@ -930,18 +1060,20 @@ describe("logLine", () => {
     expect(logLine(create, now)).toBe('ep-1 "Create to close"  epic.create  wsl/claude  2h ago');
   });
 
-  it("leads with — when a row names nothing", () => {
+  it("leads with — when a row names nothing, and a project's create is its slug and name", () => {
     const create = {
       at: ago(2 * HOUR),
       actor: { name: "wsl/claude", kind: "agent" } as const,
       kind: "project.create",
       revision: undefined,
-      changes: { slug: "cn", name: "cairn" },
+      changes: { slug: "cn", name: "cairn: backend, cli, plugin" },
       issue: undefined,
       blocker: undefined,
       epic: undefined,
     };
-    expect(logLine(create, now)).toBe("—  project.create  wsl/claude  2h ago");
+    expect(logLine(create, now)).toBe(
+      '—  project.create  wsl/claude  2h ago  cn "cairn: backend, cli, plugin"',
+    );
   });
 
   it("prints no payload for a create, however big the changes it carries", () => {

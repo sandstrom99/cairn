@@ -446,16 +446,39 @@ row("verbs/log.mts", () => {
 
   const whole = lines(cn(["log", "--limit", "200"]).stdout);
   for (const line of whole)
-    if (/ {2}(journal\.append|edge\.(add|remove)) {2}/.test(line))
-      assert.ok(
-        !line.includes("{"),
-        `cn log printed raw JSON for an event it has a line for: ${line}`,
-      );
+    assert.ok(!line.includes("{"), `cn log printed raw JSON for an event: ${line}`);
   assert.ok(
     whole.some((l) =>
       l.endsWith("  journal.append  e2e/claude  just now  finding: scratch: a finding"),
     ),
     "the journal entry does not read as its kind and first line",
+  );
+  assert.ok(
+    whole.some((l) =>
+      /^cn-4 ".*  blocker\.raise  e2e\/claude  just now  bl-1 "scratch" decision · owner balder$/.test(
+        l,
+      ),
+    ),
+    "the raise on cn-4 does not read as the blocker's line",
+  );
+  assert.ok(
+    whole.some((l) => /^cn-4 ".*  blocker\.resolve  .*  just now  bl-1 "scratch": done$/.test(l)),
+    "the resolve that freed cn-4 does not read as the blocker and the note",
+  );
+  assert.ok(
+    whole.some(
+      (l) =>
+        l.endsWith(
+          "  blocker.resolve  e2e/balder  just now  resolution — → done, status waiting → resolved",
+        ) && l.startsWith('bl-1 "scratch"'),
+    ),
+    "the blocker's own resolve does not read as a field map",
+  );
+  assert.ok(
+    whole.some((l) =>
+      l.endsWith('  project.create  e2e/claude  just now  cn "cairn: backend, cli, plugin"'),
+    ),
+    "the project's create does not read as its slug and name",
   );
   const added = whole.filter((l) => / {2}edge\.add {2}.* {2}blocked by cn-1$/.test(l));
   assert.equal(
@@ -518,6 +541,21 @@ row("verbs/reconcile.mts", () => {
   );
 
   assert.equal(cn(["reconcile", "ep-2"]).status, 0, "a second cn reconcile was refused");
+  const logged = lines(cn(["log", "--limit", "200"]).stdout);
+  for (const line of logged)
+    assert.ok(!line.includes("{"), `cn log printed raw JSON for an event: ${line}`);
+  const runs = logged.filter((l) => /^ep-2 ".*  reconcile\.run  cairn\/reconcile  /.test(l));
+  assert.deepEqual(
+    runs.map((l) => l.slice(l.indexOf("just now  ") + "just now  ".length)),
+    ["nothing to do · by e2e/claude", "did 0 · raised 1 · by e2e/claude"],
+    "the two runs do not read as what they did and who asked, newest first",
+  );
+  assert.ok(
+    logged.some((l) =>
+      l.endsWith(`  blocker.attach  cairn/reconcile  just now  waits on ${waiting[0].id}`),
+    ),
+    `the attach of the second twin does not read as waits on ${waiting[0].id}`,
+  );
   assert.equal(json(["waiting"]).length, 1, "a second cn reconcile asked the question again");
 
   const resolved = cn(["resolve", waiting[0].id, "--note", "scratch"], { as: "human" });

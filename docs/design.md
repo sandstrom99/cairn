@@ -216,6 +216,17 @@ in `lib/changes.ts`, one per move, shared by every site that makes that move. Ev
 written before 2026-09-20 carry the raw patch for those four kinds, because nothing
 migrates an audit trail, so whatever renders `changes` reads both.
 
+Whatever renders `changes` renders every kind as a line and none as JSON, settled
+2026-09-22 in `eventPieces` (`format.mts`), which `cn log`, `cn show --history`, a stale
+write's retry lines and the web window's feed and history all go through. A field map is
+its fields, `status open → in_progress`; a journal append its kind and first line; an
+edge, a blocker's raise and an attach read relative to the id whose line it is, the way
+§7 reads an edge from either end, `blocked by cn-1`, `waits on bl-3`, `holds cn-18`; the
+resolve recorded on each issue a blocker held is the blocker and the note; a reconcile
+run is what it did and who asked; a sweep how many epics it visited. A create has no
+payload, since the reference leading its line already names what was created, except a
+project, which has no reference to lead with and prints as its slug and name.
+
 ### The three content fields
 
 Taken from the beads plugin verbatim, because it is the best product thinking in
