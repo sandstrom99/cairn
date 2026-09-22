@@ -1,26 +1,31 @@
 // The create rules, one test each, because every one of them is a way an issue could
 // become something no later verb can reason about: an id minted from the wrong counter,
 // an epic that is not open, a follow-up with no kind, a priority outside 0 to 4.
-import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import schema from "../schema";
+import {
+  type Harness,
+  actor,
+  at,
+  balder,
+  closeIssue,
+  eventsOf,
+  other,
+  ran,
+  rawIssue,
+  seed,
+} from "./test.fixtures";
 
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const modules = import.meta.glob("../**/*.ts");
+afterEach(() => vi.useRealTimers());
 
-/** A deployment with two projects and one open epic, ep-1. */
-async function seeded() {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.projects.create, { actor, slug: "x", name: "the other one" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  return t;
-}
+/** The second project some create tests mint into, beside the seed's `cn`. */
+const otherProject = (t: Harness) =>
+  t.mutation(api.projects.create, { actor, slug: "x", name: "the other one" });
 
 describe("issues.create", () => {
   it("mints per project: cn-1, cn-2, then x-1", async () => {
-    const t = await seeded();
+    const t = await seed();
+    await otherProject(t);
     const first = await t.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -34,13 +39,13 @@ describe("issues.create", () => {
       epic: "ep-1",
       title: "the lifecycle, claim to close with evidence",
     });
-    const other = await t.mutation(api.issues.create, {
+    const elsewhere = await t.mutation(api.issues.create, {
       actor,
       project: "x",
       epic: "ep-1",
       title: "somewhere else",
     });
-    expect([first.id, second.id, other.id]).toEqual(["cn-1", "cn-2", "x-1"]);
+    expect([first.id, second.id, elsewhere.id]).toEqual(["cn-1", "cn-2", "x-1"]);
     expect(first).toMatchObject({
       project: "cn",
       epic: { id: "ep-1", title: "Create to close" },
@@ -54,7 +59,7 @@ describe("issues.create", () => {
   });
 
   it("hands back the open epics when none was given", async () => {
-    const t = await seeded();
+    const t = await seed();
     await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
     await expect(
       t.mutation(api.issues.create, { actor, project: "cn", title: "no epic" }),
@@ -71,7 +76,7 @@ describe("issues.create", () => {
   });
 
   it("creates the inbox on the first ep-0 and reuses it after", async () => {
-    const t = await seeded();
+    const t = await seed();
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "one" });
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "two" });
     const epics = await t.query(api.epics.list, { all: true });
@@ -83,7 +88,7 @@ describe("issues.create", () => {
   });
 
   it("refuses an unknown project, epic or parent", async () => {
-    const t = await seeded();
+    const t = await seed();
     await expect(
       t.mutation(api.issues.create, { actor, project: "nope", epic: "ep-1", title: "x" }),
     ).rejects.toMatchObject({ data: { kind: "not-found", message: "no such id nope" } });
@@ -102,21 +107,24 @@ describe("issues.create", () => {
   });
 
   it("refuses an epic that is closed or dropped", async () => {
-    const t = await seeded();
-    await t.run(async (ctx) => {
-      const doc = await ctx.db
-        .query("epics")
-        .withIndex("by_public_id", (q) => q.eq("id", "ep-1"))
-        .unique();
-      await ctx.db.patch(doc!._id, { status: "closed" });
+    const t = await seed();
+    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 });
+    await t.mutation(api.epics.close, {
+      actor,
+      id: "ep-2",
+      revision: 0,
+      drop: true,
+      reason: "not shipping",
     });
-    await expect(
-      t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "x" }),
-    ).rejects.toMatchObject({ data: { kind: "invalid" } });
+    for (const epic of ["ep-1", "ep-2"])
+      await expect(
+        t.mutation(api.issues.create, { actor, project: "cn", epic, title: "x" }),
+      ).rejects.toMatchObject({ data: { kind: "invalid" } });
   });
 
   it("pairs type and followUpKind both ways", async () => {
-    const t = await seeded();
+    const t = await seed();
     await expect(
       t.mutation(api.issues.create, {
         actor,
@@ -138,7 +146,7 @@ describe("issues.create", () => {
   });
 
   it("refuses a priority outside 0 to 4", async () => {
-    const t = await seeded();
+    const t = await seed();
     for (const priority of [-1, 5, 1.5]) {
       await expect(
         t.mutation(api.issues.create, {
@@ -153,14 +161,9 @@ describe("issues.create", () => {
   });
 
   it("records one issue.create event on the issue and its epic", async () => {
-    const t = await seeded();
+    const t = await seed();
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "one" });
-    const events = await t.run((ctx) =>
-      ctx.db
-        .query("events")
-        .filter((q) => q.eq(q.field("kind"), "issue.create"))
-        .collect(),
-    );
+    const events = await eventsOf(t, "issue.create");
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       actor,
@@ -174,7 +177,8 @@ describe("issues.create", () => {
 
 describe("issues.list", () => {
   it("orders by priority then age, and filters by epic, project and status", async () => {
-    const t = await seeded();
+    const t = await seed();
+    await otherProject(t);
     await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
     await t.mutation(api.issues.create, {
       actor,
@@ -208,13 +212,7 @@ describe("issues.list", () => {
     expect((await t.query(api.issues.list, { epic: "ep-2" })).map((i) => i.id)).toEqual(["cn-3"]);
     expect((await t.query(api.issues.list, { project: "x" })).map((i) => i.id)).toEqual(["x-1"]);
 
-    await t.run(async (ctx) => {
-      const doc = await ctx.db
-        .query("issues")
-        .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
-        .unique();
-      await ctx.db.patch(doc!._id, { status: "in_progress", claimedBy: actor });
-    });
+    await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     expect((await t.query(api.issues.list, { status: "in_progress" })).map((i) => i.id)).toEqual([
       "cn-1",
     ]);
@@ -230,40 +228,10 @@ describe("issues.list", () => {
 // The lifecycle, claim to close. Each rule below is a way work could be lost or taken:
 // two agents on one issue, a write against a revision that has moved, a close that
 // nothing proves, residue that never gets created because the parent closed first.
-const other = { name: "mac/claude", kind: "agent" } as const;
-const balder = { name: "wsl/balder", kind: "human" } as const;
-const ran = { command: "vp run verify", exitCode: 0, output: "Test Files  6 passed (6)" };
 
 /** The seeded deployment plus cn-1, open and unclaimed at revision 0. */
-async function withIssue() {
-  const t = await seeded();
-  await t.mutation(api.issues.create, {
-    actor,
-    project: "cn",
-    epic: "ep-1",
-    title: "the lifecycle, claim to close with evidence",
-    priority: 0,
-  });
-  return t;
-}
-
-/** The events of one kind, oldest first. */
-const eventsOf = (t: Awaited<ReturnType<typeof seeded>>, kind: string) =>
-  t.run((ctx) =>
-    ctx.db
-      .query("events")
-      .filter((q) => q.eq(q.field("kind"), kind))
-      .collect(),
-  );
-
-/** cn-1 as it stands in the database, past any view. */
-const raw = (t: Awaited<ReturnType<typeof seeded>>, id: string) =>
-  t.run((ctx) =>
-    ctx.db
-      .query("issues")
-      .withIndex("by_public_id", (q) => q.eq("id", id))
-      .unique(),
-  );
+const withIssue = () =>
+  seed({ issues: [{ title: "the lifecycle, claim to close with evidence", priority: 0 }] });
 
 describe("issues.claim", () => {
   it("is first writer wins: the second is told who holds it and since when", async () => {
@@ -349,13 +317,13 @@ describe("issues.claim", () => {
 
   it("refuses what is closed or dropped, because reopening is not a thing", async () => {
     const t = await withIssue();
-    for (const status of ["closed", "dropped"] as const) {
-      const doc = await raw(t, "cn-1");
-      await t.run((ctx) => ctx.db.patch(doc!._id, { status }));
-      await expect(t.mutation(api.issues.claim, { actor, id: "cn-1" })).rejects.toMatchObject({
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "the graph" });
+    await closeIssue(t, "cn-1");
+    await t.mutation(api.issues.drop, { actor, id: "cn-2", revision: 0, reason: "not wanted" });
+    for (const id of ["cn-1", "cn-2"])
+      await expect(t.mutation(api.issues.claim, { actor, id })).rejects.toMatchObject({
         data: { kind: "invalid", message: expect.stringContaining("follow-up") },
       });
-    }
   });
 });
 
@@ -410,11 +378,12 @@ describe("issues.update", () => {
   });
 
   it("takes the current revision, stamps lastActivity, and records an epic move as ids", async () => {
+    at("2026-09-17T09:00:00Z");
     const t = await withIssue();
     await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
-    const doc = await raw(t, "cn-1");
-    await t.run((ctx) => ctx.db.patch(doc!._id, { lastActivity: 0 }));
+    const before = (await rawIssue(t, "cn-1"))!.lastActivity;
 
+    at("2026-09-17T10:00:00Z");
     const updated = await t.mutation(api.issues.update, {
       actor,
       id: "cn-1",
@@ -429,7 +398,8 @@ describe("issues.update", () => {
       epic: { id: "ep-2", title: "A session starts warm" },
       requires: ["ios"],
     });
-    expect(updated.lastActivity).toBeGreaterThan(0);
+    expect(updated.lastActivity).toBe(Date.now());
+    expect(updated.lastActivity).toBeGreaterThan(before);
 
     const [event] = await eventsOf(t, "issue.update");
     expect(event!.changes).toEqual({
@@ -466,10 +436,9 @@ describe("issues.update", () => {
       t.mutation(api.issues.update, { actor, id: "cn-1", revision: 0, epic: "ep-9" }),
     ).rejects.toMatchObject({ data: { kind: "not-found" } });
 
-    const doc = await raw(t, "cn-1");
-    await t.run((ctx) => ctx.db.patch(doc!._id, { status: "closed" }));
+    await closeIssue(t, "cn-1");
     await expect(
-      t.mutation(api.issues.update, { actor, id: "cn-1", revision: 0, priority: 1 }),
+      t.mutation(api.issues.update, { actor, id: "cn-1", revision: 1, priority: 1 }),
     ).rejects.toMatchObject({ data: { kind: "invalid" } });
   });
 });
@@ -478,12 +447,7 @@ describe("issues.close", () => {
   it("stores the record with who closed it and when, and clears the claim", async () => {
     const t = await withIssue();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
-    const { issue, followUp } = await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 1,
-      verification: ran,
-    });
+    const { issue, followUp } = await closeIssue(t, "cn-1", 1);
     expect(followUp).toBeUndefined();
     expect(issue).toMatchObject({
       status: "closed",
@@ -513,40 +477,30 @@ describe("issues.close", () => {
       verification: { unverified: string };
     };
     await expect(t.mutation(api.issues.close, noRecord)).rejects.toThrow();
-    expect((await raw(t, "cn-1"))!.status).toBe("open");
+    expect((await rawIssue(t, "cn-1"))!.status).toBe("open");
   });
 
   it("refuses a command that failed, and an unverified close with no reason", async () => {
     const t = await withIssue();
     await expect(
-      t.mutation(api.issues.close, {
-        actor,
-        id: "cn-1",
-        revision: 0,
+      closeIssue(t, "cn-1", 0, {
         verification: { command: "vp run verify", exitCode: 1, output: "1 failed" },
       }),
     ).rejects.toMatchObject({
       data: { kind: "invalid", message: expect.stringContaining("exited 1") },
     });
     await expect(
-      t.mutation(api.issues.close, {
-        actor,
-        id: "cn-1",
-        revision: 0,
-        verification: { unverified: "  " },
-      }),
+      closeIssue(t, "cn-1", 0, { verification: { unverified: "  " } }),
     ).rejects.toMatchObject({
       data: { kind: "invalid", message: "an unverified close needs a reason" },
     });
-    expect((await raw(t, "cn-1"))!.status).toBe("open");
+    expect((await rawIssue(t, "cn-1"))!.status).toBe("open");
   });
 
   it("refuses a second close", async () => {
     const t = await withIssue();
-    await t.mutation(api.issues.close, { actor, id: "cn-1", revision: 0, verification: ran });
-    await expect(
-      t.mutation(api.issues.close, { actor, id: "cn-1", revision: 1, verification: ran }),
-    ).rejects.toMatchObject({
+    await closeIssue(t, "cn-1");
+    await expect(closeIssue(t, "cn-1", 1)).rejects.toMatchObject({
       data: { kind: "invalid", message: "cn-1 is already closed" },
     });
   });
@@ -554,24 +508,16 @@ describe("issues.close", () => {
   it("refuses an agent closing another's claim, and lets a human do it", async () => {
     const t = await withIssue();
     await t.mutation(api.issues.claim, { actor: other, id: "cn-1" });
-    await expect(
-      t.mutation(api.issues.close, { actor, id: "cn-1", revision: 1, verification: ran }),
-    ).rejects.toMatchObject({ data: { kind: "claimed", by: other } });
-    const { issue } = await t.mutation(api.issues.close, {
-      actor: balder,
-      id: "cn-1",
-      revision: 1,
-      verification: ran,
+    await expect(closeIssue(t, "cn-1", 1)).rejects.toMatchObject({
+      data: { kind: "claimed", by: other },
     });
+    const { issue } = await closeIssue(t, "cn-1", 1, { actor: balder });
     expect(issue).toMatchObject({ status: "closed", verification: { by: balder } });
   });
 
   it("creates the follow-up in the same mutation, linked and in the same epic", async () => {
     const t = await withIssue();
-    const { issue, followUp } = await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
+    const { issue, followUp } = await closeIssue(t, "cn-1", 0, {
       verification: { unverified: "verified on android and web; this machine has no ios" },
       followUp: { title: "confirm the retry path on a device", kind: "verify", requires: ["ios"] },
     });
@@ -597,15 +543,11 @@ describe("issues.close", () => {
   it("creates neither the close nor the follow-up when the kind is not one of the three", async () => {
     const t = await withIssue();
     await expect(
-      t.mutation(api.issues.close, {
-        actor,
-        id: "cn-1",
-        revision: 0,
-        verification: ran,
+      closeIssue(t, "cn-1", 0, {
         followUp: { title: "ship it", kind: "ship" as unknown as "verify" },
       }),
     ).rejects.toThrow();
-    expect((await raw(t, "cn-1"))!.status).toBe("open");
+    expect((await rawIssue(t, "cn-1"))!.status).toBe("open");
     expect((await t.query(api.issues.list, {})).map((i) => i.id)).toEqual(["cn-1"]);
   });
 });

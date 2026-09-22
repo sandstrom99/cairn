@@ -3,42 +3,33 @@
 // epic's progress cannot be diluted by its own residue (docs/design.md §5). Beside them
 // is health (§8): what is moving, what is stuck, what waits on a person — every line a
 // fact with a query behind it, and none of them a percentage.
-import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import schema from "../schema";
 import { DAY, STUCK_AFTER_MS } from "../lib/thresholds";
+import {
+  type Harness,
+  actor,
+  at,
+  balder,
+  closeIssue,
+  eventsOf,
+  fresh,
+  raise,
+  rawIssue,
+  seed,
+} from "./test.fixtures";
 
-const actor = { name: "wsl/claude", kind: "agent" } as const;
-const balder = { name: "wsl/balder", kind: "human" } as const;
-const modules = import.meta.glob("../**/*.ts");
+afterEach(() => vi.useRealTimers());
 
-/** A deployment with one project and ep-1, and `n` open issues in it. */
-async function seeded(n: number) {
-  const t = convexTest(schema, modules);
-  await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
-  for (let i = 1; i <= n; i++)
-    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: `work ${i}` });
-  return t;
-}
-
-type Harness = Awaited<ReturnType<typeof seeded>>;
-
-/** Only the clock is faked, so convex-test's own async is untouched. */
-const at = (iso: string) => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(iso));
-};
+/** The seed with `n` open issues in ep-1, titled `work 1` upward. */
+const work = (n: number) => seed({ issues: Array.from({ length: n }, (_, i) => `work ${i + 1}`) });
 
 const healthOf = async (t: Harness, id = "ep-1") =>
   (await t.query(api.epics.health, { id })).health;
 
-afterEach(() => vi.useRealTimers());
-
 describe("epics", () => {
   it("mints ep-1 then ep-2 and starts every count at zero", async () => {
-    const t = convexTest(schema, modules);
+    const t = fresh();
     const first = await t.mutation(api.epics.create, { actor, title: "Create to close" });
     const second = await t.mutation(api.epics.create, {
       actor,
@@ -56,16 +47,10 @@ describe("epics", () => {
   });
 
   it("lists open epics unless --all, in id order", async () => {
-    const t = convexTest(schema, modules);
+    const t = fresh();
     await t.mutation(api.epics.create, { actor, title: "one" });
     await t.mutation(api.epics.create, { actor, title: "two" });
-    await t.run(async (ctx) => {
-      const doc = await ctx.db
-        .query("epics")
-        .withIndex("by_public_id", (q) => q.eq("id", "ep-1"))
-        .unique();
-      await ctx.db.patch(doc!._id, { status: "closed" });
-    });
+    await t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 });
     expect((await t.query(api.epics.list, {})).map((e) => e.id)).toEqual(["ep-2"]);
     expect((await t.query(api.epics.list, { all: true })).map((e) => e.id)).toEqual([
       "ep-1",
@@ -74,11 +59,7 @@ describe("epics", () => {
   });
 
   it("counts tasks by status and open follow-ups beside them", async () => {
-    const t = convexTest(schema, modules);
-    await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-    await t.mutation(api.epics.create, { actor, title: "Create to close" });
-    for (const title of ["first", "second"])
-      await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title });
+    const t = await seed({ issues: ["first", "second"] });
     await t.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -88,15 +69,8 @@ describe("epics", () => {
       followUpKind: "verify",
       parent: "cn-1",
     });
-    await t.run(async (ctx) => {
-      for (const id of ["cn-1", "cn-2"]) {
-        const doc = await ctx.db
-          .query("issues")
-          .withIndex("by_public_id", (q) => q.eq("id", id))
-          .unique();
-        await ctx.db.patch(doc!._id, { status: "closed" });
-      }
-    });
+    await closeIssue(t, "cn-1");
+    await closeIssue(t, "cn-2");
     const [epic] = await t.query(api.epics.list, {});
     expect(epic!.counts).toEqual({
       open: 0,
@@ -108,9 +82,9 @@ describe("epics", () => {
   });
 
   it("records one epic.create event carrying the new epic", async () => {
-    const t = convexTest(schema, modules);
+    const t = fresh();
     await t.mutation(api.epics.create, { actor, title: "Create to close" });
-    const events = await t.run((ctx) => ctx.db.query("events").collect());
+    const events = await eventsOf(t);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       kind: "epic.create",
@@ -125,7 +99,7 @@ describe("epics", () => {
 describe("epics.health", () => {
   it("moves the in-progress issues to `moving`, with who holds them and since when", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(2);
+    const t = await work(2);
     const claimedAt = Date.now();
     await t.mutation(api.issues.claim, { actor, id: "cn-2" });
     expect(await healthOf(t)).toMatchObject({
@@ -135,7 +109,7 @@ describe("epics.health", () => {
 
   it("has no stuck line until the silence passes three days, then names the worst", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(2);
+    const t = await work(2);
     at("2026-09-19T09:00:00Z");
     expect((await healthOf(t)).stuck).toBeUndefined();
     // cn-2 is touched today, so cn-1 is the one that has been silent longest.
@@ -146,14 +120,8 @@ describe("epics.health", () => {
 
   it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(2);
-    const lastActivity = await t.run(async (ctx) => {
-      const doc = await ctx.db
-        .query("issues")
-        .withIndex("by_public_id", (q) => q.eq("id", "cn-1"))
-        .unique();
-      return doc!.lastActivity;
-    });
+    const t = await work(2);
+    const { lastActivity } = (await rawIssue(t, "cn-1"))!;
     expect(
       (await t.query(api.epics.health, { id: "ep-1", now: lastActivity + STUCK_AFTER_MS })).health
         .stuck,
@@ -176,7 +144,7 @@ describe("epics.health", () => {
 
   it("counts neither a deferred issue nor a claimed one as stuck", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await seeded(2);
+    const t = await work(2);
     await t.mutation(api.issues.update, {
       actor,
       id: "cn-1",
@@ -189,15 +157,8 @@ describe("epics.health", () => {
   });
 
   it("names an unresolved blocker once however many issues it holds, and drops it resolved", async () => {
-    const t = await seeded(2);
-    await t.mutation(api.blockers.raise, {
-      actor,
-      issue: "cn-1",
-      kind: "approval",
-      owner: "balder",
-      title: "the App Store agreement",
-      whatResolves: "accept it in App Store Connect",
-    });
+    const t = await work(2);
+    await raise(t, "cn-1");
     await t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1" });
     expect((await healthOf(t)).waiting).toEqual([
       { id: "bl-1", title: "the App Store agreement", owner: "balder" },
@@ -207,7 +168,7 @@ describe("epics.health", () => {
   });
 
   it("is what epics.list and show.get both carry", async () => {
-    const t = await seeded(1);
+    const t = await work(1);
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     const [epic] = await t.query(api.epics.list, {});
     expect(epic!.health.moving).toHaveLength(1);
@@ -220,7 +181,7 @@ describe("epics.health", () => {
 
 describe("epics.close", () => {
   it("refuses while a task is open, naming every one of them in reference form", async () => {
-    const t = await seeded(2);
+    const t = await work(2);
     await expect(
       t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 }),
     ).rejects.toMatchObject({
@@ -233,24 +194,19 @@ describe("epics.close", () => {
   });
 
   it("closes over an open follow-up, because residue is not open work", async () => {
-    const t = await seeded(1);
-    await t.mutation(api.issues.close, {
-      actor,
-      id: "cn-1",
-      revision: 0,
-      verification: { command: "vp run verify", exitCode: 0, output: "pass" },
+    const t = await work(1);
+    await closeIssue(t, "cn-1", 0, {
       followUp: { title: "confirm it on a device", kind: "verify" },
     });
     const { epic, dropped } = await t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 });
     expect(epic).toMatchObject({ id: "ep-1", status: "closed", revision: 1 });
     expect(epic.counts.followUps).toBe(1);
     expect(dropped).toEqual([]);
-    const events = await t.run((ctx) => ctx.db.query("events").collect());
-    expect(events.filter((e) => e.kind === "epic.close")).toMatchObject([{ actor, revision: 1 }]);
+    expect(await eventsOf(t, "epic.close")).toMatchObject([{ actor, revision: 1 }]);
   });
 
   it("refuses the inbox, and a revision that has moved", async () => {
-    const t = await seeded(1);
+    const t = await work(1);
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
     await expect(
       t.mutation(api.epics.close, { actor, id: "ep-0", revision: 0 }),
@@ -263,7 +219,7 @@ describe("epics.close", () => {
   });
 
   it("drops the epic and everything live in it, with the reason on each", async () => {
-    const t = await seeded(2);
+    const t = await work(2);
     await expect(
       t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0, drop: true }),
     ).rejects.toMatchObject({
@@ -292,11 +248,10 @@ describe("epics.close", () => {
         status: "dropped",
         droppedReason: "the feature is not shipping",
       });
-    const rows = await t.run((ctx) => ctx.db.query("events").collect());
-    const kinds = rows.map((e) => e.kind);
+    const kinds = (await eventsOf(t)).map((e) => e.kind);
     expect(kinds.filter((k) => k === "issue.drop")).toHaveLength(2);
     expect(kinds.filter((k) => k === "epic.drop")).toHaveLength(1);
-    for (const e of rows.filter((e) => e.kind === "issue.drop"))
+    for (const e of await eventsOf(t, "issue.drop"))
       expect(e.changes).toEqual({
         status: { from: "open", to: "dropped" },
         droppedReason: { to: "the feature is not shipping" },
