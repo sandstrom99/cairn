@@ -145,11 +145,15 @@ export function resolveDeployment(env: NodeJS.ProcessEnv = process.env): Deploym
   if (env.CAIRN_URL) return { name: "CAIRN_URL", url: env.CAIRN_URL, source: "env", ...fromEnv };
   const cfg = readConfig(env);
   if (!cfg) return null;
-  const names = Object.keys(cfg.deployments ?? {});
+  // A hand-edited file can lack the key altogether; that is a file with no deployments.
+  const deployments = cfg.deployments ?? {};
+  const names = Object.keys(deployments);
   const name = cfg.default ?? (names.length === 1 ? names[0] : undefined);
   if (!name) return null;
-  const dep = cfg.deployments[name];
-  if (!dep?.url) throw new Error(`${configPath(env)}: deployment "${name}" has no url`);
+  const dep = deployments[name];
+  if (!dep)
+    throw new Error(`${configPath(env)}: default "${name}" names no deployment in the file`);
+  if (!dep.url) throw new Error(`${configPath(env)}: deployment "${name}" has no url`);
   const fromConfig = dep.secret ? { secret: dep.secret, secretSource: "config" as const } : {};
   return { name, url: dep.url, source: "config", ...fromConfig, ...fromEnv };
 }

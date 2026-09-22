@@ -3,8 +3,8 @@ import { UsageError } from "../lib/cli.mts";
 import { parse } from "./log.mts";
 
 describe("cn log", () => {
-  it("defaults to a limit of 20, no before, and json off", () => {
-    expect(parse([])).toEqual({ action: "log", limit: 20, json: false });
+  it("sends no limit it was not given, so the deployment's default holds; no before, json off", () => {
+    expect(parse([])).toEqual({ action: "log", json: false });
   });
 
   it("takes --limit and --json", () => {
@@ -18,7 +18,6 @@ describe("cn log", () => {
   it("parses --before as anything Date.parse takes", () => {
     expect(parse(["--before", "2026-09-01"])).toEqual({
       action: "log",
-      limit: 20,
       before: Date.parse("2026-09-01"),
       json: false,
     });

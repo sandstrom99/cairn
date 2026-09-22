@@ -5,8 +5,8 @@
 //
 // A bool flag is `--x`; `--x=no|false|0|off` turns it off. A value flag is `--x y` or
 // `--x=y`, and the last one wins. A list flag swallows every following positional
-// (`--requires ios device`) or takes `--x=y`, and accumulates across repeats. An
-// optional flag is true when bare and its `=` value when given. `--` ends the flags.
+// (`--requires ios device`) or takes `--x=y`, and accumulates across repeats. `--` ends
+// the flags.
 // An unknown flag, or a value flag with no value, throws UsageError, which `main()`
 // turns into exit 2.
 
@@ -14,22 +14,21 @@ import { UsageError } from "./cli.mts";
 
 const OFF = ["no", "false", "0", "off"];
 
-/** Which names take which shape. A name absent from all four is an unknown option. */
+/** Which names take which shape. A name absent from all three is an unknown option. */
 export type ArgSpec = {
   bool?: string[];
   value?: string[];
   list?: string[];
-  optional?: string[];
 };
 
-/** A bool is true/false, a value a string, a list an array, an optional true or its `=` value. */
+/** A bool is true/false, a value a string, a list an array. */
 export type ArgValue = boolean | string | string[];
 
 export type ParsedArgs = { pos: string[]; opts: Record<string, ArgValue> };
 
 export function parseArgs(
   argv: string[],
-  { bool = [], value = [], list = [], optional = [] }: ArgSpec = {},
+  { bool = [], value = [], list = [] }: ArgSpec = {},
 ): ParsedArgs {
   const pos: string[] = [];
   const opts: Record<string, ArgValue> = {};
@@ -54,10 +53,6 @@ export function parseArgs(
     }
     if (bool.includes(name)) {
       opts[name] = given === undefined ? true : !OFF.includes(given.toLowerCase());
-      continue;
-    }
-    if (optional.includes(name)) {
-      opts[name] = given === undefined ? true : given;
       continue;
     }
     if (!value.includes(name)) throw new UsageError(`unknown option ${a}`);

@@ -15,8 +15,8 @@ import { invalid } from "./lib/errors";
 import { query } from "./lib/guard";
 import { type Ref, ref } from "./lib/views";
 
-export const DEFAULT_LIMIT = 50;
-export const MAX_LIMIT = 200;
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
 
 /**
  * Resolves a Convex id to its Ref, once per call: fifty events usually name a handful of
