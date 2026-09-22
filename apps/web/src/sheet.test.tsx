@@ -1,7 +1,7 @@
 // The pin, for the pages of one id: what the page sets as a table, a list or a column is
 // what `cn show` prints for the same view, in its words and its order. The page goes
-// further than the brief in one place only, by design: text the brief cuts to a first line
-// is printed whole.
+// further than the brief in one place only, by design: text the brief cuts to a first line,
+// and the output a proof stored, is printed whole.
 import {
   type HistoryEvent,
   type ShownBlocker,
@@ -9,6 +9,8 @@ import {
   brief,
   historyLines,
   issueLine,
+  stateLine,
+  stateParts,
 } from "@cairn/cli/src/lib/format.mts";
 import { ref } from "@cairn/cli/src/lib/ref.mts";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -47,11 +49,12 @@ const issue: ShownIssue = {
   closedAt: undefined,
   revision: 1,
   createdAt: now - DAY,
+  stuck: false,
   journal: [{ author: agent, kind: "decision", body: "rows, not lines", at: now - 3 * HOUR }],
-  blocks: [{ id: "cn-11", title: "the human channel" }],
+  blocks: [{ id: "cn-11", title: "the human channel", status: "open" }],
   blockedBy: [
-    { id: "cn-23", title: "the skeleton" },
-    { id: "cn-24", title: "the feed" },
+    { id: "cn-23", title: "the skeleton", status: "closed" },
+    { id: "cn-24", title: "the feed", status: "open" },
   ],
   related: [],
   discoveredFrom: [],
@@ -68,19 +71,65 @@ const factsOf = (text: string): string =>
     .split("\n")
     .slice(1)
     .filter(
-      (line) => !/^(design|acceptance|journal|history)\b/.test(line) && !line.startsWith("  "),
+      (line) =>
+        !/^(description|design|acceptance|journal|history)\b/.test(line) && !line.startsWith("  "),
     )
     .map(squeeze)
     .join(" ");
 
+/** The page for an issue, as text. */
+const page = (shown: ShownIssue): string =>
+  plain(renderToStaticMarkup(<IssuePage issue={shown} siblings={[]} now={now} />));
+
+/** The one line of state at the top of the page. */
+const stateOf = (shown: ShownIssue): string => {
+  const markup = renderToStaticMarkup(<IssuePage issue={shown} siblings={[]} now={now} />);
+  return plain(markup.slice(markup.indexOf("</header>"), markup.indexOf('<div class="paper')));
+};
+
 describe("an issue's page", () => {
-  const markup = renderToStaticMarkup(
-    <IssuePage issue={issue} siblings={[]} stuck={undefined} now={now} />,
-  );
+  const markup = renderToStaticMarkup(<IssuePage issue={issue} siblings={[]} now={now} />);
 
   it("sets cn show's labelled lines as its table, in cn's words and order", () => {
     const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
     expect(plain(table)).toBe(factsOf(brief(issue, now)));
+    // A finished end of a blocking edge carries cn's word after its reference.
+    expect(plain(table)).toContain('blocked by cn-23 "the skeleton" done, cn-24 "the feed"');
+  });
+
+  it("opens with the state line cn's status line opens with, for every state", () => {
+    const states: ShownIssue[] = [
+      issue,
+      { ...issue, status: "open", claimedBy: undefined, claimedAt: undefined },
+      { ...issue, status: "open", claimedBy: undefined, stuck: true, lastActivity: now - 9 * DAY },
+      {
+        ...issue,
+        status: "open",
+        claimedBy: undefined,
+        waitingOn: [{ id: "bl-4", title: "name the day" }],
+      },
+      { ...issue, status: "open", claimedBy: undefined, blockedBy: [], deferUntil: now + 9 * DAY },
+      { ...issue, status: "open", claimedBy: undefined, blockedBy: [] },
+      { ...issue, status: "closed", claimedBy: undefined, closedAt: now - HOUR },
+      {
+        ...issue,
+        status: "dropped",
+        claimedBy: undefined,
+        closedAt: now - HOUR,
+        droppedReason: "no",
+      },
+    ];
+    expect(states.map(stateOf)).toEqual(states.map((s) => squeeze(stateLine(stateParts(s, now)))));
+    expect(states.map(stateOf)).toEqual([
+      "moving balder/claude 2h",
+      'blocked by cn-24 "the feed"',
+      "stuck silent 9d",
+      'waiting on bl-4 "name the day"',
+      "deferred until 2026-09-30",
+      "open",
+      "closed 1h ago",
+      "dropped 1h ago",
+    ]);
   });
 
   it("prints in full what the brief cuts to a first line", () => {
@@ -94,20 +143,15 @@ describe("an issue's page", () => {
     expect(plain(markup)).toContain("Copy reference");
   });
 
-  it("says moving, and by whom, when somebody holds it", () => {
-    expect(plain(markup)).toContain("moving balder/claude 2h");
-  });
-
-  it("says stuck when the epic's health names it, and waiting when a blocker holds it", () => {
-    const open = { ...issue, status: "open" as const, claimedBy: undefined, claimedAt: undefined };
-    const stuck = { id: "cn-26", title: issue.title, lastActivity: now - 9 * DAY };
-    expect(
-      plain(renderToStaticMarkup(<IssuePage issue={open} siblings={[]} stuck={stuck} now={now} />)),
-    ).toContain("stuck silent 9d");
-    const held = { ...open, waitingOn: [{ id: "bl-4", title: "name the day" }] };
-    expect(
-      plain(renderToStaticMarkup(<IssuePage issue={held} siblings={[]} stuck={stuck} now={now} />)),
-    ).toContain('waiting on bl-4 "name the day"');
+  it("links what the state names", () => {
+    const held = {
+      ...issue,
+      status: "open" as const,
+      claimedBy: undefined,
+      waitingOn: [{ id: "bl-4", title: "name the day" }],
+    };
+    const markup = renderToStaticMarkup(<IssuePage issue={held} siblings={[]} now={now} />);
+    expect(markup.slice(0, markup.indexOf("<dl"))).toContain('href="/bl-4"');
   });
 
   it("steps to the issue before and the one after, in the epic's order", () => {
@@ -116,32 +160,60 @@ describe("an issue's page", () => {
       { id: "cn-26", title: issue.title },
       { id: "cn-11", title: "after" },
     ];
-    const stepped = renderToStaticMarkup(
-      <IssuePage issue={issue} siblings={siblings} stuck={undefined} now={now} />,
-    );
+    const stepped = renderToStaticMarkup(<IssuePage issue={issue} siblings={siblings} now={now} />);
     expect(stepped).toContain('href="/cn-25"');
     expect(stepped).toContain('href="/cn-11"');
     expect(plain(stepped)).toContain("2 of 3");
   });
 
-  it("prints the proof a close stored: the command, its exit code and what it said", () => {
-    const closed = {
+  it("prints the proof a close stored as cn's line, and what the command said in full", () => {
+    const closed: ShownIssue = {
       ...issue,
-      status: "closed" as const,
+      status: "closed",
+      claimedBy: undefined,
       closedAt: now - HOUR,
       verification: {
         command: "vp run verify",
         exitCode: 0,
-        output: "Test Files  33 passed",
+        output: "Test Files  33 passed\n      Tests  227 passed",
         at: now - HOUR,
         by: agent,
       },
     };
-    const text = plain(
-      renderToStaticMarkup(<IssuePage issue={closed} siblings={[]} stuck={undefined} now={now} />),
+    const line = brief(closed, now)
+      .split("\n")
+      .find((l) => l.startsWith("proof"))!;
+    expect(line).toBe("proof           vp run verify (exit 0) by balder/claude 1h ago");
+    const text = page(closed);
+    expect(text).toContain(squeeze(line));
+    expect(text).toContain("output Test Files 33 passed Tests 227 passed");
+    expect(brief(closed, now)).not.toContain("33 passed");
+  });
+
+  it("prints the reason a drop gave as cn's line", () => {
+    const dropped: ShownIssue = {
+      ...issue,
+      status: "dropped",
+      claimedBy: undefined,
+      closedAt: now - HOUR,
+      droppedReason: "superseded by cn-30",
+    };
+    expect(brief(dropped, now)).toContain("reason          superseded by cn-30");
+    expect(page(dropped)).toContain("reason superseded by cn-30");
+  });
+
+  it("prints the description in full, where the brief keeps its first line", () => {
+    const described: ShownIssue = {
+      ...issue,
+      description:
+        "Balder, 2026-09-21: the journal is the most context an issue has.\n\nSo show it.",
+    };
+    expect(brief(described, now)).toContain(
+      "description     Balder, 2026-09-21: the journal is the most context an issue has.…",
     );
-    expect(text).toContain("vp run verify exit 0, run by balder/claude 1h ago");
-    expect(text).toContain("Test Files 33 passed");
+    expect(page(described)).toContain(
+      "description Balder, 2026-09-21: the journal is the most context an issue has. So show it.",
+    );
   });
 });
 

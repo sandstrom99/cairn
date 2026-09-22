@@ -124,7 +124,17 @@ row("verbs/epic.mts", () => {
 });
 
 row("verbs/create.mts", () => {
-  const first = cn(["create", "--project", "cn", "--epic", "ep-1", "--title", "scratch: first"]);
+  const first = cn([
+    "create",
+    "--project",
+    "cn",
+    "--epic",
+    "ep-1",
+    "--title",
+    "scratch: first",
+    "--description",
+    "scratch: the first line\n\nand a second paragraph",
+  ]);
   assert.equal(first.status, 0, "cn create was refused");
   assert.match(first.out, /cn-1/, "the first issue did not mint cn-1");
   const second = cn(["create", "--project", "cn", "--epic", "ep-1", "--title", "scratch: second"]);
@@ -178,6 +188,16 @@ row("verbs/show.mts", () => {
   const issue = cn(["show", "cn-1"]);
   assert.equal(issue.status, 0, "cn show cn-1 exited non-zero");
   assert.match(issue.out, /scratch: first/);
+  assert.match(
+    issue.out,
+    /^status {10}open · P2 · created .* · revision 0$/m,
+    "the status line does not open with the state",
+  );
+  assert.match(
+    issue.out,
+    /^description {5}scratch: the first line…$/m,
+    "the brief does not print the description's first line, marked as cut",
+  );
   const epic = cn(["show", "ep-1"]);
   assert.equal(epic.status, 0, "cn show ep-1 exited non-zero");
   assert.match(epic.out, /cn-1/, "an epic does not show its open issues");
@@ -282,6 +302,9 @@ row("verbs/drop.mts", () => {
   const dropped = cn(["drop", "cn-4", "--revision", revision, "--reason", "scratch"]);
   assert.equal(dropped.status, 0, "cn drop --reason was refused");
   assert.equal(json(["show", "cn-4"]).droppedReason, "scratch", "the reason was not recorded");
+  const shown = cn(["show", "cn-4"]);
+  assert.match(shown.out, /^status {10}dropped just now · /m, "cn show does not read the drop");
+  assert.match(shown.out, /^reason {10}scratch$/m, "cn show does not print the reason");
 });
 
 row("verbs/close.mts", () => {
@@ -308,6 +331,25 @@ row("verbs/close.mts", () => {
   assert.equal(shown.verification.exitCode, 0, "the record is not the real exit code");
   assert.match(shown.verification.output, /proof/, "the record does not carry what it wrote");
   assert.equal(shown.followUps.length, 1, "the follow-up does not exist beside the closed parent");
+  const printed = cn(["show", "cn-2"]);
+  assert.match(printed.out, /^status {10}closed just now · /m, "cn show does not read the close");
+  assert.match(
+    printed.out,
+    /^proof {11}echo proof \(exit 0\) by \S+ just now$/m,
+    "cn show does not print the proof as its line",
+  );
+
+  // A blocking edge from a finished issue is history, not a hold: cn show marks the end
+  // done, and cn ready never noticed it (§7).
+  assert.equal(cn(["dep", "add", "cn-3", "--blocked-by", "cn-2"]).status, 0, "cn dep add refused");
+  const held = cn(["show", "cn-3"]);
+  assert.match(held.out, /^status {10}open · /m, "a finished blocker reads as blocking");
+  assert.match(
+    held.out,
+    /^blocked by {6}cn-2 "scratch: second" done$/m,
+    "the finished end of the edge is not marked done",
+  );
+  assert.ok(ids(json(["ready"])).includes("cn-3"), "a finished blocker held cn-3 out of ready");
 });
 
 row("verbs/log.mts", () => {

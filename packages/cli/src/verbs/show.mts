@@ -3,11 +3,15 @@
 //   cn show <id> [--history] [--json]
 //
 // The id says which: `ep-` an epic with its open issues, `bl-` a blocker with what it
-// holds, anything else an issue. An issue's brief is about ten lines — where it sits,
-// what it waits on, what waits on it, the first line of its design and acceptance, and
-// its last five journal entries — because that is what a session needs before it starts
-// and what it leaves behind when it stops. --history adds every event on it: what
-// changed, who changed it and when, oldest first.
+// holds, anything else an issue. An issue's brief is about ten lines — its state, where
+// it sits, the proof it closed on or the reason it was dropped, what it waits on, what
+// waits on it, the first line of its description, design and acceptance, and its last
+// five journal entries — because that is what a session needs before it starts and what
+// it leaves behind when it stops. The status line opens with the state: `moving`, and
+// who, `waiting`, `stuck`, `blocked`, `deferred until` a date, `closed`, `dropped`, or
+// `open`. A `blocks` edge whose far end is finished reads `done`: it holds nothing back
+// and stays as history. --history adds every event on it: what changed, who changed it
+// and when, oldest first.
 
 import { parseArgs } from "../lib/args.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";

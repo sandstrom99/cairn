@@ -5,7 +5,7 @@
 //
 // The facts are `issueFacts` and `blockerFacts` from @cairn/cli, the ones `cn show` prints,
 // so the table says what the brief says, in its words and its order (sheet.test.tsx).
-import type { Fact } from "@cairn/cli/src/lib/format.mts";
+import type { Fact, Named } from "@cairn/cli/src/lib/format.mts";
 import type { Referable } from "@cairn/cli/src/lib/ref.mts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
@@ -81,28 +81,36 @@ export function State({
 const LINE =
   "grid grid-cols-[116px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] max-[720px]:grid-cols-1 max-[720px]:gap-1";
 
-export function Refs({ items }: { items: Referable[] }) {
+/** The things a line names, each a link, with cn's word after one that is finished: `cn-6 "…" done`. */
+export function Refs({ items }: { items: Named[] }) {
   return (
     <>
       {items.map((item, i) => (
         <Fragment key={item.id}>
           {i > 0 && <span className="text-mark">, </span>}
           <Ref item={item} />
+          {item.tail && <span className="text-slate"> {item.tail}</span>}
         </Fragment>
       ))}
     </>
   );
 }
 
-/** `cn show`'s labelled lines, and under them whatever long text the page passes in. */
+/**
+ * `cn show`'s labelled lines, and under them whatever long text the page passes in. A
+ * fact that opens with something that ran sets it in mono, because it gets pasted.
+ */
 export function Sheet({ facts, children }: { facts: Fact[]; children?: ReactNode }) {
   return (
     <div className="paper mt-6 divide-y divide-hair">
       <dl className="divide-y divide-hair">
-        {facts.map(({ label, text, refs }) => (
+        {facts.map(({ label, code, text, refs }) => (
           <div key={label} className={LINE}>
             <dt className="text-small text-slate">{label}</dt>{" "}
-            <dd className="text-row">{refs ? <Refs items={refs} /> : <Run text={text ?? ""} />}</dd>
+            <dd className="text-row">
+              {code && <code className="font-mono">{code} </code>}
+              {refs ? <Refs items={refs} /> : <Run text={text ?? ""} />}
+            </dd>
           </div>
         ))}
       </dl>

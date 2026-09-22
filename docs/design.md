@@ -540,8 +540,8 @@ the agents doing, and does anything need me.
 **A row is one of cn's lines, typeset.** The page does not print the padded
 lines a terminal gets, and it does not word anything a second way either.
 `format.mts` builds each line from pieces, `healthParts`, `blockerParts`,
-`logParts` and `changePieces`, and the line is those pieces joined; the page
-sets the same pieces in columns. The separators cn prints stay in the markup,
+`logParts`, `stateParts`, `proofParts` and `changePieces`, and the line is
+those pieces joined; the page sets the same pieces in columns. The separators cn prints stay in the markup,
 pale or not drawn, so the text of a row is the line. `apps/web/src/rows.test.tsx`
 holds every row to that, which is how "the same health lines as `cn epic list`"
 is checked rather than hoped for. Ruled out: a mono dump of the lines with the
@@ -557,10 +557,16 @@ said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
 
-A page for one id is `cn show` with room. An issue is the brief's labelled lines
-as a table, `issueFacts`, then everything written into it printed whole where
-the brief keeps a first line, then the proof its close stored and its journal,
-with its own history in the column where the Overview has the feed. An epic is
+A page for one id is `cn show` with room. An issue opens with its state,
+`stateParts`, the head of the brief's status line: `moving balder/claude 2h`,
+`waiting on bl-4 "…"`, `blocked by` the ends still live, `stuck silent 9d`,
+`deferred until 2026-10-01`, `closed 2h ago`, `dropped 2h ago`, or `open`. Then
+the brief's labelled lines as a table, `issueFacts`, the proof a close stored
+and the reason a drop gave among them, and a `blocks` edge with a finished end
+marked `done` rather than dropped (§7); then everything written into it printed
+whole where the brief keeps a first line, the output the proof carries among
+that, then its journal, with its own history in the column where the Overview
+has the feed. An epic is
 its health and every issue under it, the finished ones included, which is more
 than `cn show ep-3` lists and is what a person opening an epic came for. Getting
 around is the point of the page: every reference anywhere is a link, an issue

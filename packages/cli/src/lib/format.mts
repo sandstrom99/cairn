@@ -280,7 +280,13 @@ const firstLine = (text: string): string => {
   const [head, ...rest] = text.split("\n");
   return rest.length > 0 && rest.join("").trim() !== "" ? `${head}…` : (head ?? "");
 };
-const refs = (items: Referable[]): string => items.map(ref).join(", ");
+/** A reference with a word after it where the thing named is not what it was: `cn-6 "…" done`. */
+export type Named = Referable & { tail?: string };
+
+const named = (item: Named): string => (item.tail ? `${ref(item)} ${item.tail}` : ref(item));
+const refs = (items: Named[]): string => items.map(named).join(", ");
+/** The date alone, `2026-10-01`: a day somebody looks again, where the hour is noise. */
+const day = (at: number): string => new Date(at).toISOString().slice(0, 10);
 /** `2h ago`, but `just now` reads as itself. */
 export const since = (at: number, now: number): string => {
   const token = age(at, now);
@@ -409,43 +415,133 @@ export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
 
 /**
  * One labelled line of `cn show`: a label, and either a run of text or the things it
- * names. The brief is these printed under the reference, and the web window's page for
- * an id is these set as a table, so the two say the same facts in the same words.
+ * names, with `code` where the line opens with something that ran. The brief is these
+ * printed under the reference, and the web window's page for an id is these set as a
+ * table, so the two say the same facts in the same words.
  */
-export type Fact = { label: string; text?: string; refs?: Referable[] };
+export type Fact = { label: string; code?: string; text?: string; refs?: Named[] };
 
-const factLine = ({ label: name, text, refs: named }: Fact): string =>
-  `${label(name)}${named ? refs(named) : (text ?? "")}`;
+const factLine = ({ label: name, code, text, refs: items }: Fact): string =>
+  `${label(name)}${code ? `${code} ` : ""}${items ? refs(items) : (text ?? "")}`;
 
 export type ShownIssue = Extract<Shown, { kind: "issue" }>;
 export type ShownEpic = Extract<Shown, { kind: "epic" }>;
 export type ShownBlocker = Extract<Shown, { kind: "blocker" }>;
 
-/** An issue's facts, from its epic down to what it waits on. Its prose comes after them. */
+/** The one word for where an issue stands. */
+export type StateWord =
+  | "moving"
+  | "waiting"
+  | "stuck"
+  | "blocked"
+  | "deferred"
+  | "closed"
+  | "dropped"
+  | "open";
+
+/**
+ * An issue's state in pieces: the word, and what it rests on. Where the state names other
+ * things, `tail` is the preposition and `refs` the things, `waiting on bl-4 "…"`; where
+ * it does not, `tail` is the rest of the line, `moving balder/claude 2h`, `stuck silent
+ * 9d`, `deferred until 2026-10-01`, `closed 2h ago`; and `open` stands alone.
+ */
+export type StateParts = { word: StateWord; tail?: string; refs?: Referable[] };
+
+// Anything not known to be finished holds: a deployment that does not send a status yet
+// (the CLI is ahead of it until `push:cloud`) keeps reading its blockers as live.
+const isLive = ({ status }: { status: string }): boolean =>
+  status !== "closed" && status !== "dropped";
+
+/** Only the end of a blocking edge that is still live holds anything (§4); a finished one is history. */
+const finished = ({ status }: { status: string }): string | undefined =>
+  status === "closed" ? "done" : status === "dropped" ? "dropped" : undefined;
+
+/**
+ * Where an issue stands, from its own fields and its neighbourhood, in the order the
+ * words matter: held, then held up, then at rest. `stuck` is the epic's stuck line
+ * pointing at this issue, computed by the deployment (design §8), never a second rule here.
+ */
+export function stateParts(shown: ShownIssue, now: number = Date.now()): StateParts {
+  if (shown.status === "in_progress")
+    return {
+      word: "moving",
+      tail: [
+        shown.claimedBy?.name,
+        shown.claimedAt === undefined ? undefined : age(shown.claimedAt, now),
+      ]
+        .filter((part): part is string => part !== undefined)
+        .join(" "),
+    };
+  if (shown.status === "closed" || shown.status === "dropped")
+    return {
+      word: shown.status,
+      tail: shown.closedAt === undefined ? undefined : since(shown.closedAt, now),
+    };
+  if (shown.waitingOn.length > 0) return { word: "waiting", tail: "on", refs: shown.waitingOn };
+  if (shown.stuck) return { word: "stuck", tail: `silent ${age(shown.lastActivity, now)}` };
+  const held = shown.blockedBy.filter(isLive);
+  if (held.length > 0) return { word: "blocked", tail: "by", refs: held };
+  if (shown.deferUntil !== undefined && shown.deferUntil > now)
+    return { word: "deferred", tail: `until ${day(shown.deferUntil)}` };
+  return { word: "open" };
+}
+
+/** The state as one run: `waiting on bl-4 "name the day"`, `moving balder/claude 2h`, `open`. */
+export const stateLine = ({ word, tail, refs: items }: StateParts): string =>
+  [word, tail, items === undefined ? undefined : refs(items)]
+    .filter((part): part is string => part !== undefined && part !== "")
+    .join(" ");
+
+/** What a close stored (design §12). */
+export type Verification = NonNullable<ShownIssue["verification"]>;
+
+/**
+ * A close's proof in pieces: what ran and how it ended, `vp run verify (exit 0)`, which
+ * the page sets in mono because it gets pasted; then who closed on it and when. An
+ * unverified close has no `ran`, and its reason ends the text. The output is the record's
+ * whole; the brief leaves it out and the page prints it.
+ */
+export type ProofParts = { ran?: string; text: string; output?: string };
+
+export function proofParts(record: Verification, now: number = Date.now()): ProofParts {
+  const by = `by ${record.by.name} ${since(record.at, now)}`;
+  if ("command" in record)
+    return { ran: `${record.command} (exit ${record.exitCode})`, text: by, output: record.output };
+  return { text: `unverified ${by}: ${record.unverified}` };
+}
+
+/**
+ * An issue's facts, from its epic down to what it waits on. Its prose comes after them.
+ * The status line opens with the state; where the state names other things they are on
+ * their own line below, so `waiting on` and `blocked by` name a thing once.
+ */
 export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] {
+  const state = stateParts(shown, now);
+  const head = state.refs ? state.word : stateLine(state);
   const facts: Fact[] = [
     { label: "epic", refs: [shown.epic] },
     { label: "project", text: shown.project },
     {
       label: "status",
-      text: `${shown.status} · P${shown.priority} · created ${since(shown.createdAt, now)} · revision ${shown.revision}`,
+      text: `${head} · P${shown.priority} · created ${since(shown.createdAt, now)} · revision ${shown.revision}`,
     },
   ];
-  if (shown.claimedBy)
-    facts.push({
-      label: "claimed",
-      text: `${shown.claimedBy.name}${
-        shown.claimedAt === undefined ? "" : ` · ${age(shown.claimedAt, now)}`
-      }`,
-    });
+  if (shown.verification) {
+    const { ran, text } = proofParts(shown.verification, now);
+    facts.push({ label: "proof", code: ran, text });
+  }
+  if (shown.droppedReason !== undefined) facts.push({ label: "reason", text: shown.droppedReason });
   if (shown.requires.length > 0) facts.push({ label: "requires", text: shown.requires.join(", ") });
   if (shown.parent) facts.push({ label: "parent", refs: [shown.parent] });
   // The blocking edges, then the context ones: those say where an issue came from and what
-  // it sits beside, and none of them touches readiness (design §3).
-  const named: [string, Referable[]][] = [
+  // it sits beside, and none of them touches readiness (design §3). A blocking edge with a
+  // finished end reads as done, not as live: it holds nothing back and stays as history (§7).
+  const ends = (items: (Referable & { status: string })[]): Named[] =>
+    items.map(({ id, title, status }) => ({ id, title, tail: finished({ status }) }));
+  const named: [string, Named[]][] = [
     ["follow-ups", shown.followUps],
-    ["blocks", shown.blocks],
-    ["blocked by", shown.blockedBy],
+    ["blocks", ends(shown.blocks)],
+    ["blocked by", ends(shown.blockedBy)],
     ["related", shown.related],
     ["discovered from", shown.discoveredFrom],
     ["duplicates", shown.duplicates],
@@ -467,9 +563,7 @@ export function blockerFacts(shown: ShownBlocker, now: number = Date.now()): Fac
     },
     { label: "resolves when", text: shown.whatResolves },
   ];
-  // The date alone: a nudge is a day somebody looks again, and the hour is noise.
-  if (shown.nudgeAt !== undefined)
-    facts.push({ label: "nudge", text: new Date(shown.nudgeAt).toISOString().slice(0, 10) });
+  if (shown.nudgeAt !== undefined) facts.push({ label: "nudge", text: day(shown.nudgeAt) });
   if (shown.resolvedBy && shown.resolvedAt !== undefined)
     facts.push({
       label: "resolved",
@@ -513,6 +607,7 @@ export function brief(shown: Shown, now: number = Date.now()): string {
   }
 
   const lines = [ref(shown), ...issueFacts(shown, now).map(factLine)];
+  if (shown.description) lines.push(`${label("description")}${firstLine(shown.description)}`);
   if (shown.design) lines.push(`${label("design")}${firstLine(shown.design)}`);
   if (shown.acceptance) lines.push(`${label("acceptance")}${firstLine(shown.acceptance)}`);
   if (shown.journal.length > 0) {
