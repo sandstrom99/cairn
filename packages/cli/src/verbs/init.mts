@@ -28,9 +28,8 @@
 // writes is `~/.config/cairn/config.json`, or `$XDG_CONFIG_HOME/cairn/config.json` where
 // that is set, mode 600, because the secret is in it.
 
-import { ConvexError } from "convex/values";
 import { parseArgs } from "../lib/args.mts";
-import { UsageError, usageFromHeader, say } from "../lib/cli.mts";
+import { UsageError, errorData, usageFromHeader, say } from "../lib/cli.mts";
 import { api, connectTo } from "../lib/client.mts";
 import { type CairnConfig, readConfig, withDeployment, writeConfig } from "../lib/config.mts";
 import { captureStdout } from "../lib/run.mts";
@@ -177,8 +176,7 @@ export async function run(argv: string[]): Promise<number> {
     ok(`${parsed.name} → ${parsed.url} answered: ${projects.length} project(s)`);
     if (secret !== undefined) ok(`secret accepted (from ${parsed.secret.from})`);
   } catch (e) {
-    const kind = e instanceof ConvexError ? (e.data as { kind?: string } | undefined)?.kind : null;
-    if (kind === "unauthorized")
+    if (errorData(e)?.kind === "unauthorized")
       bad(
         secret === undefined
           ? `${parsed.url} needs a secret: pass --secret-cmd, or set CAIRN_SECRET; nothing written`

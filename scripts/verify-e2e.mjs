@@ -289,9 +289,25 @@ row("verbs/update.mts", () => {
   const revision = revisionOf("cn-2");
   const args = ["update", "cn-2", "--revision", String(revision), "--priority", "1"];
   assert.equal(cn(args).status, 0, "cn update against the revision cn printed was refused");
+  const current = revisionOf("cn-2");
+  assert.notEqual(current, revision, "the update did not move the revision");
   const stale = cn(args);
   assert.equal(stale.status, 1, "a write against a moved revision was not refused");
-  assert.match(stale.out, /--revision/, "the refusal does not say how to retry");
+  assert.match(
+    stale.out,
+    new RegExp(`^✗ cn-2 is at revision ${current}, you read ${revision}$`, "m"),
+    "the refusal does not name the revision it is at and the one read",
+  );
+  assert.match(
+    stale.out,
+    /^ {2}r\d+ {2}e2e\/claude {2}just now {2}issue\.update {2}priority \d → 1$/m,
+    "the refusal does not list the update that moved it",
+  );
+  assert.equal(
+    lines(stale.out).at(-1),
+    `  re-read with cn show cn-2 and retry with --revision ${current}`,
+    "the refusal does not end with the real cn show and --revision to retry with",
+  );
 });
 
 row("verbs/journal.mts", () => {

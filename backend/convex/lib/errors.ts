@@ -1,19 +1,62 @@
 // errors.ts: every ConvexError thrown anywhere carries `kind` and `message`. `cn` prints
 // `message` and branches on `kind`, so an error that omits either is a broken contract.
+//
+// `CairnError` is that contract as a type. Every throw in the deployment goes through
+// `cairnError`, which takes a member of the union and nothing else, so a shape that
+// drifts fails the type check here rather than printing a placeholder in a terminal.
+// `cn` imports the type alone (`errorData` in packages/cli/src/lib/cli.mts): a type-only
+// import, erased at run time, so the CLI reads what came back by the same names.
 import { ConvexError } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import type { Actor } from "./actor";
+import type { Ref } from "./views";
+
+/** One event since the revision a stale writer read: the row, `at` its creation time. */
+export type SinceEvent = Pick<Doc<"events">, "revision" | "actor" | "kind" | "changes"> & {
+  at: number;
+};
+
+/** Every shape a ConvexError from this deployment carries, told apart by `kind`. */
+export type CairnError =
+  /** No document with that public id. */
+  | { kind: "not-found"; message: string }
+  /** The arguments cannot make a valid document. */
+  | { kind: "invalid"; message: string }
+  /** The document is valid but the world already holds one like it. */
+  | { kind: "conflict"; message: string }
+  /** The deployment has a secret and the call did not match it (guard.ts). */
+  | { kind: "unauthorized"; message: string }
+  /** Somebody else holds the claim: who, and since when. */
+  | { kind: "claimed"; message: string; id: string; by: Actor; since: number }
+  /** The revision the writer read has moved: what it is now, and every event since (revision.ts). */
+  | {
+      kind: "stale";
+      message: string;
+      id: string;
+      yours: number;
+      current: number;
+      since: SinceEvent[];
+    }
+  /** A create named no epic: the open ones it could go under (issues.ts). */
+  | { kind: "epic-required"; message: string; candidates: Ref[] };
+
+/** The member of `CairnError` with this `kind`. */
+export type CairnErrorOf<K extends CairnError["kind"]> = Extract<CairnError, { kind: K }>;
+
+/** The one way a ConvexError leaves this deployment: its data is a member of `CairnError`. */
+export const cairnError = <E extends CairnError>(data: E): ConvexError<E> => new ConvexError(data);
 
 /** No document with that public id. */
-export const notFound = (id: string): ConvexError<{ kind: string; message: string }> =>
-  new ConvexError({ kind: "not-found", message: `no such id ${id}` });
+export const notFound = (id: string): ConvexError<CairnErrorOf<"not-found">> =>
+  cairnError({ kind: "not-found", message: `no such id ${id}` });
 
 /** The arguments cannot make a valid document. */
-export const invalid = (message: string): ConvexError<{ kind: string; message: string }> =>
-  new ConvexError({ kind: "invalid", message });
+export const invalid = (message: string): ConvexError<CairnErrorOf<"invalid">> =>
+  cairnError({ kind: "invalid", message });
 
 /** The document is valid but the world already holds one like it. */
-export const conflict = (message: string): ConvexError<{ kind: string; message: string }> =>
-  new ConvexError({ kind: "conflict", message });
+export const conflict = (message: string): ConvexError<CairnErrorOf<"conflict">> =>
+  cairnError({ kind: "conflict", message });
 
 /**
  * Somebody else holds the claim. Claiming is first writer wins, so the second writer is
@@ -28,14 +71,8 @@ export const claimed = (
   },
   /** The asker has the holder's name: another session of it holds the claim. */
   sameName = false,
-): ConvexError<{
-  kind: string;
-  message: string;
-  id: string;
-  by: Actor;
-  since: number;
-}> =>
-  new ConvexError({
+): ConvexError<CairnErrorOf<"claimed">> =>
+  cairnError({
     kind: "claimed",
     message: `${doc.id} is held by ${doc.claimedBy.name}${sameName ? " in another session" : ""} since ${new Date(doc.claimedAt).toISOString()}`,
     id: doc.id,

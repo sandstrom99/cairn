@@ -5,13 +5,13 @@
 // epic does not fail vaguely: it throws `epic-required` carrying the open epics, and
 // `cn create` prints them. ep-0 "Inbox" is the answer when none of them fits, and it is
 // created by the first create that asks for it.
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { actorValidator, sameSession } from "./lib/actor";
 import type { Actor } from "./lib/actor";
 import { claimChanges, closeChanges, dropChanges, releaseChanges } from "./lib/changes";
-import { claimed, invalid, notFound } from "./lib/errors";
+import { cairnError, claimed, invalid, notFound } from "./lib/errors";
 import { record } from "./lib/events";
 import { checkPriority, createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
@@ -88,7 +88,7 @@ export const create = mutation({
         .withIndex("by_status", (q) => q.eq("status", "open"))
         .collect();
       open.sort((a, b) => Number(a.id.slice(3)) - Number(b.id.slice(3)));
-      throw new ConvexError({
+      throw cairnError({
         kind: "epic-required",
         message: "an issue needs an epic",
         candidates: open.map(ref),

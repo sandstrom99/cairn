@@ -1,15 +1,18 @@
 // cli.mts: the shell every verb runs in, written once. Adapted from Invyte's
 // tools/lib/cli.mts, trimmed to what cn needs.
 //
-//   import { UsageError, main, say, warn, usageFromHeader } from "../lib/cli.mts";
+//   import { UsageError, errorData, main, say, warn, usageFromHeader } from "../lib/cli.mts";
 //
 // `main(fn)` runs the CLI body with `process.argv.slice(2)` and owns the exit arms: a
 // UsageError prints `✗ usage: …` and exits 2, a ConvexError prints the message the
 // deployment wrote and exits 1 — and a stale one also prints every change since the
-// revision the caller read, and how to retry — any other error prints `✗ …` and exits 1,
-// and a number returned by `fn` is the exit code. It sets `process.exitCode` and never
-// calls `process.exit()`: a pipe takes a large write asynchronously, and an exit right
-// after it cuts the output at 64 KB.
+// revision the caller read, and the `cn show` and `--revision` to retry with — any other
+// error prints `✗ …` and exits 1, and a number returned by `fn` is the exit code. It sets
+// `process.exitCode` and never calls `process.exit()`: a pipe takes a large write
+// asynchronously, and an exit right after it cuts the output at 64 KB.
+//
+// `errorData(e)` is what a ConvexError from the deployment carries, typed as the
+// deployment's own `CairnError` union, for the verb that answers one kind itself.
 //
 // `say` and `warn` write one line to stderr with the `·` and `!` prefixes; stdout stays
 // for the answer, so `cn … --json | jq` is always clean. `usageFromHeader(import.meta.url)`
@@ -18,14 +21,29 @@
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { CairnError } from "@cairn/backend/convex/lib/errors.js";
 import { ConvexError } from "convex/values";
-import { type HistoryEvent, staleLines } from "./format.mts";
+import { staleLines } from "./format.mts";
 
 /** Wrong arguments: exit 2 at the top of a CLI. */
 export class UsageError extends Error {}
 
 export const say = (msg: string): void => console.error(`· ${msg}`);
 export const warn = (msg: string): void => console.error(`! ${msg}`);
+
+/**
+ * The data a ConvexError from the deployment carries, or undefined for any other error.
+ * The deployment throws every one of its errors as a member of `CairnError`, so what
+ * comes back narrows on `kind`; a ConvexError carrying anything else is not the
+ * deployment's, and reads as undefined so its `message` still prints.
+ */
+export const errorData = (e: unknown): CairnError | undefined => {
+  if (!(e instanceof ConvexError)) return undefined;
+  const data: unknown = e.data;
+  return typeof data === "object" && data !== null && "kind" in data
+    ? (data as CairnError)
+    : undefined;
+};
 
 /** True when the module at `importMetaUrl` is the script node was started with. */
 export const isMain = (importMetaUrl: string): boolean =>
@@ -65,16 +83,18 @@ export async function main(
     }
     if (e instanceof ConvexError) {
       // Every ConvexError the deployment throws carries { kind, message }; the message is
-      // written for the person reading it, so it prints as-is and the kind stays in --json.
-      const data = e.data as
-        | { kind?: string; message?: string; since?: HistoryEvent[] }
-        | undefined;
+      // written for the person reading it, so it prints as-is, and the kind is what this
+      // arm and a verb branch on.
+      const data = errorData(e);
       console.error(`✗ ${redacted(data?.message ?? e.message)}`);
       // A stale write is the one error worth more than its message: the events since the
-      // revision the caller read are what it needs to decide and retry (design §9).
+      // revision the caller read are what it needs to decide, and the id and the revision
+      // it is at now are the retry (design §9).
       if (data?.kind === "stale") {
         for (const line of staleLines(data)) console.error(line);
-        console.error("  re-read with cn show <id> and retry with --revision <current>");
+        console.error(
+          `  re-read with cn show ${data.id} and retry with --revision ${data.current}`,
+        );
       }
       process.exitCode = 1;
       return;
