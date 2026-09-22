@@ -8,7 +8,7 @@
     {
       "name": "cairn",
       "source": "./plugins/cairn",
-      "description": "An agent worklist on Convex: the cn skill, the session-start report, the slash commands",
+      "description": "An agent worklist on Convex: the cn skill, the session-start report, the stop line, the slash commands",
       "version": "0.1.0"
     }
   ]

@@ -17,7 +17,7 @@
 // a config at all, and it writes into a second temp directory it starts empty.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,7 @@ import { startThrowaway } from "../backend/scripts/throwaway.mjs";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const MAIN = join(root, "packages", "cli", "src", "main.mts");
 const HOOK = join(root, "plugins", "cairn", "hooks", "session-start.sh");
+const STOP = join(root, "plugins", "cairn", "hooks", "stop.sh");
 
 /** The deployment under test and the config home cn reads, both set up in `main`. */
 let url;
@@ -87,6 +88,22 @@ function hook({ session, envFile } = {}) {
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
   last = { args: ["(hook)"], status: result.status, stdout, stderr, out: stdout + stderr };
+  return last;
+}
+
+/**
+ * The Stop hook, run as Claude Code runs it: the stop's JSON on stdin, `cn` on PATH, and
+ * the deployment under test in the environment. `path` puts another directory ahead of
+ * the real `cn`, for the one assertion that needs a `cn` answering a line the deployment
+ * will not mark for another hour.
+ */
+function stopHook(input, { path } = {}) {
+  const env = environment({ as: "agent", xdg: home });
+  env.PATH = [path, bin, env.PATH ?? ""].filter((p) => p !== undefined).join(":");
+  const result = spawnSync("bash", [STOP], { encoding: "utf8", cwd: home, env, input });
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  last = { args: ["(stop hook)"], status: result.status, stdout, stderr, out: stdout + stderr };
   return last;
 }
 
@@ -557,6 +574,61 @@ row("verbs/init.mts", () => {
   const ttyless = hook({ envFile });
   assert.equal(ttyless.status, 0, "the hook exited non-zero with empty stdin");
   assert.equal(readFileSync(envFile, "utf8").split("\n").length, 3, "empty stdin wrote a line");
+});
+
+row("plugins/cairn/hooks/stop.sh", () => {
+  const stop = (session, extra = {}, opts = {}) =>
+    stopHook(JSON.stringify({ session_id: session, hook_event_name: "Stop", ...extra }), opts);
+  assert.equal(
+    cn(["claim", "cn-3"], { session: "s-stop" }).status,
+    0,
+    "cn claim cn-3 for the Stop hook was refused",
+  );
+
+  // Held a moment ago: the deployment marks nothing quiet, so the hook says nothing.
+  const fresh = stop("s-stop");
+  assert.equal(fresh.status, 0, "the hook exited non-zero with a fresh claim held");
+  assert.equal(fresh.stdout, "", "the hook printed something for a claim held a moment ago");
+  assert.deepEqual(
+    json(["brief", "--unjournaled"], { session: "s-stop" }),
+    [],
+    "cn brief --unjournaled --json names a claim held a moment ago",
+  );
+  const held = json(["brief"], { session: "s-stop" }).inProgress.find((i) => i.id === "cn-3");
+  assert.ok(held?.mine === true && !("unjournaledSince" in held), "the brief marked it quiet");
+
+  // Already continuing because of a stop hook, and a stop with no session: silent, exit 0.
+  const active = stop("s-stop", { stop_hook_active: true });
+  assert.equal(active.status, 0, "the hook exited non-zero under stop_hook_active");
+  assert.equal(active.stdout, "", "the hook spoke under stop_hook_active");
+  const nobody = stopHook("");
+  assert.equal(nobody.status, 0, "the hook exited non-zero with empty stdin");
+  assert.equal(nobody.stdout, "", "the hook spoke with no session");
+
+  // The wrapping, with the line the deployment will mark an hour from now: a `cn` that
+  // answers it stands in, so the JSON, its event name and the escaping of a title's quotes
+  // and backslashes are proved without waiting for the threshold. The threshold crossing
+  // itself is backend/convex/tests/brief.test.ts.
+  const line = 'you hold cn-3 "scratch: a "quoted" \\ title", last journal 3h ago';
+  const fake = mkdtempSync(join(tmpdir(), "cairn-e2e-fake-"));
+  try {
+    writeFileSync(join(fake, "cn"), `#!/usr/bin/env bash\ncat <<'LINE'\n${line}\nLINE\n`, {
+      mode: 0o755,
+    });
+    const wrapped = stop("s-stop", {}, { path: fake });
+    assert.equal(wrapped.status, 0, "the hook exited non-zero with a line to hand back");
+    assert.equal(lines(wrapped.stdout).length, 1, "the hook printed more than one line");
+    assert.deepEqual(
+      JSON.parse(wrapped.stdout),
+      { hookSpecificOutput: { hookEventName: "Stop", additionalContext: line } },
+      "the hook did not wrap the line as Stop additionalContext",
+    );
+    const quiet = stop("s-stop", { stop_hook_active: true }, { path: fake });
+    assert.equal(quiet.stdout, "", "the hook handed the line back twice in a row");
+  } finally {
+    rmSync(fake, { recursive: true, force: true });
+  }
+  assert.equal(cn(["release", "cn-3"], { session: "s-stop" }).status, 0, "release refused");
 });
 
 // ---------------------------------------------------------------------------

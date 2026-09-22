@@ -1,7 +1,7 @@
 {
   "name": "cairn",
   "version": "0.1.0",
-  "description": "An agent worklist on Convex. The cn skill, the session-start situation report, and the slash commands.",
+  "description": "An agent worklist on Convex. The cn skill, the session-start situation report, the one line a session is handed when it stops holding an unjournaled claim, and the slash commands.",
   "author": {
     "name": "Balder Sandstrom",
     "url": "https://github.com/sandstrom99"
@@ -17,6 +17,18 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh\"",
             "timeout": 5
           }
         ]

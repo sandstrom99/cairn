@@ -3,7 +3,7 @@ import { parse } from "./brief.mts";
 
 describe("cn brief", () => {
   it("asks with whatever the environment and config say", () => {
-    expect(parse([])).toEqual({ action: "brief", json: false, can: undefined });
+    expect(parse([])).toEqual({ action: "brief", json: false, can: undefined, unjournaled: false });
   });
 
   it("takes the capabilities the session declares", () => {
@@ -11,11 +11,27 @@ describe("cn brief", () => {
       action: "brief",
       json: true,
       can: ["ios", "web"],
+      unjournaled: false,
     });
   });
 
   it("reads a bare --can as nothing, not as absent", () => {
-    expect(parse(["--can"])).toEqual({ action: "brief", json: false, can: [] });
+    expect(parse(["--can"])).toEqual({ action: "brief", json: false, can: [], unjournaled: false });
+  });
+
+  it("narrows to what this session holds unjournaled, for the Stop hook", () => {
+    expect(parse(["--unjournaled"])).toEqual({
+      action: "brief",
+      json: false,
+      can: undefined,
+      unjournaled: true,
+    });
+    expect(parse(["--unjournaled", "--json"])).toEqual({
+      action: "brief",
+      json: true,
+      can: undefined,
+      unjournaled: true,
+    });
   });
 
   it("prints its header for --help", () => {

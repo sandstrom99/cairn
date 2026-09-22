@@ -719,3 +719,36 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
   if (view.flagged > 0) lines.push(`${label("flagged")}${view.flagged}`);
   return lines;
 }
+
+type HeldQuiet = BriefView["inProgress"][number] & { unjournaledSince: number };
+
+/** The in-progress rows this session holds with nothing journaled past the threshold. */
+export const unjournaled = (view: BriefView): HeldQuiet[] =>
+  view.inProgress.filter(
+    (i): i is HeldQuiet => i.mine === true && typeof i.unjournaledSince === "number",
+  );
+
+/**
+ * The one line a session is handed when it tries to end a turn holding a claim with
+ * nothing journaled past the threshold (docs/design.md §8), or nothing at all:
+ *
+ * ```
+ * you hold cn-27 "retry on reconnect", last journal 3h ago
+ * ```
+ *
+ * One clause per such claim, on one line however many there are. State, never doctrine:
+ * what to do about it is the skill's. `unjournaledSince` is the deployment's mark, the
+ * later of the claim and its newest entry, so a claim taken after that entry reads
+ * `claimed 2h ago, nothing journaled since` rather than naming an entry that predates it.
+ */
+export function unjournaledLine(view: BriefView, now: number = Date.now()): string | undefined {
+  const clauses = unjournaled(view).map((i) => {
+    const at = i.unjournaledSince;
+    const tail =
+      i.lastJournal === at
+        ? `last journal ${since(at, now)}`
+        : `claimed ${since(at, now)}, nothing journaled since`;
+    return `${ref(i)}, ${tail}`;
+  });
+  return clauses.length === 0 ? undefined : `you hold ${clauses.join(" · ")}`;
+}
