@@ -8,7 +8,7 @@ journaled, and the slash commands. It ships from this repo so it versions with t
 ```
 .claude-plugin/plugin.json   the manifest
 skills/cairn/SKILL.md        the language: the reference rule, the verbs, the boundaries
-hooks/session-start.sh       `cn brief`, and the session id into CLAUDE_ENV_FILE; silent without a deployment
+hooks/session-start.sh       `cn brief`, and the session id into CLAUDE_ENV_FILE; two lines with nothing configured, one when the deployment does not answer
 hooks/stop.sh                `cn brief --unjournaled` as hook feedback, once per stop; silent when nothing is held quiet
 commands/                    /cairn:ready, /cairn:pick, /cairn:handoff, /cairn:close
 ```

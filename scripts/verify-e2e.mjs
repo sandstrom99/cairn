@@ -17,7 +17,15 @@
 // a config at all, and it writes into a second temp directory it starts empty.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,8 +84,8 @@ function cn(args, { as = "agent", xdg = home, viaConfig = false, session } = {})
  * as Claude Code runs it: the session's JSON on stdin, and CLAUDE_ENV_FILE naming the
  * file it sources before every Bash command of that session.
  */
-function hook({ session, envFile } = {}) {
-  const env = environment({ as: "agent", xdg: cold, viaConfig: true });
+function hook({ session, envFile, xdg = cold } = {}) {
+  const env = environment({ as: "agent", xdg, viaConfig: true });
   env.PATH = `${bin}:${env.PATH ?? ""}`;
   if (envFile !== undefined) env.CLAUDE_ENV_FILE = envFile;
   const input =
@@ -623,6 +631,34 @@ row("verbs/init.mts", () => {
   assert.equal(dead.status, 1, "cn init against a deployment that does not answer was allowed");
   assert.match(dead.out, /nothing written/, "the refusal does not say nothing was written");
   assert.ok(!readFileSync(config, "utf8").includes("dead"), "a failed check was written anyway");
+
+  // The third state: a config that names a deployment which does not answer. `cn init`
+  // refuses to write one, so the file is written here, the way a moved or retired
+  // deployment leaves one behind.
+  const gone = mkdtempSync(join(tmpdir(), "cairn-e2e-gone-"));
+  mkdirSync(join(gone, "cairn"));
+  writeFileSync(
+    join(gone, "cairn", "config.json"),
+    JSON.stringify({ default: "dead", deployments: { dead: { url: "http://127.0.0.1:9" } } }),
+  );
+  const started = Date.now();
+  const unanswered = hook({ xdg: gone });
+  const took = Date.now() - started;
+  rmSync(gone, { recursive: true, force: true });
+  assert.equal(
+    unanswered.status,
+    0,
+    "the hook exited non-zero with a deployment that does not answer",
+  );
+  assert.equal(
+    unanswered.stdout,
+    "cairn: dead did not answer; cn doctor says why\n",
+    "the hook does not say, in one line, which deployment did not answer and where the diagnosis is",
+  );
+  assert.ok(
+    took < 5000,
+    `the hook took ${took}ms against a dead URL, past the 5 s the plugin allows it`,
+  );
 
   // The second acceptance criterion: the first session after setup opens with the brief.
   const warm = hook();

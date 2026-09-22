@@ -9,6 +9,10 @@
 // Where the deployment is fenced by a secret (docs/design.md §12), the ping is what
 // proves the secret this machine holds is the one the deployment wants, and the line
 // after it says so. Doctor names where a secret came from and never prints it.
+//
+// The `deployment <name> → <url> (…)` line is read by the SessionStart hook
+// (plugins/cairn/hooks/session-start.sh) to name a deployment that did not answer, so
+// its shape is a contract: the name is the token after `deployment `, before the arrow.
 
 import { configPath, noDeploymentMessage, resolveDeployment } from "../lib/config.mts";
 import { errorData, usageFromHeader } from "../lib/cli.mts";

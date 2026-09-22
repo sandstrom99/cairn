@@ -149,7 +149,9 @@ folder's trust dialog accepted once in an interactive `claude`.
 The hooks do nothing until `cn` is on PATH. With `cn` installed and nothing
 configured, a session opens with two lines pointing at `/cairn:init`, which does
 step 2 together with the person: it asks for the command that prints the secret,
-never the secret, and for what the machine can do.
+never the secret, and for what the machine can do. With a deployment configured
+that does not answer, it opens with one line naming the deployment and `cn
+doctor`, which says why.
 
 ### 4. Open the page
 

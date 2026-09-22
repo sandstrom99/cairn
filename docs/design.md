@@ -514,8 +514,14 @@ A hook injects **under 20 lines**:
 Scenario 1 answers without a tool call; scenario 2 starts warm. With `cn` on
 PATH and no deployment configured the hook prints two lines pointing at
 `/cairn:init` instead of nothing, because a machine that has `cn` installed
-means to use it. One query, `brief.get(can)`, returns the numbers and the heads;
-`cn brief` lays them out:
+means to use it. With one configured that does not answer, or refuses the
+secret, it prints one line, `cairn: <name> did not answer; cn doctor says why`,
+settled 2026-09-22: until then the hook swallowed every failure, so a dead URL
+or a wrong secret started a session exactly like a machine with nothing
+installed, and the skill taught only two states. The hook never diagnoses; `cn
+doctor` does, and the line names it. The hook's 5 s timeout in the manifest is
+what bounds a URL that never answers at all. One query, `brief.get(can)`,
+returns the numbers and the heads; `cn brief` lays them out:
 
 ```
 cairn · invyte · wsl/claude can web android
