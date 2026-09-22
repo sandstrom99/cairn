@@ -182,6 +182,61 @@ describe("brief.get", () => {
     expect(heard.claimedBy).toEqual(other);
   });
 
+  it("says when a claim last had anything journaled, and marks it quiet past the threshold", async () => {
+    const t = await seeded();
+    const one = { ...actor, session: "s-1" };
+    const hour = 60 * 60 * 1000;
+    const held = async (now?: number) =>
+      (await t.query(api.brief.get, { actor: one, now })).inProgress.find((i) => i.id === "cn-2")!;
+
+    await t.mutation(api.issues.claim, { actor: one, id: "cn-2" });
+    const claimedAt = (await held()).claimedAt!;
+    // Nothing journaled yet: quiet counts from the claim, and only once the hour is past.
+    expect(await held(claimedAt + hour)).not.toHaveProperty("unjournaledSince");
+    const quiet = await held(claimedAt + hour + 1);
+    expect(quiet).toMatchObject({ mine: true, unjournaledSince: claimedAt });
+    expect(quiet).not.toHaveProperty("lastJournal");
+
+    // An entry moves the mark to itself, whoever wrote it.
+    const entry = await t.mutation(api.journal.append, {
+      actor: other,
+      id: "cn-2",
+      kind: "finding",
+      body: "here",
+    });
+    const heard = await held(entry.at + hour);
+    expect(heard).toMatchObject({ lastJournal: entry.at });
+    expect(heard).not.toHaveProperty("unjournaledSince");
+    expect(await held(entry.at + hour + 1)).toMatchObject({
+      lastJournal: entry.at,
+      unjournaledSince: entry.at,
+    });
+  });
+
+  it("counts quiet from the claim when the only entries are older than it", async () => {
+    const t = await seeded();
+    const one = { ...actor, session: "s-1" };
+    const hour = 60 * 60 * 1000;
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "e" });
+    const entry = await t.mutation(api.journal.append, {
+      actor,
+      id: "cn-7",
+      kind: "finding",
+      body: "before the claim",
+    });
+    await t.mutation(api.issues.claim, { actor: one, id: "cn-7" });
+    const row = async (now: number) =>
+      (await t.query(api.brief.get, { actor: one, now })).inProgress.find((i) => i.id === "cn-7")!;
+    const claimedAt = (await row(Date.now())).claimedAt!;
+    expect(claimedAt).toBeGreaterThanOrEqual(entry.at);
+    // An hour past the entry is not an hour past the claim.
+    expect(await row(claimedAt + hour)).not.toHaveProperty("unjournaledSince");
+    expect(await row(claimedAt + hour + 1)).toMatchObject({
+      lastJournal: entry.at,
+      unjournaledSince: claimedAt,
+    });
+  });
+
   it("leaves the row the brief filtered in ready, marked", async () => {
     const t = await seeded();
     const rows = await t.query(api.ready.list, {});

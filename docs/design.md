@@ -529,6 +529,31 @@ SessionStart hook alone; a human terminal has no session.
 > TodoWrite is the right tool. Prime wins, because it is a hook. **Rules belong
 > in the skill, which loads on demand. The hook carries state, never doctrine.**
 
+### Session end
+
+The other end is one line, not a report. Added 2026-09-22. When a session tries
+to end a turn holding a claim with nothing journaled for longer than the
+threshold in §12, a Stop hook hands it back `cn brief --unjournaled`:
+
+```
+you hold cn-27 "retry on reconnect", last journal 3h ago
+```
+
+One clause per such claim, on one line, or nothing at all; `claimed 2h ago,
+nothing journaled since` where the claim is newer than the newest entry.
+`brief.get` states the fact as `unjournaledSince` on the in-progress row,
+counted from the later of the claim and its newest entry, so a claim taken a
+minute ago over an issue journaled hours ago is not quiet yet, and the line
+prints what the deployment marked and decides nothing.
+
+It goes back as `additionalContext`, because at Stop plain stdout reaches the
+debug log and not the model, and `decision: block` reaches the model as a hook
+error; hook feedback continues the turn once with the fact in front of the
+model. The hook honours `stop_hook_active`, so it fires once per stop and a line
+the model chose to leave alone cannot hold the turn open, and it exits 0
+whatever happens. The same rule as the start: state, never doctrine. What to do
+about the line is the skill's.
+
 ### Epic health
 
 Not a percentage. A percentage hides everything that matters — an epic at 95%
@@ -661,7 +686,7 @@ the CLI, and the reasons it went are below.
 | Surface | For |
 |---|---|
 | **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function. |
-| **Claude Code plugin** | Skill, SessionStart hook, slash commands. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
+| **Claude Code plugin** | Skill, SessionStart and Stop hooks, slash commands. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
 | **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
 
 ### Why not an MCP server
@@ -689,7 +714,7 @@ package then, not before.
 ```
  a Claude Code session                               one Convex deployment per company
  ┌────────────────────────────────────┐              ┌────────────────────────────────────┐
- │ SessionStart hook  ──  cn brief    │              │ schema.ts     the tables of §3     │
+ │ hooks (start, stop) ──  cn brief … │              │ schema.ts     the tables of §3     │
  │ SKILL.md           teaches the verbs│              │ issues.ts  epics.ts  journal.ts    │
  │ /cairn:* commands  ──  cn …        │  ── HTTPS ─► │ edges.ts  blockers.ts  ready.ts    │
  │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  reconcile.ts    │
@@ -883,7 +908,10 @@ Added when the solution was mapped, 2026-09-17:
 - **Thresholds**: a claim silent 24 hours is shown as silent, an inbox item
   older than 7 days and a blocker past its nudge date are `cn review` findings,
   and an epic's "stuck" line is its open unclaimed issue silent longest, shown
-  past 3 days. Revised 2026-09-22 from "released" and "raised" (§7).
+  past 3 days. Revised 2026-09-22 from "released" and "raised" (§7). A claim
+  with nothing journaled for an hour, counted from the later of the claim and
+  its newest entry, is what the Stop hook hands back (§8, `JOURNAL_QUIET_MS`,
+  added 2026-09-22).
 - **Near-identical titles** are titles equal after lowercasing and replacing every
   run of non-alphanumerics with one space, or within Levenshtein distance 2 of
   each other after that (`NEAR_TITLE_DISTANCE`). Each raise carries a
