@@ -3,10 +3,10 @@
 // stale one is not a failure a human is paged for: it comes back with every event since
 // that revision — who changed what, and when — so the agent re-reads, decides and
 // retries (docs/design.md §9). A journal append is an insert and takes no revision.
-import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Actor } from "./actor";
+import { cairnError } from "./errors";
 import { record } from "./events";
 
 export type Target =
@@ -65,7 +65,7 @@ export async function expectRevision(
     kind: e.kind,
     changes: e.changes,
   }));
-  throw new ConvexError({
+  throw cairnError({
     kind: "stale",
     message: `${doc.id} is at revision ${doc.revision}, you read ${revision}`,
     id: doc.id,

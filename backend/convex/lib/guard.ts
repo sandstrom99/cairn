@@ -15,13 +15,14 @@
 // deployment has no environment to set one in, and every test runs against a bare
 // `convexTest`, so an absent variable has to be the open case rather than a locked door.
 // A cloud deployment sets it once and every call carries it from that moment on.
-import { ConvexError, type ObjectType, type PropertyValidators, v } from "convex/values";
+import { type ObjectType, type PropertyValidators, v } from "convex/values";
 import {
   type MutationCtx,
   type QueryCtx,
   mutation as rawMutation,
   query as rawQuery,
 } from "../_generated/server";
+import { cairnError } from "./errors";
 
 const secretArg = { secret: v.optional(v.string()) };
 
@@ -40,7 +41,7 @@ export function check(secret: string | undefined): void {
   const want = expected();
   if (want === undefined) return;
   if (secret !== want)
-    throw new ConvexError({
+    throw cairnError({
       kind: "unauthorized",
       message:
         "this deployment needs a secret it did not get: put it under the deployment's `secret` in ~/.config/cairn/config.json, or set CAIRN_SECRET",

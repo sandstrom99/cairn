@@ -15,13 +15,12 @@
 // clothes. --requires is what a session needs to do it at all: ios, android, web, device,
 // decision. --priority is 0 highest to 4 backlog, and defaults to 2.
 
-import { ConvexError } from "convex/values";
 import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { UsageError, errorData, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/format.mts";
-import { type Referable, ref } from "../lib/ref.mts";
+import { ref } from "../lib/ref.mts";
 
 export const name = "create";
 export const summary = "put work in the list: one issue, in an epic";
@@ -120,11 +119,10 @@ export async function run(argv: string[]): Promise<number> {
   } catch (e) {
     // The one error cn answers itself: the deployment hands back the open epics, and
     // reading them is the whole reason create refuses rather than guessing.
-    const data =
-      e instanceof ConvexError ? (e.data as { kind?: string; candidates?: Referable[] }) : null;
+    const data = errorData(e);
     if (data?.kind !== "epic-required") throw e;
     console.error("✗ an issue needs an epic; open epics:");
-    for (const candidate of data.candidates ?? []) console.error(`  ${ref(candidate)}`);
+    for (const candidate of data.candidates) console.error(`  ${ref(candidate)}`);
     return 1;
   }
 }

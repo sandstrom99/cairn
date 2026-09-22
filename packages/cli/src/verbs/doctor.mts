@@ -10,9 +10,8 @@
 // proves the secret this machine holds is the one the deployment wants, and the line
 // after it says so. Doctor names where a secret came from and never prints it.
 
-import { ConvexError } from "convex/values";
 import { configPath, noDeploymentMessage, resolveDeployment } from "../lib/config.mts";
-import { usageFromHeader } from "../lib/cli.mts";
+import { errorData, usageFromHeader } from "../lib/cli.mts";
 import { parseArgs } from "../lib/args.mts";
 
 export const name = "doctor";
@@ -66,8 +65,7 @@ export async function run(argv: string[]): Promise<number> {
     ok(`deployment answered: ${projects.length} project(s)`);
     if (dep?.secret) ok(`secret accepted by ${dep.name}`);
   } catch (e) {
-    const kind = e instanceof ConvexError ? (e.data as { kind?: string } | undefined)?.kind : null;
-    if (kind === "unauthorized" && dep)
+    if (errorData(e)?.kind === "unauthorized" && dep)
       bad(
         `${dep.name} needs a secret: put it under deployments.${dep.name}.secret in ${configPath()}, or set CAIRN_SECRET`,
       );
