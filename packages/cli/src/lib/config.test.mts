@@ -74,6 +74,27 @@ describe("resolveDeployment", () => {
     expect(resolveDeployment({ XDG_CONFIG_HOME: tempHome("cairn-empty-") })).toBeNull();
   });
 
+  it("names the file when the default names no deployment, with or without a deployments key", () => {
+    const noKey = tempConfig({ default: "cairn" });
+    expect(() => resolveDeployment(noKey)).toThrow(
+      `${configPath(noKey)}: default "cairn" names no deployment in the file`,
+    );
+    const other = tempConfig({
+      default: "cairn",
+      deployments: { local: { url: "http://127.0.0.1:3210" } },
+    });
+    expect(() => resolveDeployment(other)).toThrow(
+      `${configPath(other)}: default "cairn" names no deployment in the file`,
+    );
+  });
+
+  it("names the file when the default deployment has no url", () => {
+    const env = tempConfig({ default: "cairn", deployments: { cairn: { secret: "s" } } });
+    expect(() => resolveDeployment(env)).toThrow(
+      `${configPath(env)}: deployment "cairn" has no url`,
+    );
+  });
+
   it("carries the secret from the file, with its source", () => {
     const env = tempConfig({ deployments: { a: { url: "https://a", secret: "from-file" } } });
     expect(resolveDeployment(env)).toEqual({

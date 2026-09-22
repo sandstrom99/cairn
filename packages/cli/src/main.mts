@@ -15,10 +15,13 @@ import { fileURLToPath } from "node:url";
 import { UsageError, isMain, main } from "./lib/cli.mts";
 import { VERBS } from "./verbs/index.mts";
 
-const version = (): string =>
-  JSON.parse(
-    readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
-  ).version ?? "0.0.0";
+/** The version in this package's package.json, which `cn --version` prints as it is. */
+const version = (): string => {
+  const file = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+  const found: unknown = JSON.parse(readFileSync(file, "utf8")).version;
+  if (typeof found !== "string") throw new Error(`${file} has no version`);
+  return found;
+};
 
 function help(): string {
   const width = Math.max(...VERBS.map((v) => v.name.length));
