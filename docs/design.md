@@ -57,16 +57,16 @@ doing that.
 | Concurrency | Document revision on mutable fields. Journal entries and comments are inserts and never conflict. |
 | Readiness | Three blocking edges: `blocks`, `blocked-by` (blocker entity), `defer-until`. Computed live. |
 | Statuses | `open`, `in_progress`, `closed`, `dropped`. Blocked is derived, never stored. |
-| Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is reconcile's standing job. Revised 2026-09-17 from one inbox per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
+| Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is the first thing a review sitting looks at (§7). Revised 2026-09-17 from one inbox per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
 | Residue | A `follow-up` issue with `requires[]`, linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
-| Claiming | Atomic claim, no lease. `lastActivity` is stamped by every journal append. Reconcile auto-releases a silent claim. |
+| Claiming | Atomic claim, no lease. `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released by a person; nothing releases one alone (§7, revised 2026-09-22). |
 | Blockers | Own table, own lifecycle. Agents raise them and may never resolve them. |
 | Blocker channel | Pull-only: on request, and in-session when an agent hits one. The UI becomes the channel later. |
-| Reconcile | Acts alone on checkable facts. Judgement becomes a human blocker addressed to Balder. |
+| Reconcile | Revised 2026-09-22: no automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
 | Session start | A hook injects under 20 lines: counts plus the top of each queue. |
-| Epic view | A health line — moving, stuck, waiting on you, last reconciled. Not a percentage. |
+| Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
 | Layout | One pnpm workspace under vite-plus: `backend/` (Convex) + `packages/cli`. `apps/*` reserved. §10. |
 | Bootstrap | Schema + create / list / ready / close / journal first, then dogfood within days. |
@@ -308,8 +308,9 @@ choosing is cheaper than dumping into `inbox`.
 **Claim.** Atomic, first writer wins, idempotent for the same actor. Sets
 `status = in_progress` and `claimedBy`. **No lease and no TTL** — a lease
 forecloses the cooperative behaviour that is the whole point. `lastActivity` is
-stamped by every journal append, so heartbeat costs the agent nothing, and
-reconcile auto-releases a claim that has been silent past a threshold.
+stamped by every journal append, so heartbeat costs the agent nothing. A claim
+silent past the threshold in §12 is shown as silent in the brief and in
+`cn review`, and a person releases it: nothing releases a claim on its own (§7).
 
 **Close.** Takes a verification record. In beads, close is a free-text
 `close_reason` that nothing checks, which is exactly how work gets marked done
@@ -406,48 +407,70 @@ the next session.
 
 ## 7. Reconcile
 
-The answer to clutter. Three mechanisms, in this order of arrival:
+Revised 2026-09-22. The first version of this section had three mechanisms
+arriving in order: write-time invariants, a reconcile skill run by hand per
+epic, and a scheduled sweep once the skill had earned trust. The skill was built
+(`cn reconcile`, 2026-09-17) and the sweep after it (2026-09-20, off until an
+owner was set), and in four days of daily use neither ran on the worklist: every
+epic read `never reconciled`, readiness was right the whole time, and the one
+visible residue was `cn show` listing two closed issues as blocking `cn-10`.
+Nobody reached for a tidy-up command, and an unattended one that writes to the
+worklist was never trusted enough to switch on. So the answer to clutter is two
+mechanisms, and neither runs on its own:
 
-1. **Write-time invariants**, so the bad state cannot be represented at all:
-   `epicId` non-null, close requires a verification record, `dropped` requires a
-   reason.
-2. **A reconcile skill**, triggered by hand per epic (`cn reconcile <epic>`).
-3. **A scheduled sweep**, once the skill has earned the trust.
+1. **Facts are checked where they are made or read.** A rule with one right
+   answer does not need a run; it lives in the verb that makes the state or the
+   one that reads it, beside the write-time invariants that were always first:
+   `epicId` non-null, close requires a verification record, `dropped` requires
+   a reason.
+2. **Judgement is a sitting.** `cn review <epic>` is one read that lists what a
+   person and an agent should look at together, and `/cairn:review` walks it
+   with them. It writes nothing; every action taken in the sitting goes through
+   the verb that exists for it, by the person or the agent, in the log under
+   their own name.
 
-### What it may do alone
+### Where each rule went
 
-The rule from the interview: *facts yes, judgement asks.*
-
-| Condition | Action |
+| Rule, as first written | Now |
 |---|---|
-| Issue in `inbox`, exactly one epic matches | reparent it |
-| Epic with every child closed and no open follow-ups | close it |
-| Claim with no journal activity past N hours | release it |
-| Closed `unverified` with no follow-up spawned | spawn one |
-| `blocks` edge pointing at a closed issue | drop the edge |
-| Two open issues, same epic, near-identical title | **raise to Balder** |
-| Inbox item older than N days | **raise to Balder** |
-| Blocker past its `nudgeAt` | **raise to Balder** — *"still waiting on App Store review?"* |
+| `blocks` edge pointing at a closed issue: drop it | `cn show` reads it as done. Readiness ignored it already; the edge stays as history |
+| Epic with every child closed and no open follow-ups: close it | `cn close` on the last open issue answers that the epic can close and prints the `cn epic close` line. An offer, never a close |
+| Closed `unverified` with no follow-up: spawn one | Inside `issues.close`, in the same mutation |
+| Issue in the inbox, exactly one epic matches: reparent it | At `cn create`: an issue bound for the inbox whose parent or discovered-from sits in exactly one open epic goes there, and the answer says so |
+| Claim with no activity past 24 hours: release it | The brief and `cn review` show it as silent. A person releases it. **Nothing releases a claim on its own** |
+| Two open issues, same epic, near-identical title: raise | `cn create` hands the matches back before the duplicate exists, and `cn review` lists any that got through |
+| Inbox item older than 7 days: raise | A `cn review` line |
+| Blocker past its `nudgeAt`: raise | A `cn review` line |
 
-A raise is a human blocker, so reconcile's questions arrive through the same
-mechanism as everything else waiting on a person.
+### What the sitting reads
 
-Reconcile is one mutation, `reconcile.run(epicId, owner)`, so what it did and
-what it raised come back as one answer, and running it twice acts on nothing the
-second time. Every raise is addressed to `owner`, which `cn reconcile --owner`
-names and `CAIRN_OWNER` supplies when it does not. "Exactly one epic matches"
-is a fact test, not a guess: the inbox issue's parent or `discovered-from` issue
-sits in exactly one open epic. The sweep is `reconcile.sweep`, an internal
-function on a daily cron in `crons.ts`, at 04:00 UTC. It schedules
-`reconcile.sweepEpic` for every open epic, one transaction each, so an epic that
-fails does so alone, and each runs the same rules `reconcile.run` runs, the
-`nudgeAt` raise among them, asked once per `nudgeAt` because the date is in the
-title. It is off until `CAIRN_OWNER` is set in the deployment's environment
-variables, beside `CAIRN_SECRET`: that is how a deployment turns the sweep on,
-once reconcile by hand has earned the trust. It records one `reconcile.sweep`
-event, and a swept epic records a `reconcile.run` only when something happened.
-The thresholds are constants in `lib/thresholds.ts`, proposed in §12, where epic
-health reads the same numbers.
+`review.get(epicId)` is one query, and every line it returns is in the reference
+form, with what to do about it left to the two reading it: near-identical
+titles, inbox items past 7 days, blockers past their nudge date, claims silent
+past 24 hours, closes marked unverified with no follow-up beside them, `blocks`
+edges into finished issues, and whether every issue is finished so the epic can
+close. Running it twice reads the same; nothing it prints is consumed by
+printing it. The thresholds are the constants of §12.
+
+### What this rules out
+
+- **A sweep, a cron, an owner in the environment.** The deployment makes no
+  write that is not inside a verb somebody ran. `reconcile.sweep`, `crons.ts`
+  and `CAIRN_OWNER` go, and with them the `cairn/reconcile` actor: nothing acts
+  under a name that is not a person or a session.
+- **`cn claim` taking over a silent claim.** A long session that forgot to
+  journal keeps its work; the person sees `silent 26h` and decides.
+- **`cn review` writing anything**, a blocker included. A finding it prints is
+  a finding; if the person wants it tracked, that is `cn wait`, by hand, under
+  their name.
+
+`cn-30 "is an automatic reconcile the right direction, or is it a person and an
+agent going through an epic together"` is the decision; `cn-43 "reconcile
+becomes a sitting: the fact rules move into close, create and show, cn review
+replaces cn reconcile, and the sweep is deleted"` is the implementation, the
+last issue of the backend refactor epic. Until it lands, `cn reconcile` and the
+switched-off sweep are still in the tree, and §3, §8's example and §10's table
+describe them.
 
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
@@ -466,7 +489,7 @@ A hook injects **under 20 lines**:
 - in progress, with actor and age
 - follow-ups this session's capabilities can finish
 - waiting-on-you as a **count only**
-- anything reconcile flagged
+- a claim silent past the threshold, marked
 
 Scenario 1 answers without a tool call; scenario 2 starts warm. With `cn` on
 PATH and no deployment configured the hook prints two lines pointing at
@@ -495,7 +518,7 @@ Not a percentage. A percentage hides everything that matters — an epic at 95%
 frozen for a month reads better than one at 40% advancing daily.
 
 ```
-ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups · last reconciled 3d ago
+ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups
   moving   app-31 "retry on reconnect" wsl/claude 2h
   stuck    web-12 "invite landing copy" silent 9d
   waiting  bl-3 "confirm the invite copy" · owner balder
@@ -671,11 +694,12 @@ package then, not before.
   rounded down to the minute, so it re-asks once a minute and the query cache holds in
   between. Nothing validates it; a wrong `now` misleads only the caller that sent it.
 - **The deployment is where anything decides.** `ready` computes, `close`
-  validates, `reconcile` acts, `create` hands back candidate epics. `cn` parses
+  validates, `review` reads, `create` hands back candidate epics. `cn` parses
   arguments, runs the one command `cn close` proves with, and formats through
   `ref()`.
-- **The scheduled sweep runs inside the deployment**, an internal function on a
-  cron. There is no daemon on any machine.
+- **There is no daemon on any machine, and no cron.** Revised 2026-09-22: the
+  sweep is deleted (§7). Every write the deployment makes is inside a verb
+  somebody ran.
 - **Two channels back to the human**: `cn waiting` and the brief's count now,
   `apps/web` later.
 
@@ -829,9 +853,10 @@ Added when the solution was mapped, 2026-09-17:
   did, captured by `cn`, with the last 40 lines of output and a 10-minute
   timeout. Proof that ran on another machine goes in as an `evidence` journal
   entry and the close is `--unverified` pointing at it.
-- **Reconcile thresholds**: a claim silent 24 hours is released, an inbox item
-  older than 7 days is raised, an epic's "stuck" line is its open unclaimed
-  issue silent longest, shown past 3 days.
+- **Thresholds**: a claim silent 24 hours is shown as silent, an inbox item
+  older than 7 days and a blocker past its nudge date are `cn review` findings,
+  and an epic's "stuck" line is its open unclaimed issue silent longest, shown
+  past 3 days. Revised 2026-09-22 from "released" and "raised" (§7).
 - **Near-identical titles** are titles equal after lowercasing and replacing every
   run of non-alphanumerics with one space, or within Levenshtein distance 2 of
   each other after that (`NEAR_TITLE_DISTANCE`). Each raise carries a
