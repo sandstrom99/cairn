@@ -89,31 +89,8 @@ src/lib/
 
 ## Verbs
 
-What exists today. Every read verb takes `--json`, every line naming an issue or epic
-starts with the reference form, and `cn <verb> --help` is the verb file's own header.
-
-```
-cn brief [--can ios web …] [--json]      counts and the head of each queue, under 20 lines
-cn create --project <slug> --epic <ep-id> --title <title> [--priority 0-4] …
-cn list [--project] [--epic] [--status] [--mine] [--json]
-cn ready [--can ios web …] [--json]      open, unblocked, in priority order, marked
-cn show <id> [--history] [--json]        an issue, an epic or a blocker, by prefix
-cn log [--limit N] [--before <date>] [--json]   what happened across the deployment, newest first
-cn claim <id>  ·  cn release <id>        first writer wins, no lease
-cn update <id> --revision N [--title] [--priority] [--epic] [--defer-until] [--requires]
-cn journal <id> --kind finding|decision|handoff|evidence|question <body…>
-cn close <id> --revision N --run '<cmd>' | --unverified <why> [--follow-up <title> --kind verify]
-cn drop <id> --revision N --reason <text>
-cn dep add|rm <id> --blocked-by|--blocks|--related|--discovered-from|--duplicates|--supersedes <other>
-cn wait <id> --kind approval|external-wait|decision|credential|purchase --owner <who>
-             --title <what> --resolves <what ends it> [--nudge <date>]  ·  cn wait <id> --on bl-3
-cn waiting [--json]                      every unresolved blocker, and what it holds
-cn ack <bl-id>                           a person saying seen: raised → waiting
-cn resolve <bl-id> --note <what happened>   ends it, and frees every issue it holds
-cn epic new <title> [--description]  ·  cn epic list [--all] [--json]
-cn project new <slug> --name <name>  ·  cn project list [--json]
-cn doctor                                node, the generated api, the deployment
-```
-
-The rest — `reconcile` — is the table in docs/design.md §10, one Convex function per
-verb or per action word. The order they arrive in is cairn's own worklist: `cn ready`.
+`cn --help` lists them, one line each, and `cn <verb> --help` is the verb file's own
+header: the contract of the Convex function behind it. The table in docs/design.md §10
+maps each verb, and each action word of `epic`, `project` and `dep`, to its function.
+Every read verb takes `--json`, and every line naming an issue or epic starts with the
+reference form. Whether the next verb exists yet is cairn's own worklist: `cn ready`.

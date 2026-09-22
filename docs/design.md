@@ -835,7 +835,9 @@ Invyte comes later, once it is mature — and that is also when the storage and
 binding questions below get settled against real usage rather than guessed at
 now.
 
-Order of magnitude: **2–5k lines**.
+Order of magnitude: **2–5k lines**. Measured 2026-09-22: about 10.5k without
+tests and 17.5k with, across the backend, `cn`, the plugin, the page and the
+scripts.
 
 ### Toolchain
 
