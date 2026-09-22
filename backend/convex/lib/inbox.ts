@@ -6,11 +6,9 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
-import { createdChanges } from "./changes";
 import { invalid, notFound } from "./errors";
-import { record } from "./events";
+import { insertEpic } from "./lifecycle";
 import { findEpic } from "./lookup";
-import { epicView } from "./views";
 
 export const INBOX_ID = "ep-0";
 
@@ -19,21 +17,7 @@ export async function ensureInbox(ctx: MutationCtx, actor: Actor): Promise<Doc<"
   const existing = await findEpic(ctx, INBOX_ID);
   if (existing) return existing;
 
-  const _id = await ctx.db.insert("epics", {
-    id: INBOX_ID,
-    title: "Inbox",
-    status: "open",
-    revision: 0,
-  });
-  const doc = (await ctx.db.get(_id))!;
-  await record(ctx, {
-    kind: "epic.create",
-    actor,
-    epicId: _id,
-    // Inserted this instant, so nothing points at it yet and it has no issues to read.
-    changes: createdChanges(epicView(doc, [])),
-  });
-  return doc;
+  return await insertEpic(ctx, actor, { id: INBOX_ID, title: "Inbox" });
 }
 
 /**

@@ -1,20 +1,48 @@
 // The mechanism under the functions: ids minted from counters, the inbox created once,
-// and the revision check that makes a stale write something an agent can act on rather
-// than a failure a human is paged for (docs/design.md §9). These reach `ctx.db` through
+// one helper per lifecycle move and what its event records, and the revision check that
+// makes a stale write something an agent can act on rather than a failure a human is
+// paged for (docs/design.md §9). These reach `ctx.db` through
 // `t.run` because the helpers under test take a ctx; nothing here fabricates a state.
 import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
-import { claimChanges, closeChanges, dropChanges, releaseChanges } from "../lib/changes";
+import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { eventsOn, issuesHeldBy, unresolvedBlockersOn } from "../lib/graph";
 import { mint } from "../lib/ids";
 import { ensureInbox } from "../lib/inbox";
+import {
+  ackBlocker,
+  claimIssue,
+  closeEpic,
+  closeIssue,
+  dropEpic,
+  dropIssue,
+  editIssue,
+  insertEpic,
+  insertIssue,
+  moveIssue,
+  releaseIssue,
+  resolveBlocker,
+} from "../lib/lifecycle";
+import { projectBySlug } from "../lib/lookup";
 import { idOrder, priorityOrder } from "../lib/order";
 import { checkPriority } from "../lib/priority";
 import { applyRevision, expectRevision } from "../lib/revision";
 import { isLive } from "../lib/validators";
 import { epicView } from "../lib/views";
-import { actor, balder, eventsOf, fresh, raise, rawIssue, rows, seed } from "./test.fixtures";
+import {
+  APPROVAL,
+  type Harness,
+  actor,
+  balder,
+  eventsOf,
+  fresh,
+  raise,
+  rawIssue,
+  rows,
+  seed,
+} from "./test.fixtures";
 
 /** A deployment with cn-1 "one", open at revision 0. */
 const withOne = () => seed({ issues: ["one"] });
@@ -92,71 +120,220 @@ describe("checkPriority", () => {
   });
 });
 
-describe("changes", () => {
-  it("claimChanges moves status open to in_progress and names the claimer", async () => {
+/** An epic as it stands in the table. */
+const rawEpic = async (t: Harness, id: string) =>
+  (await rows(t, "epics")).find((e) => e.id === id)!;
+
+/** A blocker as it stands in the table. */
+const rawBlocker = async (t: Harness, id: string) =>
+  (await rows(t, "blockers")).find((b) => b.id === id)!;
+
+/** The `changes` of the newest event of a kind. */
+const lastChanges = async (t: Harness, kind: string) => (await eventsOf(t, kind)).at(-1)!.changes;
+
+describe("lifecycle", () => {
+  it("insertIssue mints cn-2 after cn-1 and records the view minus createdAt", async () => {
+    const t = await withOne();
+    const epic = await rawEpic(t, "ep-1");
+    const view = await t.run(async (ctx) =>
+      insertIssue(ctx, actor, {
+        project: await projectBySlug(ctx, "cn"),
+        epicId: epic._id,
+        title: "two",
+        type: "task",
+        requires: [],
+        priority: 2,
+      }),
+    );
+    expect(view.id).toBe("cn-2");
+    expect(view).toMatchObject({ status: "open", revision: 0, epic: { id: "ep-1" } });
+    const events = await eventsOf(t, "issue.create");
+    expect(events).toHaveLength(2);
+    const { createdAt: _, ...rest } = view;
+    expect(events[1]).toMatchObject({ actor, revision: 0, epicId: epic._id });
+    expect(events[1]!.changes).toEqual(rest);
+    expect("createdAt" in (events[1]!.changes as object)).toBe(false);
+  });
+
+  it("insertEpic returns the row open at revision 0, and its event carries revision 0", async () => {
+    const t = fresh();
+    const doc = await t.run((ctx) => insertEpic(ctx, actor, { id: "ep-7", title: "Seven" }));
+    expect(doc).toMatchObject({ id: "ep-7", title: "Seven", status: "open", revision: 0 });
+    expect("description" in doc).toBe(false);
+    const events = await eventsOf(t, "epic.create");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ actor, epicId: doc._id, revision: 0 });
+    const { createdAt: _, ...rest } = epicView(doc, []);
+    expect(events[0]!.changes).toEqual(rest);
+  });
+
+  it("claimIssue returns the doc in_progress and records the status and the claimer's name", async () => {
     const t = await withOne();
     const doc = await rawIssue(t, "cn-1");
-    expect(claimChanges(doc, actor)).toEqual({
+    const claimed = await t.run((ctx) => claimIssue(ctx, actor, doc));
+    expect(claimed).toMatchObject({ status: "in_progress", claimedBy: actor, revision: 1 });
+    expect(await lastChanges(t, "issue.claim")).toEqual({
       status: { from: "open", to: "in_progress" },
       claimedBy: { to: actor.name },
     });
   });
 
-  it("releaseChanges names who held it, and omits claimedBy when nobody did", async () => {
+  it("releaseIssue names who held it, and omits claimedBy when nobody did", async () => {
     const t = await withOne();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     const held = await rawIssue(t, "cn-1");
-    expect(releaseChanges(held)).toEqual({
+    const released = await t.run((ctx) => releaseIssue(ctx, balder, held));
+    expect(released.status).toBe("open");
+    expect(released.claimedBy).toBeUndefined();
+    expect(await lastChanges(t, "issue.release")).toEqual({
       status: { from: "in_progress", to: "open" },
       claimedBy: { from: actor.name },
     });
 
-    await t.mutation(api.issues.release, { actor, id: "cn-1" });
     const unclaimed = await rawIssue(t, "cn-1");
-    const result = releaseChanges(unclaimed);
-    expect(result).toEqual({ status: { from: "open", to: "open" } });
-    expect("claimedBy" in result).toBe(false);
+    await t.run((ctx) => releaseIssue(ctx, balder, unclaimed));
+    const changes = await lastChanges(t, "issue.release");
+    expect(changes).toEqual({ status: { from: "open", to: "open" } });
+    expect("claimedBy" in (changes as object)).toBe(false);
   });
 
-  it("closeChanges summarises a command's exit code, and an unverified reason", async () => {
-    const t = await withOne();
-    const doc = await rawIssue(t, "cn-1");
-    expect(closeChanges(doc, { command: "vp run verify", exitCode: 0, output: "ok" })).toEqual({
+  it("closeIssue records a command's exit code, and an unverified reason", async () => {
+    const t = await seed({ issues: ["one", "two"] });
+    const one = await rawIssue(t, "cn-1");
+    const closed = await t.run((ctx) =>
+      closeIssue(ctx, actor, one, { command: "vp run verify", exitCode: 0, output: "ok" }),
+    );
+    expect(closed).toMatchObject({ status: "closed", verification: { exitCode: 0, by: actor } });
+    expect(await lastChanges(t, "issue.close")).toEqual({
       status: { from: "open", to: "closed" },
       verification: { to: "vp run verify (exit 0)" },
     });
-    expect(closeChanges(doc, { unverified: "ran on the mac" })).toEqual({
+
+    const two = await rawIssue(t, "cn-2");
+    await t.run((ctx) => closeIssue(ctx, actor, two, { unverified: "ran on the mac" }));
+    expect(await lastChanges(t, "issue.close")).toEqual({
       status: { from: "open", to: "closed" },
       verification: { to: "unverified: ran on the mac" },
     });
   });
 
-  it("dropChanges names the reason", async () => {
+  it("dropIssue records the reason", async () => {
     const t = await withOne();
     const doc = await rawIssue(t, "cn-1");
-    expect(dropChanges(doc, "not going to happen")).toEqual({
+    const dropped = await t.run((ctx) => dropIssue(ctx, actor, doc, "not going to happen"));
+    expect(dropped).toMatchObject({ status: "dropped", droppedReason: "not going to happen" });
+    expect(await lastChanges(t, "issue.drop")).toEqual({
       status: { from: "open", to: "dropped" },
       droppedReason: { to: "not going to happen" },
     });
   });
+
+  it("editIssue refuses an empty edit, and records each field and the epic as two public ids", async () => {
+    const t = await withOne();
+    await t.mutation(api.epics.create, { actor, title: "Second" });
+    const doc = await rawIssue(t, "cn-1");
+    await t.run(async (ctx) => {
+      await expect(editIssue(ctx, actor, doc, {})).rejects.toMatchObject({
+        data: { kind: "invalid", message: "nothing to update" },
+      });
+    });
+
+    const ep2 = await rawEpic(t, "ep-2");
+    const edited = await t.run((ctx) =>
+      editIssue(ctx, actor, doc, { title: "one, moved", deferUntil: null, epic: ep2 }),
+    );
+    expect(edited).toMatchObject({ title: "one, moved", epicId: ep2._id, revision: 1 });
+    expect(await lastChanges(t, "issue.update")).toEqual({
+      title: { from: "one", to: "one, moved" },
+      deferUntil: { from: null, to: null },
+      epic: { from: "ep-1", to: "ep-2" },
+    });
+  });
+
+  it("moveIssue is the one-field edit of the epic", async () => {
+    const t = await withOne();
+    await t.mutation(api.epics.create, { actor, title: "Second" });
+    const doc = await rawIssue(t, "cn-1");
+    const ep2 = await rawEpic(t, "ep-2");
+    const moved = await t.run((ctx) => moveIssue(ctx, actor, doc, ep2));
+    expect(moved.epicId).toEqual(ep2._id);
+    expect(await lastChanges(t, "issue.update")).toEqual({ epic: { from: "ep-1", to: "ep-2" } });
+  });
+
+  it("closeEpic and dropEpic record their status maps, the drop with its reason", async () => {
+    const t = await seed();
+    await t.mutation(api.epics.create, { actor, title: "Second" });
+    const ep1 = await rawEpic(t, "ep-1");
+    const closed = await t.run((ctx) => closeEpic(ctx, actor, ep1));
+    expect(closed).toMatchObject({ status: "closed", revision: 1 });
+    expect(await lastChanges(t, "epic.close")).toEqual({
+      status: { from: "open", to: "closed" },
+    });
+
+    const ep2 = await rawEpic(t, "ep-2");
+    const dropped = await t.run((ctx) => dropEpic(ctx, actor, ep2, "not shipping"));
+    expect(dropped).toMatchObject({ status: "dropped", droppedReason: "not shipping" });
+    expect(await lastChanges(t, "epic.drop")).toEqual({
+      status: { from: "open", to: "dropped" },
+      droppedReason: { to: "not shipping" },
+    });
+  });
+
+  it("ackBlocker records raised to waiting", async () => {
+    const t = await withOne();
+    await raise(t, "cn-1");
+    const doc = await rawBlocker(t, "bl-1");
+    const acked = await t.run((ctx) => ackBlocker(ctx, balder, doc));
+    expect(acked).toMatchObject({ status: "waiting", revision: 1 });
+    expect(await lastChanges(t, "blocker.ack")).toEqual({
+      status: { from: "raised", to: "waiting" },
+    });
+  });
+
+  it("resolveBlocker records the note on the blocker, and one event per issue it held", async () => {
+    const t = await seed({ issues: ["one", "two"] });
+    await raise(t, "cn-1");
+    await t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1" });
+    const doc = await rawBlocker(t, "bl-1");
+    const resolved = await t.run((ctx) => resolveBlocker(ctx, balder, doc, "accepted"));
+    expect(resolved).toMatchObject({ status: "resolved", resolution: "accepted", revision: 1 });
+
+    const events = await eventsOf(t, "blocker.resolve");
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({ blockerId: doc._id, revision: 1 });
+    expect(events[0]!.changes).toEqual({
+      status: { from: "raised", to: "resolved" },
+      resolution: { to: "accepted" },
+    });
+    const one = await rawIssue(t, "cn-1");
+    const two = await rawIssue(t, "cn-2");
+    const held = { blocker: "bl-1", title: APPROVAL.title, resolution: "accepted" };
+    expect(events.slice(1).map((e) => [e.issueId, e.revision, e.changes])).toEqual([
+      [one._id, undefined, held],
+      [two._id, undefined, held],
+    ]);
+  });
 });
 
 describe("revision", () => {
-  it("bumps the revision by one and records what changed", async () => {
+  it("bumps the revision by one, returns the patched doc and records the changes given", async () => {
     const t = await withOne();
     const doc = await rawIssue(t, "cn-1");
-    const revision = await t.run((ctx) =>
+    const returned = await t.run((ctx) =>
       applyRevision(
         ctx,
         { table: "issues", doc },
         { priority: 0, title: "one, urgently" },
-        { kind: "issue.update", actor },
+        {
+          kind: "issue.update",
+          actor,
+          changes: { priority: { from: 2, to: 0 }, title: { from: "one", to: "one, urgently" } },
+        },
       ),
     );
-    expect(revision).toBe(1);
+    expect(returned).toMatchObject({ revision: 1, priority: 0, title: "one, urgently" });
     const after = await rawIssue(t, "cn-1");
-    expect(after.revision).toBe(1);
-    expect(after.priority).toBe(0);
+    expect(after).toEqual(returned);
     const events = await eventsOf(t, "issue.update");
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -182,7 +359,7 @@ describe("revision", () => {
         ctx,
         { table: "issues", doc: first },
         { priority: 0 },
-        { kind: "issue.update", actor: balder },
+        { kind: "issue.update", actor: balder, changes: { priority: { from: 2, to: 0 } } },
       ),
     );
     const second = await rawIssue(t, "cn-1");
@@ -191,7 +368,11 @@ describe("revision", () => {
         ctx,
         { table: "issues", doc: second },
         { status: "in_progress" },
-        { kind: "issue.claim", actor },
+        {
+          kind: "issue.claim",
+          actor,
+          changes: { status: { from: "open", to: "in_progress" } },
+        },
       ),
     );
     const current = await rawIssue(t, "cn-1");
@@ -233,14 +414,28 @@ describe("revision", () => {
       await applyRevision(
         ctx,
         { table: "epics", doc },
-        { title: "Create to close, with evidence" },
-        { kind: "epic.update", actor },
+        { status: "closed" },
+        { kind: "epic.close", actor, changes: { status: { from: "open", to: "closed" } } },
       );
       const after = (await ctx.db.get(doc._id))!;
       await expect(expectRevision(ctx, { table: "epics", doc: after }, 0)).rejects.toMatchObject({
-        data: { kind: "stale", current: 1, since: [{ revision: 1, kind: "epic.update" }] },
+        data: { kind: "stale", current: 1, since: [{ revision: 1, kind: "epic.close" }] },
       });
     });
+  });
+
+  it("refuses a misspelt field at the type, which no test can run into", () => {
+    // Never called: it exists to be type-checked, and `vp check` fails on the directive
+    // the day the misspelling stops being an error.
+    const _misspelt = (ctx: MutationCtx, doc: Doc<"issues">) =>
+      applyRevision(
+        ctx,
+        { table: "issues", doc },
+        // @ts-expect-error a misspelt field is refused by the type, which is the point
+        { statsu: "open" },
+        { kind: "issue.update", actor, changes: {} },
+      );
+    expect(typeof _misspelt).toBe("function");
   });
 });
 

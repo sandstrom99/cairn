@@ -211,9 +211,10 @@ What an event records is what a reader should see, not the patch that was writte
 says, and an actor travels by name. So a claim records `status` and `claimedBy`, a release
 the same in reverse, a close `status` and a one-line summary of the verification whose
 whole record stays on the issue, and a drop `status` and `droppedReason`; the helpers are
-in `lib/changes.ts`, one per move, shared by every site that makes that move. Events
-written before 2026-09-20 carry the raw patch for those four kinds, because nothing
-migrates an audit trail, so whatever renders `changes` reads both.
+in `lib/lifecycle.ts`, one per move, each owning the patch it writes and what its event
+records, shared by every site that makes that move. Events written before 2026-09-20
+carry the raw patch for those four kinds, because nothing migrates an audit trail, so
+whatever renders `changes` reads both.
 
 Whatever renders `changes` renders every kind as a line and none as JSON, settled
 2026-09-22 in `eventPieces` (`format.mts`), which `cn log`, `cn show --history`, a stale
@@ -372,6 +373,9 @@ epic:  12 done · 3 follow-ups open
 - **Counted outside the epic denominator**, so "12 done" keeps meaning what it
   says.
 - The parent closes. Nothing hangs half-finished.
+- A follow-up lands beside its parent, in whatever epic that is. Residue outlives a
+  close and an epic closes over open follow-ups, so the open-epic rule is for the epic
+  an argument names, not for routing.
 
 ### Capability fencing, and the bug not to repeat
 

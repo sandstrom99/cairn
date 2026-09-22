@@ -5,9 +5,34 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
 
+/**
+ * Every kind of event the deployment writes. The table's `kind` stays a string, since rows
+ * written before a kind existed and the CLI both read it as one.
+ */
+export type EventKind =
+  | "issue.create"
+  | "issue.claim"
+  | "issue.release"
+  | "issue.update"
+  | "issue.close"
+  | "issue.drop"
+  | "epic.create"
+  | "epic.close"
+  | "epic.drop"
+  | "project.create"
+  | "blocker.raise"
+  | "blocker.attach"
+  | "blocker.ack"
+  | "blocker.resolve"
+  | "edge.add"
+  | "edge.remove"
+  | "journal.append"
+  | "reconcile.run"
+  | "reconcile.sweep";
+
 export type EventInput = {
   /** issue.create, issue.claim, edge.add, blocker.resolve, … */
-  kind: string;
+  kind: EventKind;
   actor: Actor;
   issueId?: Id<"issues">;
   epicId?: Id<"epics">;

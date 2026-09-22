@@ -21,12 +21,10 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
-import { record } from "./lib/events";
-import { issuesHeldBy } from "./lib/graph";
 import { mutation, query } from "./lib/guard";
+import { ackBlocker, resolveBlocker } from "./lib/lifecycle";
 import { blockerById, issueById } from "./lib/lookup";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
-import { applyRevision } from "./lib/revision";
 import { blockerKindValidator, isLive } from "./lib/validators";
 import { blockerView, ref } from "./lib/views";
 
@@ -125,13 +123,7 @@ export const ack = mutation({
     // Idempotent: a person who says "seen" twice has seen it once.
     if (doc.status === "waiting") return await blockerView(ctx, doc);
 
-    await applyRevision(
-      ctx,
-      { table: "blockers", doc },
-      { status: "waiting" },
-      { kind: "blocker.ack", actor: args.actor },
-    );
-    return await blockerView(ctx, (await ctx.db.get(doc._id))!);
+    return await blockerView(ctx, await ackBlocker(ctx, args.actor, doc));
   },
 });
 
@@ -143,32 +135,6 @@ export const resolve = mutation({
     if (args.note.trim() === "") throw invalid("a resolution says what happened");
     if (doc.status === "resolved") throw alreadyResolved(doc);
 
-    await applyRevision(
-      ctx,
-      { table: "blockers", doc },
-      {
-        status: "resolved",
-        resolvedBy: args.actor,
-        resolvedAt: Date.now(),
-        resolution: args.note,
-      },
-      {
-        kind: "blocker.resolve",
-        actor: args.actor,
-        // The computed map would print the timestamp and the whole actor object; the two
-        // fields a reader wants are what it moved to and what was said.
-        changes: { status: { from: doc.status, to: "resolved" }, resolution: { to: args.note } },
-      },
-    );
-
-    // One event per issue it held, so `cn show <issue> --history` says what freed it.
-    for (const issue of await issuesHeldBy(ctx, doc._id))
-      await record(ctx, {
-        kind: "blocker.resolve",
-        actor: args.actor,
-        issueId: issue._id,
-        changes: { blocker: doc.id, title: doc.title, resolution: args.note },
-      });
-    return await blockerView(ctx, (await ctx.db.get(doc._id))!);
+    return await blockerView(ctx, await resolveBlocker(ctx, args.actor, doc, args.note));
   },
 });
