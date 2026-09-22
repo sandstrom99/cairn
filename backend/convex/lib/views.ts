@@ -5,20 +5,12 @@
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { notFound } from "./errors";
-import { LIVE } from "./lookup";
-import { STUCK_AFTER_MS } from "./thresholds";
+import { type IssueStatus, isLive } from "./validators";
 
 export type Ref = { id: string; title: string };
 
 /** Id and title, the two fields the reference form needs. */
 export const ref = (doc: { id: string; title: string }): Ref => ({ id: doc.id, title: doc.title });
-
-/** The public fields of a just-created document, for an event's `changes`. */
-export function createdChanges<T extends { createdAt: number }>(view: T): Omit<T, "createdAt"> {
-  const copy: Record<string, unknown> = { ...view };
-  delete copy.createdAt;
-  return copy as Omit<T, "createdAt">;
-}
 
 export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
   const project = await ctx.db.get(doc.projectId);
@@ -64,8 +56,7 @@ export async function epicView(ctx: QueryCtx, doc: Doc<"epics">) {
     .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
     .collect();
   const tasks = issues.filter((i) => i.type === "task");
-  const count = (status: Doc<"issues">["status"]) =>
-    tasks.filter((i) => i.status === status).length;
+  const count = (status: IssueStatus) => tasks.filter((i) => i.status === status).length;
   return {
     id: doc.id,
     title: doc.title,
@@ -79,91 +70,12 @@ export async function epicView(ctx: QueryCtx, doc: Doc<"epics">) {
       inProgress: count("in_progress"),
       closed: count("closed"),
       dropped: count("dropped"),
-      followUps: issues.filter(
-        (i) => i.type === "follow-up" && (i.status === "open" || i.status === "in_progress"),
-      ).length,
+      followUps: issues.filter((i) => i.type === "follow-up" && isLive(i)).length,
     },
   };
 }
 
 export type EpicView = Awaited<ReturnType<typeof epicView>>;
-
-/**
- * The epic view, plus the three lines of design §8: what is moving, what is stuck, what
- * waits on a person. Not a percentage — an epic at 95% frozen for a month reads better
- * than one at 40% advancing daily, so each line is a fact with a query behind it.
- *
- * `stuck` is the single open, unclaimed, undeferred issue that has been silent longest,
- * and only once that silence passes STUCK_AFTER_MS: an epic nobody has neglected has no
- * stuck line at all.
- *
- * `now` is the caller's clock when a subscriber sends one, because a subscription re-runs
- * on data and never on time.
- */
-/**
- * The one issue of an epic that is stuck, or none: open, unclaimed, not deferred, silent
- * longest, and only once that silence passes STUCK_AFTER_MS. The rule lives here alone, so
- * the epic's health line and an issue's own state (`show.get`) name the same issue.
- */
-export function stuckOf(issues: Doc<"issues">[], now: number): Doc<"issues"> | undefined {
-  const idle = issues.filter(
-    (i) =>
-      i.status === "open" &&
-      i.claimedBy === undefined &&
-      (i.deferUntil === undefined || i.deferUntil <= now),
-  );
-  const silent = idle.reduce<Doc<"issues"> | undefined>(
-    (worst, i) => (worst === undefined || i.lastActivity < worst.lastActivity ? i : worst),
-    undefined,
-  );
-  return silent !== undefined && now - silent.lastActivity > STUCK_AFTER_MS ? silent : undefined;
-}
-
-export async function epicHealth(ctx: QueryCtx, doc: Doc<"epics">, now: number = Date.now()) {
-  const issues = await ctx.db
-    .query("issues")
-    .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
-    .collect();
-
-  const moving = issues
-    .filter((i) => i.status === "in_progress")
-    .map((i) => ({
-      id: i.id,
-      title: i.title,
-      claimedBy: i.claimedBy!,
-      claimedAt: i.claimedAt ?? i.lastActivity,
-    }))
-    .sort((a, b) => a.claimedAt - b.claimedAt);
-
-  const neglected = stuckOf(issues, now);
-  const stuck = neglected
-    ? { id: neglected.id, title: neglected.title, lastActivity: neglected.lastActivity }
-    : undefined;
-
-  // One blocker can hold several of the epic's issues, and it is one waiting line either
-  // way, so the walk over blockerLinks deduplicates by blocker.
-  const live = issues.filter((i) => LIVE.includes(i.status));
-  const seen = new Set<string>();
-  const waiting: { id: string; title: string; owner: string }[] = [];
-  for (const issue of live) {
-    const links = await ctx.db
-      .query("blockerLinks")
-      .withIndex("by_issue", (q) => q.eq("issueId", issue._id))
-      .collect();
-    for (const link of links) {
-      if (seen.has(link.blockerId)) continue;
-      seen.add(link.blockerId);
-      const blocker = await ctx.db.get(link.blockerId);
-      if (!blocker || blocker.status === "resolved") continue;
-      waiting.push({ id: blocker.id, title: blocker.title, owner: blocker.owner });
-    }
-  }
-  waiting.sort((a, b) => Number(a.id.slice("bl-".length)) - Number(b.id.slice("bl-".length)));
-
-  return { ...(await epicView(ctx, doc)), health: { moving, stuck, waiting } };
-}
-
-export type EpicHealth = Awaited<ReturnType<typeof epicHealth>>;
 
 /**
  * A blocker with the issues it holds. The blocker's own `kind` travels as `blockerKind`,

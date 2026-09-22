@@ -18,7 +18,7 @@ export type SinceEvent = Pick<Doc<"events">, "revision" | "actor" | "kind" | "ch
 
 /** Every shape a ConvexError from this deployment carries, told apart by `kind`. */
 export type CairnError =
-  /** No document with that public id. */
+  /** No document with that public id, or no project with that slug. */
   | { kind: "not-found"; message: string }
   /** The arguments cannot make a valid document. */
   | { kind: "invalid"; message: string }
@@ -50,6 +50,10 @@ export const cairnError = <E extends CairnError>(data: E): ConvexError<E> => new
 export const notFound = (id: string): ConvexError<CairnErrorOf<"not-found">> =>
   cairnError({ kind: "not-found", message: `no such id ${id}` });
 
+/** No project with that slug. A slug is not an id, so the message does not call it one. */
+export const projectNotFound = (slug: string): ConvexError<CairnErrorOf<"not-found">> =>
+  cairnError({ kind: "not-found", message: `no such project ${slug}` });
+
 /** The arguments cannot make a valid document. */
 export const invalid = (message: string): ConvexError<CairnErrorOf<"invalid">> =>
   cairnError({ kind: "invalid", message });
@@ -79,3 +83,22 @@ export const claimed = (
     by: doc.claimedBy,
     since: doc.claimedAt,
   });
+
+/** The revision the writer read has moved: what it is now, and every event since. */
+export const stale = (
+  doc: { id: string; revision: number },
+  yours: number,
+  since: SinceEvent[],
+): ConvexError<CairnErrorOf<"stale">> =>
+  cairnError({
+    kind: "stale",
+    message: `${doc.id} is at revision ${doc.revision}, you read ${yours}`,
+    id: doc.id,
+    yours,
+    current: doc.revision,
+    since,
+  });
+
+/** A create named no epic: the open ones it could go under. */
+export const epicRequired = (candidates: Ref[]): ConvexError<CairnErrorOf<"epic-required">> =>
+  cairnError({ kind: "epic-required", message: "an issue needs an epic", candidates });

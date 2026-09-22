@@ -13,10 +13,12 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { nowArg } from "./lib/clock";
-import { notFound } from "./lib/errors";
 import { query } from "./lib/guard";
-import { epicById } from "./lib/lookup";
-import { type Ref, blockerView, epicHealth, issueView, ref, stuckOf } from "./lib/views";
+import { epicHealth, stuckOf } from "./lib/health";
+import { blockerById, epicById, issueById } from "./lib/lookup";
+import { priorityOrder } from "./lib/order";
+import { isLive } from "./lib/validators";
+import { type Ref, blockerView, issueView, ref } from "./lib/views";
 
 const docsOf = async (ctx: QueryCtx, ids: Id<"issues">[]): Promise<Doc<"issues">[]> => {
   const docs = await Promise.all(ids.map((id) => ctx.db.get(id)));
@@ -125,8 +127,8 @@ async function epic(ctx: QueryCtx, doc: Doc<"epics">, now?: number) {
     .query("issues")
     .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
     .collect();
-  const live = rows.filter((i) => i.status === "open" || i.status === "in_progress");
-  live.sort((a, b) => a.priority - b.priority || a._creationTime - b._creationTime);
+  const live = rows.filter(isLive);
+  live.sort(priorityOrder);
   return {
     kind: "epic" as const,
     ...(await epicHealth(ctx, doc, now)),
@@ -159,19 +161,8 @@ export const get = query({
   args: { id: v.string(), history: v.optional(v.boolean()), ...nowArg },
   handler: async (ctx, { id, history: withHistory, now }) => {
     if (id.startsWith("ep-")) return await epic(ctx, await epicById(ctx, id), now);
-    if (id.startsWith("bl-")) {
-      const doc = await ctx.db
-        .query("blockers")
-        .withIndex("by_public_id", (q) => q.eq("id", id))
-        .unique();
-      if (!doc) throw notFound(id);
-      return await blocker(ctx, doc, Boolean(withHistory));
-    }
-    const doc = await ctx.db
-      .query("issues")
-      .withIndex("by_public_id", (q) => q.eq("id", id))
-      .unique();
-    if (!doc) throw notFound(id);
-    return await issue(ctx, doc, Boolean(withHistory), now);
+    if (id.startsWith("bl-"))
+      return await blocker(ctx, await blockerById(ctx, id), Boolean(withHistory));
+    return await issue(ctx, await issueById(ctx, id), Boolean(withHistory), now);
   },
 });

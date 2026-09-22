@@ -6,7 +6,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Actor } from "./actor";
-import { cairnError } from "./errors";
+import { stale } from "./errors";
 import { record } from "./events";
 
 export type Target =
@@ -65,14 +65,7 @@ export async function expectRevision(
     kind: e.kind,
     changes: e.changes,
   }));
-  throw cairnError({
-    kind: "stale",
-    message: `${doc.id} is at revision ${doc.revision}, you read ${revision}`,
-    id: doc.id,
-    yours: revision,
-    current: doc.revision,
-    since,
-  });
+  throw stale(doc, revision, since);
 }
 
 /**

@@ -2,21 +2,20 @@
 // no epic-to-epic edges. Its counts are computed from its issues on every read; there is
 // no stored progress to go stale (docs/design.md §3, §5).
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
 import { actorValidator } from "./lib/actor";
-import { dropChanges } from "./lib/changes";
+import { createdChanges, dropChanges } from "./lib/changes";
 import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
 import { mint } from "./lib/ids";
 import { INBOX_ID } from "./lib/inbox";
 import { nowArg } from "./lib/clock";
-import { LIVE, epicById, issueOrder } from "./lib/lookup";
+import { epicHealth } from "./lib/health";
+import { epicById } from "./lib/lookup";
+import { idOrder } from "./lib/order";
 import { applyRevision, expectRevision } from "./lib/revision";
-import { createdChanges, epicHealth, epicView, ref } from "./lib/views";
-
-/** ep-7 sorts after ep-2, which a string sort does not do. */
-const number = (doc: Doc<"epics">): number => Number(doc.id.slice("ep-".length));
+import { isLive } from "./lib/validators";
+import { epicView, ref } from "./lib/views";
 
 export const create = mutation({
   args: { actor: actorValidator, title: v.string(), description: v.optional(v.string()) },
@@ -50,7 +49,7 @@ export const list = query({
           .query("epics")
           .withIndex("by_status", (q) => q.eq("status", "open"))
           .collect();
-    rows.sort((a, b) => number(a) - number(b));
+    rows.sort(idOrder);
     return await Promise.all(rows.map((doc) => epicHealth(ctx, doc, now)));
   },
 });
@@ -91,7 +90,7 @@ export const close = mutation({
       .query("issues")
       .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
       .collect();
-    const live = issues.filter((i) => LIVE.includes(i.status));
+    const live = issues.filter(isLive);
 
     if (!args.drop) {
       const liveTasks = live.filter((i) => i.type === "task");
@@ -112,7 +111,7 @@ export const close = mutation({
     if (reason.trim() === "") throw invalid("dropping an epic needs --reason");
 
     const now = Date.now();
-    live.sort(issueOrder);
+    live.sort(idOrder);
     for (const issue of live)
       await applyRevision(
         ctx,

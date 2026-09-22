@@ -23,18 +23,11 @@ import { actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { mutation, query } from "./lib/guard";
-import { LIVE, blockerById, issueById } from "./lib/lookup";
+import { blockerById, issueById } from "./lib/lookup";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
 import { applyRevision } from "./lib/revision";
+import { blockerKindValidator, isLive } from "./lib/validators";
 import { blockerView, ref } from "./lib/views";
-
-const kindValidator = v.union(
-  v.literal("approval"),
-  v.literal("external-wait"),
-  v.literal("decision"),
-  v.literal("credential"),
-  v.literal("purchase"),
-);
 
 /** `bl-3 was resolved by balder on 2026-09-17T…`: who ended it, so nobody reopens it. */
 const alreadyResolved = (doc: Doc<"blockers">) =>
@@ -55,7 +48,7 @@ export const raise = mutation({
     actor: actorValidator,
     issue: v.string(),
     on: v.optional(v.string()),
-    kind: v.optional(kindValidator),
+    kind: v.optional(blockerKindValidator),
     owner: v.optional(v.string()),
     title: v.optional(v.string()),
     whatResolves: v.optional(v.string()),
@@ -63,8 +56,7 @@ export const raise = mutation({
   },
   handler: async (ctx, args) => {
     const issue = await issueById(ctx, args.issue);
-    if (!LIVE.includes(issue.status))
-      throw invalid(`${issue.id} is ${issue.status}; a blocker holds live work`);
+    if (!isLive(issue)) throw invalid(`${issue.id} is ${issue.status}; a blocker holds live work`);
 
     if (args.on !== undefined) {
       if (

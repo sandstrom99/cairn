@@ -91,7 +91,7 @@ describe("issues.create", () => {
     const t = await seed();
     await expect(
       t.mutation(api.issues.create, { actor, project: "nope", epic: "ep-1", title: "x" }),
-    ).rejects.toMatchObject({ data: { kind: "not-found", message: "no such id nope" } });
+    ).rejects.toMatchObject({ data: { kind: "not-found", message: "no such project nope" } });
     await expect(
       t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-9", title: "x" }),
     ).rejects.toMatchObject({ data: { kind: "not-found", message: "no such id ep-9" } });
@@ -381,7 +381,7 @@ describe("issues.update", () => {
     at("2026-09-17T09:00:00Z");
     const t = await withIssue();
     await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
-    const before = (await rawIssue(t, "cn-1"))!.lastActivity;
+    const before = (await rawIssue(t, "cn-1")).lastActivity;
 
     at("2026-09-17T10:00:00Z");
     const updated = await t.mutation(api.issues.update, {
@@ -477,7 +477,7 @@ describe("issues.close", () => {
       verification: { unverified: string };
     };
     await expect(t.mutation(api.issues.close, noRecord)).rejects.toThrow();
-    expect((await rawIssue(t, "cn-1"))!.status).toBe("open");
+    expect((await rawIssue(t, "cn-1")).status).toBe("open");
   });
 
   it("refuses a command that failed, and an unverified close with no reason", async () => {
@@ -494,7 +494,7 @@ describe("issues.close", () => {
     ).rejects.toMatchObject({
       data: { kind: "invalid", message: "an unverified close needs a reason" },
     });
-    expect((await rawIssue(t, "cn-1"))!.status).toBe("open");
+    expect((await rawIssue(t, "cn-1")).status).toBe("open");
   });
 
   it("refuses a second close", async () => {
@@ -547,7 +547,7 @@ describe("issues.close", () => {
         followUp: { title: "ship it", kind: "ship" as unknown as "verify" },
       }),
     ).rejects.toThrow();
-    expect((await rawIssue(t, "cn-1"))!.status).toBe("open");
+    expect((await rawIssue(t, "cn-1")).status).toBe("open");
     expect((await t.query(api.issues.list, {})).map((i) => i.id)).toEqual(["cn-1"]);
   });
 });

@@ -153,7 +153,7 @@ describe("brief.get", () => {
       kind: "finding",
       body: "here",
     });
-    const { lastActivity } = (await rawIssue(t, "cn-4"))!;
+    const { lastActivity } = await rawIssue(t, "cn-4");
     expect(lastActivity).toBeGreaterThanOrEqual(claimedAt);
     const heard = (await t.query(api.brief.get, { now: lastActivity + DAY })).inProgress[0]!;
     expect(heard.silentSince).toBeUndefined();

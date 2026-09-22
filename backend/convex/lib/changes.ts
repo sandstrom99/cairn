@@ -2,8 +2,9 @@
 // computed map, claim, release, close and drop would each record timestamps, `lastActivity`
 // and a whole actor object — noise the event row does not need, since it already carries
 // when and who. One helper per move, so the two release sites (issues.ts, reconcile.ts) and
-// the two drop sites (issues.ts, epics.ts) cannot drift from each other. Events written
-// before this keep their raw maps: nothing migrates an audit trail.
+// the two drop sites (issues.ts, epics.ts) cannot drift from each other. `createdChanges`
+// is the create's, the public view minus `createdAt`, which the row's own time already
+// says. Events written before this keep their raw maps: nothing migrates an audit trail.
 import type { Doc } from "../_generated/dataModel";
 import type { Actor } from "./actor";
 import type { VerificationInput } from "./verification";
@@ -11,6 +12,13 @@ import type { VerificationInput } from "./verification";
 /** One field of a recorded change. An absent side was undefined, and is not stored. */
 export type FieldChange = { from?: unknown; to?: unknown };
 export type Changes = Record<string, FieldChange>;
+
+/** The public fields of a just-created document, for an event's `changes`. */
+export function createdChanges<T extends { createdAt: number }>(view: T): Omit<T, "createdAt"> {
+  const copy: Record<string, unknown> = { ...view };
+  delete copy.createdAt;
+  return copy as Omit<T, "createdAt">;
+}
 
 export function claimChanges(doc: Doc<"issues">, actor: Actor): Changes {
   return {

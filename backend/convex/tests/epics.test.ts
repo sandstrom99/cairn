@@ -121,7 +121,7 @@ describe("epics.health", () => {
   it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
     at("2026-09-17T09:00:00Z");
     const t = await work(2);
-    const { lastActivity } = (await rawIssue(t, "cn-1"))!;
+    const { lastActivity } = await rawIssue(t, "cn-1");
     expect(
       (await t.query(api.epics.health, { id: "ep-1", now: lastActivity + STUCK_AFTER_MS })).health
         .stuck,
