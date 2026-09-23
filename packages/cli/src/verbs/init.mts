@@ -29,6 +29,7 @@
 // that is set, mode 600, because the secret is in it.
 
 import { parseArgs } from "../lib/args.mts";
+import { maybe } from "../lib/flags.mts";
 import { UsageError, errorData, usageFromHeader, say } from "../lib/cli.mts";
 import { api, connectTo } from "../lib/client.mts";
 import { type CairnConfig, readConfig, withDeployment, writeConfig } from "../lib/config.mts";
@@ -37,7 +38,6 @@ import { captureStdout } from "../lib/run.mts";
 export const name = "init";
 export const summary = "set this machine up: write the config for a deployment";
 
-/** A deployment name is an identifier in the file and a word in `cn doctor`'s output. */
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 
 /** Where the secret comes from. Decided here; the command itself runs in `run`. */
@@ -57,13 +57,6 @@ export type Parsed =
       can?: string[];
       makeDefault: boolean;
     };
-
-const text = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-/** `{ host: "wsl" }` or `{}`: an absent option is an absent key, never an undefined one. */
-const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 
 /** The url as it will be stored: a real http(s) URL, with no trailing slash. */
 function checkUrl(given: string): string {
@@ -88,33 +81,34 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
   if (pos.length > 0)
     throw new UsageError(`cn init takes options only, and got "${pos[0]}"; --name <name>`);
 
-  const deployment = text(opts.name);
+  const deployment = opts.name;
   if (!deployment)
     throw new UsageError("cn init --name <name> --url <url>: --name is what to call it here");
   if (!NAME.test(deployment))
     throw new UsageError(`--name is lowercase letters, digits and dashes, not "${deployment}"`);
 
-  const given = text(opts.url);
+  const given = opts.url;
   if (!given)
     throw new UsageError("cn init --name <name> --url <url>: --url is the deployment's URL");
 
   // --secret-cmd wins over CAIRN_SECRET, because it is the one the person just typed.
-  const command = text(opts["secret-cmd"]);
+  const command = opts["secret-cmd"];
   const secret: SecretFrom = command
     ? { from: "--secret-cmd", command }
     : env.CAIRN_SECRET
       ? { from: "CAIRN_SECRET", value: env.CAIRN_SECRET }
       : { from: "none" };
 
-  const can = Array.isArray(opts.can) && opts.can.length > 0 ? opts.can : undefined;
+  // An empty list is not an answer about what the machine can do.
+  const can = opts.can && opts.can.length > 0 ? opts.can : undefined;
   return {
     action: "init",
     name: deployment,
     url: checkUrl(given),
     secret,
-    ...maybe("host", text(opts.host)),
+    ...maybe("host", opts.host),
     ...maybe("can", can),
-    makeDefault: Boolean(opts.default),
+    makeDefault: opts.default,
   };
 }
 

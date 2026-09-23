@@ -26,11 +26,11 @@ export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help", "json"], value: ["name"] });
   if (opts.help) return { action: "help" };
   const [action, ...rest] = pos;
-  if (action === "list") return { action: "list", json: Boolean(opts.json) };
+  if (action === "list") return { action: "list", json: opts.json };
   if (action !== "new") throw new UsageError(`cn project new|list, not "${action ?? ""}"`);
   const slug = rest[0];
   if (!slug || rest.length > 1) throw new UsageError("cn project new <slug> --name <name>");
-  if (typeof opts.name !== "string") throw new UsageError("cn project new needs --name <name>");
+  if (opts.name === undefined) throw new UsageError("cn project new needs --name <name>");
   return { action: "new", args: { slug, name: opts.name } };
 }
 

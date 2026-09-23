@@ -25,7 +25,7 @@ export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help", "json"] });
   if (opts.help) return { action: "help" };
   if (pos.length > 0) throw new UsageError("cn waiting [--json]");
-  return { action: "waiting", json: Boolean(opts.json) };
+  return { action: "waiting", json: opts.json };
 }
 
 export async function run(argv: string[]): Promise<number> {

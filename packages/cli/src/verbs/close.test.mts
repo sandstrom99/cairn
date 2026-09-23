@@ -59,11 +59,30 @@ describe("cn close", () => {
     ).toThrow(UsageError);
   });
 
-  it("needs an integer revision", () => {
+  it("needs an integer revision, and --revision= is not 0", () => {
     expect(() => parse(["cn-2", "--run", "vp run verify"])).toThrow(UsageError);
     expect(() => parse(["cn-2", "--revision", "next", "--run", "vp run verify"])).toThrow(
       UsageError,
     );
+    expect(() => parse(["cn-2", "--revision=", "--run", "vp run verify"])).toThrow(
+      /the revision cn last printed/,
+    );
+  });
+
+  it("refuses a follow-up priority that is blank or outside 0 to 4", () => {
+    const base = [
+      "cn-2",
+      "--revision",
+      "2",
+      "--run",
+      "x",
+      "--follow-up",
+      "check it",
+      "--kind",
+      "verify",
+    ];
+    expect(() => parse([...base, "--priority="])).toThrow(/--priority is a whole number/);
+    expect(() => parse([...base, "--priority", "7"])).toThrow(UsageError);
   });
 
   it("refuses a follow-up with no kind, a kind with no follow-up, and a kind that is not one", () => {

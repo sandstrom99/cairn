@@ -77,7 +77,8 @@ src/smoke.test.mts   the real cn under the real Node, every verb's --help; the t
                  that fails on an import without its extension
 src/lib/
   cli.mts        main(), UsageError, say/warn — the shell every verb runs in
-  args.mts       the one argument parser
+  args.mts       the one argument parser, typed by the spec a verb hands it
+  flags.mts      what a flag's value has to be: revision, priority, date, one of a set of words, once
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
   can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`

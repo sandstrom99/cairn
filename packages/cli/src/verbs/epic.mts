@@ -19,6 +19,7 @@
 // with that reason first, so nothing is left pointing at an epic nobody will finish.
 
 import { parseArgs } from "../lib/args.mts";
+import { maybe, onlyId, revision } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -45,39 +46,27 @@ export function parse(argv: string[]): Parsed {
   if (opts.help) return { action: "help" };
   const [action, ...rest] = pos;
   if (action === "list")
-    return { action: "list", json: Boolean(opts.json), args: opts.all ? { all: true } : {} };
+    return { action: "list", json: opts.json, args: opts.all ? { all: true } : {} };
   if (action === "close") {
-    const [id, ...extra] = rest;
-    if (!id || extra.length > 0)
-      throw new UsageError("cn epic close <id> --revision N [--drop --reason <why>]");
-    const given = typeof opts.revision === "string" ? opts.revision : undefined;
-    const revision = Number(given);
-    if (given === undefined || !Number.isInteger(revision))
-      throw new UsageError("cn epic close <id> --revision N: the revision cn last printed for it");
-    const reason = typeof opts.reason === "string" ? opts.reason : undefined;
+    const id = onlyId(rest, "cn epic close <id> --revision N [--drop --reason <why>]");
+    const rev = revision(opts.revision, "cn epic close <id> --revision N");
     // Dropping is the only ending that takes a reason, so a reason alone is a typo for it.
-    if (reason !== undefined && !opts.drop)
+    if (opts.reason !== undefined && !opts.drop)
       throw new UsageError("--reason goes with --drop; a close that reaches the outcome has none");
     return {
       action: "close",
       args: {
         id,
-        revision,
+        revision: rev,
         ...(opts.drop ? { drop: true as const } : {}),
-        ...(reason === undefined ? {} : { reason }),
+        ...maybe("reason", opts.reason),
       },
     };
   }
   if (action !== "new") throw new UsageError(`cn epic new|list|close, not "${action ?? ""}"`);
   const title = rest.join(" ").trim();
   if (!title) throw new UsageError("cn epic new <title> [--description <text>]");
-  return {
-    action: "new",
-    args: {
-      title,
-      ...(typeof opts.description === "string" ? { description: opts.description } : {}),
-    },
-  };
+  return { action: "new", args: { title, ...maybe("description", opts.description) } };
 }
 
 export async function run(argv: string[]): Promise<number> {

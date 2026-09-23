@@ -67,5 +67,7 @@ describe("cn create", () => {
     expect(() => parse([...base, "--type", "chore"])).toThrow(UsageError);
     expect(() => parse([...base, "--kind", "ship"])).toThrow(UsageError);
     expect(() => parse([...base, "--priority", "soon"])).toThrow(UsageError);
+    expect(() => parse([...base, "--priority="])).toThrow(/--priority is a whole number/);
+    expect(() => parse([...base, "--priority", "5"])).toThrow(UsageError);
   });
 });

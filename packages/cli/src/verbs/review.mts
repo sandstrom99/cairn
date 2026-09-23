@@ -17,6 +17,7 @@
 // With nothing to look at it prints the epic and `nothing to look at`.
 
 import { parseArgs } from "../lib/args.mts";
+import { onlyId } from "../lib/flags.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { reviewLines } from "../lib/lines.mts";
@@ -30,13 +31,12 @@ export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help", "json"] });
   if (opts.help) return { action: "help" };
 
-  const [id, ...rest] = pos;
-  if (!id || rest.length > 0) throw new UsageError("cn review <epic> [--json]");
+  const id = onlyId(pos, "cn review <epic> [--json]");
   // One epic at a time, and an epic is the only thing a sitting reads: an issue id here
   // is a typo for `cn show`.
   if (!id.startsWith("ep-")) throw new UsageError(`cn review takes an epic, not "${id}"`);
 
-  return { action: "review", id, json: Boolean(opts.json) };
+  return { action: "review", id, json: opts.json };
 }
 
 export async function run(argv: string[]): Promise<number> {

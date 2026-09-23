@@ -11,6 +11,7 @@
 // An agent is refused. Agents raise blockers and people end them (docs/design.md §6).
 
 import { parseArgs } from "../lib/args.mts";
+import { onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -26,9 +27,8 @@ const USAGE = "cn resolve <bl-id> --note <what happened>";
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help"], value: ["note"] });
   if (opts.help) return { action: "help" };
-  const [id, ...rest] = pos;
-  if (!id || rest.length > 0) throw new UsageError(USAGE);
-  const note = typeof opts.note === "string" ? opts.note.trim() : "";
+  const id = onlyId(pos, USAGE);
+  const note = opts.note?.trim() ?? "";
   if (!note) throw new UsageError(`${USAGE}: a resolution says what happened`);
   return { action: "resolve", args: { id, note } };
 }

@@ -10,30 +10,23 @@
 // graph; this is the flat list.
 
 import { parseArgs } from "../lib/args.mts";
+import { ISSUE_STATUSES, maybe, oneOf } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
 
 export const name = "list";
 export const summary = "the issues, by priority then age";
 
-const STATUSES = ["open", "in_progress", "closed", "dropped"] as const;
-
 export type ListArgs = {
   project?: string;
   epic?: string;
-  status?: (typeof STATUSES)[number];
+  status?: (typeof ISSUE_STATUSES)[number];
   claimedBy?: string;
 };
 
 export type Parsed = { action: "help" } | { action: "list"; json: boolean; args: ListArgs };
-
-const text = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 
 /** `me` is the actor --mine means; run passes this machine's. */
 export function parse(argv: string[], me: string): Parsed {
@@ -42,16 +35,13 @@ export function parse(argv: string[], me: string): Parsed {
     value: ["project", "epic", "status"],
   });
   if (opts.help) return { action: "help" };
-  const status = text(opts.status);
-  if (status !== undefined && !STATUSES.includes(status as (typeof STATUSES)[number]))
-    throw new UsageError(`--status is one of ${STATUSES.join(", ")}, not "${status}"`);
   return {
     action: "list",
-    json: Boolean(opts.json),
+    json: opts.json,
     args: {
-      ...maybe("project", text(opts.project)),
-      ...maybe("epic", text(opts.epic)),
-      ...maybe("status", status as (typeof STATUSES)[number] | undefined),
+      ...maybe("project", opts.project),
+      ...maybe("epic", opts.epic),
+      ...maybe("status", oneOf(opts.status, "status", ISSUE_STATUSES)),
       ...maybe("claimedBy", opts.mine ? me : undefined),
     },
   };

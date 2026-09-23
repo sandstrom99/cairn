@@ -27,6 +27,7 @@
 // of the epic is yours to run.
 
 import { parseArgs } from "../lib/args.mts";
+import { FOLLOW_UP_KINDS, maybe, oneOf, onlyId, priority, revision } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -36,13 +37,12 @@ import { runCommand } from "../lib/run.mts";
 export const name = "close";
 export const summary = "finish an issue, with a command that proves it";
 
-const KINDS = ["verify", "decide", "cleanup"] as const;
 /** How much of a failed run belongs on the screen beside the refusal. */
 const ON_REFUSAL = 10;
 
 export type FollowUp = {
   title: string;
-  kind: (typeof KINDS)[number];
+  kind: (typeof FOLLOW_UP_KINDS)[number];
   requires?: string[];
   priority?: number;
 };
@@ -60,11 +60,7 @@ export type Parsed =
       followUp?: FollowUp;
     };
 
-const text = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
+const USAGE = "cn close <id> --revision N --run '<command>' | --unverified <why>";
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, {
@@ -74,45 +70,35 @@ export function parse(argv: string[]): Parsed {
   });
   if (opts.help) return { action: "help" };
 
-  const [id, ...rest] = pos;
-  if (!id || rest.length > 0)
-    throw new UsageError("cn close <id> --revision N --run '<command>' | --unverified <why>");
+  const id = onlyId(pos, USAGE);
+  const rev = revision(opts.revision, "cn close <id> --revision N");
 
-  const given = text(opts.revision);
-  const revision = Number(given);
-  if (given === undefined || !Number.isInteger(revision))
-    throw new UsageError("cn close <id> --revision N: the revision cn last printed for it");
-
-  const command = text(opts.run);
-  const unverified = text(opts.unverified);
+  const command = opts.run;
+  const unverified = opts.unverified;
   if ((command === undefined) === (unverified === undefined))
     throw new UsageError(
       "cn close takes exactly one of --run '<command>' and --unverified '<why>'",
     );
   const proof: Proof = command === undefined ? { unverified: unverified! } : { run: command };
 
-  const title = text(opts["follow-up"]);
-  const kind = text(opts.kind);
+  const title = opts["follow-up"];
+  const kind = oneOf(opts.kind, "kind", FOLLOW_UP_KINDS);
   if (title === undefined && kind !== undefined)
     throw new UsageError("--kind belongs to --follow-up <title>");
-  if (title !== undefined && (kind === undefined || !KINDS.includes(kind as FollowUp["kind"])))
-    throw new UsageError(`--follow-up needs --kind ${KINDS.join("|")}, not "${kind ?? ""}"`);
-
-  const priority = text(opts.priority);
-  if (priority !== undefined && Number.isNaN(Number(priority)))
-    throw new UsageError(`--priority is a number 0 to 4, not "${priority}"`);
+  if (title !== undefined && kind === undefined)
+    throw new UsageError(`--follow-up needs --kind ${FOLLOW_UP_KINDS.join("|")}`);
 
   const followUp: FollowUp | undefined =
     title === undefined
       ? undefined
       : {
           title,
-          kind: kind as FollowUp["kind"],
-          ...maybe("requires", Array.isArray(opts.requires) ? opts.requires : undefined),
-          ...maybe("priority", priority === undefined ? undefined : Number(priority)),
+          kind: kind!,
+          ...maybe("requires", opts.requires),
+          ...maybe("priority", priority(opts.priority)),
         };
 
-  return { action: "close", id, revision, proof, ...maybe("followUp", followUp) };
+  return { action: "close", id, revision: rev, proof, ...maybe("followUp", followUp) };
 }
 
 export async function run(argv: string[]): Promise<number> {
@@ -121,7 +107,7 @@ export async function run(argv: string[]): Promise<number> {
     console.log(usageFromHeader(import.meta.url));
     return 0;
   }
-  const { id, revision, proof, followUp } = parsed;
+  const { id, proof, followUp } = parsed;
 
   // The command runs before the call, so what goes to the deployment is what happened.
   if ("run" in proof) say(`running ${proof.run}`);
@@ -132,7 +118,7 @@ export async function run(argv: string[]): Promise<number> {
     const closed = await client.mutation(api.issues.close, {
       actor: actor(),
       id,
-      revision,
+      revision: parsed.revision,
       verification,
       ...maybe("followUp", followUp),
     });
