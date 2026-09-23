@@ -16,7 +16,7 @@
 import { parseArgs } from "../lib/args.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { brief } from "../lib/format.mts";
+import { brief } from "../lib/lines.mts";
 
 export const name = "show";
 export const summary = "one id, and its neighbourhood";

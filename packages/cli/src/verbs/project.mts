@@ -12,7 +12,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { projectLine } from "../lib/format.mts";
+import { projectLine } from "../lib/lines.mts";
 
 export const name = "project";
 export const summary = "the id prefixes work is minted under";

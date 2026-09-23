@@ -5,8 +5,8 @@
 //
 // The facts are `issueFacts` and `blockerFacts` from @cairn/cli, the ones `cn show` prints,
 // so the table says what the brief says, in its words and its order (sheet.test.tsx).
-import type { Fact, Named } from "@cairn/cli/src/lib/format.mts";
-import type { Referable } from "@cairn/cli/src/lib/ref.mts";
+import type { Fact, Named } from "@cairn/cli/parts";
+import type { Referable } from "@cairn/cli/ref";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";

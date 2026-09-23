@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { CairnError } from "@cairn/backend/convex/lib/errors.js";
 import { ConvexError } from "convex/values";
-import { staleLines } from "./format.mts";
+import { staleLines } from "./lines.mts";
 
 /** Wrong arguments: exit 2 at the top of a CLI. */
 export class UsageError extends Error {}

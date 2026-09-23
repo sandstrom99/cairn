@@ -19,7 +19,7 @@ import { parseArgs } from "../lib/args.mts";
 import { can } from "../lib/can.mts";
 import { usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { readyLine } from "../lib/format.mts";
+import { readyLine } from "../lib/lines.mts";
 
 export const name = "ready";
 export const summary = "what can be picked up right now, marked with what this session cannot do";

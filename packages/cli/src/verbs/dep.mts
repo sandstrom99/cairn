@@ -21,7 +21,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { edgeLine } from "../lib/format.mts";
+import { edgeLine } from "../lib/lines.mts";
 
 export const name = "dep";
 export const summary = "link two issues: blocked-by, blocks, related, discovered-from, …";

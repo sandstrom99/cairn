@@ -1,17 +1,11 @@
 // The pin: a row on the page is one of cn's lines, typeset. Each test renders the row and
 // the line from the same view and holds the row's text to the line, give or take the
-// padding cn uses for columns. A word changed in format.mts changes both or fails here; a
+// padding cn uses for columns. A word changed in parts.mts changes both or fails here; a
 // row that drops, reorders or rewords a piece of its line fails here.
 //
 // Rendered to a string rather than to a DOM, like everything in this suite.
-import {
-  type EpicLineView,
-  type LogEvent,
-  blockerLine,
-  healthLines,
-  holdsLine,
-  logLine,
-} from "@cairn/cli/src/lib/format.mts";
+import { blockerLine, healthLines, holdsLine, logLine } from "@cairn/cli/lines";
+import type { EpicLineView, LogEvent } from "@cairn/cli/views";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FeedEvent } from "./Feed.tsx";

@@ -1,7 +1,7 @@
 // ListPages.tsx: the two pages that are a list of everything. Issues is `cn list`, grouped
 // by where each issue stands, with what is finished folded away under what is not. The log
 // is `cn log`: the feed, with the room a column beside the overview does not have.
-import type { LogEvent } from "@cairn/cli/src/lib/format.mts";
+import type { LogEvent } from "@cairn/cli/views";
 import { FeedEvent } from "./Feed.tsx";
 import { IssueRows } from "./IssueRows.tsx";
 import type { Listed } from "./ItemPages.tsx";

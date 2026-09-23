@@ -14,7 +14,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { blockerLine } from "../lib/format.mts";
+import { blockerLine } from "../lib/lines.mts";
 
 export const name = "ack";
 export const summary = "a person saying seen: a blocker moves from raised to waiting";

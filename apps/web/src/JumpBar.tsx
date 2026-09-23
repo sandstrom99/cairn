@@ -3,7 +3,7 @@
 // everywhere else, so typing one is how a reader gets to it. ⌘K or Ctrl K from anywhere.
 //
 // The matching and the keyboard are cmdk's, through shadcn's Command.
-import type { Referable } from "@cairn/cli/src/lib/ref.mts";
+import type { Referable } from "@cairn/cli/ref";
 import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

@@ -4,8 +4,9 @@
   //
   // Resolution is "bundler" for the same reason cn's is: this app follows the generated
   // `api` into @cairn/backend's sources, which import without extensions the way Convex
-  // does, and it reaches into @cairn/cli for ref.mts, which has no exports map. Under
-  // nodenext those imports fail to resolve and every `api.*` call silently types as `any`.
+  // does. Under nodenext those imports fail to resolve and every `api.*` call silently
+  // types as `any`. @cairn/cli is imported through its exports map (`@cairn/cli/parts`,
+  // `views`, `ref`), which every resolution mode reads.
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",

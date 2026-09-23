@@ -21,7 +21,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { blockerLine, holdsLine } from "../lib/format.mts";
+import { blockerLine, holdsLine } from "../lib/lines.mts";
 
 export const name = "wait";
 export const summary = "raise a human blocker on an issue, or attach one that exists";

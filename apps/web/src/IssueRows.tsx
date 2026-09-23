@@ -2,7 +2,8 @@
 // reference, the priority, the status, the epic where the list spans epics, and who holds
 // it. cn's order is kept in the text; on the page the status leads, because down a column
 // of rows it is the word the eye sorts by.
-import { type IssueLineView, issueParts } from "@cairn/cli/src/lib/format.mts";
+import { issueParts } from "@cairn/cli/parts";
+import type { IssueLineView } from "@cairn/cli/views";
 import { cn } from "@/lib/utils";
 import { Ref } from "./Ref.tsx";
 

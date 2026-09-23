@@ -25,7 +25,7 @@
 import { parseArgs } from "../lib/args.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { logLine } from "../lib/format.mts";
+import { logLine } from "../lib/lines.mts";
 
 export const name = "log";
 export const summary = "what happened across the deployment, newest first";

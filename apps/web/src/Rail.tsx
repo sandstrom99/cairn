@@ -2,7 +2,7 @@
 // every open epic with the one dot that says how it is doing. Below it, the fact a reader
 // should not have to guess: this window reads, and what it reads with is a shared secret
 // kept in this browser.
-import type { EpicLineView } from "@cairn/cli/src/lib/format.mts";
+import type { EpicLineView } from "@cairn/cli/views";
 import { Clock3, LayoutDashboard, List, Lock } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";

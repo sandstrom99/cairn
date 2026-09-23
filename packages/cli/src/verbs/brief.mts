@@ -32,7 +32,8 @@ import { can } from "../lib/can.mts";
 import { usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { resolveDeployment } from "../lib/config.mts";
-import { briefLines, unjournaled, unjournaledLine } from "../lib/format.mts";
+import { briefLines, unjournaledLine } from "../lib/lines.mts";
+import { unjournaled } from "../lib/parts.mts";
 
 export const name = "brief";
 export const summary =

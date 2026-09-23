@@ -61,7 +61,7 @@ change works where it runs:
 | `backend/convex/lib/guard.ts` | `CAIRN_SECRET=wrong cn ready`, then `cn ready` | the cloud deployment refuses a wrong secret in one line naming the fix, and answers with the right one |
 | `packages/cli/**` | `vp run verify:e2e` | every verb runs end to end against a real deployment, not only in a unit test |
 | a verb's header | `cn <verb> --help` | the header reads as the contract it is |
-| `packages/cli/src/lib/format.mts`, `ref.mts` | `vp run @cairn/web#test` | the page's rows are still cn's lines: `apps/web/src/rows.test.tsx` and `sheet.test.tsx` render each row and each page's table and hold the text to what cn prints from the same view |
+| `packages/cli/src/lib/parts.mts`, `lines.mts`, `views.mts`, `time.mts`, `ref.mts`, or the `exports` map in `packages/cli/package.json` | `vp run @cairn/web#test`, then `vp run @cairn/web#build` | the page's rows are still cn's lines: `apps/web/src/rows.test.tsx` and `sheet.test.tsx` render each row and each page's table and hold the text to what cn prints from the same view; and every `@cairn/cli/*` import the page makes still resolves through the exports map, which is the only way in — nothing under `apps/web` names a path under `packages/cli/src` |
 | `apps/web/**` | `vp run @cairn/web#build`, then with `vp run @cairn/backend#dev:throwaway` held open in another terminal: `VITE_CAIRN_URL=<the throwaway's> vp run dev:web`, `CAIRN_URL=<the same> cn epic new "scratch"`, and the page in a browser | every import the page makes resolves for a browser, the generated `api` and the CLI's `ref.mts` among them, which neither `vp check` nor the tests can prove; and the page prints the new epic in the reference form without a reload, the write itself landing at the top of the Activity feed. Then click the epic, one of its issues, and Copy reference: the path changes with no page load, and the clipboard holds the reference form A headless browser needs a real wait before it reads the DOM: `--dump-dom` returns at the load event, before the subscription has answered |
 | `plugins/cairn/**` | `bash plugins/cairn/hooks/session-start.sh` four ways — with `CAIRN_URL` set, with it unset on a machine that has a config, with `XDG_CONFIG_HOME` pointed at an empty directory, and with it pointed at a directory whose `cairn/config.json` names `dead` at `http://127.0.0.1:9` — plus `claude plugin validate plugins/cairn --strict` | the brief from the environment, the brief from the file, with nothing configured the two lines pointing at `/cairn:init`, and with a deployment that does not answer the one line `cairn: dead did not answer; cn doctor says why` in under 5 s; exit 0 every way, and a manifest that validates |
 | `.claude/settings.json` | `claude plugin details cairn@cairn` from the repo root | the inventory names the skill, the four commands and the SessionStart and Stop hooks; it needs the folder's trust dialog accepted once in an interactive `claude`, before which project marketplaces are ignored without a message, and `claude plugin list` never shows a project-enabled plugin |
@@ -126,7 +126,7 @@ Three things enforce the gate, so a session cannot skip it by forgetting:
 | `plugins/cairn/` | | the skill, the SessionStart hook, the slash commands. |
 | `scripts/` | | `verify-e2e.mjs`, the per-verb rows of the table above as one script. |
 | `docs/` | | `design.md`. |
-| `apps/web/` | `@cairn/web` | the web window: Vite, React and `convex/react`, subscribing to the functions `cn` calls. It imports the generated `api` from `@cairn/backend`, and the reference form and the parts of every line from `@cairn/cli`: a row on the page is one of cn's lines, typeset, never reworded (`docs/design.md` §8, "The web window"). shadcn components live in `src/components/ui/`, the tokens and the three surfaces in `src/index.css`. Tests render to a string in node; there is no DOM in the suite. |
+| `apps/web/` | `@cairn/web` | the web window: Vite, React and `convex/react`, subscribing to the functions `cn` calls. It imports the generated `api` from `@cairn/backend`, and the reference form and the parts of every line from `@cairn/cli`, through its exports map (`@cairn/cli/parts`, `views`, `ref`, never a path under `src/`): a row on the page is one of cn's lines, typeset, never reworded (`docs/design.md` §8, "The web window"). shadcn components live in `src/components/ui/`, the tokens and the three surfaces in `src/index.css`. Tests render to a string in node; there is no DOM in the suite. |
 
 ## Toolchain: vp, only
 
@@ -164,7 +164,7 @@ two move together.
 - **`epicId` is required. Closing takes a verification record.**
 - **A fact is read where it is read.** `cn show` says what an issue's neighbourhood means
   now, a `blocks` edge into a closed issue reading `done` rather than being deleted by a
-  run (design §7); the page prints the same words from the same `…Parts` in `format.mts`.
+  run (design §7); the page prints the same words from the same `…Parts` in `parts.mts`.
 
 ## Commits and pull requests
 
