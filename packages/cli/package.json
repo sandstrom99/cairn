@@ -7,6 +7,13 @@
     "cn": "./bin/cn"
   },
   "type": "module",
+  "exports": {
+    "./ref": "./src/lib/ref.mts",
+    "./views": "./src/lib/views.mts",
+    "./time": "./src/lib/time.mts",
+    "./parts": "./src/lib/parts.mts",
+    "./lines": "./src/lib/lines.mts"
+  },
   "scripts": {
     "cn": "node src/main.mts",
     "test": "vp test run"

@@ -82,7 +82,10 @@ src/lib/
   can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`
   actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>, with CAIRN_SESSION beside it
-  format.mts     the lines cn prints: a list line, an epic line, the show brief
+  views.mts      the shapes the lines read: four of the deployment's return types, the rest structural
+  time.mts       how long ago, in one token: age, since, day
+  parts.mts      the pieces a line is joined from, which the web window sets as rows
+  lines.mts      the lines cn prints: a list line, an epic line, the show brief
   run.mts        runs the command `cn close --run` proves with, and keeps its tail
   ref.mts        the reference form: id and title, always
 ```

@@ -8,7 +8,7 @@
 //
 // Every reference is a link to its own page, `/cn-26`: one URL per id is what gives the
 // form somewhere to point.
-import { type Referable, refParts } from "@cairn/cli/src/lib/ref.mts";
+import { type Referable, refParts } from "@cairn/cli/ref";
 import { cn } from "@/lib/utils";
 
 type Props = {

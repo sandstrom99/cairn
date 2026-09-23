@@ -14,7 +14,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { blockerLine, freedLine } from "../lib/format.mts";
+import { blockerLine, freedLine } from "../lib/lines.mts";
 
 export const name = "resolve";
 export const summary = "end a blocker, and free every issue it holds";

@@ -2,7 +2,7 @@
 // read-only window"`, ready to paste into a session. That form is how work is named to an
 // agent, so it is the thing worth copying: an agent told the id and the title knows what
 // is meant and can `cn show` the rest.
-import { type Referable, ref } from "@cairn/cli/src/lib/ref.mts";
+import { type Referable, ref } from "@cairn/cli/ref";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 

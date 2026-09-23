@@ -217,7 +217,7 @@ carry the raw patch for those four kinds, because nothing migrates an audit trai
 whatever renders `changes` reads both.
 
 Whatever renders `changes` renders every kind as a line and none as JSON, settled
-2026-09-22 in `eventPieces` (`format.mts`), which `cn log`, `cn show --history`, a stale
+2026-09-22 in `eventPieces` (`parts.mts`), which `cn log`, `cn show --history`, a stale
 write's retry lines and the web window's feed and history all go through. A field map is
 its fields, `status open → in_progress`; a journal append its kind and first line; an
 edge, a blocker's raise and an attach read relative to the id whose line it is, the way
@@ -600,9 +600,10 @@ the agents doing, and does anything need me.
 
 **A row is one of cn's lines, typeset.** The page does not print the padded
 lines a terminal gets, and it does not word anything a second way either.
-`format.mts` builds each line from pieces, `healthParts`, `blockerParts`,
-`logParts`, `stateParts`, `proofParts` and `changePieces`, and the line is
-those pieces joined; the page sets the same pieces in columns. The separators cn prints stay in the markup,
+`parts.mts` gives each line its pieces, `healthParts`, `blockerParts`,
+`logParts`, `stateParts`, `proofParts` and `changePieces`, and `lines.mts` is
+those pieces joined and padded; the page imports the pieces through
+`@cairn/cli/parts` and sets the same pieces in columns. The separators cn prints stay in the markup,
 pale or not drawn, so the text of a row is the line. `apps/web/src/rows.test.tsx`
 holds every row to that, which is how "the same health lines as `cn epic list`"
 is checked rather than hoped for. Ruled out: a mono dump of the lines with the

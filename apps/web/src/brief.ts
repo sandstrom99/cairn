@@ -3,7 +3,7 @@
 // reader can move, then what is in progress, then what is ready. The order never changes
 // with the numbers, so it is learnt once; a clause with nothing behind it is marked
 // `empty` and the page sets it back, so the ink on the screen is what is actually there.
-import type { BriefView } from "@cairn/cli/src/lib/format.mts";
+import type { BriefView } from "@cairn/cli/views";
 
 export type Clause = { text: string; empty: boolean };
 

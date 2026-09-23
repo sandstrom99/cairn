@@ -30,7 +30,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { closedLines } from "../lib/format.mts";
+import { closedLines } from "../lib/lines.mts";
 import { runCommand } from "../lib/run.mts";
 
 export const name = "close";

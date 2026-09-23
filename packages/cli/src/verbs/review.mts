@@ -19,7 +19,7 @@
 import { parseArgs } from "../lib/args.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { reviewLines } from "../lib/format.mts";
+import { reviewLines } from "../lib/lines.mts";
 
 export const name = "review";
 export const summary = "what to look at in one epic, together; writes nothing";

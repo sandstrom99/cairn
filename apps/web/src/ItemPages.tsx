@@ -8,18 +8,15 @@
 // back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
 // and the page sets their pieces (sheet.test.tsx).
 import {
-  type IssueLineView,
-  type ShownBlocker,
-  type ShownEpic,
-  type ShownIssue,
   blockerFacts,
   healthParts,
   issueFacts,
   journalParts,
   proofParts,
   stateParts,
-} from "@cairn/cli/src/lib/format.mts";
-import type { Referable } from "@cairn/cli/src/lib/ref.mts";
+} from "@cairn/cli/parts";
+import type { IssueLineView, ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
+import type { Referable } from "@cairn/cli/ref";
 import { IssueRows } from "./IssueRows.tsx";
 import { HealthRows } from "./Overview.tsx";
 import { Prose } from "./Prose.tsx";

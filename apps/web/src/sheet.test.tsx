@@ -2,17 +2,10 @@
 // what `cn show` prints for the same view, in its words and its order. The page goes
 // further than the brief in one place only, by design: text the brief cuts to a first line,
 // and the output a proof stored, is printed whole.
-import {
-  type HistoryEvent,
-  type ShownBlocker,
-  type ShownIssue,
-  brief,
-  historyLines,
-  issueLine,
-  stateLine,
-  stateParts,
-} from "@cairn/cli/src/lib/format.mts";
-import { ref } from "@cairn/cli/src/lib/ref.mts";
+import { brief, historyLines, issueLine } from "@cairn/cli/lines";
+import { stateLine, stateParts } from "@cairn/cli/parts";
+import type { HistoryEvent, ShownBlocker, ShownIssue } from "@cairn/cli/views";
+import { ref } from "@cairn/cli/ref";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HistoryEntry } from "./Feed.tsx";
@@ -32,7 +25,7 @@ const issue: ShownIssue = {
   epic: { id: "ep-4", title: "Humans in the loop" },
   title: "apps/web, the read-only window",
   description: undefined,
-  design: "On the skeleton.\n\nLines come from format.mts.",
+  design: "On the skeleton.\n\nLines come from lines.mts.",
   acceptance: "- The page lists open epics.\n- Nothing on the page calls a mutation.",
   type: "task",
   followUpKind: undefined,
@@ -134,7 +127,7 @@ describe("an issue's page", () => {
 
   it("prints in full what the brief cuts to a first line", () => {
     expect(brief(issue, now)).toContain("On the skeleton.…");
-    expect(plain(markup)).toContain("On the skeleton. Lines come from format.mts.");
+    expect(plain(markup)).toContain("On the skeleton. Lines come from lines.mts.");
     expect(markup.match(/<li>/g)).toHaveLength(2);
   });
 

@@ -10,7 +10,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { issueLine } from "../lib/format.mts";
+import { issueLine } from "../lib/lines.mts";
 
 export const name = "drop";
 export const summary = "closed without doing, with the reason it was not";

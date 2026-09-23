@@ -1,4 +1,4 @@
-import type { BriefView } from "@cairn/cli/src/lib/format.mts";
+import type { BriefView } from "@cairn/cli/views";
 import { describe, expect, it } from "vitest";
 import { headline, underline } from "./brief.ts";
 

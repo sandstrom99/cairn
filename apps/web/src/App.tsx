@@ -16,8 +16,8 @@
 // A second boundary sits around the page for one id, because an id nobody minted is the
 // deployment answering, not refusing.
 import { api } from "@cairn/backend/convex/_generated/api.js";
-import type { LogEvent } from "@cairn/cli/src/lib/format.mts";
-import { ref } from "@cairn/cli/src/lib/ref.mts";
+import type { LogEvent } from "@cairn/cli/views";
+import { ref } from "@cairn/cli/ref";
 import { useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Component, type ReactNode, useEffect, useMemo, useState } from "react";

@@ -4,12 +4,8 @@
 //
 // An event that arrives while the page is open lands with a sheen: the one motion on the
 // page that nobody asked for, and the proof that a subscription, not a reload, brought it.
-import {
-  type HistoryEvent,
-  type LogEvent,
-  historyParts,
-  logParts,
-} from "@cairn/cli/src/lib/format.mts";
+import { historyParts, logParts } from "@cairn/cli/parts";
+import type { HistoryEvent, LogEvent } from "@cairn/cli/views";
 import {
   Check,
   CircleDot,

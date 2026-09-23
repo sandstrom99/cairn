@@ -2,22 +2,16 @@
 // where there is any, then every open epic with its health.
 //
 // Every row here is one of cn's lines, typeset. The pieces come from the `…Parts`
-// functions in @cairn/cli's format.mts, the same ones the lines themselves are joined
+// functions in @cairn/cli's parts.mts, the same ones the lines themselves are joined
 // from, and the text a row ends up with is the line: the separators cn prints stay in the
 // markup, pale or unseen, so a row copied off the page pastes as cn's output.
 // rows.test.tsx holds each row to that.
 //
 // Nothing here holds state or asks the deployment anything, so a test renders it to a
 // string. The queries are in App.tsx.
-import {
-  type BlockerLineView,
-  type BriefView,
-  type EpicLineView,
-  type HealthRow,
-  blockerParts,
-  healthParts,
-} from "@cairn/cli/src/lib/format.mts";
-import type { Referable } from "@cairn/cli/src/lib/ref.mts";
+import { type HealthRow, blockerParts, healthParts } from "@cairn/cli/parts";
+import type { BlockerLineView, BriefView, EpicLineView } from "@cairn/cli/views";
+import type { Referable } from "@cairn/cli/ref";
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { headline, underline } from "./brief.ts";

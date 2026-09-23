@@ -22,7 +22,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { epicClosedLines, healthLines } from "../lib/format.mts";
+import { epicClosedLines, healthLines } from "../lib/lines.mts";
 import { ref } from "../lib/ref.mts";
 
 export const name = "epic";
