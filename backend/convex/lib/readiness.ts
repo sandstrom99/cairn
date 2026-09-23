@@ -14,7 +14,7 @@ import { isLive } from "./validators";
 import { type Ref, issueView, ref } from "./views";
 
 /** What holds an issue back. Ready is all three empty. */
-export type Blocked = {
+type Blocked = {
   /** The open or in-progress issues with a `blocks` edge into it. */
   issues: Ref[];
   /** The unresolved blockers attached to it. */

@@ -12,13 +12,8 @@
 // all read `.env.local`, and none of them says which deployment it reached. This wrapper
 // holds the file's bytes, runs the push, and writes them back exactly as they were when
 // the child exits, however it exits.
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const envLocal = join(packageRoot, ".env.local");
+import { envLocal, runConvex } from "./run-convex.mjs";
 
 /** The file's bytes, or null when there is no file to put back. */
 const saved = existsSync(envLocal) ? readFileSync(envLocal) : null;
@@ -28,17 +23,6 @@ const restore = () => {
   else if (existsSync(envLocal)) rmSync(envLocal);
 };
 
-const child = spawn(
-  "npx",
-  ["convex", "dev", "--env-file", ".env.cloud.local", ...process.argv.slice(2)],
-  { cwd: packageRoot, stdio: "inherit" },
-);
-
-// The watcher is the case that matters: Ctrl-C reaches this process, and the child has to
-// be asked to stop so its exit is what restores the file.
-for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
-
-child.on("exit", (code, signal) => {
-  restore();
-  process.exit(code ?? (signal ? 1 : 0));
+runConvex(["dev", "--env-file", ".env.cloud.local", ...process.argv.slice(2)], {
+  onExit: restore,
 });

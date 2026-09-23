@@ -18,17 +18,15 @@
 // so a SIGTERM to the node process leaves that backend orphaned on both ports. The child
 // is therefore started detached, as its own process group leader, and teardown goes to
 // the group rather than to the pid.
-import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { packageRoot, spawnConvex } from "./run-convex.mjs";
 
 /** What the mirror directory links back to, so convex resolves as it would in backend/. */
-const MIRRORED = ["convex", "node_modules", "package.json", "tsconfig.json", "convex.json"];
+const MIRRORED = ["convex", "node_modules", "package.json", "tsconfig.json"];
 
 /** The environment convex must not inherit: each of these would name another deployment. */
 const UNSET = [
@@ -95,18 +93,13 @@ function refused(port) {
 export async function startThrowaway() {
   const [cloudPort, sitePort] = await freePorts();
   const dir = mkdtempSync(join(tmpdir(), "cairn-throwaway-"));
-  for (const entry of MIRRORED) {
-    const target = join(packageRoot, entry);
-    if (existsSync(target)) symlinkSync(target, join(dir, entry));
-  }
+  for (const entry of MIRRORED) symlinkSync(join(packageRoot, entry), join(dir, entry));
 
   const env = { ...process.env, CONVEX_AGENT_MODE: "anonymous" };
   for (const key of UNSET) delete env[key];
 
-  const child = spawn(
-    process.execPath,
+  const child = spawnConvex(
     [
-      join(packageRoot, "node_modules", "convex", "bin", "main.js"),
       "dev",
       "--local-cloud-port",
       String(cloudPort),

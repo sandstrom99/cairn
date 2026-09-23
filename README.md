@@ -178,7 +178,7 @@ deployment on port 3210.
 ```bash
 vp config                          # once per clone: the pre-commit hook
 vp run verify                      # format, lint, types, every test: about a second
-vp run @cairn/backend#dev:local    # a local deployment, no account, in another terminal
+vp run @cairn/backend#dev          # a local deployment, no account, in another terminal
 ```
 
 `AGENTS.md` carries the rest: the per-change verification table, the toolchain

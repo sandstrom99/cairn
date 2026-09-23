@@ -42,15 +42,6 @@ export const list = query({
   },
 });
 
-/** One epic's health, the three lines of §8 with the counts above them. */
-export const health = query({
-  args: { id: v.string(), ...nowArg },
-  handler: async (ctx, { id, now }) => {
-    const doc = await epicById(ctx, id);
-    return await epicHealth(ctx, doc, await issuesIn(ctx, doc._id), now);
-  },
-});
-
 /**
  * Closing an epic by hand, and dropping one with everything live in it.
  *

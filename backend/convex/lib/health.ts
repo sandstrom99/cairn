@@ -81,5 +81,3 @@ export async function epicHealth(
 
   return { ...epicView(doc, issues), health: { moving, stuck, waiting } };
 }
-
-export type EpicHealth = Awaited<ReturnType<typeof epicHealth>>;

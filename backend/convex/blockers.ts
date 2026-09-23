@@ -14,9 +14,9 @@
 // The event rule: an event that names an issue only because a blocker touched it carries
 // no `revision`. The issue's revision did not move, and `expectRevision` reads an issue's
 // history by revision, so a revision here would answer a stale write with somebody else's
-// number. It names the blocker in its `changes` rather than in `blockerId`, so the
-// blocker's own history stays one line per action instead of one per issue it held. The
-// blocker's revision moves on ack and resolve alone, through `applyRevision`.
+// number. A raise and an attach carry both ids, so the issue's history and the blocker's
+// each read them, the blocker's one line per issue it holds. The blocker's revision moves
+// on ack and resolve alone, through `applyRevision`, and those name no issue.
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { actorValidator } from "./lib/actor";

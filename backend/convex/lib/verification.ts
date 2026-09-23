@@ -36,5 +36,3 @@ export const verificationValidator = v.union(
     by: actorValidator,
   }),
 );
-
-export type Verification = Infer<typeof verificationValidator>;

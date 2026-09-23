@@ -24,8 +24,13 @@ afterEach(() => vi.useRealTimers());
 /** The seed with `n` open issues in ep-1, titled `work 1` upward. */
 const work = (n: number) => seed({ issues: Array.from({ length: n }, (_, i) => `work ${i + 1}`) });
 
-const healthOf = async (t: Harness, id = "ep-1") =>
-  (await t.query(api.epics.health, { id })).health;
+/** An epic's health as `cn epic list` reads it, at `now` when the caller says. */
+const healthOf = async (t: Harness, id = "ep-1", now?: number) => {
+  const args = now === undefined ? { all: true } : { all: true, now };
+  const epic = (await t.query(api.epics.list, args)).find((e) => e.id === id);
+  if (!epic) throw new Error(`${id} is not listed`);
+  return epic.health;
+};
 
 describe("epics", () => {
   it("mints ep-1 then ep-2 and starts every count at zero", async () => {
@@ -96,7 +101,7 @@ describe("epics", () => {
   });
 });
 
-describe("epics.health", () => {
+describe("epic health", () => {
   it("moves the in-progress issues to `moving`, with who holds them and since when", async () => {
     at("2026-09-17T09:00:00Z");
     const t = await work(2);
@@ -122,18 +127,11 @@ describe("epics.health", () => {
     at("2026-09-17T09:00:00Z");
     const t = await work(2);
     const { lastActivity } = await rawIssue(t, "cn-1");
-    expect(
-      (await t.query(api.epics.health, { id: "ep-1", now: lastActivity + STUCK_AFTER_MS })).health
-        .stuck,
-    ).toBeUndefined();
-    const later = await t.query(api.epics.health, {
-      id: "ep-1",
-      now: lastActivity + STUCK_AFTER_MS + 1,
+    expect((await healthOf(t, "ep-1", lastActivity + STUCK_AFTER_MS)).stuck).toBeUndefined();
+    expect((await healthOf(t, "ep-1", lastActivity + STUCK_AFTER_MS + 1)).stuck).toMatchObject({
+      id: "cn-1",
+      title: "work 1",
     });
-    expect(later.health.stuck).toMatchObject({ id: "cn-1", title: "work 1" });
-    expect(
-      (await t.query(api.epics.list, { now: lastActivity + STUCK_AFTER_MS + 1 }))[0]!.health.stuck,
-    ).toMatchObject({ id: "cn-1" });
     const shown = await t.query(api.show.get, {
       id: "ep-1",
       now: lastActivity + STUCK_AFTER_MS + 1,

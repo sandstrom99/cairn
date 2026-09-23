@@ -8,7 +8,7 @@ import { record } from "./events";
 import { linkBetween } from "./graph";
 import { mint } from "./ids";
 
-export type BlockerFields = {
+type BlockerFields = {
   kind: Doc<"blockers">["kind"];
   owner: string;
   title: string;

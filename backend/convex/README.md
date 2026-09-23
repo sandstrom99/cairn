@@ -21,7 +21,7 @@ What is here, one public function per `cn` verb or action word:
 | `brief.ts` | `get`: the session-start report as data, §8 |
 | `events.ts` | `recent`: what happened across the deployment, newest first, for `cn log` and the page's feed; an edge listed once |
 | `edges.ts` | `add`, `remove`; one direction stored, recorded on both ends, §3 |
-| `epics.ts` | `create`, `list`, `health`, `close` |
+| `epics.ts` | `create`, `list`, `close` |
 | `blockers.ts` | `raise`, `list`, `ack`, `resolve`, §6 |
 | `projects.ts` | `create`, `list` |
 | `review.ts` | `get`, the sitting of §7: one query listing what to look at in an epic, writes nothing |

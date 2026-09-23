@@ -74,8 +74,6 @@ export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
   };
 }
 
-export type EpicView = ReturnType<typeof epicView>;
-
 /**
  * A blocker with the issues it holds. The blocker's own `kind` travels as `blockerKind`,
  * because `show.get` spreads this view under its own `kind: "blocker"` discriminator and
@@ -99,5 +97,3 @@ export async function blockerView(ctx: QueryCtx, doc: Doc<"blockers">) {
     issues: (await issuesHeldBy(ctx, doc._id)).map(ref),
   };
 }
-
-export type BlockerView = Awaited<ReturnType<typeof blockerView>>;
