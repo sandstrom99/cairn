@@ -37,7 +37,6 @@ import type * as lib_titles from "../lib/titles.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as lib_verification from "../lib/verification.js";
 import type * as lib_views from "../lib/views.js";
-import type * as patch from "../patch.js";
 import type * as projects from "../projects.js";
 import type * as ready from "../ready.js";
 import type * as review from "../review.js";
@@ -79,7 +78,6 @@ declare const fullApi: ApiFromModules<{
   "lib/validators": typeof lib_validators;
   "lib/verification": typeof lib_verification;
   "lib/views": typeof lib_views;
-  patch: typeof patch;
   projects: typeof projects;
   ready: typeof ready;
   review: typeof review;
