@@ -100,7 +100,6 @@ epics         id                string        ep-7. ep-0 is the one inbox
               description?      string
               status            open | closed | dropped
               droppedReason?    string        the epic view returns it, like an issue's
-              lastReconciledAt? number        unread since 2026-09-22 (§7); declared until the two worklist rows carrying it are patched
               revision          number
               index by_public_id [id], by_status [status]
               ↑ no projectId: an epic is an outcome, not a place
@@ -490,10 +489,12 @@ printing it. The thresholds are the constants of §12.
 agent going through an epic together"` is the decision; `cn-43 "reconcile
 becomes a sitting: the fact rules move into close, create and show, cn review
 replaces cn reconcile, and the sweep is deleted"` is the implementation, the
-last issue of the backend refactor epic. It landed on 2026-09-22. One residue:
-`epics.lastReconciledAt` stays declared in the schema, unread, because `ep-1` and
-`ep-6` on the worklist still carry it and a schema that forbids the field will not
-push over them; it goes once those rows are patched.
+last issue of the backend refactor epic. It landed on 2026-09-22. The one field
+the sweep wrote, `epics.lastReconciledAt`, outlived it by a day: a schema that
+forbids a field will not push over rows that carry it, and `ep-1` and `ep-6` on
+the worklist did. `cn-62 "drop lastReconciledAt from the epics schema once ep-1
+and ep-6 are patched"` patched the two rows with a one-off internal mutation, run
+once and deleted, and took the field out of the schema on 2026-09-23.
 
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
