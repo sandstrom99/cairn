@@ -28,15 +28,20 @@
 // writes is `~/.config/cairn/config.json`, or `$XDG_CONFIG_HOME/cairn/config.json` where
 // that is set, mode 600, because the secret is in it.
 
-import { parseArgs } from "../lib/args.mts";
-import { maybe } from "../lib/flags.mts";
-import { UsageError, errorData, usageFromHeader, say } from "../lib/cli.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
+import { maybe, onlyFlags } from "../lib/flags.mts";
+import { UsageError, checkLine, errorData, say } from "../lib/cli.mts";
 import { api, connectTo } from "../lib/client.mts";
 import { type CairnConfig, readConfig, withDeployment, writeConfig } from "../lib/config.mts";
 import { captureStdout } from "../lib/run.mts";
 
 export const name = "init";
 export const summary = "set this machine up: write the config for a deployment";
+export const spec = {
+  bool: ["default"],
+  value: ["name", "url", "secret-cmd", "host"],
+  list: ["can"],
+} as const satisfies ArgSpec;
 
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -46,17 +51,15 @@ export type SecretFrom =
   | { from: "CAIRN_SECRET"; value: string }
   | { from: "none" };
 
-export type Parsed =
-  | { action: "help" }
-  | {
-      action: "init";
-      name: string;
-      url: string;
-      secret: SecretFrom;
-      host?: string;
-      can?: string[];
-      makeDefault: boolean;
-    };
+export type Parsed = {
+  action: "init";
+  name: string;
+  url: string;
+  secret: SecretFrom;
+  host?: string;
+  can?: string[];
+  makeDefault: boolean;
+};
 
 /** The url as it will be stored: a real http(s) URL, with no trailing slash. */
 function checkUrl(given: string): string {
@@ -72,14 +75,8 @@ function checkUrl(given: string): string {
 }
 
 export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Parsed {
-  const { pos, opts } = parseArgs(argv, {
-    bool: ["help", "default"],
-    value: ["name", "url", "secret-cmd", "host"],
-    list: ["can"],
-  });
-  if (opts.help) return { action: "help" };
-  if (pos.length > 0)
-    throw new UsageError(`cn init takes options only, and got "${pos[0]}"; --name <name>`);
+  const { pos, opts } = parseArgs(argv, spec);
+  onlyFlags(pos, "cn init --name <name> --url <url>");
 
   const deployment = opts.name;
   if (!deployment)
@@ -114,12 +111,8 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
-  const ok = (line: string) => console.log(`✓ ${line}`);
-  const bad = (line: string) => console.log(`✗ ${line}`);
+  const ok = (line: string) => console.log(checkLine(true, line));
+  const bad = (line: string) => console.log(checkLine(false, line));
 
   // The file first: a name that is taken fails here, offline and in the time it takes to
   // read one file, before a secret command has made anybody unlock anything. A file that

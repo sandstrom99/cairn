@@ -61,6 +61,14 @@ export function onlyId(pos: string[], usage: string): string {
   return id;
 }
 
+/**
+ * A verb that takes flags only: a positional is a flag the caller forgot to name, and
+ * it is refused by name rather than run past. `cn ready ios` means `cn ready --can ios`.
+ */
+export function onlyFlags(pos: string[], usage: string): void {
+  if (pos.length > 0) throw new UsageError(`${usage}: takes flags only, and got "${pos[0]}"`);
+}
+
 /** An integer, or nothing: `Number("")` and `Number(" ")` are 0, so a blank is not one. */
 const whole = (given: string): number | undefined => {
   const n = given.trim() === "" ? NaN : Number(given);

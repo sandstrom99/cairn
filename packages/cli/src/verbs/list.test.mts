@@ -28,4 +28,8 @@ describe("cn list", () => {
   it("refuses a status that is not one of the four", () => {
     expect(() => parse(["--status", "blocked"], me)).toThrow(UsageError);
   });
+
+  it("refuses a positional, which is a filter the caller forgot to name", () => {
+    expect(() => parse(["ep-1"], me)).toThrow(UsageError);
+  });
 });

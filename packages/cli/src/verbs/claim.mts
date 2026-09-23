@@ -10,31 +10,26 @@
 // A second actor is not told it is stale — it is told who holds the issue and since when,
 // which is what it needs to decide whether to wait, ask, or take something else.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
 
 export const name = "claim";
 export const summary = "take an issue: first writer wins, no lease";
+export const spec = {} as const satisfies ArgSpec;
 
-export type Parsed = { action: "help" } | { action: "claim"; args: { id: string } };
+export type Parsed = { action: "claim"; args: { id: string } };
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help"] });
-  if (opts.help) return { action: "help" };
+  const { pos } = parseArgs(argv, spec);
   const id = onlyId(pos, "cn claim <id>");
   return { action: "claim", args: { id } };
 }
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const issue = await client.mutation(api.issues.claim, { actor: actor(), ...parsed.args });
   console.log(issueLine(issue));

@@ -22,23 +22,21 @@
 //
 // An empty deployment prints nothing and exits 0.
 
-import { parseArgs } from "../lib/args.mts";
-import { date, integer, maybe } from "../lib/flags.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
+import { date, integer, maybe, onlyFlags } from "../lib/flags.mts";
+import { answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { logLine } from "../lib/lines.mts";
 
 export const name = "log";
 export const summary = "what happened across the deployment, newest first";
+export const spec = { bool: ["json"], value: ["limit", "before"] } as const satisfies ArgSpec;
 
-export type Parsed =
-  | { action: "help" }
-  | { action: "log"; limit?: number; before?: number; json: boolean };
+export type Parsed = { action: "log"; limit?: number; before?: number; json: boolean };
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help", "json"], value: ["limit", "before"] });
-  if (opts.help) return { action: "help" };
-  if (pos.length > 0) throw new UsageError("cn log [--limit N] [--before <date>] [--json]");
+  const { pos, opts } = parseArgs(argv, spec);
+  onlyFlags(pos, "cn log [--limit N] [--before <date>] [--json]");
   return {
     action: "log",
     ...maybe("limit", integer(opts.limit, "limit", 1, 200)),
@@ -49,20 +47,12 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const { limit, before } = parsed;
   const events = await client.query(api.events.recent, {
     ...(limit === undefined ? {} : { limit }),
     ...(before === undefined ? {} : { before }),
   });
-  if (parsed.json) {
-    console.log(JSON.stringify(events, null, 2));
-    return 0;
-  }
-  for (const e of events) console.log(logLine(e));
+  answer(parsed.json, events, (all) => all.map((e) => logLine(e)));
   return 0;
 }

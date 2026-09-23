@@ -20,16 +20,31 @@
 // duplicate is yours to decide. An issue given --epic ep-0 with a --parent in an open
 // epic goes beside its parent instead, and the answer says so on a `placed` line.
 
-import { parseArgs } from "../lib/args.mts";
-import { FOLLOW_UP_KINDS, ISSUE_TYPES, maybe, oneOf, priority } from "../lib/flags.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
+import { FOLLOW_UP_KINDS, ISSUE_TYPES, maybe, oneOf, onlyFlags, priority } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, errorData, usageFromHeader } from "../lib/cli.mts";
+import { UsageError, errorData, fail } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine, nearLine, placedLine } from "../lib/lines.mts";
 import { ref } from "../lib/ref.mts";
 
 export const name = "create";
 export const summary = "put work in the list: one issue, in an epic";
+export const spec = {
+  value: [
+    "project",
+    "epic",
+    "title",
+    "description",
+    "design",
+    "acceptance",
+    "priority",
+    "type",
+    "kind",
+    "parent",
+  ],
+  list: ["requires"],
+} as const satisfies ArgSpec;
 
 export type CreateArgs = {
   project: string;
@@ -45,30 +60,16 @@ export type CreateArgs = {
   requires?: string[];
 };
 
-export type Parsed = { action: "help" } | { action: "create"; args: CreateArgs };
+export type Parsed = { action: "create"; args: CreateArgs };
+
+const USAGE = "cn create --project <slug> --title <title> [--epic <ep-id>]";
 
 export function parse(argv: string[]): Parsed {
-  const { opts } = parseArgs(argv, {
-    bool: ["help"],
-    value: [
-      "project",
-      "epic",
-      "title",
-      "description",
-      "design",
-      "acceptance",
-      "priority",
-      "type",
-      "kind",
-      "parent",
-    ],
-    list: ["requires"],
-  });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
+  onlyFlags(pos, USAGE);
 
   const { project, title } = opts;
-  if (!project || !title)
-    throw new UsageError("cn create --project <slug> --title <title> [--epic <ep-id>]");
+  if (!project || !title) throw new UsageError(USAGE);
 
   return {
     action: "create",
@@ -90,10 +91,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   try {
     const created = await client.mutation(api.issues.create, { actor: actor(), ...parsed.args });
@@ -106,8 +103,8 @@ export async function run(argv: string[]): Promise<number> {
     // reading them is the whole reason create refuses rather than guessing.
     const data = errorData(e);
     if (data?.kind !== "epic-required") throw e;
-    console.error("✗ an issue needs an epic; open epics:");
+    const code = fail("an issue needs an epic; open epics:");
     for (const candidate of data.candidates) console.error(`  ${ref(candidate)}`);
-    return 1;
+    return code;
   }
 }

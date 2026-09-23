@@ -1,7 +1,7 @@
 // cli.mts: the shell every verb runs in, written once. Adapted from Invyte's
 // tools/lib/cli.mts, trimmed to what cn needs.
 //
-//   import { UsageError, errorData, main, say, warn, usageFromHeader } from "../lib/cli.mts";
+//   import { UsageError, answer, errorData, fail, main, say, warn } from "../lib/cli.mts";
 //
 // `main(fn)` runs the CLI body with `process.argv.slice(2)` and owns the exit arms: a
 // UsageError prints `✗ usage: …` and exits 2, a ConvexError prints the message the
@@ -11,13 +11,18 @@
 // `process.exitCode` and never calls `process.exit()`: a pipe takes a large write
 // asynchronously, and an exit right after it cuts the output at 64 KB.
 //
-// `errorData(e)` is what a ConvexError from the deployment carries, typed as the
-// deployment's own `CairnError` union, for the verb that answers one kind itself.
+// `answer(json, value, toLines)` is a read verb's answer on stdout: the value as JSON
+// under --json, else its lines, and nothing at all when there are none. `fail(line)` is
+// the one `✗ …` line a verb refuses with, on stderr, handed back as the exit code to
+// return; `checkLine(ok, line)` is the `✓ …` or `✗ …` a check prints, for the two verbs
+// whose answer is a list of checks. `errorData(e)` is what a ConvexError from the
+// deployment carries, typed as the deployment's own `CairnError` union, for the verb that
+// answers one kind itself.
 //
 // `say` and `warn` write one line to stderr with the `·` and `!` prefixes; stdout stays
-// for the answer, so `cn … --json | jq` is always clean. `usageFromHeader(import.meta.url)`
-// is the leading `//` comment block of the calling file, the way every verb documents
-// itself: the file header is the --help text.
+// for the answer, so `cn … --json | jq` is always clean. `usageFromHeader(url)` is the
+// leading `//` comment block of a file, the way every verb documents itself: the file
+// header is the --help text, and main.mts prints it for `cn <verb> --help`.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -30,6 +35,33 @@ export class UsageError extends Error {}
 
 export const say = (msg: string): void => console.error(`· ${msg}`);
 export const warn = (msg: string): void => console.error(`! ${msg}`);
+
+/**
+ * A read verb's answer, on stdout. Under --json the value, as it came from the
+ * deployment, so `[]` is printed and a pipe always reads valid JSON; otherwise the lines
+ * `toLines` makes of it, joined, and nothing when there are none, so an empty list is a
+ * silent exit 0.
+ */
+export function answer<T>(json: boolean, value: T, toLines: (value: T) => string[]): void {
+  if (json) {
+    console.log(JSON.stringify(value, null, 2));
+    return;
+  }
+  const lines = toLines(value);
+  if (lines.length > 0) console.log(lines.join("\n"));
+}
+
+/**
+ * The one line a verb fails with, `✗ …` on stderr, as the exit code to return: 1, or 2
+ * for wrong arguments. The secret is struck from it first (`redacted`).
+ */
+export function fail(line: string, code: 1 | 2 = 1): number {
+  console.error(`✗ ${redacted(line)}`);
+  return code;
+}
+
+/** A check's line, `✓ …` or `✗ …`. Doctor and init print these on stdout: they are the answer. */
+export const checkLine = (ok: boolean, line: string): string => `${ok ? "✓" : "✗"} ${line}`;
 
 /**
  * The data a ConvexError from the deployment carries, or undefined for any other error.
@@ -77,8 +109,7 @@ export async function main(
     if (typeof code === "number") process.exitCode = code;
   } catch (e) {
     if (e instanceof UsageError) {
-      console.error(`✗ usage: ${e.message}`);
-      process.exitCode = 2;
+      process.exitCode = fail(`usage: ${e.message}`, 2);
       return;
     }
     if (e instanceof ConvexError) {
@@ -86,7 +117,7 @@ export async function main(
       // written for the person reading it, so it prints as-is, and the kind is what this
       // arm and a verb branch on.
       const data = errorData(e);
-      console.error(`✗ ${redacted(data?.message ?? e.message)}`);
+      process.exitCode = fail(data?.message ?? e.message);
       // A stale write is the one error worth more than its message: the events since the
       // revision the caller read are what it needs to decide, and the id and the revision
       // it is at now are the retry (design §9).
@@ -96,11 +127,9 @@ export async function main(
           `  re-read with cn show ${data.id} and retry with --revision ${data.current}`,
         );
       }
-      process.exitCode = 1;
       return;
     }
-    console.error(`✗ ${redacted(String((e as Error)?.message ?? e))}`);
-    process.exitCode = 1;
+    process.exitCode = fail(String((e as Error)?.message ?? e));
   }
 }
 

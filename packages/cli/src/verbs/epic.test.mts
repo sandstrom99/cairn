@@ -48,8 +48,16 @@ describe("cn epic", () => {
     );
   });
 
-  it("refuses new with no title, and an action it does not have", () => {
+  it("refuses a drop with no reason, or a blank one, before the deployment sees it", () => {
+    expect(() => parse(["close", "ep-1", "--revision", "0", "--drop"])).toThrow(/why not/);
+    expect(() => parse(["close", "ep-1", "--revision", "0", "--drop", "--reason", "  "])).toThrow(
+      UsageError,
+    );
+  });
+
+  it("refuses new with no title, an action it does not have, and a positional after list", () => {
     expect(() => parse(["new"])).toThrow(UsageError);
     expect(() => parse(["drop", "ep-1"])).toThrow(UsageError);
+    expect(() => parse(["list", "ep-1"])).toThrow(UsageError);
   });
 });

@@ -26,16 +26,20 @@
 // says the epic can close and prints the `cn epic close` line. It is an offer; the close
 // of the epic is yours to run.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { FOLLOW_UP_KINDS, maybe, oneOf, onlyId, priority, revision } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader, say, warn } from "../lib/cli.mts";
+import { UsageError, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { closedLines } from "../lib/lines.mts";
 import { runCommand } from "../lib/run.mts";
 
 export const name = "close";
 export const summary = "finish an issue, with a command that proves it";
+export const spec = {
+  value: ["revision", "run", "unverified", "follow-up", "kind", "priority"],
+  list: ["requires"],
+} as const satisfies ArgSpec;
 
 /** How much of a failed run belongs on the screen beside the refusal. */
 const ON_REFUSAL = 10;
@@ -50,25 +54,21 @@ export type FollowUp = {
 /** What proves it: a command to run here, or a reason it could not be run here. */
 export type Proof = { run: string } | { unverified: string };
 
-export type Parsed =
-  | { action: "help" }
-  | {
-      action: "close";
-      id: string;
-      revision: number;
-      proof: Proof;
-      followUp?: FollowUp;
-    };
+export type Parsed = {
+  action: "close";
+  id: string;
+  revision: number;
+  proof: Proof;
+  followUp?: FollowUp;
+};
 
 const USAGE = "cn close <id> --revision N --run '<command>' | --unverified <why>";
 
+/** The flags that describe the follow-up; none of them means anything without its title. */
+const DESCRIBING = ["kind", "requires", "priority"] as const;
+
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, {
-    bool: ["help"],
-    value: ["revision", "run", "unverified", "follow-up", "kind", "priority"],
-    list: ["requires"],
-  });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
 
   const id = onlyId(pos, USAGE);
   const rev = revision(opts.revision, "cn close <id> --revision N");
@@ -83,8 +83,11 @@ export function parse(argv: string[]): Parsed {
 
   const title = opts["follow-up"];
   const kind = oneOf(opts.kind, "kind", FOLLOW_UP_KINDS);
-  if (title === undefined && kind !== undefined)
-    throw new UsageError("--kind belongs to --follow-up <title>");
+  const describing = DESCRIBING.filter((f) => opts[f] !== undefined);
+  if (title === undefined && describing.length > 0)
+    throw new UsageError(
+      `${describing.map((f) => `--${f}`).join(" and ")} ${describing.length > 1 ? "belong" : "belongs"} to --follow-up <title>`,
+    );
   if (title !== undefined && kind === undefined)
     throw new UsageError(`--follow-up needs --kind ${FOLLOW_UP_KINDS.join("|")}`);
 
@@ -103,10 +106,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { id, proof, followUp } = parsed;
 
   // The command runs before the call, so what goes to the deployment is what happened.

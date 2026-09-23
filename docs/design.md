@@ -774,27 +774,33 @@ package then, not before.
 ### The verbs
 
 One row per verb, one function per row. This table is the contract the skill
-teaches and the `--help` headers restate.
+teaches and the `--help` headers restate, and `packages/cli/src/contract.test.mts`
+holds all three to the `spec` each verb declares: every flag a header's synopsis,
+this table, the skill, the slash commands or the CLI's README names is one the
+verb takes, and every flag a verb takes is in its header and in this table,
+`--json` aside, which the line under the table states once. A verb takes flags
+only unless its row names a positional, and refuses a stray one; `--help` and
+`-h` are answered once, in `main.mts`, before any verb runs.
 
 | Verb | Function | |
 |---|---|---|
-| `cn brief` | `brief.get` | query |
+| `cn brief [--can ios web …] [--unjournaled]` | `brief.get` | query |
 | `cn ready [--can ios web …]` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine]` | `issues.list` | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
-| `cn create --project app --epic ep-3 --title … [--priority] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |
+| `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
-| `cn update <id> --revision N [--title] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires]` | `issues.update` | mutation |
+| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires]` | `issues.update` | mutation |
 | `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
-| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --requires ios]` | `issues.close` | mutation |
+| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --requires ios --priority 1]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
 | `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
 | `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
 | `cn waiting` | `blockers.list` | query |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | `blockers.ack` · `blockers.resolve` | mutation, human only |
-| `cn epic new\|list\|close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
-| `cn project new\|list` | `projects.create` · `projects.list` | |
+| `cn epic new <title> [--description …]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
+| `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping | query |
 | `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` | `projects.list`, as the check; then it writes this machine's config | query, local |

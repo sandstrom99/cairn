@@ -17,10 +17,10 @@
 // --owner is who must act, and is required. --resolves is what would end the wait,
 // written so the person can act on it without asking. --nudge is the day to look again.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { BLOCKER_KINDS, date, maybe, need, oneOf, onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { blockerLine, holdsLine } from "../lib/lines.mts";
 
@@ -29,6 +29,7 @@ export const summary = "raise a human blocker on an issue, or attach one that ex
 
 /** The options that describe a new blocker; none of them goes with `--on`. */
 const DESCRIBING = ["kind", "owner", "title", "resolves", "nudge"] as const;
+export const spec = { value: ["on", ...DESCRIBING] } as const satisfies ArgSpec;
 
 export type WaitArgs = {
   issue: string;
@@ -40,17 +41,13 @@ export type WaitArgs = {
   nudgeAt?: number;
 };
 
-export type Parsed = { action: "help" } | { action: "wait"; args: WaitArgs };
+export type Parsed = { action: "wait"; args: WaitArgs };
 
 const USAGE =
   "cn wait <id> --kind approval --owner <who> --title <what> --resolves <what ends it>, or cn wait <id> --on bl-3";
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, {
-    bool: ["help"],
-    value: ["on", ...DESCRIBING],
-  });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
 
   const issue = onlyId(pos, USAGE);
 
@@ -91,10 +88,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const { blocker } = await client.mutation(api.blockers.raise, {
     actor: actor(),

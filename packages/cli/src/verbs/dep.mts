@@ -17,10 +17,10 @@
 // refused with the path it found, because a cycle makes both ends unready forever.
 // Adding the same edge twice changes nothing.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { edgeLine } from "../lib/lines.mts";
 
@@ -35,18 +35,18 @@ const RELATIONS = [
   "duplicates",
   "supersedes",
 ] as const;
+export const spec = { value: RELATIONS } as const satisfies ArgSpec;
 
 export type EdgeType = "blocks" | "related" | "discovered-from" | "duplicates" | "supersedes";
 export type EdgeArgs = { from: string; to: string; type: EdgeType };
 
-export type Parsed = { action: "help" } | { action: "add" | "rm"; args: EdgeArgs };
+export type Parsed = { action: "add" | "rm"; args: EdgeArgs };
 
 const USAGE =
   "cn dep add|rm <id> --blocked-by|--blocks|--related|--discovered-from|--duplicates|--supersedes <other>";
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help"], value: RELATIONS });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
 
   const [action, ...rest] = pos;
   if (action !== "add" && action !== "rm") throw new UsageError(USAGE);
@@ -72,10 +72,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const fn = parsed.action === "add" ? api.edges.add : api.edges.remove;
   console.log(edgeLine(await client.mutation(fn, { actor: actor(), ...parsed.args })));

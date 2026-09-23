@@ -6,10 +6,6 @@ import { parse } from "./init.mts";
 const base = ["--name", "cairn", "--url", "https://tidy-otter-1.convex.cloud"];
 
 describe("cn init", () => {
-  it("answers --help before anything else", () => {
-    expect(parse(["--help"], {})).toEqual({ action: "help" });
-  });
-
   it("takes the name, the url, what the machine can do and the secret command", () => {
     expect(
       parse(

@@ -1,6 +1,15 @@
 import { ConvexError } from "convex/values";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { UsageError, errorData, main, redacted, usageFromHeader } from "./cli.mts";
+import {
+  UsageError,
+  answer,
+  checkLine,
+  errorData,
+  fail,
+  main,
+  redacted,
+  usageFromHeader,
+} from "./cli.mts";
 
 describe("main", () => {
   afterEach(() => {
@@ -128,6 +137,43 @@ describe("redacted", () => {
       { argv: [] },
     );
     expect(err).toHaveBeenCalledWith('✗ Object: {secret: "…"}');
+  });
+});
+
+describe("answer", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("prints the value as JSON under --json, an empty list included", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    answer(true, [{ id: "cn-1" }], () => ["never"]);
+    answer(true, [], () => ["never"]);
+    expect(log.mock.calls.map((c) => c[0])).toEqual(['[\n  {\n    "id": "cn-1"\n  }\n]', "[]"]);
+  });
+
+  it("prints the lines joined otherwise, and nothing at all for none", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    answer(false, ["cn-1", "cn-2"], (ids) => ids.map((id) => `${id} "…"`));
+    answer(false, [], (ids) => ids);
+    expect(log.mock.calls).toEqual([['cn-1 "…"\ncn-2 "…"']]);
+  });
+});
+
+describe("fail and checkLine", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("prints the one ✗ line on stderr, struck of the secret, and hands back the exit code", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(fail('refused: {secret: "s3cret"}')).toBe(1);
+    expect(fail("usage: cn ready [--json]", 2)).toBe(2);
+    expect(err.mock.calls.map((c) => c[0])).toEqual([
+      '✗ refused: {secret: "…"}',
+      "✗ usage: cn ready [--json]",
+    ]);
+  });
+
+  it("marks a check", () => {
+    expect(checkLine(true, "node 24.1.0")).toBe("✓ node 24.1.0");
+    expect(checkLine(false, "no deployment")).toBe("✗ no deployment");
   });
 });
 

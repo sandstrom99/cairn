@@ -29,4 +29,8 @@ describe("cn under node", () => {
       expect(cn(verb.name, "--help")).toMatch(new RegExp(`^cn ${verb.name} —`));
     });
   }
+
+  it("answers -h with the header too, so cn show -h is not a query for the id -h", () => {
+    expect(cn("show", "-h")).toMatch(/^cn show —/);
+  });
 });

@@ -13,22 +13,20 @@
 // and stays as history. --history adds every event on it: what changed, who changed it
 // and when, oldest first.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
-import { usageFromHeader } from "../lib/cli.mts";
+import { answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { brief } from "../lib/lines.mts";
 
 export const name = "show";
 export const summary = "one id, and its neighbourhood";
+export const spec = { bool: ["json", "history"] } as const satisfies ArgSpec;
 
-export type Parsed =
-  | { action: "help" }
-  | { action: "show"; json: boolean; args: { id: string; history?: boolean } };
+export type Parsed = { action: "show"; json: boolean; args: { id: string; history?: boolean } };
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help", "json", "history"] });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
   const id = onlyId(pos, "cn show <id> [--history] [--json]");
   return {
     action: "show",
@@ -39,12 +37,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const shown = await client.query(api.show.get, parsed.args);
-  console.log(parsed.json ? JSON.stringify(shown, null, 2) : brief(shown));
+  answer(parsed.json, shown, (s) => [brief(s)]);
   return 0;
 }
