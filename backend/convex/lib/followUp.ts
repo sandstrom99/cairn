@@ -10,7 +10,7 @@ import { insertIssue } from "./lifecycle";
 import type { FollowUpKind } from "./validators";
 import type { IssueView } from "./views";
 
-export type FollowUpInput = {
+type FollowUpInput = {
   title: string;
   kind: FollowUpKind;
   requires?: string[];

@@ -91,8 +91,8 @@ change works where it runs:
 | `verbs/init.mts` | with `XDG_CONFIG_HOME` pointed at an empty directory and no `CAIRN_URL` throughout: `cn doctor`, then `bash plugins/cairn/hooks/session-start.sh`, then `cn init --name e2e --url <the throwaway's> --secret-cmd "echo s3cret" --can web android`, then `cn doctor`, then that same `cn init` again, then `cn init --name other --url <the same>`, then `cn init --name dead --url http://127.0.0.1:9`, then the hook with `XDG_CONFIG_HOME` pointed at a directory whose `cairn/config.json` names `dead` at that URL, then the hook again | a cold machine is told to run `cn init` and the hook points at `/cairn:init`; the config lands mode 600 with the secret never printed; a name already there is refused and the bytes do not move; a second deployment leaves the default and `can` alone and carries no `secret` key; a deployment that does not answer writes nothing; a config naming one starts a session with `cairn: dead did not answer; cn doctor says why` and nothing else, exit 0, in under 5 s; and the hook that asked for setup now prints the brief |
 
 A local deployment with no account, once, in another terminal:
-`vp run @cairn/backend#dev:local`. It writes `backend/.env.local`, which is
-gitignored, and after that `vp run @cairn/backend#verify` and `#dev` target it.
+`vp run @cairn/backend#dev`. It writes `backend/.env.local`, which is
+gitignored, and after that `vp run @cairn/backend#verify` targets it too.
 `#verify` runs `convex dev --once` through `scripts/local.mjs` and refuses while that
 watcher holds port 3210, so
 stop the watcher first, or take the watcher's own `Convex functions ready!` line after
@@ -101,8 +101,8 @@ a save as the push having happened: it pushes every change as it lands.
 That watcher pushes to the local deployment alone. A backend change reaches the
 worklist deployment only through `vp run @cairn/backend#push:cloud`, which reads
 `backend/.env.cloud.local`; `#dev:cloud` is the same watcher against it, and both
-put `.env.local` back after themselves. `#dev`, `#dev:local`, `#verify` and
-`#codegen` pin the anonymous deployment in the environment and rewrite
+put `.env.local` back after themselves. `#dev`, `#verify` and `#codegen` pin
+the anonymous deployment in the environment and rewrite
 `backend/.env.local` when they find it naming anything else, saying so in one line.
 The one path that still flips it is a bare `npx convex` in `backend/`, and the next
 `vp run @cairn/backend#…` command corrects it.
@@ -121,7 +121,7 @@ Three things enforce the gate, so a session cannot skip it by forgetting:
 | Path | Package | Holds |
 |---|---|---|
 | `backend/convex/` | `@cairn/backend` | schema, functions, tests. `_generated/` is committed and never hand-edited. |
-| `backend/scripts/` | | `local.mjs` and `cloud.mjs`, the wrappers every `convex` command runs through: one pins the anonymous deployment, the other restores it. `throwaway.mjs` starts an empty one on its own ports and state, for the e2e rows. |
+| `backend/scripts/` | | `run-convex.mjs` starts `convex` for the other three, from the package's own binary, with the spawn, the signals and the exit status in one place. `local.mjs` and `cloud.mjs` are the wrappers every `convex` command runs through: one pins the anonymous deployment, the other restores it. `throwaway.mjs` starts an empty one on its own ports and state, for the e2e rows. |
 | `packages/cli/` | `@cairn/cli` | `cn`. `src/verbs/` is one file per verb, `src/lib/` the shell they run in. |
 | `plugins/cairn/` | | the skill, the SessionStart hook, the slash commands. |
 | `scripts/` | | `verify-e2e.mjs`, the per-verb rows of the table above as one script. |

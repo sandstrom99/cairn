@@ -13,9 +13,6 @@ export const epicStatusValidator = v.union(
   v.literal("dropped"),
 );
 
-/** One of `epicStatusValidator`'s literals. */
-export type EpicStatus = Infer<typeof epicStatusValidator>;
-
 /** A task is the work; a follow-up is the routed residue of closing one (§5). */
 export const issueTypeValidator = v.union(v.literal("task"), v.literal("follow-up"));
 
@@ -81,9 +78,6 @@ export const blockerStatusValidator = v.union(
   v.literal("waiting"),
   v.literal("resolved"),
 );
-
-/** One of `blockerStatusValidator`'s literals. */
-export type BlockerStatus = Infer<typeof blockerStatusValidator>;
 
 /** What a journal entry records. */
 export const journalKindValidator = v.union(

@@ -12,7 +12,7 @@ import type { EventView } from "./graph";
 import type { Ref } from "./views";
 
 /** One event since the revision a stale writer read: the row, `at` its creation time. */
-export type SinceEvent = EventView;
+type SinceEvent = EventView;
 
 /** Every shape a ConvexError from this deployment carries, told apart by `kind`. */
 export type CairnError =
@@ -39,7 +39,7 @@ export type CairnError =
   | { kind: "epic-required"; message: string; candidates: Ref[] };
 
 /** The member of `CairnError` with this `kind`. */
-export type CairnErrorOf<K extends CairnError["kind"]> = Extract<CairnError, { kind: K }>;
+type CairnErrorOf<K extends CairnError["kind"]> = Extract<CairnError, { kind: K }>;
 
 /** The one way a ConvexError leaves this deployment: its data is a member of `CairnError`. */
 export const cairnError = <E extends CairnError>(data: E): ConvexError<E> => new ConvexError(data);

@@ -586,12 +586,13 @@ ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups
   waiting  bl-3 "confirm the invite copy" · owner balder
 ```
 
-Each line is a fact with a query behind it, `epics.health`, and a line with
-nothing behind it is not printed: a fresh epic is its first line alone. `done`
-and `open` count tasks, follow-ups sit beside them (§5), `moving` is every claim
-with who and since when, `stuck` is the one open unclaimed issue silent longest
-once past the threshold in §12, and `waiting` is every unresolved blocker on the
-epic's live issues.
+Each line is a fact with a read behind it, `epicHealth` in `lib/health.ts`,
+which `epics.list` and `show.get` carry, and a line with nothing behind it is
+not printed: a fresh epic is its first line alone. `done` and `open` count
+tasks, follow-ups sit beside them (§5), `moving` is every claim with who and
+since when, `stuck` is the one open unclaimed issue silent longest once past
+the threshold in §12, and `waiting` is every unresolved blocker on the epic's
+live issues.
 
 ### The web window
 

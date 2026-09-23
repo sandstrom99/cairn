@@ -28,7 +28,7 @@ export type EventKind =
   | "edge.remove"
   | "journal.append";
 
-export type EventInput = {
+type EventInput = {
   /** issue.create, issue.claim, edge.add, blocker.resolve, … */
   kind: EventKind;
   actor: Actor;

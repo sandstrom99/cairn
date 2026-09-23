@@ -29,13 +29,13 @@ export function createdChanges<T extends { createdAt: number }>(view: T): Omit<T
 }
 
 /** One line for the event; the whole record, output included, stays on the issue. */
-export function verificationSummary(proof: VerificationInput): string {
+function verificationSummary(proof: VerificationInput): string {
   if ("exitCode" in proof) return `${proof.command} (exit ${proof.exitCode})`;
   return `unverified: ${proof.unverified}`;
 }
 
 /** What a new issue is made of. The id is minted here, and the row starts open at revision 0. */
-export type NewIssue = {
+type NewIssue = {
   project: Doc<"projects">;
   epicId: Id<"epics">;
   title: string;
