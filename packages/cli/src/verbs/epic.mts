@@ -22,7 +22,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { healthLines } from "../lib/format.mts";
+import { epicClosedLines, healthLines } from "../lib/format.mts";
 import { ref } from "../lib/ref.mts";
 
 export const name = "epic";
@@ -92,20 +92,11 @@ export async function run(argv: string[]): Promise<number> {
     return 0;
   }
   if (parsed.action === "close") {
-    const { epic, dropped } = await client.mutation(api.epics.close, {
-      actor: actor(),
-      ...parsed.args,
-    });
-    if (parsed.args.drop) {
-      console.log(`${ref(epic)} dropped r${epic.revision}`);
-      for (const issue of dropped) console.log(`  dropped  ${ref(issue)}`);
-    } else {
-      console.log(`${ref(epic)} closed r${epic.revision}`);
-      if (epic.counts.followUps > 0)
-        console.log(
-          `  ${epic.counts.followUps} follow-up${epic.counts.followUps === 1 ? "" : "s"} still open`,
-        );
-    }
+    console.log(
+      epicClosedLines(
+        await client.mutation(api.epics.close, { actor: actor(), ...parsed.args }),
+      ).join("\n"),
+    );
     return 0;
   }
   const epics = await client.query(api.epics.list, parsed.args);

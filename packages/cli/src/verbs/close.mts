@@ -30,7 +30,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { epicDoneLine, issueLine } from "../lib/format.mts";
+import { closedLines } from "../lib/format.mts";
 import { runCommand } from "../lib/run.mts";
 
 export const name = "close";
@@ -136,9 +136,7 @@ export async function run(argv: string[]): Promise<number> {
       verification,
       ...maybe("followUp", followUp),
     });
-    console.log(issueLine(closed.issue));
-    if (closed.followUp) console.log(`  follow-up  ${issueLine(closed.followUp)}`);
-    if (closed.epicDone) console.log(epicDoneLine(closed.epicDone));
+    console.log(closedLines(closed).join("\n"));
     return 0;
   } catch (e) {
     // The deployment refuses a failed command, and the refusal names the exit code but

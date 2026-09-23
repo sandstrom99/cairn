@@ -9,8 +9,11 @@ import {
   brief,
   briefLines,
   changePieces,
+  closedLines,
   edgeLine,
+  epicClosedLines,
   epicDoneLine,
+  freedLine,
   healthLines,
   healthParts,
   historyLines,
@@ -20,6 +23,7 @@ import {
   logParts,
   nearLine,
   placedLine,
+  projectLine,
   proofParts,
   readyLine,
   reviewLines,
@@ -246,6 +250,91 @@ describe("placedLine", () => {
   it("says the issue went beside its parent rather than into the inbox", () => {
     expect(placedLine({ id: "cn-1", title: "the lifecycle" })).toBe(
       '  placed     beside its parent cn-1 "the lifecycle", not in the inbox',
+    );
+  });
+});
+
+describe("closedLines", () => {
+  const issue = {
+    id: "cn-6",
+    title: "the same title",
+    status: "closed",
+    priority: 2,
+    epic: { id: "ep-2", title: "scratch: review" },
+    revision: 3,
+  };
+
+  it("is the issue line alone when the close made nothing else", () => {
+    expect(closedLines({ issue })).toEqual([
+      'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
+    ]);
+  });
+
+  it("prints the follow-up the same mutation made under it, and the epic's offer last", () => {
+    expect(
+      closedLines({
+        issue,
+        followUp: {
+          id: "cn-8",
+          title: "verify: the same title",
+          status: "open",
+          priority: 2,
+          epic: issue.epic,
+          revision: 0,
+        },
+        epicDone: { id: "ep-2", title: "scratch: review", revision: 0 },
+      }),
+    ).toEqual([
+      'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
+      '  follow-up  cn-8 "verify: the same title" P2 open  ep-2 "scratch: review" r0',
+      '  epic       ep-2 "scratch: review" can close · cn epic close ep-2 --revision 0',
+    ]);
+  });
+});
+
+describe("epicClosedLines", () => {
+  const epic = { id: "ep-3", title: "An epic tells the truth", revision: 2 };
+  const closed = (followUps: number) => ({
+    epic: { ...epic, status: "closed", counts: { followUps } },
+    dropped: [],
+  });
+
+  it("takes the word from the status the deployment answered, not from a flag", () => {
+    expect(epicClosedLines(closed(0))).toEqual(['ep-3 "An epic tells the truth" closed r2']);
+  });
+
+  it("counts the follow-ups a close left open, one or more", () => {
+    expect(epicClosedLines(closed(1))).toEqual([
+      'ep-3 "An epic tells the truth" closed r2',
+      "  1 follow-up still open",
+    ]);
+    expect(epicClosedLines(closed(2))).toEqual([
+      'ep-3 "An epic tells the truth" closed r2',
+      "  2 follow-ups still open",
+    ]);
+  });
+
+  it("lists each issue a drop took with the epic, at the answer column", () => {
+    expect(
+      epicClosedLines({
+        epic: { ...epic, status: "dropped", counts: { followUps: 0 } },
+        dropped: [
+          { id: "cn-4", title: "a" },
+          { id: "cn-7", title: "b" },
+        ],
+      }),
+    ).toEqual([
+      'ep-3 "An epic tells the truth" dropped r2',
+      '  dropped    cn-4 "a"',
+      '  dropped    cn-7 "b"',
+    ]);
+  });
+});
+
+describe("projectLine", () => {
+  it("is the slug, then the name", () => {
+    expect(projectLine({ slug: "cn", name: "cairn: backend, cli, plugin" })).toBe(
+      "cn  cairn: backend, cli, plugin",
     );
   });
 });
@@ -1385,6 +1474,15 @@ describe("the parts a line is joined from", () => {
         { id: "cn-7", title: "b" },
       ]),
     ).toBe('  holds  cn-4 "a", cn-7 "b"');
+  });
+
+  it("prints what a resolve freed under it, the way holds reads", () => {
+    expect(
+      freedLine([
+        { id: "cn-4", title: "a" },
+        { id: "cn-7", title: "b" },
+      ]),
+    ).toBe('  freed  cn-4 "a", cn-7 "b"');
   });
 
   it("gives an event's payload a change at a time", () => {
