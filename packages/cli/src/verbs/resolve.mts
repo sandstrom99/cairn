@@ -14,8 +14,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { blockerLine } from "../lib/format.mts";
-import { ref } from "../lib/ref.mts";
+import { blockerLine, freedLine } from "../lib/format.mts";
 
 export const name = "resolve";
 export const summary = "end a blocker, and free every issue it holds";
@@ -46,6 +45,6 @@ export async function run(argv: string[]): Promise<number> {
     ...parsed.args,
   });
   console.log(blockerLine(blocker));
-  if (blocker.issues.length > 0) console.log(`  freed  ${blocker.issues.map(ref).join(", ")}`);
+  if (blocker.issues.length > 0) console.log(freedLine(blocker.issues));
   return 0;
 }

@@ -21,8 +21,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { blockerLine } from "../lib/format.mts";
-import { ref } from "../lib/ref.mts";
+import { blockerLine, holdsLine } from "../lib/format.mts";
 
 export const name = "wait";
 export const summary = "raise a human blocker on an issue, or attach one that exists";
@@ -118,6 +117,6 @@ export async function run(argv: string[]): Promise<number> {
     ...parsed.args,
   });
   console.log(blockerLine(blocker));
-  console.log(`  holds  ${blocker.issues.map(ref).join(", ")}`);
+  console.log(holdsLine(blocker.issues));
   return 0;
 }

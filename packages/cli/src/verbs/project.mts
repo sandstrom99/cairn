@@ -12,6 +12,7 @@ import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
+import { projectLine } from "../lib/format.mts";
 
 export const name = "project";
 export const summary = "the id prefixes work is minted under";
@@ -33,9 +34,6 @@ export function parse(argv: string[]): Parsed {
   return { action: "new", args: { slug, name: opts.name } };
 }
 
-const line = (project: { slug: string; name: string }): string =>
-  `${project.slug}  ${project.name}`;
-
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
   if (parsed.action === "help") {
@@ -45,12 +43,12 @@ export async function run(argv: string[]): Promise<number> {
   const { client } = connect();
   if (parsed.action === "new") {
     console.log(
-      line(await client.mutation(api.projects.create, { actor: actor(), ...parsed.args })),
+      projectLine(await client.mutation(api.projects.create, { actor: actor(), ...parsed.args })),
     );
     return 0;
   }
   const projects = await client.query(api.projects.list, {});
   if (parsed.json) console.log(JSON.stringify(projects, null, 2));
-  else if (projects.length > 0) console.log(projects.map(line).join("\n"));
+  else if (projects.length > 0) console.log(projects.map(projectLine).join("\n"));
   return 0;
 }

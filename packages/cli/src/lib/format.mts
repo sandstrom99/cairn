@@ -109,12 +109,16 @@ export function issueParts(view: IssueLineView): IssueParts {
 }
 
 /**
- * The issue line, plus `· needs ios` where this session lacks what the issue requires.
- * Marked, never hidden: a wrong `can[]` must not be able to make work disappear (§5).
+ * A line, plus `· needs ios` where this session lacks what the issue requires. Marked,
+ * never hidden: a wrong `can[]` must not be able to make work disappear (§5). The ready
+ * list and the brief's ready line mark a row the same way.
  */
+const needs = (line: string, cannot: string[]): string =>
+  cannot.length > 0 ? `${line} · needs ${cannot.join(", ")}` : line;
+
+/** The issue line, marked with what this session cannot do. */
 export function readyLine(view: ReadyLineView): string {
-  const line = issueLine(view);
-  return view.cannot.length > 0 ? `${line} · needs ${view.cannot.join(", ")}` : line;
+  return needs(issueLine(view), view.cannot);
 }
 
 /**
@@ -165,6 +169,9 @@ export function blockerParts(view: BlockerLineView, now: number = Date.now()): B
 
 /** `  holds  cn-4 "…", cn-7 "…"`: the issues a blocker keeps out of ready, under its line. */
 export const holdsLine = (issues: Referable[]): string => `  holds  ${refs(issues)}`;
+
+/** `  freed  cn-4 "…", cn-7 "…"`: the issues a resolve let back into ready, under its line. */
+export const freedLine = (issues: Referable[]): string => `  freed  ${refs(issues)}`;
 
 /**
  * An epic's health, as many lines as it has facts (docs/design.md §8):
@@ -288,6 +295,53 @@ export const nearLine = (match: Referable): string => `  ${answer("near")}${ref(
 /** Under `cn create`, when an issue bound for the inbox went beside its parent instead. */
 export const placedLine = (parent: Referable): string =>
   `  ${answer("placed")}beside its parent ${ref(parent)}, not in the inbox`;
+
+/** Under `cn close`, the follow-up the same mutation made: `  follow-up  cn-8 "verify: …" …`. */
+const followUpLine = (issue: IssueLineView): string =>
+  `  ${answer("follow-up")}${issueLine(issue)}`;
+
+/** What `cn close` answers: the issue, the follow-up where one was made, and the epic's offer. */
+export type ClosedView = {
+  issue: IssueLineView;
+  followUp?: IssueLineView;
+  epicDone?: Referable & { revision: number };
+};
+
+/**
+ * The lines of a close: the issue as it now stands, then under it the follow-up the same
+ * mutation spawned, and the offer to close the epic when this was its last issue.
+ */
+export function closedLines(view: ClosedView): string[] {
+  const lines = [issueLine(view.issue)];
+  if (view.followUp) lines.push(followUpLine(view.followUp));
+  if (view.epicDone) lines.push(epicDoneLine(view.epicDone));
+  return lines;
+}
+
+/** What `cn epic close` answers: the epic as it now stands, and what a drop took with it. */
+export type EpicClosedView = {
+  epic: Referable & { status: string; revision: number; counts: { followUps: number } };
+  dropped: Referable[];
+};
+
+/**
+ * `ep-3 "…" closed r2`, or `dropped r2`: the word is the status the deployment answered
+ * with, never the flag the verb was given. Under it, each issue a drop took with the
+ * epic, and the follow-ups a close left open: a close waits for none of them
+ * (docs/design.md §7), so the reader is told they are still routed work.
+ */
+export function epicClosedLines({ epic, dropped }: EpicClosedView): string[] {
+  const lines = [`${ref(epic)} ${epic.status} r${epic.revision}`];
+  for (const issue of dropped) lines.push(`  ${answer("dropped")}${ref(issue)}`);
+  const { followUps } = epic.counts;
+  if (followUps > 0)
+    lines.push(`  ${followUps} ${followUps === 1 ? "follow-up" : "follow-ups"} still open`);
+  return lines;
+}
+
+/** `cn  cairn: backend, cli, plugin`: a project is its slug, then its name. */
+export const projectLine = (project: { slug: string; name: string }): string =>
+  `${project.slug}  ${project.name}`;
 
 /** The label column: the longest label is `discovered from`, and one space after it. */
 const label = (name: string): string => name.padEnd(16);
@@ -812,10 +866,7 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
   const head = `cairn · ${where.deployment} · ${where.actor}`;
   const lines = [where.can.length > 0 ? `${head} can ${where.can.join(" ")}` : head];
 
-  const ready = view.ready.top.map((i) => {
-    const line = `${ref(i)} P${i.priority}`;
-    return i.cannot.length > 0 ? `${line} · needs ${i.cannot.join(", ")}` : line;
-  });
+  const ready = view.ready.top.map((i) => needs(`${ref(i)} P${i.priority}`, i.cannot));
   lines.push(
     // The head is three at the deployment, so there is nothing left to cap here.
     `${label(`ready ${view.ready.count}`)}${view.ready.count === 0 ? "none" : ready.join(" · ")}`,
