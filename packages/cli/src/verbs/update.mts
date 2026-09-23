@@ -13,15 +13,28 @@
 // nothing else; `none` clears the date. `--requires none` clears the capabilities.
 // --design is HOW and may change; --acceptance is WHAT and should not.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { date, maybe, onlyId, priority, revision } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
 
 export const name = "update";
 export const summary = "change an issue, against the revision you read";
+export const spec = {
+  value: [
+    "revision",
+    "title",
+    "description",
+    "design",
+    "acceptance",
+    "priority",
+    "epic",
+    "defer-until",
+  ],
+  list: ["requires"],
+} as const satisfies ArgSpec;
 
 export type UpdateArgs = {
   id: string;
@@ -36,28 +49,14 @@ export type UpdateArgs = {
   requires?: string[];
 };
 
-export type Parsed = { action: "help" } | { action: "update"; args: UpdateArgs };
+export type Parsed = { action: "update"; args: UpdateArgs };
 
 /** `--defer-until`: a date, or `none` to clear it. */
 const deferUntil = (given: string | undefined): number | null | undefined =>
   given === "none" ? null : date(given, "defer-until");
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, {
-    bool: ["help"],
-    value: [
-      "revision",
-      "title",
-      "description",
-      "design",
-      "acceptance",
-      "priority",
-      "epic",
-      "defer-until",
-    ],
-    list: ["requires"],
-  });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
 
   const id = onlyId(pos, "cn update <id> --revision N [--title …]");
   const rev = revision(opts.revision, "cn update <id> --revision N");
@@ -85,10 +84,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const issue = await client.mutation(api.issues.update, { actor: actor(), ...parsed.args });
   console.log(issueLine(issue));

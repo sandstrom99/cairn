@@ -8,8 +8,7 @@ describe("cn waiting", () => {
     expect(parse(["--json"])).toEqual({ action: "waiting", json: true });
   });
 
-  it("is help when asked for it, and refuses an argument", () => {
-    expect(parse(["--help"])).toEqual({ action: "help" });
+  it("refuses an argument", () => {
     expect(() => parse(["bl-1"])).toThrow(UsageError);
   });
 });

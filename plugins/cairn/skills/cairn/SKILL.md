@@ -57,12 +57,12 @@ an issue.
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
-| `cn update <id> --revision N` | title, design, acceptance, priority, epic, defer, requires | `issues.update` |
+| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer, requires | `issues.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
 | `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
 | `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
-| `cn wait <id> --kind … --owner …` | raise a human blocker, or `--on bl-3` to attach one that exists | `blockers.raise` |
+| `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | humans only | `blockers.ack` · `blockers.resolve` |
 | `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
@@ -73,7 +73,8 @@ an issue.
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right
 move is to re-read and decide, never to force. `cn <verb> --help` is that verb's
-contract, in full.
+contract, in full. A verb takes flags only unless its contract names a positional, and
+refuses one it does not: `cn ready ios` is a usage error, since it means `--can ios`.
 
 ## A session's shape
 

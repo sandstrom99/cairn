@@ -91,4 +91,15 @@ describe("cn close", () => {
     expect(() => parse([...base, "--kind", "verify"])).toThrow(UsageError);
     expect(() => parse([...base, "--follow-up", "check it", "--kind", "ship"])).toThrow(UsageError);
   });
+
+  it("refuses --requires and --priority without the follow-up they describe, by name", () => {
+    const base = ["cn-2", "--revision", "2", "--run", "vp run verify"];
+    expect(() => parse([...base, "--requires", "ios"])).toThrow(
+      /--requires belongs to --follow-up/,
+    );
+    expect(() => parse([...base, "--priority", "1"])).toThrow(UsageError);
+    expect(() =>
+      parse([...base, "--kind", "verify", "--requires", "ios", "--priority", "1"]),
+    ).toThrow(/--kind and --requires and --priority belong to --follow-up/);
+  });
 });

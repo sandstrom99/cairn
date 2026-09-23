@@ -16,9 +16,4 @@ describe("cn review", () => {
     expect(() => parse([])).toThrow(UsageError);
     expect(() => parse(["ep-1", "ep-2"])).toThrow(UsageError);
   });
-
-  it("answers --help before anything else", () => {
-    expect(parse(["--help"])).toEqual({ action: "help" });
-    expect(parse(["cn-7", "--help"])).toEqual({ action: "help" });
-  });
 });

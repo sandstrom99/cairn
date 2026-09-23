@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { UsageError } from "../lib/cli.mts";
 import { parse } from "./brief.mts";
 
 describe("cn brief", () => {
@@ -34,7 +35,8 @@ describe("cn brief", () => {
     });
   });
 
-  it("prints its header for --help", () => {
-    expect(parse(["--help"])).toEqual({ action: "help" });
+  it("refuses a positional, which is a flag the caller forgot to name", () => {
+    expect(() => parse(["ios"])).toThrow(UsageError);
+    expect(() => parse(["ios"])).toThrow(/takes flags only, and got "ios"/);
   });
 });

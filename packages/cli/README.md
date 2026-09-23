@@ -71,14 +71,18 @@ A wrong or missing secret fails on the same line instead, naming the field to pu
 
 ```
 bin/cn           the shim a symlink points at
-src/main.mts     dispatch: cn <verb> [args], --help, --version
-src/verbs/       one file per verb, registered in index.mts
+src/main.mts     dispatch: cn <verb> [args], --help and -h for every verb, --version
+src/verbs/       one file per verb, registered in index.mts with its name, summary and spec
 src/smoke.test.mts   the real cn under the real Node, every verb's --help; the test
                  that fails on an import without its extension
+src/contract.test.mts   the verb contract held in one place: each header's synopsis
+                 equals its spec, and the skill, the commands, design §10 and this
+                 README name only flags that exist
 src/lib/
-  cli.mts        main(), UsageError, say/warn — the shell every verb runs in
+  cli.mts        main(), UsageError, answer, fail, say/warn — the shell every verb runs in
   args.mts       the one argument parser, typed by the spec a verb hands it
-  flags.mts      what a flag's value has to be: revision, priority, date, one of a set of words, once
+  flags.mts      what a flag's value has to be: revision, priority, date, one of a set of words, once;
+                 and which positionals a verb takes, onlyId and onlyFlags
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
   can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`
@@ -93,8 +97,10 @@ src/lib/
 
 ## Verbs
 
-`cn --help` lists them, one line each, and `cn <verb> --help` is the verb file's own
-header: the contract of the Convex function behind it. The table in docs/design.md §10
-maps each verb, and each action word of `epic`, `project` and `dep`, to its function.
-Every read verb takes `--json`, and every line naming an issue or epic starts with the
-reference form. Whether the next verb exists yet is cairn's own worklist: `cn ready`.
+`cn --help` lists them, one line each, and `cn <verb> --help` (or `-h`) is the verb
+file's own header: the contract of the Convex function behind it. The table in
+docs/design.md §10 maps each verb, and each action word of `epic`, `project` and `dep`,
+to its function. Every read verb takes `--json`, every line naming an issue or epic
+starts with the reference form, and a verb takes flags only unless its header names a
+positional: `cn ready ios` is refused, since it means `--can ios`. Whether the next verb
+exists yet is cairn's own worklist: `cn ready`.

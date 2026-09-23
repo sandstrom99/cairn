@@ -140,6 +140,17 @@ row("verbs/doctor.mts", () => {
   const seen = cn(["doctor"]);
   assert.equal(seen.status, 0, "cn doctor did not pass against the throwaway deployment");
   assert.match(seen.out, /deployment answered: 0 project\(s\)/);
+
+  const checks = json(["doctor"]);
+  assert.deepEqual(
+    checks.map((c) => c.check),
+    ["node", "api", "deployment", "ping"],
+    "cn doctor --json is not the checks as rows",
+  );
+  assert.ok(
+    checks.every((c) => c.ok === true && typeof c.line === "string"),
+    `cn doctor --json has a failing check: ${JSON.stringify(checks)}`,
+  );
 });
 
 row("verbs/project.mts", () => {
@@ -214,6 +225,12 @@ row("verbs/ready.mts", () => {
   const marked = lines(web.stdout).find((l) => l.includes("cn-3"));
   assert.ok(marked, "cn ready --can web hides the row it cannot do instead of marking it");
   assert.match(marked, /needs ios/, "the row is not marked with what it needs");
+
+  // A positional is a --can the caller forgot to name, and it is refused, not run past.
+  const stray = cn(["ready", "ios"]);
+  assert.equal(stray.status, 2, "cn ready ios ran past a positional instead of refusing it");
+  assert.match(stray.stderr, /got "ios"/, "the refusal does not name the positional");
+  assert.equal(stray.stdout, "", "cn ready ios printed an answer beside the refusal");
 });
 
 row("verbs/brief.mts", () => {

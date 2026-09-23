@@ -16,20 +16,20 @@
 //
 // With nothing to look at it prints the epic and `nothing to look at`.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { UsageError, answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { reviewLines } from "../lib/lines.mts";
 
 export const name = "review";
 export const summary = "what to look at in one epic, together; writes nothing";
+export const spec = { bool: ["json"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "help" } | { action: "review"; id: string; json: boolean };
+export type Parsed = { action: "review"; id: string; json: boolean };
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help", "json"] });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
 
   const id = onlyId(pos, "cn review <epic> [--json]");
   // One epic at a time, and an epic is the only thing a sitting reads: an issue id here
@@ -41,13 +41,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const view = await client.query(api.review.get, { id: parsed.id });
-  if (parsed.json) console.log(JSON.stringify(view, null, 2));
-  else console.log(reviewLines(view).join("\n"));
+  answer(parsed.json, view, (v) => reviewLines(v));
   return 0;
 }

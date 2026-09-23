@@ -10,23 +10,23 @@
 //
 // An agent is refused. Agents raise blockers and people end them (docs/design.md §6).
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { blockerLine, freedLine } from "../lib/lines.mts";
 
 export const name = "resolve";
 export const summary = "end a blocker, and free every issue it holds";
+export const spec = { value: ["note"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "help" } | { action: "resolve"; args: { id: string; note: string } };
+export type Parsed = { action: "resolve"; args: { id: string; note: string } };
 
 const USAGE = "cn resolve <bl-id> --note <what happened>";
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help"], value: ["note"] });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
   const id = onlyId(pos, USAGE);
   const note = opts.note?.trim() ?? "";
   if (!note) throw new UsageError(`${USAGE}: a resolution says what happened`);
@@ -35,10 +35,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const blocker = await client.mutation(api.blockers.resolve, {
     actor: actor(),

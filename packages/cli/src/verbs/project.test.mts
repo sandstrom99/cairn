@@ -25,7 +25,7 @@ describe("cn project", () => {
     expect(() => parse([])).toThrow(UsageError);
   });
 
-  it("answers help before anything else", () => {
-    expect(parse(["--help"])).toEqual({ action: "help" });
+  it("refuses a positional after list", () => {
+    expect(() => parse(["list", "cn"])).toThrow(UsageError);
   });
 });

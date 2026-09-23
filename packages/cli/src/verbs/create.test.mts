@@ -62,6 +62,10 @@ describe("cn create", () => {
     expect(() => parse(["--project", "cn"])).toThrow(UsageError);
   });
 
+  it("refuses a positional: the title is a flag, not the rest of the line", () => {
+    expect(() => parse(["--project", "cn", "--epic", "ep-1", "the title"])).toThrow(UsageError);
+  });
+
   it("refuses a type, kind or priority the deployment would reject anyway", () => {
     const base = ["--project", "cn", "--title", "one"];
     expect(() => parse([...base, "--type", "chore"])).toThrow(UsageError);

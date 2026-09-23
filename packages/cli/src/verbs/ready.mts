@@ -15,22 +15,22 @@
 // comes back with `· needs ios` and is never hidden, because a wrong capability list
 // quietly hiding work is the one failure this is written to avoid.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
+import { onlyFlags } from "../lib/flags.mts";
 import { can } from "../lib/can.mts";
-import { usageFromHeader } from "../lib/cli.mts";
+import { answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { readyLine } from "../lib/lines.mts";
 
 export const name = "ready";
 export const summary = "what can be picked up right now, marked with what this session cannot do";
+export const spec = { bool: ["json"], list: ["can"] } as const satisfies ArgSpec;
 
-export type Parsed =
-  | { action: "help" }
-  | { action: "ready"; json: boolean; can: string[] | undefined };
+export type Parsed = { action: "ready"; json: boolean; can: string[] | undefined };
 
 export function parse(argv: string[]): Parsed {
-  const { opts } = parseArgs(argv, { bool: ["help", "json"], list: ["can"] });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
+  onlyFlags(pos, "cn ready [--can ios android web device decision] [--json]");
   // A bare `--can` is an empty list, which is a session declaring nothing; an absent one
   // is undefined, which falls through to the environment and the config.
   return { action: "ready", json: opts.json, can: opts.can };
@@ -38,13 +38,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const issues = await client.query(api.ready.list, { can: can(parsed.can) });
-  if (parsed.json) console.log(JSON.stringify(issues, null, 2));
-  else if (issues.length > 0) console.log(issues.map(readyLine).join("\n"));
+  answer(parsed.json, issues, (all) => all.map((i) => readyLine(i)));
   return 0;
 }

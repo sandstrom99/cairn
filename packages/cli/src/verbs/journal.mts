@@ -14,14 +14,15 @@
 // Proof that ran elsewhere goes in as `evidence` and the close points at it with
 // --unverified; proof cn can run itself goes in `cn close --run`.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { JOURNAL_KINDS, need, oneOf } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, say, usageFromHeader } from "../lib/cli.mts";
+import { UsageError, say } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 
 export const name = "journal";
 export const summary = "record what happened: an entry that cannot conflict";
+export const spec = { value: ["kind"] } as const satisfies ArgSpec;
 
 export type JournalArgs = {
   id: string;
@@ -29,13 +30,12 @@ export type JournalArgs = {
   body: string;
 };
 
-export type Parsed = { action: "help" } | { action: "journal"; args: JournalArgs };
+export type Parsed = { action: "journal"; args: JournalArgs };
 
 const USAGE = "cn journal <id> --kind finding <body…>";
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help"], value: ["kind"] });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
 
   const [id, ...rest] = pos;
   if (!id) throw new UsageError(USAGE);
@@ -48,10 +48,6 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   const { client } = connect();
   const entry = await client.mutation(api.journal.append, { actor: actor(), ...parsed.args });
   // Nothing on stdout: the entry is the answer and it is already stored, so a pipeline

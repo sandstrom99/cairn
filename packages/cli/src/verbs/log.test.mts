@@ -23,8 +23,7 @@ describe("cn log", () => {
     });
   });
 
-  it("is help when asked for it, and refuses a positional", () => {
-    expect(parse(["--help"])).toEqual({ action: "help" });
+  it("refuses a positional", () => {
     expect(() => parse(["cn-1"])).toThrow(UsageError);
   });
 

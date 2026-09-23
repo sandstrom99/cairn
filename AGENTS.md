@@ -29,7 +29,7 @@ Green is exactly this, and nothing else counts:
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
  Test Files  14 passed (14)      ← backend
- Test Files  33 passed (33)      ← cli
+ Test Files  37 passed (37)      ← cli
  Test Files  7 passed (7)        ← web
 ```
 
@@ -159,7 +159,11 @@ two move together.
 - **Every read verb takes `--json`.** stdout is the answer; `say` and `warn` go
   to stderr.
 - **A verb's file header is its `--help`.** Write the contract first, then the
-  verb.
+  verb. Its flags are its exported `spec`, and `contract.test.mts` holds the
+  header's synopsis, the skill, the slash commands, design §10 and the CLI's README
+  to it. `--help` and `-h` are answered in `main.mts`, so no verb handles them; a
+  verb takes flags only unless its synopsis names a positional, and refuses a stray
+  one through `onlyFlags`.
 - **Mutable writes carry `revision`. Journal entries are inserts.**
 - **`epicId` is required. Closing takes a verification record.**
 - **A fact is read where it is read.** `cn show` says what an issue's neighbourhood means

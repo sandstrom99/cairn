@@ -26,10 +26,11 @@
 // and its newest entry), and a shell with no session (CAIRN_SESSION) holds nothing. With
 // --json it prints those rows.
 
-import { parseArgs } from "../lib/args.mts";
+import { type ArgSpec, parseArgs } from "../lib/args.mts";
+import { onlyFlags } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { can } from "../lib/can.mts";
-import { usageFromHeader } from "../lib/cli.mts";
+import { answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { resolveDeployment } from "../lib/config.mts";
 import { briefLines, unjournaledLine } from "../lib/lines.mts";
@@ -38,23 +39,23 @@ import { unjournaled } from "../lib/parts.mts";
 export const name = "brief";
 export const summary =
   "the situation report a session opens with: counts and the head of each queue";
+export const spec = { bool: ["json", "unjournaled"], list: ["can"] } as const satisfies ArgSpec;
 
-export type Parsed =
-  | { action: "help" }
-  | { action: "brief"; json: boolean; can: string[] | undefined; unjournaled: boolean };
+export type Parsed = {
+  action: "brief";
+  json: boolean;
+  can: string[] | undefined;
+  unjournaled: boolean;
+};
 
 export function parse(argv: string[]): Parsed {
-  const { opts } = parseArgs(argv, { bool: ["help", "json", "unjournaled"], list: ["can"] });
-  if (opts.help) return { action: "help" };
+  const { pos, opts } = parseArgs(argv, spec);
+  onlyFlags(pos, "cn brief [--can ios android web device decision] [--unjournaled] [--json]");
   return { action: "brief", json: opts.json, can: opts.can, unjournaled: opts.unjournaled };
 }
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  if (parsed.action === "help") {
-    console.log(usageFromHeader(import.meta.url));
-    return 0;
-  }
   // Nothing configured is not an error here: a hook on a machine without cairn is silent.
   // A deployment that is configured and does not answer throws, like every other verb.
   const deployment = resolveDeployment();
@@ -68,21 +69,14 @@ export async function run(argv: string[]): Promise<number> {
   if (parsed.unjournaled) {
     // The rows are the deployment's marks on what it says is this session's; the line is
     // one or none, and a silent exit 0 is the answer "nothing held quiet".
-    if (parsed.json) console.log(JSON.stringify(unjournaled(view), null, 2));
-    else {
+    answer(parsed.json, unjournaled(view), () => {
       const line = unjournaledLine(view);
-      if (line !== undefined) console.log(line);
-    }
+      return line === undefined ? [] : [line];
+    });
     return 0;
   }
-  if (parsed.json) console.log(JSON.stringify(view, null, 2));
-  else
-    console.log(
-      briefLines(view, {
-        deployment: deployment.name,
-        actor: me.name,
-        can: capabilities,
-      }).join("\n"),
-    );
+  answer(parsed.json, view, (v) =>
+    briefLines(v, { deployment: deployment.name, actor: me.name, can: capabilities }),
+  );
   return 0;
 }

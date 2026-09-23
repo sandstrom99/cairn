@@ -7,8 +7,7 @@ describe("cn ack", () => {
     expect(parse(["bl-1"])).toEqual({ action: "ack", args: { id: "bl-1" } });
   });
 
-  it("needs exactly one, and prints its header when asked", () => {
-    expect(parse(["--help"])).toEqual({ action: "help" });
+  it("needs exactly one", () => {
     expect(() => parse([])).toThrow(UsageError);
     expect(() => parse(["bl-1", "bl-2"])).toThrow(UsageError);
   });
