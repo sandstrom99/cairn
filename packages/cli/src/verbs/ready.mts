@@ -33,11 +33,7 @@ export function parse(argv: string[]): Parsed {
   if (opts.help) return { action: "help" };
   // A bare `--can` is an empty list, which is a session declaring nothing; an absent one
   // is undefined, which falls through to the environment and the config.
-  return {
-    action: "ready",
-    json: Boolean(opts.json),
-    can: Array.isArray(opts.can) ? opts.can : undefined,
-  };
+  return { action: "ready", json: opts.json, can: opts.can };
 }
 
 export async function run(argv: string[]): Promise<number> {

@@ -18,6 +18,7 @@
 // written so the person can act on it without asking. --nudge is the day to look again.
 
 import { parseArgs } from "../lib/args.mts";
+import { BLOCKER_KINDS, date, maybe, need, oneOf, onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -26,15 +27,13 @@ import { blockerLine, holdsLine } from "../lib/lines.mts";
 export const name = "wait";
 export const summary = "raise a human blocker on an issue, or attach one that exists";
 
-const KINDS = ["approval", "external-wait", "decision", "credential", "purchase"] as const;
-
 /** The options that describe a new blocker; none of them goes with `--on`. */
 const DESCRIBING = ["kind", "owner", "title", "resolves", "nudge"] as const;
 
 export type WaitArgs = {
   issue: string;
   on?: string;
-  kind?: (typeof KINDS)[number];
+  kind?: (typeof BLOCKER_KINDS)[number];
   owner?: string;
   title?: string;
   whatResolves?: string;
@@ -42,13 +41,6 @@ export type WaitArgs = {
 };
 
 export type Parsed = { action: "help" } | { action: "wait"; args: WaitArgs };
-
-const text = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-/** `{ on: "bl-3" }` or `{}`: an absent option is an absent key, never an undefined one. */
-const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 
 const USAGE =
   "cn wait <id> --kind approval --owner <who> --title <what> --resolves <what ends it>, or cn wait <id> --on bl-3";
@@ -60,25 +52,22 @@ export function parse(argv: string[]): Parsed {
   });
   if (opts.help) return { action: "help" };
 
-  const [issue, ...rest] = pos;
-  if (!issue || rest.length > 0) throw new UsageError(USAGE);
+  const issue = onlyId(pos, USAGE);
 
-  const on = text(opts.on);
-  if (on !== undefined) {
+  if (opts.on !== undefined) {
     const also = DESCRIBING.filter((o) => opts[o] !== undefined);
     if (also.length > 0)
       throw new UsageError(
         `--on attaches an existing blocker; ${also.map((o) => `--${o}`).join(" and ")} describes a new one`,
       );
-    return { action: "wait", args: { issue, on } };
+    return { action: "wait", args: { issue, on: opts.on } };
   }
 
-  const kind = text(opts.kind);
-  if (kind === undefined || !KINDS.includes(kind as (typeof KINDS)[number]))
-    throw new UsageError(`--kind is one of ${KINDS.join(", ")}, not "${kind ?? ""}"`);
-  const owner = text(opts.owner);
-  const title = text(opts.title);
-  const whatResolves = text(opts.resolves);
+  const kind = need(
+    oneOf(opts.kind, "kind", BLOCKER_KINDS),
+    `a new blocker needs --kind ${BLOCKER_KINDS.join("|")}`,
+  );
+  const { owner, title, resolves: whatResolves } = opts;
   for (const [flag, value] of [
     ["owner", owner],
     ["title", title],
@@ -87,20 +76,15 @@ export function parse(argv: string[]): Parsed {
     if (value === undefined || value.trim() === "")
       throw new UsageError(`a new blocker needs --${flag}`);
 
-  const nudge = text(opts.nudge);
-  const nudgeAt = nudge === undefined ? undefined : Date.parse(nudge);
-  if (nudgeAt !== undefined && Number.isNaN(nudgeAt))
-    throw new UsageError(`--nudge is a date, as YYYY-MM-DD, not "${nudge}"`);
-
   return {
     action: "wait",
     args: {
       issue,
-      kind: kind as (typeof KINDS)[number],
+      kind,
       owner,
       title,
       whatResolves,
-      ...maybe("nudgeAt", nudgeAt),
+      ...maybe("nudgeAt", date(opts.nudge, "nudge")),
     },
   };
 }

@@ -46,12 +46,7 @@ export type Parsed =
 export function parse(argv: string[]): Parsed {
   const { opts } = parseArgs(argv, { bool: ["help", "json", "unjournaled"], list: ["can"] });
   if (opts.help) return { action: "help" };
-  return {
-    action: "brief",
-    json: Boolean(opts.json),
-    can: Array.isArray(opts.can) ? opts.can : undefined,
-    unjournaled: Boolean(opts.unjournaled),
-  };
+  return { action: "brief", json: opts.json, can: opts.can, unjournaled: opts.unjournaled };
 }
 
 export async function run(argv: string[]): Promise<number> {

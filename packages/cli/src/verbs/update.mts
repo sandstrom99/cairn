@@ -14,6 +14,7 @@
 // --design is HOW and may change; --acceptance is WHAT and should not.
 
 import { parseArgs } from "../lib/args.mts";
+import { date, maybe, onlyId, priority, revision } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -37,20 +38,9 @@ export type UpdateArgs = {
 
 export type Parsed = { action: "help" } | { action: "update"; args: UpdateArgs };
 
-const text = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
-
-/** A date as anything Date.parse takes, or `none` to clear it. */
-function deferUntil(given: string | undefined): number | null | undefined {
-  if (given === undefined) return undefined;
-  if (given === "none") return null;
-  const at = Date.parse(given);
-  if (Number.isNaN(at)) throw new UsageError(`--defer-until is a date or none, not "${given}"`);
-  return at;
-}
+/** `--defer-until`: a date, or `none` to clear it. */
+const deferUntil = (given: string | undefined): number | null | undefined =>
+  given === "none" ? null : date(given, "defer-until");
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, {
@@ -69,32 +59,23 @@ export function parse(argv: string[]): Parsed {
   });
   if (opts.help) return { action: "help" };
 
-  const [id, ...rest] = pos;
-  if (!id || rest.length > 0) throw new UsageError("cn update <id> --revision N [--title …]");
-
-  const given = text(opts.revision);
-  const revision = Number(given);
-  if (given === undefined || !Number.isInteger(revision))
-    throw new UsageError("cn update <id> --revision N: the revision cn last printed for it");
-
-  const priority = text(opts.priority);
-  if (priority !== undefined && Number.isNaN(Number(priority)))
-    throw new UsageError(`--priority is a number 0 to 4, not "${priority}"`);
+  const id = onlyId(pos, "cn update <id> --revision N [--title …]");
+  const rev = revision(opts.revision, "cn update <id> --revision N");
 
   // `--requires none` is how a list gets emptied: an absent flag leaves it alone.
-  const listed = Array.isArray(opts.requires) ? opts.requires : undefined;
+  const listed = opts.requires;
   const requires = listed?.length === 1 && listed[0] === "none" ? [] : listed;
 
   const args: UpdateArgs = {
     id,
-    revision,
-    ...maybe("title", text(opts.title)),
-    ...maybe("description", text(opts.description)),
-    ...maybe("design", text(opts.design)),
-    ...maybe("acceptance", text(opts.acceptance)),
-    ...maybe("priority", priority === undefined ? undefined : Number(priority)),
-    ...maybe("epic", text(opts.epic)),
-    ...maybe("deferUntil", deferUntil(text(opts["defer-until"]))),
+    revision: rev,
+    ...maybe("title", opts.title),
+    ...maybe("description", opts.description),
+    ...maybe("design", opts.design),
+    ...maybe("acceptance", opts.acceptance),
+    ...maybe("priority", priority(opts.priority)),
+    ...maybe("epic", opts.epic),
+    ...maybe("deferUntil", deferUntil(opts["defer-until"])),
     ...maybe("requires", requires),
   };
   if (Object.keys(args).length === 2)

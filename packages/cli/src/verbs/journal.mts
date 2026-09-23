@@ -15,6 +15,7 @@
 // --unverified; proof cn can run itself goes in `cn close --run`.
 
 import { parseArgs } from "../lib/args.mts";
+import { JOURNAL_KINDS, need, oneOf } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, say, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -22,29 +23,27 @@ import { api, connect } from "../lib/client.mts";
 export const name = "journal";
 export const summary = "record what happened: an entry that cannot conflict";
 
-const KINDS = ["finding", "decision", "handoff", "evidence", "question"] as const;
-
 export type JournalArgs = {
   id: string;
-  kind: (typeof KINDS)[number];
+  kind: (typeof JOURNAL_KINDS)[number];
   body: string;
 };
 
 export type Parsed = { action: "help" } | { action: "journal"; args: JournalArgs };
+
+const USAGE = "cn journal <id> --kind finding <body…>";
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help"], value: ["kind"] });
   if (opts.help) return { action: "help" };
 
   const [id, ...rest] = pos;
-  if (!id) throw new UsageError("cn journal <id> --kind finding <body…>");
-  const kind = typeof opts.kind === "string" ? opts.kind : undefined;
-  if (kind === undefined || !KINDS.includes(kind as (typeof KINDS)[number]))
-    throw new UsageError(`--kind is one of ${KINDS.join(", ")}, not "${kind ?? ""}"`);
+  if (!id) throw new UsageError(USAGE);
+  const kind = need(oneOf(opts.kind, "kind", JOURNAL_KINDS), USAGE);
   // The body is the rest of the line, so an entry needs no quoting to be written.
   const body = rest.join(" ").trim();
-  if (!body) throw new UsageError("cn journal <id> --kind finding <body…>: the body is missing");
-  return { action: "journal", args: { id, kind: kind as (typeof KINDS)[number], body } };
+  if (!body) throw new UsageError(`${USAGE}: the body is missing`);
+  return { action: "journal", args: { id, kind, body } };
 }
 
 export async function run(argv: string[]): Promise<number> {

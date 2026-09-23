@@ -21,6 +21,7 @@
 // epic goes beside its parent instead, and the answer says so on a `placed` line.
 
 import { parseArgs } from "../lib/args.mts";
+import { FOLLOW_UP_KINDS, ISSUE_TYPES, maybe, oneOf, priority } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, errorData, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -30,9 +31,6 @@ import { ref } from "../lib/ref.mts";
 export const name = "create";
 export const summary = "put work in the list: one issue, in an epic";
 
-const TYPES = ["task", "follow-up"] as const;
-const KINDS = ["verify", "decide", "cleanup"] as const;
-
 export type CreateArgs = {
   project: string;
   epic?: string;
@@ -41,20 +39,13 @@ export type CreateArgs = {
   design?: string;
   acceptance?: string;
   priority?: number;
-  type?: (typeof TYPES)[number];
-  followUpKind?: (typeof KINDS)[number];
+  type?: (typeof ISSUE_TYPES)[number];
+  followUpKind?: (typeof FOLLOW_UP_KINDS)[number];
   parent?: string;
   requires?: string[];
 };
 
 export type Parsed = { action: "help" } | { action: "create"; args: CreateArgs };
-
-const text = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-/** `{ epic: "ep-1" }` or `{}`: an absent option is an absent key, never an undefined one. */
-const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 
 export function parse(argv: string[]): Parsed {
   const { opts } = parseArgs(argv, {
@@ -75,37 +66,24 @@ export function parse(argv: string[]): Parsed {
   });
   if (opts.help) return { action: "help" };
 
-  const project = text(opts.project);
-  const title = text(opts.title);
+  const { project, title } = opts;
   if (!project || !title)
     throw new UsageError("cn create --project <slug> --title <title> [--epic <ep-id>]");
 
-  const type = text(opts.type);
-  if (type !== undefined && !TYPES.includes(type as (typeof TYPES)[number]))
-    throw new UsageError(`--type is ${TYPES.join(" or ")}, not "${type}"`);
-  const kind = text(opts.kind);
-  if (kind !== undefined && !KINDS.includes(kind as (typeof KINDS)[number]))
-    throw new UsageError(`--kind is ${KINDS.join(", ")}, not "${kind}"`);
-
-  const priority = text(opts.priority);
-  if (priority !== undefined && Number.isNaN(Number(priority)))
-    throw new UsageError(`--priority is a number 0 to 4, not "${priority}"`);
-
-  const requires = Array.isArray(opts.requires) ? opts.requires : undefined;
   return {
     action: "create",
     args: {
       project,
       title,
-      ...maybe("epic", text(opts.epic)),
-      ...maybe("description", text(opts.description)),
-      ...maybe("design", text(opts.design)),
-      ...maybe("acceptance", text(opts.acceptance)),
-      ...maybe("priority", priority === undefined ? undefined : Number(priority)),
-      ...maybe("type", type as (typeof TYPES)[number] | undefined),
-      ...maybe("followUpKind", kind as (typeof KINDS)[number] | undefined),
-      ...maybe("parent", text(opts.parent)),
-      ...maybe("requires", requires),
+      ...maybe("epic", opts.epic),
+      ...maybe("description", opts.description),
+      ...maybe("design", opts.design),
+      ...maybe("acceptance", opts.acceptance),
+      ...maybe("priority", priority(opts.priority)),
+      ...maybe("type", oneOf(opts.type, "type", ISSUE_TYPES)),
+      ...maybe("followUpKind", oneOf(opts.kind, "kind", FOLLOW_UP_KINDS)),
+      ...maybe("parent", opts.parent),
+      ...maybe("requires", opts.requires),
     },
   };
 }

@@ -18,6 +18,7 @@
 // Adding the same edge twice changes nothing.
 
 import { parseArgs } from "../lib/args.mts";
+import { onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
@@ -26,7 +27,6 @@ import { edgeLine } from "../lib/lines.mts";
 export const name = "dep";
 export const summary = "link two issues: blocked-by, blocks, related, discovered-from, …";
 
-/** The flags, and the edge each one writes. `blocked-by` is `blocks` from the far end. */
 const RELATIONS = [
   "blocked-by",
   "blocks",
@@ -45,14 +45,14 @@ const USAGE =
   "cn dep add|rm <id> --blocked-by|--blocks|--related|--discovered-from|--duplicates|--supersedes <other>";
 
 export function parse(argv: string[]): Parsed {
-  const { pos, opts } = parseArgs(argv, { bool: ["help"], value: [...RELATIONS] });
+  const { pos, opts } = parseArgs(argv, { bool: ["help"], value: RELATIONS });
   if (opts.help) return { action: "help" };
 
-  const [action, id, ...rest] = pos;
+  const [action, ...rest] = pos;
   if (action !== "add" && action !== "rm") throw new UsageError(USAGE);
-  if (!id || rest.length > 0) throw new UsageError(USAGE);
+  const id = onlyId(rest, USAGE);
 
-  const given = RELATIONS.filter((r) => typeof opts[r] === "string");
+  const given = RELATIONS.filter((r) => opts[r] !== undefined);
   if (given.length !== 1)
     throw new UsageError(
       given.length === 0
@@ -60,7 +60,7 @@ export function parse(argv: string[]): Parsed {
         : `one relation per call, not ${given.map((r) => `--${r}`).join(" and ")}`,
     );
   const relation = given[0]!;
-  const other = opts[relation] as string;
+  const other = opts[relation]!;
 
   // One row per relation: the only question is which end is `from`.
   const args: EdgeArgs =

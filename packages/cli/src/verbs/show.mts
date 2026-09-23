@@ -14,7 +14,8 @@
 // and when, oldest first.
 
 import { parseArgs } from "../lib/args.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { onlyId } from "../lib/flags.mts";
+import { usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { brief } from "../lib/lines.mts";
 
@@ -28,11 +29,10 @@ export type Parsed =
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help", "json", "history"] });
   if (opts.help) return { action: "help" };
-  const [id, ...rest] = pos;
-  if (!id || rest.length > 0) throw new UsageError("cn show <id> [--history] [--json]");
+  const id = onlyId(pos, "cn show <id> [--history] [--json]");
   return {
     action: "show",
-    json: Boolean(opts.json),
+    json: opts.json,
     args: { id, ...(opts.history ? { history: true } : {}) },
   };
 }

@@ -7,8 +7,9 @@
 // nothing else releases it. Releasing what nobody holds changes nothing.
 
 import { parseArgs } from "../lib/args.mts";
+import { onlyId } from "../lib/flags.mts";
 import { actor } from "../lib/actor.mts";
-import { UsageError, usageFromHeader } from "../lib/cli.mts";
+import { usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
 
@@ -20,8 +21,7 @@ export type Parsed = { action: "help" } | { action: "release"; args: { id: strin
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help"] });
   if (opts.help) return { action: "help" };
-  const [id, ...rest] = pos;
-  if (!id || rest.length > 0) throw new UsageError("cn release <id>");
+  const id = onlyId(pos, "cn release <id>");
   return { action: "release", args: { id } };
 }
 

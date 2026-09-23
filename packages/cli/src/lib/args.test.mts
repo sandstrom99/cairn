@@ -38,4 +38,22 @@ describe("parseArgs", () => {
   it("rejects a value flag with no value", () => {
     expect(() => parseArgs(["--epic"], { value: ["epic"] })).toThrow(/takes a value/);
   });
+
+  it("reads a bool that was not given as false, and leaves a value or list absent", () => {
+    const { opts } = parseArgs([], { bool: ["json"], value: ["epic"], list: ["requires"] });
+    expect(opts).toEqual({ json: false });
+  });
+
+  it("types each flag by its shape", () => {
+    const { opts } = parseArgs(["--epic", "e-1", "--json"], {
+      bool: ["json"],
+      value: ["epic"],
+      list: ["requires"],
+    });
+    // The annotations are the test: a shape the spec does not give a flag fails `vp check`.
+    const json: boolean = opts.json;
+    const epic: string | undefined = opts.epic;
+    const requires: string[] | undefined = opts.requires;
+    expect([json, epic, requires]).toEqual([true, "e-1", undefined]);
+  });
 });

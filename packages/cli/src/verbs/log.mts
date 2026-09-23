@@ -23,6 +23,7 @@
 // An empty deployment prints nothing and exits 0.
 
 import { parseArgs } from "../lib/args.mts";
+import { date, integer, maybe } from "../lib/flags.mts";
 import { UsageError, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { logLine } from "../lib/lines.mts";
@@ -38,22 +39,11 @@ export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, { bool: ["help", "json"], value: ["limit", "before"] });
   if (opts.help) return { action: "help" };
   if (pos.length > 0) throw new UsageError("cn log [--limit N] [--before <date>] [--json]");
-
-  const givenLimit = typeof opts.limit === "string" ? opts.limit : undefined;
-  const limit = givenLimit === undefined ? undefined : Number(givenLimit);
-  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 200))
-    throw new UsageError(`--limit is a whole number from 1 to 200, not "${givenLimit}"`);
-
-  const givenBefore = typeof opts.before === "string" ? opts.before : undefined;
-  const before = givenBefore === undefined ? undefined : Date.parse(givenBefore);
-  if (givenBefore !== undefined && Number.isNaN(before))
-    throw new UsageError(`--before is a date, not "${givenBefore}"`);
-
   return {
     action: "log",
-    ...(limit === undefined ? {} : { limit }),
-    ...(before === undefined ? {} : { before }),
-    json: Boolean(opts.json),
+    ...maybe("limit", integer(opts.limit, "limit", 1, 200)),
+    ...maybe("before", date(opts.before, "before")),
+    json: opts.json,
   };
 }
 

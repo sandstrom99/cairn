@@ -72,4 +72,13 @@ describe("cn update", () => {
     expect(() => parse(["cn-2", "--revision", "1", "--defer-until", "soon"])).toThrow(UsageError);
     expect(() => parse(["cn-2", "--revision", "1", "--priority", "high"])).toThrow(UsageError);
   });
+
+  it("refuses --revision= and --priority=, which are blanks, not zeros", () => {
+    expect(() => parse(["cn-2", "--revision=", "--priority", "1"])).toThrow(
+      /the revision cn last printed/,
+    );
+    expect(() => parse(["cn-2", "--revision", "1", "--priority="])).toThrow(
+      /--priority is a whole number from 0 to 4/,
+    );
+  });
 });
