@@ -3,8 +3,8 @@
 //   cn release <id>
 //
 // Clears the claim and puts it back to open. An agent may only release what it holds; a
-// person may release anything, which is how a session that died mid-claim gets unstuck
-// without waiting for reconcile. Releasing what nobody holds changes nothing.
+// person may release anything, which is how a session that died mid-claim gets unstuck:
+// nothing else releases it. Releasing what nobody holds changes nothing.
 
 import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";

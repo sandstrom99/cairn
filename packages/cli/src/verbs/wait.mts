@@ -14,9 +14,8 @@
 // moment that blocker resolves, with nothing recomputed in between. It stays in
 // `cn list` throughout: waiting work is not gone, it is just not claimable.
 //
-// --owner is who must act, and defaults to CAIRN_OWNER when that is set in the
-// environment. --resolves is what would end the wait, written so the person can act on
-// it without asking. --nudge is the day to look again.
+// --owner is who must act, and is required. --resolves is what would end the wait,
+// written so the person can act on it without asking. --nudge is the day to look again.
 
 import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
@@ -55,7 +54,7 @@ const maybe = <K extends string, V>(key: K, value: V | undefined): Partial<Recor
 const USAGE =
   "cn wait <id> --kind approval --owner <who> --title <what> --resolves <what ends it>, or cn wait <id> --on bl-3";
 
-export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Parsed {
+export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, {
     bool: ["help"],
     value: ["on", ...DESCRIBING],
@@ -78,8 +77,7 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
   const kind = text(opts.kind);
   if (kind === undefined || !KINDS.includes(kind as (typeof KINDS)[number]))
     throw new UsageError(`--kind is one of ${KINDS.join(", ")}, not "${kind ?? ""}"`);
-  // CAIRN_OWNER is the one person a machine usually waits on, so it is worth not typing.
-  const owner = text(opts.owner) ?? env.CAIRN_OWNER;
+  const owner = text(opts.owner);
   const title = text(opts.title);
   const whatResolves = text(opts.resolves);
   for (const [flag, value] of [

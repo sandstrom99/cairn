@@ -526,60 +526,137 @@ row("verbs/epic.mts (close)", () => {
   assert.match(refused.out, /cn-1|cn-3/, "the refusal does not name what is still open");
 });
 
-row("verbs/reconcile.mts", () => {
-  const made = cn(["epic", "new", "scratch: reconcile"]);
+/** The two near-identical issues the create row mints in ep-2, read by the two rows after it. */
+let twin;
+let other;
+
+row("verbs/create.mts (near)", () => {
+  const made = cn(["epic", "new", "scratch: review"]);
   assert.equal(made.status, 0, "cn epic new was refused");
   assert.match(made.out, /ep-2/, "the second epic did not mint ep-2");
-  const twins = ["scratch: the same title", "scratch: the same title."].map((title) => {
-    const created = cn(["create", "--project", "cn", "--epic", "ep-2", "--title", title]);
-    assert.equal(created.status, 0, `cn create "${title}" was refused`);
-    return created;
-  });
-  assert.equal(twins.length, 2);
-  const held = ids(json(["list", "--epic", "ep-2"]));
-
-  assert.equal(cn(["reconcile", "ep-2"]).status, 0, "cn reconcile was refused");
-  const waiting = json(["waiting"]);
-  assert.equal(waiting.length, 1, "reconcile did not raise exactly one blocker");
-  assert.equal(waiting[0].raisedBy.name, "cairn/reconcile", "the raise is not by cairn/reconcile");
-  assert.deepEqual(
-    sorted(ids(waiting[0].issues)),
-    sorted(held),
-    "the blocker does not hold both near-identical issues",
-  );
-
-  assert.equal(cn(["reconcile", "ep-2"]).status, 0, "a second cn reconcile was refused");
-  const logged = lines(cn(["log", "--limit", "200"]).stdout);
-  for (const line of logged)
-    assert.ok(!line.includes("{"), `cn log printed raw JSON for an event: ${line}`);
-  const runs = logged.filter((l) => /^ep-2 ".*  reconcile\.run  cairn\/reconcile  /.test(l));
-  assert.deepEqual(
-    runs.map((l) => l.slice(l.indexOf("just now  ") + "just now  ".length)),
-    ["nothing to do · by e2e/claude", "did 0 · raised 1 · by e2e/claude"],
-    "the two runs do not read as what they did and who asked, newest first",
-  );
-  assert.ok(
-    logged.some((l) =>
-      l.endsWith(`  blocker.attach  cairn/reconcile  just now  waits on ${waiting[0].id}`),
-    ),
-    `the attach of the second twin does not read as waits on ${waiting[0].id}`,
-  );
-  assert.equal(json(["waiting"]).length, 1, "a second cn reconcile asked the question again");
-
-  const resolved = cn(["resolve", waiting[0].id, "--note", "scratch"], { as: "human" });
-  assert.equal(resolved.status, 0, "a person's resolve was refused");
-  const revision = String(revisionOf("ep-2"));
-  const dropped = cn([
-    "epic",
-    "close",
+  const first = cn([
+    "create",
+    "--project",
+    "cn",
+    "--epic",
     "ep-2",
-    "--revision",
-    revision,
-    "--drop",
-    "--reason",
-    "scratch",
+    "--title",
+    "scratch: the same title",
   ]);
-  assert.equal(dropped.status, 0, "cn epic close --drop was refused");
+  assert.equal(first.status, 0, "cn create of the first twin was refused");
+  assert.doesNotMatch(first.stdout, /^ {2}near /m, "the first of its title printed a near line");
+  const second = cn([
+    "create",
+    "--project",
+    "cn",
+    "--epic",
+    "ep-2",
+    "--title",
+    "scratch: the same title.",
+  ]);
+  assert.equal(second.status, 0, "cn create of a near-identical title was refused");
+  assert.match(
+    second.stdout,
+    /^ {2}near {7}cn-\d+ "scratch: the same title"$/m,
+    "the near-identical create does not hand back the first twin on a near line",
+  );
+  [twin, other] = ids(json(["list", "--epic", "ep-2"]));
+  assert.ok(twin && other, "cn list --epic ep-2 does not read back both twins");
+});
+
+row("verbs/review.mts", () => {
+  const head = 'ep-2 "scratch: review"  0 done · 2 open · 0 follow-ups';
+  const seen = cn(["review", "ep-2"]);
+  assert.equal(seen.status, 0, "cn review ep-2 was refused");
+  assert.deepEqual(
+    lines(seen.stdout),
+    [
+      head,
+      `  near        ${twin} "scratch: the same title" and ${other} "scratch: the same title."`,
+    ],
+    "cn review does not read as the epic's counts and the one near pair",
+  );
+  const view = json(["review", "ep-2"]);
+  assert.equal(view.near.length, 1, "cn review --json does not carry exactly one near pair");
+  assert.equal(view.canClose, false, "cn review --json offers to close an epic with open work");
+  assert.deepEqual(
+    [view.near[0].a.id, view.near[0].b.id],
+    [twin, other],
+    "the near pair is not the two twins in order",
+  );
+
+  const before = json(["log", "--limit", "200"]).length;
+  assert.equal(cn(["review", "ep-2"]).status, 0, "a second cn review was refused");
+  assert.equal(cn(["review", "ep-2"]).status, 0, "a third cn review was refused");
+  assert.equal(json(["log", "--limit", "200"]).length, before, "cn review wrote an event");
+
+  assert.equal(cn(["review", "cn-1"]).status, 2, "cn review on an issue id was not a usage error");
+
+  assert.equal(
+    cn(["dep", "add", other, "--duplicates", twin]).status,
+    0,
+    "cn dep add --duplicates was refused",
+  );
+  assert.deepEqual(
+    lines(cn(["review", "ep-2"]).stdout),
+    [head, "  nothing to look at"],
+    "a pair with a duplicates edge between them is still listed",
+  );
+});
+
+row("verbs/close.mts (offer)", () => {
+  const first = cn(["close", twin, "--revision", String(revisionOf(twin)), "--run", "echo proof"]);
+  assert.equal(first.status, 0, `cn close ${twin} --run 'echo proof' was refused`);
+  assert.doesNotMatch(first.stdout, /^ {2}epic /m, "the epic was offered with a twin still open");
+
+  const second = cn([
+    "close",
+    other,
+    "--revision",
+    String(revisionOf(other)),
+    "--unverified",
+    "scratch: no device here",
+  ]);
+  assert.equal(second.status, 0, `cn close ${other} --unverified was refused`);
+  assert.match(
+    second.stdout,
+    /^ {2}follow-up {2}cn-\d+ "verify: scratch: the same title\."/m,
+    "an unverified close with no --follow-up did not spawn a verify follow-up",
+  );
+  assert.doesNotMatch(second.stdout, /^ {2}epic /m, "the epic was offered with a follow-up open");
+  const followUps = json(["show", other]).followUps;
+  assert.equal(followUps.length, 1, "the spawned follow-up does not sit beside the closed parent");
+  const spawned = followUps[0].id;
+
+  const finishing = cn([
+    "close",
+    spawned,
+    "--revision",
+    String(revisionOf(spawned)),
+    "--run",
+    "echo proof",
+  ]);
+  assert.equal(finishing.status, 0, `cn close ${spawned} --run 'echo proof' was refused`);
+  const revision = revisionOf("ep-2");
+  const offer = `cn epic close ep-2 --revision ${revision}`;
+  assert.ok(
+    lines(finishing.stdout).includes(`  epic       ep-2 "scratch: review" can close · ${offer}`),
+    "the close of the epic's last issue does not print the cn epic close line",
+  );
+
+  assert.deepEqual(
+    lines(cn(["review", "ep-2"]).stdout),
+    ['ep-2 "scratch: review"  2 done · 0 open · 0 follow-ups', `  can close   ${offer}`],
+    "cn review does not read a finished epic as the counts and the can close line",
+  );
+  assert.equal(json(["review", "ep-2"]).canClose, true, "cn review --json does not say canClose");
+
+  const closed = cn(["epic", "close", "ep-2", "--revision", String(revision)]);
+  assert.equal(closed.status, 0, "the cn epic close line the offer printed was refused");
+  assert.equal(json(["show", "ep-2"]).status, "closed", "ep-2 is not closed");
+  const after = lines(cn(["review", "ep-2"]).stdout);
+  assert.equal(after[1], "  nothing to look at", "a closed epic still reviews to a finding");
+  assert.equal(json(["review", "ep-2"]).canClose, false, "a closed epic still says canClose");
 });
 
 row("verbs/init.mts", () => {

@@ -25,6 +25,3 @@ export type Actor = Infer<typeof actorValidator>;
  */
 export const sameSession = (a: Actor, b: Actor): boolean =>
   a.name === b.name && a.session === b.session;
-
-/** The actor reconcile writes as (§7), so its raises can be told apart; it lands in cn-7. */
-export const RECONCILE: Actor = { name: "cairn/reconcile", kind: "agent" };

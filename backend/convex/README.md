@@ -24,8 +24,8 @@ What is here, one public function per `cn` verb or action word:
 | `epics.ts` | `create`, `list`, `health`, `close` |
 | `blockers.ts` | `raise`, `list`, `ack`, `resolve`, §6 |
 | `projects.ts` | `create`, `list` |
-| `reconcile.ts` | `run`, by hand, §7. `sweep` and `crons.ts` are the switched-off sweep §7 has decided to delete; nothing reads them |
-| `lib/` | mechanism shared by the above: `actor`, `changes`, `clock`, `env`, `errors`, `events`, `followUp`, `guard`, `ids`, `inbox`, `lookup`, `raise`, `readiness`, `revision`, `thresholds`, `verification`, `views` |
+| `review.ts` | `get`, the sitting of §7: one query listing what to look at in an epic, writes nothing |
+| `lib/` | mechanism shared by the above: `actor`, `changes`, `clock`, `errors`, `events`, `followUp`, `guard`, `ids`, `inbox`, `lookup`, `raise`, `readiness`, `revision`, `thresholds`, `verification`, `views` |
 
 Rules that hold from the first line:
 

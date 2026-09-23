@@ -7,7 +7,6 @@ const view = (over: Partial<BriefView> = {}): BriefView => ({
   inProgress: [],
   followUps: { count: 0, covered: [] },
   waiting: 0,
-  flagged: 0,
   ...over,
 });
 
@@ -46,9 +45,5 @@ describe("underline", () => {
       "3 follow-ups, 2 with requirements.",
     );
     expect(underline(view({ followUps: { count: 1, covered } }))).toBe("1 follow-up.");
-  });
-
-  it("says what reconcile raised", () => {
-    expect(underline(view({ flagged: 2 }))).toBe("2 raised by reconcile.");
   });
 });

@@ -15,7 +15,6 @@ import {
   CircleDot,
   Eye,
   Flag,
-  GitMerge,
   Link2,
   NotebookPen,
   Pencil,
@@ -43,8 +42,6 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   attach: Flag,
   ack: Eye,
   resolve: Check,
-  run: GitMerge,
-  sweep: GitMerge,
 };
 
 export function FeedEvent({

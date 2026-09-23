@@ -5,6 +5,14 @@
 // epic does not fail vaguely: it throws `epic-required` carrying the open epics, and
 // `cn create` prints them. ep-0 "Inbox" is the answer when none of them fits, and it is
 // created by the first create that asks for it.
+//
+// A create answers with two facts beside the issue, each checked where the state is made
+// rather than by a later run (§7). `near` is every live issue in the epic whose title is
+// near-identical to the new one (lib/titles.ts), read before the insert and handed back
+// while the issue is still created, so the reader decides whether it is a duplicate.
+// `placed` says an issue bound for the inbox went beside its parent instead: §7's table
+// moves that rule "at cn create", because a parent in an open epic is a fact and the
+// inbox is only the answer when nothing says where the work belongs.
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { actorValidator, sameSession } from "./lib/actor";
@@ -12,8 +20,8 @@ import type { Actor } from "./lib/actor";
 import { claimed, epicRequired, invalid } from "./lib/errors";
 import { createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
-import { issuesIn } from "./lib/graph";
-import { openEpicArg } from "./lib/inbox";
+import { hasChild, issuesIn } from "./lib/graph";
+import { INBOX_ID, openEpicArg } from "./lib/inbox";
 import {
   type IssueEdit,
   claimIssue,
@@ -27,14 +35,16 @@ import { epicById, issueById, projectBySlug } from "./lib/lookup";
 import { idOrder, priorityOrder } from "./lib/order";
 import { DEFAULT_PRIORITY } from "./lib/priority";
 import { expectRevision } from "./lib/revision";
+import { nearIdentical } from "./lib/titles";
 import {
+  epicFinished,
   followUpKindValidator,
   isLive,
   issueStatusValidator,
   issueTypeValidator,
 } from "./lib/validators";
 import { verificationInputValidator } from "./lib/verification";
-import { issueView, ref } from "./lib/views";
+import { type Ref, issueView, ref } from "./lib/views";
 
 /**
  * `claimed`, with the two fields narrowed: every caller has tested `claimedBy` first.
@@ -81,7 +91,7 @@ export const create = mutation({
       open.sort(idOrder);
       throw epicRequired(open.map(ref));
     }
-    const epic = await openEpicArg(ctx, args.actor, args.epic);
+    const asked = await openEpicArg(ctx, args.actor, args.epic);
 
     const type = args.type ?? "task";
     if (type === "follow-up" && args.followUpKind === undefined)
@@ -91,7 +101,21 @@ export const create = mutation({
 
     const parent = args.parent === undefined ? null : await issueById(ctx, args.parent);
 
-    return await insertIssue(ctx, args.actor, {
+    // Bound for the inbox with a parent in an open epic: the parent says where it goes.
+    const parentEpic =
+      asked.id === INBOX_ID && parent !== null ? await ctx.db.get(parent.epicId) : null;
+    const placed =
+      parentEpic !== null && parentEpic.status === "open" && parentEpic.id !== INBOX_ID;
+    const epic = placed ? parentEpic : asked;
+
+    // Read before the insert, so the new issue is not its own match.
+    const near: Ref[] = (await issuesIn(ctx, epic._id))
+      .filter(isLive)
+      .sort(idOrder)
+      .filter((doc) => nearIdentical(doc.title, args.title))
+      .map(ref);
+
+    const created = await insertIssue(ctx, args.actor, {
       project,
       epicId: epic._id,
       title: args.title,
@@ -104,6 +128,7 @@ export const create = mutation({
       requires: args.requires ?? [],
       priority: args.priority ?? DEFAULT_PRIORITY,
     });
+    return { ...created, near, placed };
   },
 });
 
@@ -218,6 +243,19 @@ export const update = mutation({
   },
 });
 
+/**
+ * Closing with a verification record, and the two facts §7 moved into the close.
+ *
+ * The follow-up: `--follow-up` creates it beside the parent in the same mutation, so a
+ * parent never closes without its residue. An unverified close that came with none gets a
+ * `verify:` follow-up spawned here instead, unless the issue already has a child of any
+ * status (a dropped one was a decision). It is by the closer, never a system name.
+ *
+ * The offer: when this close finished the last issue of an open epic, `epicDone` carries
+ * the epic and its revision so `cn close` can print the `cn epic close` line. It is an
+ * answer, never a close. It waits for open follow-ups too, which makes it stricter than
+ * `epics.close`: that one is driven by a person, who may close over routed residue (§5).
+ */
 export const close = mutation({
   args: {
     actor: actorValidator,
@@ -252,8 +290,26 @@ export const close = mutation({
     // The residue is created in the same mutation, so a parent never closes without it.
     const followUp = args.followUp
       ? await createFollowUp(ctx, args.actor, doc, args.followUp)
-      : undefined;
-    return { issue: await issueView(ctx, closed), followUp };
+      : "unverified" in proof && !(await hasChild(ctx, doc._id))
+        ? await createFollowUp(ctx, args.actor, doc, {
+            title: `verify: ${doc.title}`,
+            kind: "verify",
+            description: `closed unverified: ${proof.unverified}`,
+            priority: doc.priority,
+          })
+        : undefined;
+
+    // Read after the spawn, so a follow-up it just made holds the offer back.
+    const epic = await ctx.db.get(doc.epicId);
+    const epicDone =
+      epic !== null &&
+      epic.status === "open" &&
+      epic.id !== INBOX_ID &&
+      epicFinished(await issuesIn(ctx, doc.epicId))
+        ? { ...ref(epic), revision: epic.revision }
+        : undefined;
+
+    return { issue: await issueView(ctx, closed), followUp, epicDone };
   },
 });
 

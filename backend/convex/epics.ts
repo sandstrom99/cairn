@@ -57,7 +57,8 @@ export const health = query({
  * A close is refused while a task is open, naming every one of them: an epic is an
  * outcome, and an outcome with work left in it is not reached. Open follow-ups do not
  * refuse it — a follow-up is routed residue (§5), `cn ready` still lists it, and the
- * outcome it hangs off is done. Reconcile is stricter and waits for both (§7).
+ * outcome it hangs off is done. The offer in `issues.close` is stricter and waits for
+ * follow-ups too (§7).
  *
  * `--drop --reason` is the other ending: the epic is not going to happen, so every live
  * issue in it is dropped with that reason first, each through `dropIssue` so each

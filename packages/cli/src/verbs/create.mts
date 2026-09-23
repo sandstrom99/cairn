@@ -14,12 +14,17 @@
 // the solution a different way would change it, it is a design note in a criterion's
 // clothes. --requires is what a session needs to do it at all: ios, android, web, device,
 // decision. --priority is 0 highest to 4 backlog, and defaults to 2.
+//
+// A live issue in the epic whose title is near-identical to this one is printed under
+// the line, `near` and its reference, and the issue is still created: whether it is a
+// duplicate is yours to decide. An issue given --epic ep-0 with a --parent in an open
+// epic goes beside its parent instead, and the answer says so on a `placed` line.
 
 import { parseArgs } from "../lib/args.mts";
 import { actor } from "../lib/actor.mts";
 import { UsageError, errorData, usageFromHeader } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { issueLine } from "../lib/format.mts";
+import { issueLine, nearLine, placedLine } from "../lib/format.mts";
 import { ref } from "../lib/ref.mts";
 
 export const name = "create";
@@ -113,8 +118,10 @@ export async function run(argv: string[]): Promise<number> {
   }
   const { client } = connect();
   try {
-    const issue = await client.mutation(api.issues.create, { actor: actor(), ...parsed.args });
-    console.log(issueLine(issue));
+    const created = await client.mutation(api.issues.create, { actor: actor(), ...parsed.args });
+    console.log(issueLine(created));
+    for (const match of created.near) console.log(nearLine(match));
+    if (created.placed && created.parent) console.log(placedLine(created.parent));
     return 0;
   } catch (e) {
     // The one error cn answers itself: the deployment hands back the open epics, and

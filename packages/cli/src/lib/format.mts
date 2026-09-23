@@ -48,7 +48,6 @@ export type BlockerLineView = Referable & {
 /** Enough of an epic to print its health block: the counts, and the three lines of §8. */
 export type EpicLineView = Referable & {
   counts: { open: number; inProgress: number; closed: number; followUps: number };
-  lastReconciledAt?: number;
   health: {
     moving: (Referable & { claimedBy: { name: string }; claimedAt: number })[];
     stuck?: Referable & { lastActivity: number };
@@ -56,8 +55,8 @@ export type EpicLineView = Referable & {
   };
 };
 
-/** What `cn reconcile` answers: what it did on its own, and what it handed to a person. */
-export type ReconcileView = FunctionReturnType<typeof api.reconcile.run>;
+/** What `cn review` answers. */
+export type ReviewView = FunctionReturnType<typeof api.review.get>;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -171,9 +170,9 @@ export const holdsLine = (issues: Referable[]): string => `  holds  ${refs(issue
  * An epic's health, as many lines as it has facts (docs/design.md §8):
  *
  * ```
- * ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up · never reconciled
- *   moving   cn-7 "epic health and reconcile by hand" balder/claude 2h
- *   stuck    cn-9 "the reconcile sweep" silent 9d
+ * ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up
+ *   moving   cn-7 "the web window's first page" balder/claude 2h
+ *   stuck    cn-9 "the page's live feed" silent 9d
  *   waiting  bl-3 "confirm the invite copy" · owner balder
  * ```
  *
@@ -195,12 +194,15 @@ export type HealthRow = { fact: "moving" | "stuck" | "waiting"; target: Referabl
 /** The health block in pieces: the epic, its counts as one run, and a row per fact. */
 export type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
 
+/** The counts as one run: `2 done · 0 open · 1 follow-up`. The health block and the review both head with it. */
+export const countsRun = (counts: EpicLineView["counts"]): string => {
+  const { open, inProgress, closed, followUps } = counts;
+  return `${closed} done · ${open + inProgress} open · ${followUps} ${
+    followUps === 1 ? "follow-up" : "follow-ups"
+  }`;
+};
+
 export function healthParts(view: EpicLineView, now: number = Date.now()): HealthParts {
-  const { open, inProgress, closed, followUps } = view.counts;
-  const reconciled =
-    view.lastReconciledAt === undefined
-      ? "never reconciled"
-      : `last reconciled ${since(view.lastReconciledAt, now)}`;
   const rows: HealthRow[] = [];
   for (const issue of view.health.moving)
     rows.push({
@@ -216,66 +218,85 @@ export function healthParts(view: EpicLineView, now: number = Date.now()): Healt
     });
   for (const blocker of view.health.waiting)
     rows.push({ fact: "waiting", target: blocker, tail: `· owner ${blocker.owner}` });
-  return {
-    epic: view,
-    counts: `${closed} done · ${open + inProgress} open · ${followUps} ${
-      followUps === 1 ? "follow-up" : "follow-ups"
-    } · ${reconciled}`,
-    rows,
-  };
+  return { epic: view, counts: countsRun(view.counts), rows };
 }
 
 /**
- * What one `cn reconcile` run did, and what it could not decide:
+ * What `cn review` reads in one epic, one line per finding, each in the reference form:
  *
  * ```
- * ep-3 "An epic tells the truth" reconciled · did 2 · raised 1
- *   released    cn-7 "…" from wsl/claude, silent 25h
- *   dropped     cn-1 "…" blocks cn-2 "…"
- *   raised      bl-4 "same title? …" · owner balder
+ * ep-1 "Create to close"  1 done · 3 open · 1 follow-up
+ *   near        cn-3 "fix connection retry" and cn-4 "Fix connection retry."
+ *   inbox       cn-7 "the retry path" 8d
+ *   nudge       bl-1 "App Store review" · owner balder · nudge 2026-09-03 · holds cn-1 "…"
+ *   silent      cn-2 "the graph" wsl/claude · silent 8d
+ *   unverified  cn-5 "the brief" closed 8d ago · no follow-up · no device here
+ *   edge        cn-5 "the brief" done blocks cn-1 "the lifecycle"
+ *   can close   cn epic close ep-1 --revision 0
  * ```
  *
- * The owner is the verb's, not the run's: a raise is addressed to whoever `--owner` named,
- * and the answer carries the blockers rather than repeating the name on each of them.
+ * Every line is a fact the deployment stated, and what to do about it is left to the two
+ * reading it. With no finding at all the one row is `nothing to look at`, so an empty
+ * answer still says the epic was read.
  */
-export function reconcileLines(
-  result: ReconcileView,
-  owner: string,
-  now: number = Date.now(),
-): string[] {
-  const { did, raised } = result;
-  const head =
-    did.length === 0 && raised.length === 0
-      ? `${ref(result.epic)} reconciled · nothing to do`
-      : `${ref(result.epic)} reconciled · did ${did.length} · raised ${raised.length}`;
-  const lines = [head];
-  for (const entry of did) {
-    if (entry.rule === "reparent")
-      lines.push(`  ${rule("reparented")}${ref(entry.issue)} → ${ref(entry.to)}`);
-    else if (entry.rule === "release")
-      lines.push(
-        `  ${rule("released")}${ref(entry.issue)} from ${entry.from.name}, silent ${age(
-          now - entry.silentMs,
-          now,
-        )}`,
-      );
-    else if (entry.rule === "spawn-follow-up")
-      lines.push(`  ${rule("spawned")}${ref(entry.followUp)} for ${ref(entry.issue)}`);
-    else if (entry.rule === "drop-edge")
-      lines.push(`  ${rule("dropped")}${ref(entry.from)} blocks ${ref(entry.to)}`);
-    else lines.push(`  ${rule("closed")}${ref(entry.epic)}`);
-  }
-  for (const entry of raised)
-    lines.push(`  ${rule("raised")}${ref(entry.blocker)} · owner ${owner}`);
-  return lines;
+export function reviewLines(view: ReviewView, now: number = Date.now()): string[] {
+  const rows: string[] = [];
+  const row = (name: string, text: string) => rows.push(`  ${finding(name)}${text}`);
+  for (const { a, b } of view.near) row("near", `${ref(a)} and ${ref(b)}`);
+  for (const item of view.inbox) row("inbox", `${ref(item)} ${age(item.createdAt, now)}`);
+  for (const blocker of view.nudges)
+    row(
+      "nudge",
+      [
+        ref(blocker),
+        `owner ${blocker.owner}`,
+        `nudge ${day(blocker.nudgeAt)}`,
+        ...(blocker.holds.length > 0 ? [`holds ${refs(blocker.holds)}`] : []),
+      ].join(" · "),
+    );
+  for (const issue of view.silent)
+    row("silent", `${ref(issue)} ${issue.claimedBy.name} · silent ${age(issue.lastActivity, now)}`);
+  for (const issue of view.unverified)
+    row(
+      "unverified",
+      `${ref(issue)} closed ${since(issue.closedAt, now)} · no follow-up · ${firstLine(issue.reason)}`,
+    );
+  for (const { from, to } of view.edges)
+    row(
+      "edge",
+      `${named({ ...from, tail: finished(from) })} blocks ${named({ ...to, tail: finished(to) })}`,
+    );
+  if (view.canClose)
+    row("can close", `cn epic close ${view.epic.id} --revision ${view.epic.revision}`);
+  return [
+    `${ref(view.epic)}  ${countsRun(view.epic.counts)}`,
+    ...(rows.length > 0 ? rows : ["  nothing to look at"]),
+  ];
 }
+
+/**
+ * Under `cn close`, when the close finished the last issue of its epic: the offer, and the
+ * line that takes it, `  epic       ep-1 "…" can close · cn epic close ep-1 --revision 0`.
+ * The label is as wide as the `follow-up` one printed above it.
+ */
+export const epicDoneLine = (epic: Referable & { revision: number }): string =>
+  `  ${answer("epic")}${ref(epic)} can close · cn epic close ${epic.id} --revision ${epic.revision}`;
+
+/** Under `cn create`, one live issue in the epic whose title is near-identical to the new one. */
+export const nearLine = (match: Referable): string => `  ${answer("near")}${ref(match)}`;
+
+/** Under `cn create`, when an issue bound for the inbox went beside its parent instead. */
+export const placedLine = (parent: Referable): string =>
+  `  ${answer("placed")}beside its parent ${ref(parent)}, not in the inbox`;
 
 /** The label column: the longest label is `discovered from`, and one space after it. */
 const label = (name: string): string => name.padEnd(16);
 /** The health block's column: `waiting` is the longest of the three, and two after it. */
 const fact = (name: string): string => name.padEnd(9);
-/** The reconcile block's column: `reparented` is the longest, and two after it. */
-const rule = (name: string): string => name.padEnd(12);
+/** The review's column: `unverified` is the longest, and two after it. */
+const finding = (name: string): string => name.padEnd(12);
+/** The column of the lines under a write's answer: `follow-up`, and two after it. */
+const answer = (name: string): string => name.padEnd(11);
 const firstLine = (text: string): string => {
   const [head, ...rest] = text.split("\n");
   return rest.length > 0 && rest.join("").trim() !== "" ? `${head}…` : (head ?? "");
@@ -390,15 +411,6 @@ const hasStrings = <K extends string>(
   changes !== null &&
   keys.every((key) => typeof (changes as Record<string, unknown>)[key] === "string");
 
-/** `changes` is an object whose named fields are all arrays, whatever else it carries. */
-const hasArrays = <K extends string>(
-  changes: unknown,
-  ...keys: K[]
-): changes is Record<K, unknown[]> =>
-  typeof changes === "object" &&
-  changes !== null &&
-  keys.every((key) => Array.isArray((changes as Record<string, unknown>)[key]));
-
 /**
  * A raise, the way `blockerLine` opens: `bl-3 "…" decision · owner balder`, on the line of
  * the issue it was raised on. Read from the blocker's own history the reference is the
@@ -425,17 +437,12 @@ const attachPiece = (
       ? `waits on ${blocker}`
       : `${issue} waits on ${blocker}`;
 
-/** What `reconcileLines` heads with, and who asked: `did 2 · raised 1 · by balder/claude`. */
-const runPiece = ({ by, did, raised }: { by: string; did: unknown[]; raised: unknown[] }) =>
-  `${did.length === 0 && raised.length === 0 ? "nothing to do" : `did ${did.length} · raised ${raised.length}`} · by ${by}`;
-
 /**
  * One event's payload in pieces, by its kind. A journal append is `finding: <its first
  * line>`, the way `cn show` lists the entry; an edge is `edgePiece` relative to `self`,
  * the issue the line is about, and a blocker's raise and attach read relative to it the
  * same way; the resolve recorded on each issue a blocker held is the blocker and the note,
- * `bl-3 "…": done`; a reconcile run is the head of `reconcileLines` and who asked, a sweep
- * how many epics it visited and for whom. A create has no payload, because the reference
+ * `bl-3 "…": done`. A create has no payload, because the reference
  * at the start of its line already names what was created, except a project, which has no
  * reference to lead with and so is its slug and name here. Anything else is `changePieces`.
  */
@@ -458,12 +465,6 @@ export const eventPieces = (kind: string, changes: unknown, self: string | undef
       clip(
         `${ref({ id: changes.blocker, title: changes.title })}: ${firstLine(changes.resolution)}`,
       ),
-    ];
-  if (kind === "reconcile.run" && hasStrings(changes, "by") && hasArrays(changes, "did", "raised"))
-    return [runPiece(changes)];
-  if (kind === "reconcile.sweep" && hasStrings(changes, "owner") && hasArrays(changes, "epics"))
-    return [
-      `${changes.epics.length} ${changes.epics.length === 1 ? "epic" : "epics"} · owner ${changes.owner}`,
     ];
   return changePieces(changes);
 };
@@ -788,7 +789,7 @@ const IN_PROGRESS_CAP = 5;
 const FOLLOW_UP_CAP = 3;
 
 /**
- * The situation report, at most six lines (docs/design.md §8):
+ * The situation report, at most five lines (docs/design.md §8):
  *
  * ```
  * cairn · invyte · wsl/claude can web
@@ -796,7 +797,6 @@ const FOLLOW_UP_CAP = 3;
  * in progress     app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
  * follow-ups      app-22 "confirm the retry path" [verify] · 1 more needs what you lack
  * waiting on you  3
- * flagged         2
  * ```
  *
  * State, never doctrine: the rules are in the skill, which loads on demand, and a hook
@@ -857,7 +857,6 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
   lines.push(`${label("follow-ups")}${followUps}`);
 
   lines.push(`${label("waiting on you")}${view.waiting}`);
-  if (view.flagged > 0) lines.push(`${label("flagged")}${view.flagged}`);
   return lines;
 }
 

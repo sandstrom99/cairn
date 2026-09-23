@@ -1,7 +1,7 @@
 // graph.ts: the shared reads over the graph of docs/design.md §3, the rows that point at
 // an issue, an epic or a blocker, each read in one place. Every query over `edges` and
 // `blockerLinks`, every read of `events` by the thing they hang on, and the issues of an
-// epic live here and nowhere else. Readiness, health, show and reconcile all ask what
+// epic live here and nowhere else. Readiness, health, show and review all ask what
 // holds an issue, and §4 says three things can; a second spelling of that question is
 // where it starts to answer differently from the first.
 import type { Doc, Id } from "../_generated/dataModel";
@@ -14,6 +14,19 @@ export async function issuesIn(ctx: QueryCtx, epicId: Id<"epics">): Promise<Doc<
     .query("issues")
     .withIndex("by_epic", (q) => q.eq("epicId", epicId))
     .collect();
+}
+
+/**
+ * True when an issue has any child at all, whatever its status: a dropped follow-up was
+ * a decision. `issues.close` asks before spawning one and `review.get` asks when listing
+ * an unverified close, so the question is spelled once.
+ */
+export async function hasChild(ctx: QueryCtx, issueId: Id<"issues">): Promise<boolean> {
+  const child = await ctx.db
+    .query("issues")
+    .withIndex("by_parent", (q) => q.eq("parentIssueId", issueId))
+    .first();
+  return child !== null;
 }
 
 /** The edges out of an issue, of one type when given. */

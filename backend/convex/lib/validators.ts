@@ -1,9 +1,9 @@
 // validators.ts: the literal unions of docs/design.md §3, declared once here so the schema
 // and the functions cannot drift. schema.ts builds its tables from them and every function
 // that takes one as an argument imports the same const, so a status or a kind added in one
-// place is added everywhere. Beside them sits the one predicate over issue status that
-// every lifecycle verb asks. This file imports convex/values and nothing else, since the
-// schema imports it.
+// place is added everywhere. Beside them sit the one predicate over issue status that
+// every lifecycle verb asks, and the one over an epic's issues that says it is done. This
+// file imports convex/values and nothing else, since the schema imports it.
 import { v, type Infer } from "convex/values";
 
 /** Where an epic is: still an outcome being worked, reached, or given up. */
@@ -46,6 +46,10 @@ export type IssueStatus = Infer<typeof issueStatusValidator>;
 /** The two statuses that are still work. A closed or dropped issue blocks nothing (§4). */
 export const isLive = (doc: { status: IssueStatus }): boolean =>
   doc.status === "open" || doc.status === "in_progress";
+
+/** Every issue finished, follow-ups included, and at least one task was ever there: an epic that was worked and is done (§7). */
+export const epicFinished = (issues: { type: IssueType; status: IssueStatus }[]): boolean =>
+  issues.some((i) => i.type === "task") && !issues.some(isLive);
 
 /** What an edge between two issues says. Only `blocks` touches readiness (§4). */
 export const edgeTypeValidator = v.union(

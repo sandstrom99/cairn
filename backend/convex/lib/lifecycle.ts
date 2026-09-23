@@ -1,8 +1,7 @@
 // lifecycle.ts: one helper per lifecycle move of docs/design.md §5 and §6, each owning its
-// patch, what its event records and its kind, so the two release sites (issues.ts,
-// reconcile.ts), the two drop sites (issues.ts, epics.ts), the two epic closes (epics.ts,
-// reconcile.ts) and the two reparents (issues.ts, reconcile.ts) cannot drift from each
-// other. Every issue and epic insert is here too, with its `*.create` event.
+// patch, what its event records and its kind, so the two drop sites (issues.ts, epics.ts)
+// cannot drift from each other, and no second site of any other move can drift from the
+// first. Every issue and epic insert is here too, with its `*.create` event.
 //
 // What an event records is what a reader should see, not the patch that was written.
 // `lastActivity`, `claimedAt` and `closedAt` are housekeeping the row's own time already
@@ -282,7 +281,7 @@ export async function editIssue(
   });
 }
 
-/** Reparenting alone, the edit reconcile's R1 makes. */
+/** Reparenting alone, the edit `issues.update --epic` makes when nothing else changes. */
 export const moveIssue = (
   ctx: MutationCtx,
   actor: Actor,

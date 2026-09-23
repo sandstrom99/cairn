@@ -37,7 +37,7 @@ An epic is an outcome, not a place. `project` is a field on the issue.
 | Readiness | `blocks`, `blocked-by`, `defer-until`. Computed live: no denormalised flag, no recompute command |
 | Statuses | `open`, `in_progress`, `closed`, `dropped`. Blocked is derived, never stored |
 | Human waits | A first-class `blockers` table. Agents raise them and may never resolve them |
-| Hygiene | `epicId` is non-null, closing takes a verification record, and `cn reconcile` tidies an epic on facts alone, raising judgement to a person |
+| Hygiene | `epicId` is non-null, closing takes a verification record, the facts are checked where they are made (`cn close` spawns the follow-up an unverified close owes and offers the epic close; `cn create` hands back near-identical titles), and `cn review <epic>` lists what a person and an agent look at together. Nothing runs on its own |
 | Scope | Tasks only. Not a wiki, not a knowledge base, not an orchestrator |
 
 ## Why not just keep beads
@@ -134,7 +134,7 @@ The repo root is a Claude Code plugin marketplace
 a SessionStart hook that opens every session with `cn brief`, the under-20-line
 situation report, a Stop hook that hands back one line when a session stops
 holding a claim it has not journaled, and `/cairn:ready`, `/cairn:pick`,
-`/cairn:handoff`, `/cairn:close` and `/cairn:init`.
+`/cairn:handoff`, `/cairn:close`, `/cairn:review` and `/cairn:init`.
 
 ```bash
 claude plugin marketplace add ~/code/cairn

@@ -19,7 +19,7 @@ describe("ready.list", () => {
     expect(await ids(t)).toEqual(["cn-1"]);
 
     await closeIssue(t, "cn-1");
-    // Nothing in between: no recompute, no sweep, no second call.
+    // Nothing in between: no recompute, no second call.
     expect(await ids(t)).toEqual(["cn-2"]);
   });
 

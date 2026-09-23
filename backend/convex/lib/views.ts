@@ -62,7 +62,6 @@ export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
     description: doc.description,
     status: doc.status,
     droppedReason: doc.droppedReason,
-    lastReconciledAt: doc.lastReconciledAt,
     revision: doc.revision,
     createdAt: doc._creationTime,
     counts: {

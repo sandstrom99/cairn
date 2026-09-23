@@ -1,7 +1,6 @@
 // raise.ts: minting a human blocker and attaching one that exists, the two writes
-// `blockers.raise` is made of. Reconcile raises its judgement questions through the same
-// mechanism as everything else waiting on a person (§7), so the insert, the link and the
-// events live here and `blockers.raise` keeps only the validation around them.
+// `blockers.raise` is made of. The insert, the link and the events live here and
+// `blockers.raise` keeps only the validation around them.
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";

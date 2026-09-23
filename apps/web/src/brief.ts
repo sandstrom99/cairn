@@ -19,9 +19,8 @@ export function headline(view: BriefView): Clause[] {
 }
 
 /**
- * The line under it: follow-ups, how many of them ask for something particular of the
- * session that picks them up, and how many blockers reconcile raised rather than a
- * person. Nothing to say is no line at all.
+ * The line under it: follow-ups, and how many of them ask for something particular of the
+ * session that picks them up. Nothing to say is no line at all.
  */
 export function underline(view: BriefView): string | undefined {
   const said: string[] = [];
@@ -31,6 +30,5 @@ export function underline(view: BriefView): string | undefined {
     const noun = count === 1 ? "follow-up" : "follow-ups";
     said.push(asking > 0 ? `${count} ${noun}, ${asking} with requirements.` : `${count} ${noun}.`);
   }
-  if (view.flagged > 0) said.push(`${view.flagged} raised by reconcile.`);
   return said.length > 0 ? said.join(" ") : undefined;
 }

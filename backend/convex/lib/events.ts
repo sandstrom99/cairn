@@ -26,9 +26,7 @@ export type EventKind =
   | "blocker.resolve"
   | "edge.add"
   | "edge.remove"
-  | "journal.append"
-  | "reconcile.run"
-  | "reconcile.sweep";
+  | "journal.append";
 
 export type EventInput = {
   /** issue.create, issue.claim, edge.add, blocker.resolve, … */

@@ -5,7 +5,6 @@
 // the last test here is the other half of that rule — `ready.list` still shows the row.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import { RECONCILE } from "../lib/actor";
 import { DAY, HOUR } from "../lib/thresholds";
 import { actor, at, balder, other, raise, rawIssue, seed } from "./test.fixtures";
 
@@ -14,8 +13,8 @@ afterEach(() => vi.useRealTimers());
 /**
  * Three tasks at P1, P0 and P2 (cn-1 to cn-3), a fourth claimed by another machine
  * (cn-4), two follow-ups under it — one needing `ios` (cn-5), one needing nothing (cn-6)
- * — and two blockers: bl-1 on the P2 task from this session, bl-2 on the P1 task from
- * reconcile. So one task alone is ready, and one follow-up alone is coverable.
+ * — and two blockers: bl-1 on the P2 task, bl-2 on the P1 task. So one task alone is
+ * ready, and one follow-up alone is coverable.
  */
 async function worklist() {
   const t = await seed({
@@ -44,7 +43,6 @@ async function worklist() {
     whatResolves: "balder picks one",
   });
   await raise(t, "cn-1", {
-    actor: RECONCILE,
     title: "ep-1 has been silent for 9d",
     whatResolves: "balder says what happens to it",
   });
@@ -71,7 +69,6 @@ describe("brief.get", () => {
     ]);
 
     expect(brief.waiting).toBe(2);
-    expect(brief.flagged).toBe(1);
   });
 
   it("covers a follow-up the moment the session says it can do it", async () => {
@@ -81,7 +78,7 @@ describe("brief.get", () => {
     expect(brief.followUps.count).toBe(2);
   });
 
-  it("frees what a resolved blocker held, and unflags it", async () => {
+  it("frees what a resolved blocker held", async () => {
     const t = await worklist();
     await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-2", note: "it ships as is" });
 
@@ -89,7 +86,6 @@ describe("brief.get", () => {
     expect(brief.ready.count).toBe(2);
     expect(brief.ready.top.map((i) => i.id)).toEqual(["cn-2", "cn-1"]);
     expect(brief.waiting).toBe(1);
-    expect(brief.flagged).toBe(0);
   });
 
   it("heads three and counts all of them", async () => {

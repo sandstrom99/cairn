@@ -54,19 +54,19 @@ an issue.
 | `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine` | `issues.list` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
-| `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed, raised or reconciled what | `events.recent` |
-| `cn create` | a new issue; `--epic` is required and the verb offers candidates | `issues.create` |
+| `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
+| `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
 | `cn update <id> --revision N` | title, design, acceptance, priority, epic, defer, requires | `issues.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
-| `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue | `issues.close` |
+| `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
 | `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
 | `cn wait <id> --kind … --owner …` | raise a human blocker, or `--on bl-3` to attach one that exists | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | humans only | `blockers.ack` · `blockers.resolve` |
 | `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
-| `cn reconcile <epic>` | tidy an epic: releases silent claims, spawns missing follow-ups, drops dead edges, reparents inbox items, closes a finished epic; raises duplicates, stale inbox items and passed nudges to a person | `reconcile.run` |
+| `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges into finished issues, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret | `projects.list`, as the check |
 
@@ -85,6 +85,8 @@ contract, in full.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
   `cn release <id>` when it is not, so the next session can take it.
+- **With the person.** `/cairn:review <epic>` goes through `cn review` together: what to
+  look at, and the verb for each line. It writes nothing.
 
 ## Three boundaries
 
