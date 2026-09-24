@@ -1,6 +1,7 @@
-// Feed.tsx: `cn log`, live. One entry per event, newest first, each the pieces of
-// `logLine` in its order: what it happened to, the kind, who, when, and the changes one
-// to a line. `when` is drawn at the top right and stays third in the text, where cn has it.
+// Feed.tsx: the column on the right and its entries. `cn log`, live, or one thing's own
+// history. One entry per event, newest first, each the pieces of `logLine` in its order:
+// what it happened to, the kind, who, when, and the changes one to a line. `when` is drawn
+// at the top right and stays third in the text, where cn has it.
 //
 // An event that arrives while the page is open lands with a sheen: the one motion on the
 // page that nobody asked for, and the proof that a subscription, not a reload, brought it.
@@ -19,7 +20,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { type ComponentType, type ReactNode, useEffect, useRef } from "react";
+import { type ComponentType, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Ref } from "./Ref.tsx";
 
@@ -101,18 +102,14 @@ function Change({ text }: { text: string }) {
   );
 }
 
-/** The glass column on the right. What it lists is the page's to say. */
-function Side({
-  label,
-  live = false,
-  children,
-  foot,
-}: {
-  label: string;
-  live?: boolean;
-  children: ReactNode;
-  foot?: ReactNode;
-}) {
+/** What the column lists: the deployment's feed, or one thing's own history. */
+export type Listing =
+  | { kind: "feed"; events: LogEvent[] | undefined }
+  | { kind: "history"; self: string; events: HistoryEvent[] | undefined };
+
+/** The glass column on the right, mounted once by the shell. What it lists is the route's to say. */
+export function Column({ listing, now }: { listing: Listing; now: number }) {
+  const label = listing.kind === "feed" ? "Activity" : "History";
   return (
     <aside
       aria-label={label}
@@ -120,15 +117,25 @@ function Side({
     >
       <div className="flex items-center px-5 pt-5 pb-3">
         <h2 className="text-[0.96875rem] font-[650] tracking-[-0.01em]">{label}</h2>
-        {live && (
-          <span className="ml-auto inline-flex items-center gap-[7px] text-meta text-slate">
-            <i className="size-2 rounded-full bg-moving" />
-            live
-          </span>
-        )}
+        <span className="ml-auto inline-flex items-center gap-[7px] text-meta text-slate">
+          <i className="size-2 rounded-full bg-moving" />
+          live
+        </span>
       </div>
-      {children}
-      {foot && <div className="px-5 pt-3 pb-4 text-small text-slate">{foot}</div>}
+      {/* The keys are deliberate: the same feed keeps its list and its scroll from the overview
+          to an epic, and one id's history is its own list. */}
+      {listing.kind === "feed" ? (
+        <FeedList key="feed" events={listing.events} now={now} />
+      ) : (
+        <HistoryList key={listing.self} events={listing.events} now={now} self={listing.self} />
+      )}
+      {listing.kind === "feed" && (
+        <div className="px-5 pt-3 pb-4 text-small text-slate">
+          <a href="/log" className="hover:text-ink">
+            Open the log
+          </a>
+        </div>
+      )}
     </aside>
   );
 }
@@ -148,37 +155,26 @@ function useLanded(newest: number | undefined): (at: number) => boolean {
   return (at) => threshold !== undefined && at > threshold;
 }
 
-export function Feed({ events, now }: { events: LogEvent[] | undefined; now: number }) {
+/** The deployment's feed, newest first. */
+function FeedList({ events, now }: { events: LogEvent[] | undefined; now: number }) {
   const landed = useLanded(events?.[0]?.at);
-  return (
-    <Side
-      label="Activity"
-      live
-      foot={
-        <a href="/log" className="hover:text-ink">
-          Open the log
-        </a>
-      }
-    >
-      {events === undefined ? (
-        <p className="px-5 text-small text-slate">Listening…</p>
-      ) : events.length === 0 ? (
-        <p className="px-5 text-small text-slate">
-          Nothing has happened here yet. The first cn write shows up as it lands.
-        </p>
-      ) : (
-        <ul className={LIST}>
-          {events.map((event) => (
-            <FeedEvent
-              key={`${event.at} ${event.kind}`}
-              event={event}
-              now={now}
-              landed={landed(event.at)}
-            />
-          ))}
-        </ul>
-      )}
-    </Side>
+  return events === undefined ? (
+    <p className="px-5 text-small text-slate">Listening…</p>
+  ) : events.length === 0 ? (
+    <p className="px-5 text-small text-slate">
+      Nothing has happened here yet. The first cn write shows up as it lands.
+    </p>
+  ) : (
+    <ul className={LIST}>
+      {events.map((event) => (
+        <FeedEvent
+          key={`${event.at} ${event.kind}`}
+          event={event}
+          now={now}
+          landed={landed(event.at)}
+        />
+      ))}
+    </ul>
   );
 }
 
@@ -187,7 +183,7 @@ export function Feed({ events, now }: { events: LogEvent[] | undefined; now: num
  * first because a terminal is read downwards and a column beside a page is read from the top.
  * `self` is that id, so an edge among the events reads from this end.
  */
-export function History({
+function HistoryList({
   events,
   now,
   self,
@@ -198,24 +194,20 @@ export function History({
 }) {
   const newestFirst = events === undefined ? undefined : [...events].reverse();
   const landed = useLanded(newestFirst?.[0]?.at);
-  return (
-    <Side label="History" live>
-      {newestFirst === undefined ? (
-        <p className="px-5 text-small text-slate">Listening…</p>
-      ) : (
-        <ul className={LIST}>
-          {newestFirst.map((event) => (
-            <HistoryEntry
-              key={`${event.at} ${event.kind}`}
-              event={event}
-              now={now}
-              self={self}
-              landed={landed(event.at)}
-            />
-          ))}
-        </ul>
-      )}
-    </Side>
+  return newestFirst === undefined ? (
+    <p className="px-5 text-small text-slate">Listening…</p>
+  ) : (
+    <ul className={LIST}>
+      {newestFirst.map((event) => (
+        <HistoryEntry
+          key={`${event.at} ${event.kind}`}
+          event={event}
+          now={now}
+          self={self}
+          landed={landed(event.at)}
+        />
+      ))}
+    </ul>
   );
 }
 

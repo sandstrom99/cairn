@@ -1,7 +1,8 @@
 // App.tsx: the secret and the route, and nothing else. `App` holds the secret as state and
 // the gate that turns a refused secret into the form; `Window` reads the route, asks
-// `useDeployment` (deployment.ts), and puts the page for it into the `Shell`; `Item` is the
-// page for one id under its own gate.
+// `useDeployment` and `useShown` (deployment.ts), holds the previous id's page across a
+// change with `useStale` (held.ts), and hands the `Shell` the page and what the column lists;
+// `ItemPage` is the page for one id.
 //
 // The path picks the page (location.ts). The rail, the ground and the jump bar stay where
 // they are across pages and so do the subscriptions under them, so going from an epic to
@@ -9,18 +10,18 @@
 //
 // The secret is state rather than a build-time value, because the deployment answers
 // `unauthorized` to a caller that did not send the right one and the page has to be able
-// to ask. A second gate sits around the page for one id, because an id nobody minted is
-// the deployment answering, not refusing.
-import { api } from "@cairn/backend/convex/_generated/api.js";
-import type { LogEvent } from "@cairn/cli/views";
+// to ask. A second gate sits around the page for one id, for a page that breaks: a missing
+// id is an answer the page reads (Lost), since show.get is asked through `useQueries`, which
+// hands its error back rather than throwing it.
 import { ref } from "@cairn/cli/ref";
-import { useQuery } from "convex/react";
+import type { Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { Unanswered } from "./Connect.tsx";
-import { useDeployment, WAIT, type Who } from "./deployment.ts";
-import { Feed, History } from "./Feed.tsx";
-import { Gate, Lost } from "./Gate.tsx";
-import { useHeld } from "./held.ts";
+import { FEED, useDeployment, useShown, WAIT } from "./deployment.ts";
+import type { Listing } from "./Feed.tsx";
+import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
+import { useStale } from "./held.ts";
 import { BlockerPage, EpicPage, IssuePage, type Listed } from "./ItemPages.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { type Route, routeOf, useLinks, usePath } from "./location.ts";
@@ -69,15 +70,16 @@ function Window({
   const path = usePath();
   const route = routeOf(path);
   const now = useMinute();
-  const onLog = route?.page === "log";
   const { who, brief, epics, blockers, issues, events, destinations, unanswered } = useDeployment(
     secret,
     now,
-    onLog,
   );
+  const id = route?.page === "item" ? route.id : undefined;
+  const answer = useShown(who, id, now);
+  const error = answer instanceof Error ? answer : undefined;
+  const { value: shown, stale } = useStale(answer instanceof Error ? undefined : answer, id);
 
   // The epic the rail marks: the one on screen, or the one the issue on screen belongs to.
-  const id = route?.page === "item" ? route.id : undefined;
   const epicId = id?.startsWith("ep-") ? id : issues?.find((i) => i.id === id)?.epic.id;
 
   const named = destinations.find((d) => d.id === id);
@@ -88,10 +90,20 @@ function Window({
 
   if (unanswered) return <Unanswered host={host} seconds={WAIT / 1000} />;
 
-  // The log is the feed with room, so it has no feed beside it and takes the width. One id's
-  // page brings its own column, the history, from inside <Item>.
-  const item = route?.page === "item";
-  const side = !onLog;
+  // A refused secret is the whole window's business and goes up to the gate around it; anything
+  // else about this id shows inside main, with the rail still there.
+  if (error !== undefined && errorData(error)?.kind === "unauthorized") throw error;
+
+  // The log is the feed with room, so it has no column and takes the width. One id's page lists
+  // its own history beside it, the previous id's while that page is the one still on screen; an
+  // epic has none worth a column, and an id that errored has no page, so the deployment's feed
+  // stays.
+  const listing: Listing | undefined =
+    route?.page === "log"
+      ? undefined
+      : id !== undefined && error === undefined && shown !== undefined && shown.kind !== "epic"
+        ? { kind: "history", self: shown.id, events: shown.events }
+        : { kind: "feed", events: events?.slice(0, FEED) };
   return (
     <Shell
       host={host}
@@ -99,8 +111,8 @@ function Window({
       current={path}
       epicId={epicId}
       waiting={(brief?.waiting ?? 0) > 0}
-      side={side}
-      column={!item && side ? <Feed events={events} now={now} /> : undefined}
+      listing={listing}
+      now={now}
       destinations={destinations}
       onForget={onForget}
     >
@@ -122,7 +134,17 @@ function Window({
         <LogPage events={events} now={now} />
       ) : (
         <Gate key={route.id} host={host} what={route.id} onSecret={onSecret}>
-          <Item id={route.id} who={who} now={now} issues={issues} events={events} />
+          {error !== undefined ? (
+            errorData(error)?.kind === "not-found" ? (
+              <Lost what={route.id} />
+            ) : (
+              <Broken message={errorData(error)?.message ?? error.message} />
+            )
+          ) : shown === undefined ? (
+            <p className="text-slate">Reading {route.id}…</p>
+          ) : (
+            <ItemPage shown={shown} stale={stale} issues={issues} now={now} />
+          )}
         </Gate>
       )}
     </Shell>
@@ -138,46 +160,40 @@ const titleOf = (route: Route | undefined, named: string | undefined): string =>
         ? "Log · cairn"
         : "cairn";
 
-/** The page for one id: `cn show <id> --history`, live, and its history in the column beside it. */
-function Item({
-  id,
-  who,
-  now,
+/** The page for one id, set back while the answer it shows is the previous id's. */
+function ItemPage({
+  shown,
+  stale,
   issues,
-  events,
+  now,
 }: {
-  id: string;
-  who: Who;
-  now: number;
+  shown: Shown;
+  stale: boolean;
   issues: Listed[] | undefined;
-  events: LogEvent[] | undefined;
+  now: number;
 }) {
-  const shown = useHeld(useQuery(api.show.get, { ...who, id, history: true, now }), id);
-  if (shown === undefined) return <p className="text-slate">Reading {id}…</p>;
-
-  if (shown.kind === "epic")
-    return (
-      <>
-        <EpicPage epic={shown} issues={(issues ?? []).filter((i) => i.epic.id === id)} now={now} />
-        {/* An epic has no history of its own worth a column; the deployment's activity stays. */}
-        <Feed events={events} now={now} />
-      </>
-    );
-  if (shown.kind === "blocker")
-    return (
-      <>
-        <BlockerPage blocker={shown} now={now} />
-        <History events={shown.events} now={now} self={shown.id} />
-      </>
-    );
   return (
-    <>
-      <IssuePage
-        issue={shown}
-        siblings={(issues ?? []).filter((i) => i.epic.id === shown.epic.id)}
-        now={now}
-      />
-      <History events={shown.events} now={now} self={shown.id} />
-    </>
+    <div
+      className={cn(
+        "transition-opacity duration-300 ease-out motion-reduce:transition-none",
+        stale && "opacity-50",
+      )}
+    >
+      {shown.kind === "epic" ? (
+        <EpicPage
+          epic={shown}
+          issues={(issues ?? []).filter((i) => i.epic.id === shown.id)}
+          now={now}
+        />
+      ) : shown.kind === "blocker" ? (
+        <BlockerPage blocker={shown} now={now} />
+      ) : (
+        <IssuePage
+          issue={shown}
+          siblings={(issues ?? []).filter((i) => i.epic.id === shown.epic.id)}
+          now={now}
+        />
+      )}
+    </div>
   );
 }
