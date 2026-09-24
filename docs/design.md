@@ -652,6 +652,29 @@ screen, and one button copies the reference form,
 `cn-26 "apps/web, the read-only window"`, because that is what a person pastes
 into a session to say which work they mean.
 
+Beside Copy reference, a round `?` chip opens the ask menu: at most four lines a person
+can say to their agent about the thing on screen, chosen by its kind and state from what
+the page already reads. `Catch me up on cn-14 "…": where it stands, what's been tried,
+what's left` on every issue; `cn-14 "…" has been quiet for 9 days. Find out why and tell
+me what it needs to move` while it is stuck; `Is cn-14 "…" still worth doing? Make the
+case either way` past fourteen days open; `ep-3 "…" has gotten messy. Help me sort it
+out: duplicates, stragglers, what no longer belongs` while `cn review` lists anything, for
+which the epic page reads `review.get`; `Help me decide bl-2 "…"` on a blocker nobody has
+resolved. The wording is the page's own, in `apps/web/src/prompts.ts` beside the
+headline's, and use will refine it. The line on screen carries the id and not the title,
+because a title makes a menu hard to read; the clipboard gets the sentence with the
+reference form whole, so the session it lands in knows what is meant and reads it with
+`cn show` before answering, which the skill teaches. The menu is a speech bubble with
+dialogue choices, numbered: the keycap is the cursor, a number copies its line, `?` opens
+it from anywhere on the page. A pie menu was ruled out, since a sentence does not fit a
+wedge; so was a short label over each sentence, which is two wordings of one prompt.
+Added 2026-09-25.
+
+The principle behind it, which is cn-72's: cairn runs behind the scenes. The person in
+the loop speaks plain language, and nothing on the page asks anyone to run or paste a
+command, not a `cn` line and not a slash command. Copying commands would make the person
+the one steering their agents, which is another job.
+
 Four routes do not get a router. The path is the state, and one listener turns
 every plain same-origin link into `history.pushState`, so components write
 `<a href>` and nothing else: links work with a modifier held, render in a test
@@ -661,7 +684,7 @@ path with `index.html`.
 
 The look, and what each choice rules out:
 
-- **Glass only on what floats**: the rail, the feed, the jump bar, a dialog.
+- **Glass only on what floats**: the rail, the feed, the jump bar, the ask menu, a dialog.
   Content sits on near-solid paper and scrolls under the glass. Not a glass card
   per epic: blur on every card is slow and reads white on white.
 - **Chroma means state.** Moving is teal, stuck is amber, waiting is violet, and
@@ -685,6 +708,9 @@ The look, and what each choice rules out:
   contents fading rather than reflowing; `prefers-reduced-motion` turns it off.
   The choice is the browser's, kept in localStorage beside the secret and never
   the deployment's. Below 1100px the column is hidden, and that is its only state.
+- **A second motion the reader asks for**: the ask menu opens with a pop, 220 ms with a
+  little overshoot, and its lines settle one after another 40 ms apart. It is the one
+  place the page allows itself a game's feel, and `prefers-reduced-motion` turns it off.
 - **Light first, and dark as the second set of values for the same tokens**, under
   `.dark` on `<html>` and nothing else. The page follows the system's setting until
   the reader flips the switch in the rail's head, and the choice is kept in

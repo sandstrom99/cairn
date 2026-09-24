@@ -111,6 +111,7 @@ describe("an issue's page", () => {
   it("opens with the way up to its epic and offers the reference to copy", () => {
     expect(markup).toContain('href="/ep-4"');
     expect(plain(markup)).toContain("Copy reference");
+    expect(markup).toContain('aria-label="Say to your agent"');
   });
 
   it("links what the state names", () => {
@@ -223,5 +224,17 @@ describe("a blocker's page", () => {
     const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
     expect(plain(table)).toBe(factsOf(brief(raised, now)));
     expect(plain(markup)).toContain(ref(raised.issues[0]!));
+  });
+
+  it("offers the ask menu while it is raised, and not once it is resolved", () => {
+    const resolved = {
+      ...raised,
+      status: "resolved" as const,
+      resolvedAt: now,
+      resolution: "done",
+    };
+    const ask = 'aria-label="Say to your agent"';
+    expect(renderToStaticMarkup(<BlockerPage blocker={raised} now={now} />)).toContain(ask);
+    expect(renderToStaticMarkup(<BlockerPage blocker={resolved} now={now} />)).not.toContain(ask);
   });
 });

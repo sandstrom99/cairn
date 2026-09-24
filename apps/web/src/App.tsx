@@ -15,12 +15,12 @@
 // id is an answer the page reads (Lost), since show.get is asked through `useQueries`, which
 // hands its error back rather than throwing it.
 import { ref } from "@cairn/cli/ref";
-import type { Shown } from "@cairn/cli/views";
+import type { ReviewView, Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { readCollapsed, writeCollapsed } from "./column.ts";
 import { Unanswered } from "./Connect.tsx";
-import { FEED, useDeployment, useShown, WAIT } from "./deployment.ts";
+import { FEED, useDeployment, useReview, useShown, WAIT } from "./deployment.ts";
 import type { Listing } from "./Feed.tsx";
 import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
 import { useStale } from "./held.ts";
@@ -123,6 +123,7 @@ function Window({
   );
   const id = route?.page === "item" ? route.id : undefined;
   const answer = useShown(who, id, now);
+  const review = useReview(who, id, now);
   const error = answer instanceof Error ? answer : undefined;
   const { value: shown, stale } = useStale(answer instanceof Error ? undefined : answer, id);
 
@@ -194,7 +195,7 @@ function Window({
           ) : shown === undefined ? (
             <Pending>Reading {route.id}…</Pending>
           ) : (
-            <ItemPage shown={shown} stale={stale} issues={issues} now={now} />
+            <ItemPage shown={shown} stale={stale} issues={issues} review={review} now={now} />
           )}
         </Gate>
       )}
@@ -216,11 +217,14 @@ function ItemPage({
   shown,
   stale,
   issues,
+  review,
   now,
 }: {
   shown: Shown;
   stale: boolean;
   issues: Listed[] | undefined;
+  /** `cn review` of the epic on screen, when it is an epic. */
+  review: ReviewView | undefined;
   now: number;
 }) {
   return (
@@ -234,6 +238,7 @@ function ItemPage({
         <EpicPage
           epic={shown}
           issues={(issues ?? []).filter((i) => i.epic.id === shown.id)}
+          review={review}
           now={now}
         />
       ) : shown.kind === "blocker" ? (

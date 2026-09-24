@@ -1,7 +1,7 @@
 // Sheet.tsx: what every page for one id is made of. The way back up, the heading with its
-// reference and the button that copies it, one line of state, and the sheet: `cn show`'s
-// labelled lines set as a two-column table, label then value, with the long text an issue
-// carries set in the same two columns under them.
+// reference, the button that copies it and the ask menu, one line of state, and the sheet:
+// `cn show`'s labelled lines set as a two-column table, label then value, with the long text
+// an issue carries set in the same two columns under them.
 //
 // The facts are `issueFacts` and `blockerFacts` from @cairn/cli, the ones `cn show` prints,
 // so the table says what the brief says, in its words and its order (sheet.test.tsx).
@@ -10,8 +10,10 @@ import { type Referable, ref } from "@cairn/cli/ref";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Ask } from "./Ask.tsx";
 import { CopyRef } from "./CopyRef.tsx";
 import { Title } from "./page.tsx";
+import type { Prompt } from "./prompts.ts";
 import { Ref, Refs, Run } from "./Ref.tsx";
 import { StateWord } from "./tone.tsx";
 
@@ -36,12 +38,15 @@ export function Crumbs({ epic, children }: { epic?: Referable; children?: ReactN
   );
 }
 
-export function Heading({ item }: { item: Referable }) {
+export function Heading({ item, prompts }: { item: Referable; prompts?: Prompt[] }) {
   return (
     <header className="mt-5">
       <div className="flex items-center gap-2.5">
         <span className="font-mono text-body font-medium text-slate">{item.id}</span>{" "}
-        <CopyRef item={item} />
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          <CopyRef item={item} />{" "}
+          {prompts !== undefined && prompts.length > 0 && <Ask prompts={prompts} />}
+        </span>
       </div>
       <Title className="mt-1.5 text-balance narrow:text-[1.5rem]">{item.title}</Title>
     </header>

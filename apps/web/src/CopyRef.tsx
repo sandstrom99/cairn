@@ -6,6 +6,13 @@ import { type Referable, ref } from "@cairn/cli/ref";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 
+/** Writes the text; false where the browser refused, which needs a secure context and a gesture. */
+export const copy = (text: string): Promise<boolean> =>
+  navigator.clipboard?.writeText(text).then(
+    () => true,
+    () => false,
+  ) ?? Promise.resolve(false);
+
 export function CopyRef({ item }: { item: Referable }) {
   const [copied, setCopied] = useState(false);
 
@@ -18,13 +25,8 @@ export function CopyRef({ item }: { item: Referable }) {
   return (
     <button
       type="button"
-      onClick={() => {
-        // Refused without a secure context or a user gesture; then nothing claims to have copied.
-        navigator.clipboard?.writeText(ref(item)).then(
-          () => setCopied(true),
-          () => setCopied(false),
-        );
-      }}
+      // Refused without a secure context or a user gesture; then nothing claims to have copied.
+      onClick={() => copy(ref(item)).then(setCopied)}
       className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-lift px-2 text-meta font-medium text-slate shadow-ring hover:text-ink"
     >
       {copied ? <Check className="size-[13px]" /> : <Copy className="size-[13px]" />}
