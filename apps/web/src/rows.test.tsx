@@ -52,6 +52,43 @@ const busy = epic({
 
 const still = epic({ id: "ep-0", title: "Inbox" });
 
+/** `busy` with a description, which stands between its head line and its rows. */
+const described = { ...busy, id: "ep-5", description: "what this epic is for" };
+
+/** Three epics with nothing moving, touched an hour, a day and two days ago. */
+const a = epic({
+  id: "ep-7",
+  title: "cn prints what it knows",
+  description: "every verb prints its lines",
+  lastActivity: now - HOUR,
+});
+const b = epic({ id: "ep-2", title: "A session starts warm", lastActivity: now - DAY });
+const c = epic({ id: "ep-0", title: "Inbox", lastActivity: now - 2 * DAY });
+
+/** An issue under `a`, so an event on it is `a`'s newest line. */
+const underA: Listed = {
+  id: "cn-9",
+  title: "the page's live feed",
+  status: "open",
+  priority: 2,
+  claimedBy: undefined,
+  epic: { id: "ep-7", title: "cn prints what it knows" },
+  type: "task",
+};
+const onA = logEvent({
+  kind: "issue.claim",
+  issue: { id: "cn-9", title: "the page's live feed" },
+  at: now - HOUR,
+  changes: { status: { from: "open", to: "in_progress" } },
+});
+const onB = logEvent({
+  kind: "epic.create",
+  issue: undefined,
+  epic: { id: "ep-2", title: "A session starts warm" },
+  at: now - DAY,
+  revision: undefined,
+});
+
 const waitingBlocker: WaitingBlocker = {
   id: "bl-4",
   title: "name the day the page goes live",
@@ -175,15 +212,38 @@ type Pin = {
 const PINS: Pin[] = [
   {
     name: "an epic's health block",
-    element: <Epics epics={[busy]} now={now} />,
+    element: <Epics epics={[busy]} events={[]} issues={[]} now={now} />,
     text: healthLines(busy, now),
     rows: healthLines(busy, now).slice(1),
   },
   {
-    name: "an epic with nothing moving, its first line alone",
-    element: <Epics epics={[still]} now={now} />,
-    text: ["Nothing moving", healthLines(still, now)[0]!],
-    rows: [healthLines(still, now)[0]!],
+    name: "an epic's health block, with its description under the head line",
+    element: <Epics epics={[described]} events={[]} issues={[]} now={now} />,
+    text: [
+      healthLines(described, now)[0]!,
+      "what this epic is for",
+      ...healthLines(described, now).slice(1),
+    ],
+    rows: healthLines(described, now).slice(1),
+  },
+  {
+    name: "an epic with nothing moving stands as the latest, its first line alone",
+    element: <Epics epics={[still]} events={[]} issues={[]} now={now} />,
+    text: [healthLines(still, now)[0]!],
+  },
+  {
+    name: "with nothing live, the two epics touched last stand above the rest, each with the newest line that landed in it",
+    element: <Epics epics={[c, b, a]} events={[onA, onB]} issues={[underA]} now={now} />,
+    text: [
+      healthLines(a, now)[0]!,
+      "every verb prints its lines",
+      logLine(onA, now),
+      healthLines(b, now)[0]!,
+      logLine(onB, now),
+      "Nothing moving",
+      healthLines(c, now)[0]!,
+    ],
+    rows: [healthLines(c, now)[0]!],
   },
   {
     name: "what waits on a person",
@@ -301,8 +361,22 @@ describe("what the lines carry", () => {
   });
 
   it("links every reference in an epic's health to its own page", () => {
-    const markup = renderToStaticMarkup(<Epics epics={[busy]} now={now} />);
+    const markup = renderToStaticMarkup(<Epics epics={[busy]} events={[]} issues={[]} now={now} />);
     for (const id of ["ep-4", "cn-26", "cn-10", "bl-4"]) expect(markup).toContain(`href="/${id}"`);
+  });
+
+  it("links each epic once whether it stands above or is listed, and never lists one twice", () => {
+    const markup = renderToStaticMarkup(
+      <Epics epics={[c, b, a]} events={[onA, onB]} issues={[underA]} now={now} />,
+    );
+    const count = (href: string) => markup.split(`href="${href}"`).length - 1;
+    expect(count("/ep-7")).toBe(1);
+    // ep-2 twice: its section's head line, and the Ref leading its last line, whose target
+    // is the epic itself. ep-7's last line leads with its issue, /cn-9, instead.
+    expect(count("/ep-2")).toBe(2);
+    expect(count("/cn-9")).toBe(1);
+    // ep-0 is listed under "Nothing moving" and nowhere above it.
+    expect(count("/ep-0")).toBe(1);
   });
 
   it("sets an event's changes one to a row", () => {

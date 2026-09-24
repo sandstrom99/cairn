@@ -137,7 +137,7 @@ function Window({
           <>
             <Brief view={brief} />
             <Waiting blockers={blockers ?? []} now={now} />
-            <Epics epics={epics} now={now} />
+            <Epics epics={epics} events={events} issues={issues} now={now} />
           </>
         )
       ) : route.page === "issues" ? (

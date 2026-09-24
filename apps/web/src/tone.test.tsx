@@ -1,7 +1,7 @@
 // The tone vocabulary: which tone each of cn's state words carries, the word an epic's
 // health comes to, and the classes a state word is set in. Rendered to a string rather
 // than to a DOM, like everything in this suite.
-import { agent, epic, now } from "@cairn/cli/testing";
+import { DAY, agent, epic, now } from "@cairn/cli/testing";
 import type { EpicLineView } from "@cairn/cli/views";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -42,6 +42,7 @@ describe("epicWord", () => {
     const line: EpicLineView = {
       id: "ep-0",
       title: "Inbox",
+      lastActivity: now - DAY,
       counts: { open: 0, inProgress: 0, closed: 0, followUps: 0 },
       health: { moving: [], waiting: [] },
     };

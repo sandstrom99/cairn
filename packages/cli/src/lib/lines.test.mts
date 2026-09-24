@@ -68,6 +68,7 @@ describe("healthLines", () => {
   const bare = {
     id: "ep-3",
     title: "An epic tells the truth",
+    lastActivity: now - DAY,
     counts: { open: 0, inProgress: 0, closed: 2, followUps: 1 },
     health: { moving: [], waiting: [] },
   };

@@ -9,15 +9,16 @@
 //
 // Nothing here holds state or asks the deployment anything, so a test renders it to a
 // string. The queries are in App.tsx.
-import { blockerParts, healthParts } from "@cairn/cli/parts";
-import type { BlockerLineView, BriefView, EpicLineView } from "@cairn/cli/views";
+import { blockerParts, healthParts, logParts } from "@cairn/cli/parts";
+import type { BlockerLineView, BriefView, EpicLineView, LogEvent } from "@cairn/cli/views";
 import type { Referable } from "@cairn/cli/ref";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { headline, underline } from "./brief.ts";
 import { Group } from "./page.tsx";
 import { Ref, Refs, Run } from "./Ref.tsx";
-import { HealthRows, RowLink } from "./rows.tsx";
+import { Prose } from "./Prose.tsx";
+import { HealthRows, type Listed, RowLink } from "./rows.tsx";
 import { StateWord } from "./tone.tsx";
 
 export function Brief({ view }: { view: BriefView }) {
@@ -82,38 +83,56 @@ function BlockerRow({ blocker, now }: { blocker: WaitingBlocker; now: number }) 
   );
 }
 
-/** `cn epic list`: the epics with something to say first, then the ones with nothing moving. */
-export function Epics({ epics, now }: { epics: EpicLineView[]; now: number }) {
+/**
+ * `cn epic list`: the epics with something to say first, each its block with its
+ * description under the head line the way `cn show` has it. With nothing live, the two
+ * epics touched last stand where the live ones would, each with the newest log line that
+ * landed in it, so the page still says what the deployment has been doing; the rest are
+ * listed under "Nothing moving", and an epic shown above is not listed again.
+ */
+export function Epics({
+  epics,
+  events,
+  issues,
+  now,
+}: {
+  epics: EpicLineView[];
+  /** The page's events, newest first, for the line under a latest epic; undefined until they answer. */
+  events: LogEvent[] | undefined;
+  /** Every issue, for which epic an event's issue is under; undefined until they answer. */
+  issues: Listed[] | undefined;
+  now: number;
+}) {
   if (epics.length === 0)
     return (
       <p className="mt-10 text-slate">
         No open epics. <code className="font-mono text-small">cn epic new "…"</code> starts one.
       </p>
     );
-  const parts = epics.map((epic) => healthParts(epic, now));
+  const parts = epics.map((view) => ({ view, ...healthParts(view, now) }));
   const live = parts.filter((p) => p.rows.length > 0);
   const still = parts.filter((p) => p.rows.length === 0);
+  const latest =
+    live.length === 0
+      ? [...still].sort((a, b) => b.view.lastActivity - a.view.lastActivity).slice(0, 2)
+      : [];
+  const listed = still.filter((p) => !latest.includes(p));
   return (
     <>
-      {live.map(({ epic, counts, rows }, i) => (
-        <section key={epic.id} className={i === 0 ? "mt-10" : "mt-8"}>
-          <div className="mx-0.5 mb-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h2 className="text-title font-[620] tracking-[-0.012em]">
-              <Ref item={epic} />
-            </h2>{" "}
-            <Run text={counts} className="ml-auto text-small text-slate narrow:ml-0" />
-          </div>
-          <HealthRows rows={rows} />
-        </section>
+      {live.map((p, i) => (
+        <EpicSection key={p.view.id} view={p.view} counts={p.counts} first={i === 0}>
+          <HealthRows rows={p.rows} />
+        </EpicSection>
       ))}
-      {still.length > 0 && (
-        <Group
-          title="Nothing moving"
-          id="nothing-moving"
-          className={live.length === 0 ? "mt-10" : "mt-8"}
-        >
+      {latest.map((p, i) => (
+        <EpicSection key={p.view.id} view={p.view} counts={p.counts} first={i === 0}>
+          <LastEvent epic={p.view} events={events} issues={issues} now={now} />
+        </EpicSection>
+      ))}
+      {listed.length > 0 && (
+        <Group title="Nothing moving" id="nothing-moving">
           <ul className="paper divide-y divide-hair">
-            {still.map(({ epic, counts }) => (
+            {listed.map(({ epic, counts }) => (
               <RowLink
                 key={epic.id}
                 href={`/${epic.id}`}
@@ -127,5 +146,66 @@ export function Epics({ epics, now }: { epics: EpicLineView[]; now: number }) {
         </Group>
       )}
     </>
+  );
+}
+
+/** One epic's block: its head line as `cn epic list` prints it, its description under it the way `cn show` has it, then what the caller lists. */
+function EpicSection({
+  view,
+  counts,
+  first,
+  children,
+}: {
+  view: EpicLineView;
+  counts: string;
+  first: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section className={first ? "mt-10" : "mt-8"}>
+      <div className="mx-0.5 mb-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h2 className="text-title font-[620] tracking-[-0.012em]">
+          <Ref item={view} />
+        </h2>{" "}
+        <Run text={counts} className="ml-auto text-small text-slate narrow:ml-0" />
+      </div>
+      {view.description && (
+        <div className="mx-0.5 mb-2.5">
+          <Prose text={view.description} className="text-small text-slate" />
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The newest line of the log that landed in the epic: on the epic itself, or on an issue
+ * under it. Its text is `logLine`'s, cut to one line by the box rather than reworded.
+ * Nothing where the events the page holds have none.
+ */
+function LastEvent({
+  epic,
+  events,
+  issues,
+  now,
+}: {
+  epic: Referable;
+  events: LogEvent[] | undefined;
+  issues: Listed[] | undefined;
+  now: number;
+}) {
+  const under = new Set((issues ?? []).filter((i) => i.epic.id === epic.id).map((i) => i.id));
+  const event = events?.find(
+    (e) => e.epic?.id === epic.id || (e.issue !== undefined && under.has(e.issue.id)),
+  );
+  if (!event) return null;
+  const { target, kind, actor, when, changes } = logParts(event, now);
+  return (
+    <p className="mx-0.5 truncate text-small text-slate">
+      {target ? <Ref item={target} /> : <span className="text-mark">—</span>}{" "}
+      <span className="font-mono">{kind}</span> {actor} {when}
+      {changes.length > 0 && <span className="font-mono"> {changes.join(", ")}</span>}
+    </p>
   );
 }
