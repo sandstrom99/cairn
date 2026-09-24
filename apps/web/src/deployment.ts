@@ -6,7 +6,7 @@
 // from any of them is the subscription not having answered yet, never an empty list;
 // unanswered is the deployment not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
-import { LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
+import { JOURNAL_MAX, LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
 import type { BriefView, EpicLineView, LogEvent, Shown } from "@cairn/cli/views";
 import {
   type RequestForQueries,
@@ -94,7 +94,13 @@ export function useShown(who: Who, id: string | undefined, now: number): Shown |
     return {
       shown: {
         query: api.show.get,
-        args: { ...(secret === undefined ? {} : { secret }), id, history: true, now },
+        args: {
+          ...(secret === undefined ? {} : { secret }),
+          id,
+          history: true,
+          journal: JOURNAL_MAX,
+          now,
+        },
       },
     };
   }, [secret, id, now]);

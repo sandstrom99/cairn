@@ -1,13 +1,13 @@
 // ItemPages.tsx: the page for one id, `/cn-26`, `/ep-4`, `/bl-2`: what `cn show` prints,
 // with room. An issue is its state, its facts, then everything written into it in full
-// where the brief has a first line, the output its proof stored, and its journal. An epic
-// is its health and every issue under it, the finished ones too. A blocker is what it
-// waits for and what it holds.
+// where the brief has a first line, the output its proof stored, and its whole journal.
+// An epic is its health and every issue under it, the finished ones too. A blocker is
+// what it waits for and what it holds.
 //
 // Nothing here asks the deployment anything; App.tsx does, and these render what came
 // back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
 // and the page sets their pieces (sheet.test.tsx).
-import { JOURNAL_HEAD } from "@cairn/backend/convex/lib/limits.js";
+import { JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
 import {
   blockerFacts,
   healthParts,
@@ -90,9 +90,9 @@ export function IssuePage({
               <JournalEntry key={entry.at} entry={entry} now={now} />
             ))}
           </ul>
-          {issue.journal.length >= JOURNAL_HEAD && (
+          {issue.journal.length >= JOURNAL_MAX && (
             <p className="mt-2 ml-0.5 text-meta text-slate">
-              The five newest, which is what cn show carries. Older entries are in the history.
+              The {JOURNAL_MAX} newest. Older entries are in the history.
             </p>
           )}
         </Group>

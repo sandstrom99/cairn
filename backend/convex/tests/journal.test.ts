@@ -3,6 +3,7 @@
 // disappeared under load, and it is why a finding is never a field that gets rewritten.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
+import { JOURNAL_MAX } from "../lib/limits";
 import { actor, at, closeIssue, eventsOf, other, rawIssue, seed } from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
@@ -92,5 +93,40 @@ describe("journal.append", () => {
       "entry 3",
       "entry 2",
     ]);
+  });
+
+  it("shows as many as asked, newest first", async () => {
+    const t = await withIssue();
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      await t.mutation(api.journal.append, {
+        actor,
+        id: "cn-1",
+        kind: "finding",
+        body: `entry ${n}`,
+      });
+    }
+    const all = await t.query(api.show.get, { id: "cn-1", journal: JOURNAL_MAX });
+    expect(all.kind === "issue" ? all.journal.map((e) => e.body) : []).toEqual([
+      "entry 6",
+      "entry 5",
+      "entry 4",
+      "entry 3",
+      "entry 2",
+      "entry 1",
+    ]);
+    const two = await t.query(api.show.get, { id: "cn-1", journal: 2 });
+    expect(two.kind === "issue" ? two.journal.map((e) => e.body) : []).toEqual([
+      "entry 6",
+      "entry 5",
+    ]);
+  });
+
+  it("refuses a journal count out of range", async () => {
+    const t = await withIssue();
+    for (const journal of [0, JOURNAL_MAX + 1, 1.5]) {
+      await expect(t.query(api.show.get, { id: "cn-1", journal })).rejects.toMatchObject({
+        data: { kind: "invalid" },
+      });
+    }
   });
 });
