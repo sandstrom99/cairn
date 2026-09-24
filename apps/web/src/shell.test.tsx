@@ -6,8 +6,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Listing } from "./Feed.tsx";
 import { Shell } from "./Shell.tsx";
+import type { Theme } from "./theme.ts";
 
-const render = (listing?: Listing, collapsed = false): string =>
+const render = (listing?: Listing, collapsed = false, theme: Theme = "light"): string =>
   renderToStaticMarkup(
     <Shell
       host="h"
@@ -18,6 +19,8 @@ const render = (listing?: Listing, collapsed = false): string =>
       listing={listing}
       collapsed={collapsed}
       onToggleColumn={() => {}}
+      theme={theme}
+      onToggleTheme={() => {}}
       now={now}
       destinations={[]}
       onForget={() => {}}
@@ -81,5 +84,14 @@ describe("Shell", () => {
     expect(markup).toContain("right-(--main-right-strip)");
     expect(markup).toContain(">Activity</h2>");
     expect(markup).toContain("Nothing has happened here yet");
+  });
+
+  it("carries the switch in the rail's head", () => {
+    const light = render(undefined, false, "light");
+    expect(light).toContain('aria-label="Switch to dark"');
+    expect(light).not.toContain('aria-label="Switch to light"');
+    const dark = render(undefined, false, "dark");
+    expect(dark).toContain('aria-label="Switch to light"');
+    expect(dark).not.toContain('aria-label="Switch to dark"');
   });
 });

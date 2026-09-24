@@ -4,18 +4,29 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>cairn overview mock</title>
+    <script>
+      // Dark before first paint: `?theme=dark`, or the system's setting unless `?theme=light`.
+      const theme = new URLSearchParams(location.search).get("theme");
+      if (
+        theme === "dark" ||
+        (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches)
+      )
+        document.documentElement.classList.add("dark");
+    </script>
     <!--
       The static mock the look of apps/web was settled on, 2026-09-21, for
       cn-26 "apps/web, the read-only window". One file, no build: open it in a browser.
       It is the reference for the direction, not for the markup: glass only on what
       floats, chroma only for state, Recursive from sans to mono, the brief as the headline,
       a jump-to-id bar, one motion when an event lands. apps/web/src/index.css carries the
-      same tokens and says the same in its header.
+      same tokens and says the same in its header, and the dark values under `:root.dark`
+      are index.css's `.dark`, character for character.
 
       The controls marked "mock" at the top of the centre column are not part of the
-      design: quiet and busy switch the state, and "land an event" plays the one motion.
-      bl-4 is invented, there to show the waiting state; the rest was the worklist that day.
-      `?state=quiet` and `?jump=inv` open it in its other states.
+      design: quiet and busy switch the state, "land an event" plays the one motion, and
+      dark switches the theme. bl-4 is invented, there to show the waiting state; the rest
+      was the worklist that day. `?state=quiet` and `?jump=inv` open it in its other states,
+      and `?theme=dark` or `?theme=light` in either theme; with neither it follows the system.
 
       The font comes from Google Fonts here so the file stays small; the app self-hosts it.
     -->
@@ -32,16 +43,51 @@
         --slate: #5b6472;
         --faint: #8b94a3;
         --mark: #b4bbc7; /* quotes, dots and arrows: the CLI's punctuation, kept and quietened */
-        --hair: rgba(21, 24, 30, 0.08);
+        color-scheme: light;
+        --hair: color-mix(in oklab, var(--ink) 8%, transparent);
         --paper: rgba(255, 255, 255, 0.88);
+        --code: #3a4150; /* output and records: darker than slate, lighter than ink */
+        --lift: rgba(255, 255, 255, 0.75); /* a chip lifted off paper or glass */
+        --glass: #fff; /* the material of what floats, through color-mix() */
+        --drop: #1e283c; /* the shade glass casts */
+        --daylight: #b0bcd4; /* the ground: light across the wall, a shaft, its shaded edge */
+        --shaft: #fff;
+        --shade: #8090b2;
         --moving: #1f9d8a;
+        --moving-ink: #15796a;
         --stuck: #c9821b;
+        --stuck-ink: #96600f;
         --waiting: #6c5ce7;
+        --waiting-ink: #5143c4;
         --rail-w: 264px;
         --feed-w: 384px;
         --inset: 12px;
         --sans: "MONO" 0, "CASL" 0;
         --mono: "MONO" 1, "CASL" 0;
+      }
+
+      /* Dark: index.css's second set of values for the same tokens, and nothing else. */
+      :root.dark {
+        color-scheme: dark;
+        --mist: #11141a;
+        --ink: #e8ebf1;
+        --slate: #a4adbc;
+        --faint: #737c8b;
+        --mark: #4d5566;
+        --paper: rgb(30 34 43 / 0.88);
+        --code: #c4cad5;
+        --lift: rgb(255 255 255 / 0.08);
+        --glass: rgb(255 255 255 / 0.14);
+        --drop: #000;
+        --daylight: #303a4f;
+        --shaft: #3b4763;
+        --shade: #05070b;
+        --moving: #2fb8a2;
+        --moving-ink: #5fd3bf;
+        --stuck: #e0973a;
+        --stuck-ink: #f0b25c;
+        --waiting: #8b7cf6;
+        --waiting-ink: #aea3ff;
       }
 
       *,
@@ -126,7 +172,11 @@
         left: 180px;
         width: 860px;
         height: 560px;
-        background: radial-gradient(closest-side, rgba(108, 92, 231, 0.2), transparent);
+        background: radial-gradient(
+          closest-side,
+          color-mix(in oklab, var(--waiting) 20%, transparent),
+          transparent
+        );
         opacity: 0;
         transition: opacity 600ms ease;
       }
@@ -146,10 +196,10 @@
         overflow: hidden;
         background: linear-gradient(
           90deg,
-          rgba(176, 188, 212, 0.42),
-          rgba(176, 188, 212, 0) 26%,
-          rgba(176, 188, 212, 0) 70%,
-          rgba(176, 188, 212, 0.5)
+          color-mix(in oklab, var(--daylight) 42%, transparent),
+          transparent 26%,
+          transparent 70%,
+          color-mix(in oklab, var(--daylight) 50%, transparent)
         );
         -webkit-mask-image: linear-gradient(
           90deg,
@@ -182,36 +232,40 @@
         bottom: 0;
         background: linear-gradient(
           90deg,
-          rgba(255, 255, 255, 0) 0%,
-          rgba(255, 255, 255, 0.95) 5%,
-          rgba(255, 255, 255, 0.4) 55%,
-          rgba(255, 255, 255, 0) 100%
+          transparent 0%,
+          color-mix(in oklab, var(--shaft) 95%, transparent) 5%,
+          color-mix(in oklab, var(--shaft) 40%, transparent) 55%,
+          transparent 100%
         );
       }
 
       .shaft.shade {
         background: linear-gradient(
           90deg,
-          rgba(128, 144, 178, 0) 0%,
-          rgba(128, 144, 178, 0.5) 4%,
-          rgba(128, 144, 178, 0.16) 60%,
-          rgba(128, 144, 178, 0) 100%
+          transparent 0%,
+          color-mix(in oklab, var(--shade) 50%, transparent) 4%,
+          color-mix(in oklab, var(--shade) 16%, transparent) 60%,
+          transparent 100%
         );
       }
 
       /* ---------- glass: only what floats ---------- */
 
       .glass {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.24));
+        background: linear-gradient(
+          180deg,
+          color-mix(in oklab, var(--glass) 50%, transparent),
+          color-mix(in oklab, var(--glass) 24%, transparent)
+        );
         -webkit-backdrop-filter: blur(14px) saturate(160%);
         backdrop-filter: blur(14px) saturate(160%);
         border-radius: 24px;
         box-shadow:
-          0 0 0 1px rgba(21, 24, 30, 0.06),
-          0 30px 60px -28px rgba(30, 40, 60, 0.3),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9),
-          inset 0 0 24px rgba(255, 255, 255, 0.35),
-          inset 0 -14px 28px -18px rgba(80, 95, 125, 0.18);
+          0 0 0 1px color-mix(in oklab, var(--ink) 6%, transparent),
+          0 30px 60px -28px color-mix(in oklab, var(--drop) 30%, transparent),
+          inset 0 1px 0 color-mix(in oklab, var(--glass) 90%, transparent),
+          inset 0 0 24px color-mix(in oklab, var(--glass) 35%, transparent),
+          inset 0 -14px 28px -18px color-mix(in oklab, var(--drop) 18%, transparent);
       }
 
       /* The lit edge: bright where light enters at the top left, again where it leaves. */
@@ -223,10 +277,10 @@
         padding: 1px;
         background: linear-gradient(
           135deg,
-          rgba(255, 255, 255, 0.95),
-          rgba(255, 255, 255, 0.15) 32%,
-          rgba(255, 255, 255, 0.08) 68%,
-          rgba(255, 255, 255, 0.75)
+          color-mix(in oklab, var(--glass) 95%, transparent),
+          color-mix(in oklab, var(--glass) 15%, transparent) 32%,
+          color-mix(in oklab, var(--glass) 8%, transparent) 68%,
+          color-mix(in oklab, var(--glass) 75%, transparent)
         );
         -webkit-mask:
           linear-gradient(#000 0 0) content-box,
@@ -267,7 +321,7 @@
       }
 
       .picker:hover {
-        background: rgba(255, 255, 255, 0.5);
+        background: color-mix(in oklab, var(--lift) 67%, transparent);
       }
 
       .glyph {
@@ -276,6 +330,11 @@
         border-radius: 9px;
         background: var(--ink);
         flex: none;
+      }
+
+      /* The stones are drawn in mist on ink in both themes; the attribute in the markup is white. */
+      .glyph ellipse {
+        fill: var(--mist);
       }
 
       .picker-name {
@@ -310,15 +369,15 @@
 
       .nav a:hover {
         color: var(--ink);
-        background: rgba(255, 255, 255, 0.4);
+        background: color-mix(in oklab, var(--lift) 53%, transparent);
       }
 
       .nav a[aria-current="page"] {
         color: var(--ink);
-        background: rgba(255, 255, 255, 0.72);
+        background: color-mix(in oklab, var(--lift) 96%, transparent);
         box-shadow:
-          0 0 0 1px rgba(21, 24, 30, 0.05),
-          0 1px 2px rgba(21, 24, 30, 0.06);
+          0 0 0 1px color-mix(in oklab, var(--ink) 5%, transparent),
+          0 1px 2px color-mix(in oklab, var(--ink) 6%, transparent);
       }
 
       .nav .count {
@@ -345,7 +404,7 @@
       }
 
       .rail-epics a:hover {
-        background: rgba(255, 255, 255, 0.4);
+        background: color-mix(in oklab, var(--lift) 53%, transparent);
       }
 
       .rail-epics .id {
@@ -517,7 +576,7 @@
         background: var(--paper);
         border: 1px solid var(--hair);
         border-radius: 14px;
-        box-shadow: 0 1px 2px rgba(21, 24, 30, 0.04);
+        box-shadow: 0 1px 2px color-mix(in oklab, var(--ink) 4%, transparent);
         overflow: hidden;
       }
 
@@ -535,7 +594,7 @@
       }
 
       a.row:hover {
-        background: rgba(21, 24, 30, 0.022);
+        background: color-mix(in oklab, var(--ink) 2.2%, transparent);
       }
 
       .fact {
@@ -551,15 +610,15 @@
       }
 
       .fact.moving {
-        color: #15796a;
+        color: var(--moving-ink);
       }
 
       .fact.stuck {
-        color: #96600f;
+        color: var(--stuck-ink);
       }
 
       .fact.waiting {
-        color: #5143c4;
+        color: var(--waiting-ink);
       }
 
       .tail {
@@ -573,9 +632,13 @@
       }
 
       .group.waiting {
-        border-color: rgba(108, 92, 231, 0.26);
+        border-color: color-mix(in oklab, var(--waiting) 26%, transparent);
         background:
-          linear-gradient(180deg, rgba(108, 92, 231, 0.055), rgba(108, 92, 231, 0.015)),
+          linear-gradient(
+            180deg,
+            color-mix(in oklab, var(--waiting) 5.5%, transparent),
+            color-mix(in oklab, var(--waiting) 1.5%, transparent)
+          ),
           var(--paper);
       }
 
@@ -664,8 +727,8 @@
         border-radius: 9px;
         display: grid;
         place-items: center;
-        background: rgba(255, 255, 255, 0.78);
-        box-shadow: 0 0 0 1px rgba(21, 24, 30, 0.06);
+        background: var(--lift);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--ink) 6%, transparent);
       }
 
       .tile .icon {
@@ -717,7 +780,7 @@
         margin-top: 6px;
         font-size: 11.5px;
         line-height: 1.55;
-        color: #3a4150;
+        color: var(--code);
         overflow-wrap: anywhere;
       }
 
@@ -747,7 +810,7 @@
         background: linear-gradient(
           100deg,
           transparent 30%,
-          rgba(255, 255, 255, 0.95) 50%,
+          color-mix(in oklab, var(--glass) 95%, transparent) 50%,
           transparent 70%
         );
         transform: translateX(-100%);
@@ -802,7 +865,11 @@
         right: 0;
         bottom: -22px;
         height: 132px;
-        background: linear-gradient(180deg, rgba(243, 245, 249, 0), rgba(243, 245, 249, 0.86) 62%);
+        background: linear-gradient(
+          180deg,
+          transparent,
+          color-mix(in oklab, var(--mist) 86%, transparent) 62%
+        );
       }
 
       .jump {
@@ -819,11 +886,15 @@
         height: 54px;
         padding: 0 16px 0 20px;
         border-radius: 27px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.42));
+        background: linear-gradient(
+          180deg,
+          color-mix(in oklab, var(--glass) 66%, transparent),
+          color-mix(in oklab, var(--glass) 42%, transparent)
+        );
         box-shadow:
-          0 0 0 1px rgba(21, 24, 30, 0.06),
-          0 18px 40px -14px rgba(30, 40, 60, 0.3),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9);
+          0 0 0 1px color-mix(in oklab, var(--ink) 6%, transparent),
+          0 18px 40px -14px color-mix(in oklab, var(--drop) 30%, transparent),
+          inset 0 1px 0 color-mix(in oklab, var(--glass) 90%, transparent);
       }
 
       .jump-bar .icon {
@@ -849,8 +920,8 @@
       .jump-bar:focus-within {
         box-shadow:
           0 0 0 2px var(--ink),
-          0 18px 40px -14px rgba(30, 40, 60, 0.3),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9);
+          0 18px 40px -14px color-mix(in oklab, var(--drop) 30%, transparent),
+          inset 0 1px 0 color-mix(in oklab, var(--glass) 90%, transparent);
       }
 
       kbd {
@@ -860,8 +931,8 @@
         color: var(--slate);
         padding: 3px 7px;
         border-radius: 7px;
-        background: rgba(255, 255, 255, 0.7);
-        box-shadow: 0 0 0 1px rgba(21, 24, 30, 0.07);
+        background: color-mix(in oklab, var(--lift) 93%, transparent);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--ink) 7%, transparent);
       }
 
       .results {
@@ -903,7 +974,7 @@
 
       .results a:hover,
       .results a.first {
-        background: rgba(255, 255, 255, 0.75);
+        background: var(--lift);
       }
 
       .results .empty {
@@ -932,14 +1003,14 @@
         border: 0;
         border-radius: 7px;
         padding: 3px 8px;
-        background: rgba(255, 255, 255, 0.8);
+        background: var(--lift);
         box-shadow: 0 0 0 1px var(--hair);
         cursor: pointer;
       }
 
       .mock button[aria-pressed="true"] {
         background: var(--ink);
-        color: #fff;
+        color: var(--mist);
       }
 
       /* ---------- narrower windows ---------- */
@@ -1161,6 +1232,7 @@
         <button type="button" data-set="quiet" aria-pressed="false">quiet</button>
         <button type="button" data-set="busy" aria-pressed="true">busy</button>
         <button type="button" id="land">land an event</button>
+        <button type="button" id="theme" aria-pressed="false">dark</button>
       </div>
 
       <div class="column">
@@ -1503,6 +1575,15 @@
       // `?state=quiet` opens the mock in its other state, `?jump=inv` with the jump box in use.
       const params = new URLSearchParams(location.search);
       if (params.get("state") === "quiet") document.querySelector('[data-set="quiet"]').click();
+
+      // The theme: the head's script chose it before first paint, and the button flips it.
+      const themeButton = document.getElementById("theme");
+      const dark = () => document.documentElement.classList.contains("dark");
+      themeButton.setAttribute("aria-pressed", String(dark()));
+      themeButton.addEventListener("click", () => {
+        document.documentElement.classList.toggle("dark");
+        themeButton.setAttribute("aria-pressed", String(dark()));
+      });
 
       // The jump box: a read over ids and titles, nothing more.
       const everything = [

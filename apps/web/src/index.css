@@ -10,10 +10,10 @@
  *     commands and records in mono, because they are pasted into a terminal.
  *
  * Every colour on the page is one of the tokens below, reached in TSX through Tailwind's
- * utilities and here through `var()` and `--alpha()`. Dark (cn-29) is a second set of
- * values for the same tokens and nothing else. The page's two widths are the variants
- * `narrow` and `mid`, and the layout widths and the one pace and curve of motion are the
- * `:root` variables below.
+ * utilities and here through `var()` and `--alpha()`. Dark is the second set of values for
+ * the same tokens, under `.dark` on `<html>` (theme.ts), and nothing else. The page's two
+ * widths are the variants `narrow` and `mid`, and the layout widths and the one pace and
+ * curve of motion are the `:root` variables below.
  */
 @import "tailwindcss";
 @import "shadcn/tailwind.css";
@@ -22,6 +22,8 @@
 /* The page's two widths. Below `mid` the side column goes; below `narrow` the rail stacks on top too. */
 @custom-variant mid (@media (width < 1100px));
 @custom-variant narrow (@media (width < 720px));
+/* The theme is a class on <html> (theme.ts), so shadcn's stock `dark:` utilities follow the switch, not the system. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Recursive Variable", ui-sans-serif, system-ui, sans-serif;
@@ -123,6 +125,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.75rem;
   --background: var(--color-mist);
   --foreground: var(--color-ink);
@@ -142,6 +145,35 @@
   --border: var(--color-hair);
   --input: --alpha(var(--color-ink) / 14%);
   --ring: var(--color-ink);
+}
+
+/*
+ * Dark: the second set of values for the same tokens, and nothing else. hair, the ring and lift
+ * shadows, the hollow dot, --border and --input follow ink and mark and need no line. theme.ts puts
+ * the class on <html>, and the script in index.html puts it there before first paint.
+ */
+.dark {
+  color-scheme: dark;
+  --color-mist: #11141a;
+  --color-ink: #e8ebf1;
+  --color-slate: #a4adbc;
+  --color-faint: #737c8b;
+  --color-mark: #4d5566;
+  --color-paper: rgb(30 34 43 / 0.88);
+  --color-code: #c4cad5;
+  --color-lift: rgb(255 255 255 / 0.08);
+  --color-glass: rgb(255 255 255 / 0.14);
+  --color-drop: #000;
+  --color-daylight: #303a4f;
+  --color-shaft: #3b4763;
+  --color-shade: #05070b;
+  --color-moving: #2fb8a2;
+  --color-moving-ink: #5fd3bf;
+  --color-stuck: #e0973a;
+  --color-stuck-ink: #f0b25c;
+  --color-waiting: #8b7cf6;
+  --color-waiting-ink: #aea3ff;
+  --destructive: #f0716a;
 }
 
 @layer base {

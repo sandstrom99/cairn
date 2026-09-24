@@ -1,8 +1,9 @@
-// App.tsx: the secret and the route, and nothing else. `App` holds the secret as state and
-// the gate that turns a refused secret into the form; `Window` reads the route, asks
-// `useDeployment` and `useShown` (deployment.ts), holds the previous id's page across a
-// change with `useStale` (held.ts), and hands the `Shell` the page and what the column lists
-// and whether the column is collapsed (column.ts); `ItemPage` is the page for one id.
+// App.tsx: the secret, the theme and the route, and nothing else. `App` holds the secret and
+// the theme (theme.ts) as state, and the gate that turns a refused secret into the form;
+// `Window` reads the route, asks `useDeployment` and `useShown` (deployment.ts), holds the
+// previous id's page across a change with `useStale` (held.ts), and hands the `Shell` the
+// page, what the column lists, whether the column is collapsed (column.ts) and the theme;
+// `ItemPage` is the page for one id.
 //
 // The path picks the page (location.ts). The rail, the ground and the jump bar stay where
 // they are across pages and so do the subscriptions under them, so going from an epic to
@@ -32,11 +33,36 @@ import { Pending } from "./page.tsx";
 import type { Listed } from "./rows.tsx";
 import { devSecret, readSecret, writeSecret } from "./secret.ts";
 import { Shell } from "./Shell.tsx";
+import {
+  applyTheme,
+  onSystemTheme,
+  readTheme,
+  resolveTheme,
+  systemTheme,
+  type Theme,
+  writeTheme,
+} from "./theme.ts";
 
 export function App({ url }: { url: string }) {
   const [secret, setSecret] = useState<string | undefined>(() => readSecret() ?? devSecret());
   // Every submit and every forget remounts the gate, so a secret that is wrong twice is tried twice.
   const [attempt, setAttempt] = useState(0);
+  // Light or dark is this browser's choice, or the system's until it makes one (theme.ts).
+  const [theme, setTheme] = useState<Theme>(() => resolveTheme(readTheme(), systemTheme()));
+  const toggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    writeTheme(next);
+    setTheme(next);
+  };
+  useEffect(() => applyTheme(theme), [theme]);
+  // While no choice is stored, the system's changing changes the page.
+  useEffect(
+    () =>
+      onSystemTheme((system) => {
+        if (readTheme() === undefined) setTheme(system);
+      }),
+    [],
+  );
   const host = new URL(url).host;
   // The value entered is the secret for this page load, whether or not storage keeps it.
   const connect = (entered: string) => {
@@ -52,7 +78,14 @@ export function App({ url }: { url: string }) {
   };
   return (
     <Gate key={attempt} host={host} onSecret={connect}>
-      <Window host={host} secret={secret} onForget={forget} onSecret={connect} />
+      <Window
+        host={host}
+        secret={secret}
+        onForget={forget}
+        onSecret={connect}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
     </Gate>
   );
 }
@@ -63,11 +96,15 @@ function Window({
   secret,
   onForget,
   onSecret,
+  theme,
+  onToggleTheme,
 }: {
   host: string;
   secret: string | undefined;
   onForget: () => void;
   onSecret: (secret: string) => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }) {
   useLinks();
   const path = usePath();
@@ -124,6 +161,8 @@ function Window({
       listing={listing}
       collapsed={collapsed}
       onToggleColumn={toggleColumn}
+      theme={theme}
+      onToggleTheme={onToggleTheme}
       now={now}
       destinations={destinations}
       onForget={onForget}

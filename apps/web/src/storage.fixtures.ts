@@ -1,5 +1,6 @@
-// storage.fixtures.ts: the two localStorages the tests of secret.ts and column.ts hand in,
-// one that works without a DOM and one that refuses every touch. Nothing in the app imports it.
+// storage.fixtures.ts: the two localStorages the tests of secret.ts, column.ts and theme.ts
+// hand in, one that works without a DOM and one that refuses every touch. Nothing in the app
+// imports it.
 
 /** A localStorage that is a Map, so a test needs no DOM. */
 export function fakeStorage() {

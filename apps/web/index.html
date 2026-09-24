@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>cairn</title>
+    <!-- The theme before first paint, from this browser's choice or the system's. theme.ts says the same, and theme.test.ts holds this script to it. -->
+    <script>
+      try {
+        var theme = localStorage.getItem("cairn:theme");
+      } catch {}
+      if (
+        theme === "dark" ||
+        (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

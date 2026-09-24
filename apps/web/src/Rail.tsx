@@ -1,12 +1,14 @@
 // Rail.tsx: the left column, glass. Which deployment this is, where the page can go, and
 // every open epic with the one dot that says how it is doing. Below it, the fact a reader
 // should not have to guess: this window reads, and what it reads with is a shared secret
-// kept in this browser.
+// kept in this browser. The switch between light and dark sits in the head, so it is there in
+// the narrow layout too, where the footer is not.
 import type { EpicLineView } from "@cairn/cli/views";
-import { Clock3, LayoutDashboard, List, Lock } from "lucide-react";
+import { Clock3, LayoutDashboard, List, Lock, Moon, Sun } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
 import { Ref } from "./Ref.tsx";
+import type { Theme } from "./theme.ts";
 import { Dot, epicWord, toneOf } from "./tone.tsx";
 
 function Glyph() {
@@ -50,6 +52,8 @@ export function Rail({
   epics,
   current = "/",
   epicId,
+  theme,
+  onToggleTheme,
   onForget,
 }: {
   host: string;
@@ -57,6 +61,9 @@ export function Rail({
   current?: string;
   /** The epic on screen, or the one the issue on screen belongs to. */
   epicId?: string;
+  /** Light or dark, and the switch between them in the head. */
+  theme: Theme;
+  onToggleTheme: () => void;
   /** Forgets the secret this browser keeps; the button shows only where it is given. */
   onForget?: () => void;
 }) {
@@ -78,6 +85,15 @@ export function Rail({
           <div className="text-[0.96875rem] leading-tight font-[650] tracking-[-0.01em]">cairn</div>
           <div className="truncate font-mono text-micro text-slate narrow:hidden">{host}</div>
         </div>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}
+          title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+          className="ml-auto grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg text-slate hover:bg-lift hover:text-ink hover:shadow-ring"
+        >
+          {theme === "dark" ? <Sun className="size-[15px]" /> : <Moon className="size-[15px]" />}
+        </button>
       </div>
 
       <nav
