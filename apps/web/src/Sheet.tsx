@@ -12,6 +12,7 @@ import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { CopyRef } from "./CopyRef.tsx";
 import { Ref, Run } from "./Ref.tsx";
+import { StateWord } from "./tone.tsx";
 
 /** Where this page sits: the overview, then the epic where there is one. */
 export function Crumbs({ epic, children }: { epic?: Referable; children?: ReactNode }) {
@@ -41,45 +42,24 @@ export function Heading({ item }: { item: Referable }) {
         <span className="font-mono text-body font-medium text-slate">{item.id}</span>
         <CopyRef item={item} />
       </div>
-      <h1 className="mt-1.5 text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em] text-balance max-[720px]:text-[1.5rem]">
+      <h1 className="mt-1.5 text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em] text-balance narrow:text-[1.5rem]">
         {item.title}
       </h1>
     </header>
   );
 }
 
-const TONE = {
-  moving: { dot: "bg-moving", word: "text-moving-ink" },
-  stuck: { dot: "bg-stuck", word: "text-stuck-ink" },
-  waiting: { dot: "bg-waiting", word: "text-waiting-ink" },
-  still: { dot: "shadow-[inset_0_0_0_1.5px_var(--color-mark)]", word: "text-slate" },
-};
-
-export type Tone = keyof typeof TONE;
-
 /** How the thing is doing, in one line: the state word in its colour, then the rest. */
-export function State({
-  tone,
-  word,
-  children,
-}: {
-  tone: Tone;
-  word: string;
-  children?: ReactNode;
-}) {
+export function State({ word, children }: { word: string; children?: ReactNode }) {
   return (
     <p className="mt-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-body">
-      <span className={cn("inline-flex items-center gap-2 font-[550]", TONE[tone].word)}>
-        <i className={cn("size-2 shrink-0 rounded-full", TONE[tone].dot)} />
-        {word}
-      </span>{" "}
-      {children && <span className="text-slate">{children}</span>}
+      <StateWord word={word} /> {children && <span className="text-slate">{children}</span>}
     </p>
   );
 }
 
 const LINE =
-  "grid grid-cols-[116px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] max-[720px]:grid-cols-1 max-[720px]:gap-1";
+  "grid grid-cols-[116px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] narrow:grid-cols-1 narrow:gap-1";
 
 /** The things a line names, each a link, with cn's word after one that is finished: `cn-6 "…" done`. */
 export function Refs({ items }: { items: Named[] }) {
@@ -180,7 +160,7 @@ export function Neighbours({
   return (
     <nav
       aria-label="Previous and next in this epic"
-      className="mt-10 grid grid-cols-2 gap-3 max-[720px]:grid-cols-1"
+      className="mt-10 grid grid-cols-2 gap-3 narrow:grid-cols-1"
     >
       {before ? <Card item={before} label="Previous" /> : <span />}
       {after ? <Card item={after} label="Next" end /> : <span />}
@@ -196,10 +176,7 @@ function Step({ item, label, children }: { item?: Referable; label: string; chil
       href={`/${item.id}`}
       aria-label={`${label}: ${item.id} ${item.title}`}
       title={`${item.id} ${item.title}`}
-      className={cn(
-        box,
-        "bg-white/70 text-slate shadow-[0_0_0_1px_rgb(21_24_30/0.07)] hover:text-ink",
-      )}
+      className={cn(box, "bg-lift text-slate shadow-ring hover:text-ink")}
     >
       {children}
     </a>
@@ -211,7 +188,7 @@ function Card({ item, label, end = false }: { item: Referable; label: string; en
     <a
       href={`/${item.id}`}
       className={cn(
-        "paper block px-4 py-3 hover:bg-white hover:[&_.ref-title]:underline",
+        "paper block px-4 py-3 hover:bg-glass hover:[&_.ref-title]:underline",
         end && "text-right",
       )}
     >

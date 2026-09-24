@@ -25,7 +25,7 @@ export function CopyRef({ item }: { item: Referable }) {
           () => setCopied(false),
         );
       }}
-      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-white/70 px-2 text-meta font-medium text-slate shadow-[0_0_0_1px_rgb(21_24_30/0.07)] hover:text-ink"
+      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-lift px-2 text-meta font-medium text-slate shadow-ring hover:text-ink"
     >
       {copied ? <Check className="size-[13px]" /> : <Copy className="size-[13px]" />}
       <span aria-live="polite">{copied ? "Copied" : "Copy reference"}</span>

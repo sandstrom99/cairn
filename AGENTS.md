@@ -29,8 +29,8 @@ Green is exactly this, and nothing else counts:
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
  Test Files  14 passed (14)      ← backend
- Test Files  37 passed (37)      ← cli
- Test Files  7 passed (7)        ← web
+ Test Files  41 passed (41)      ← cli
+ Test Files  8 passed (8)        ← web
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The

@@ -41,8 +41,8 @@ export function JumpBar({
   return (
     <div
       className={cn(
-        "pointer-events-none fixed bottom-[22px] left-[276px] z-30 flex justify-center px-10 max-[720px]:left-0 max-[720px]:px-4",
-        side ? "right-[396px] max-[1100px]:right-0" : "right-0",
+        "pointer-events-none fixed bottom-[22px] left-(--main-left) z-30 flex justify-center px-10 narrow:left-0 narrow:px-4",
+        side ? "right-(--main-right) mid:right-0" : "right-0",
       )}
     >
       <div className="under-bar absolute inset-x-0 bottom-[-22px] h-[132px]" />
@@ -69,7 +69,7 @@ export function JumpBar({
                   setTerm("");
                   input.current?.blur();
                 }}
-                className="gap-1.5 rounded-xl px-3 py-[9px] text-[0.875rem] data-selected:bg-white/75 [&>svg:last-child]:hidden"
+                className="gap-1.5 rounded-xl px-3 py-[9px] text-[0.875rem] data-selected:bg-lift [&>svg:last-child]:hidden"
               >
                 <span className="shrink-0 font-mono text-meta text-slate">{id}</span>
                 <span className="truncate">{title}</span>
@@ -90,7 +90,7 @@ export function JumpBar({
             spellCheck={false}
             className="min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-hidden placeholder:text-slate"
           />
-          <kbd className="rounded-[7px] bg-white/70 px-[7px] py-[3px] font-mono text-xs text-slate shadow-[0_0_0_1px_rgb(21_24_30/0.07)]">
+          <kbd className="rounded-[7px] bg-lift px-[7px] py-[3px] font-mono text-xs text-slate shadow-ring">
             ⌘K
           </kbd>
         </label>

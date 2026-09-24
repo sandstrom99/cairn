@@ -35,13 +35,7 @@ export function Connect({
           Deployment secret
         </label>
         <div className="mt-1.5 flex gap-2">
-          <Input
-            id="secret"
-            type="password"
-            name="secret"
-            autoComplete="off"
-            className="bg-white/80"
-          />
+          <Input id="secret" type="password" name="secret" autoComplete="off" className="bg-lift" />
           <Button type="submit">Save in this browser</Button>
         </div>
       </form>
