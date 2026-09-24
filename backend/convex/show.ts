@@ -13,6 +13,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { nowArg } from "./lib/clock";
+import { invalid } from "./lib/errors";
 import {
   edgesFrom,
   edgesTo,
@@ -23,7 +24,7 @@ import {
 } from "./lib/graph";
 import { query } from "./lib/guard";
 import { epicHealth, stuckOf } from "./lib/health";
-import { JOURNAL_HEAD } from "./lib/limits";
+import { JOURNAL_HEAD, JOURNAL_MAX } from "./lib/limits";
 import { blockerById, epicById, issueById } from "./lib/lookup";
 import { priorityOrder } from "./lib/order";
 import { isLive } from "./lib/validators";
@@ -46,14 +47,20 @@ async function history(ctx: QueryCtx, doc: Doc<"issues">) {
   return (await eventsOn(ctx, { table: "issues", doc })).map(eventView);
 }
 
-async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean, now?: number) {
+async function issue(
+  ctx: QueryCtx,
+  doc: Doc<"issues">,
+  withHistory: boolean,
+  head: number,
+  now?: number,
+) {
   const view = await issueView(ctx, doc);
   const siblings = await issuesIn(ctx, doc.epicId);
   const entries = await ctx.db
     .query("journal")
     .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
     .order("desc")
-    .take(JOURNAL_HEAD);
+    .take(head);
   const outgoing = await edgesFrom(ctx, doc._id);
   const incoming = await edgesTo(ctx, doc._id);
   const followUps = await ctx.db
@@ -125,11 +132,18 @@ async function blocker(ctx: QueryCtx, doc: Doc<"blockers">, withHistory: boolean
 }
 
 export const get = query({
-  args: { id: v.string(), history: v.optional(v.boolean()), ...nowArg },
-  handler: async (ctx, { id, history: withHistory, now }) => {
+  args: {
+    id: v.string(),
+    history: v.optional(v.boolean()),
+    journal: v.optional(v.number()),
+    ...nowArg,
+  },
+  handler: async (ctx, { id, history: withHistory, journal = JOURNAL_HEAD, now }) => {
+    if (!Number.isInteger(journal) || journal < 1 || journal > JOURNAL_MAX)
+      throw invalid(`journal is a whole number from 1 to ${JOURNAL_MAX}, not ${journal}`);
     if (id.startsWith("ep-")) return await epic(ctx, await epicById(ctx, id), now);
     if (id.startsWith("bl-"))
       return await blocker(ctx, await blockerById(ctx, id), Boolean(withHistory));
-    return await issue(ctx, await issueById(ctx, id), Boolean(withHistory), now);
+    return await issue(ctx, await issueById(ctx, id), Boolean(withHistory), journal, now);
   },
 });

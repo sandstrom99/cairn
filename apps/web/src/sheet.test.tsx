@@ -4,6 +4,7 @@
 // and the output a proof stored, is printed whole.
 import { brief } from "@cairn/cli/lines";
 import { stateLine, stateParts } from "@cairn/cli/parts";
+import { JOURNAL_HEAD, JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
 import { DAY, HOUR, agent, blocker, issue, now } from "@cairn/cli/testing";
 import type { ShownIssue } from "@cairn/cli/views";
 import { ref } from "@cairn/cli/ref";
@@ -182,6 +183,28 @@ describe("an issue's page", () => {
     );
     expect(page(described)).toContain(
       "description Balder, 2026-09-21: the journal is the most context an issue has. So show it.",
+    );
+  });
+
+  it("prints the whole journal, newest first, where the brief carries the five newest", () => {
+    /** `count` entries, `entry <count>` newest, an hour apart back from an hour ago. */
+    const journal = (count: number): ShownIssue["journal"] =>
+      Array.from({ length: count }, (_, i) => ({
+        author: agent,
+        kind: "finding",
+        body: `entry ${count - i}`,
+        at: now - (i + 1) * HOUR,
+      }));
+
+    const text = page(issue({ ...held, journal: journal(JOURNAL_HEAD + 1) }));
+    const bodies = ["entry 6", "entry 5", "entry 4", "entry 3", "entry 2", "entry 1"];
+    const positions = bodies.map((body) => text.indexOf(body));
+    expect(positions.every((at) => at >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(text).not.toContain("cn show carries");
+
+    expect(page(issue({ ...held, journal: journal(JOURNAL_MAX) }))).toContain(
+      `The ${JOURNAL_MAX} newest`,
     );
   });
 });

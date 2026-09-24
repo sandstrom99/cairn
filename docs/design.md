@@ -640,15 +640,17 @@ the brief's labelled lines as a table, `issueFacts`, the proof a close stored
 and the reason a drop gave among them, and a `blocks` edge with a finished end
 marked `done` rather than dropped (§7); then everything written into it printed
 whole where the brief keeps a first line, the output the proof carries among
-that, then its journal, with its own history in the column where the Overview
-has the feed. An epic is
-its health and every issue under it, the finished ones included, which is more
-than `cn show ep-3` lists and is what a person opening an epic came for. Getting
-around is the point of the page: every reference anywhere is a link, an issue
-names its epic above its title and steps to the issue before and after it in
-the epic's order, the rail marks the epic on screen, and one button copies the
-reference form, `cn-26 "apps/web, the read-only window"`, because that is what a
-person pastes into a session to say which work they mean.
+that, then its whole journal where the brief carries the five newest (`show.get`
+takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for
+a journal that long), with its own history in the column where the Overview has
+the feed. An epic is its health and every issue under it, the finished ones
+included, which is more than `cn show ep-3` lists and is what a person opening
+an epic came for. Getting around is the point of the page: every reference
+anywhere is a link, an issue names its epic above its title and steps to the
+issue before and after it in the epic's order, the rail marks the epic on
+screen, and one button copies the reference form,
+`cn-26 "apps/web, the read-only window"`, because that is what a person pastes
+into a session to say which work they mean.
 
 Four routes do not get a router. The path is the state, and one listener turns
 every plain same-origin link into `history.pushState`, so components write
