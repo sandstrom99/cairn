@@ -30,6 +30,11 @@ export function routeOf(pathname: string): Route | undefined {
 
 const CHANGED = "cairn:navigate";
 
+/**
+ * Go to `href` without a page load, and to the top of it. The scroll is the window's, which
+ * is main's; the column is fixed and scrolls inside its own list, which a navigation leaves
+ * where it was, since the shell mounts that column once.
+ */
 export function navigate(href: string): void {
   if (href === window.location.pathname + window.location.search) return;
   window.history.pushState(null, "", href);

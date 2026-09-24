@@ -1,12 +1,12 @@
 // Shell.tsx: the frame every page sits in. The ground, the rail, main with the page in it,
 // the column on the right where the page has one, and the jump bar. The rail, the ground
 // and the jump bar stay across pages; what changes between routes is main's child and what
-// the column lists. Until cn-68, a page for one id brings its own column from inside main,
-// so `side` says whether a column stands on the right and `column` is the one the shell
-// itself renders.
+// the column lists. The column is one `Column` the shell mounts once, in one place, and the
+// route says what it lists through `listing`; the log has none, and takes the width.
 import type { EpicLineView } from "@cairn/cli/views";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Column, type Listing } from "./Feed.tsx";
 import { Ground } from "./Ground.tsx";
 import { type Destination, JumpBar } from "./JumpBar.tsx";
 import { Rail } from "./Rail.tsx";
@@ -18,8 +18,8 @@ export function Shell({
   current,
   epicId,
   waiting,
-  side,
-  column,
+  listing,
+  now,
   destinations,
   onForget,
   children,
@@ -29,14 +29,15 @@ export function Shell({
   current: string;
   epicId: string | undefined;
   waiting: boolean;
-  /** Whether a column stands on the right, which main and the jump bar keep clear of. */
-  side: boolean;
-  /** The column the shell renders there, where the page does not bring its own. */
-  column?: ReactNode;
+  /** What the column on the right lists, or nothing where the route has no column. */
+  listing?: Listing;
+  now: number;
   destinations: Destination[];
   onForget: () => void;
   children: ReactNode;
 }) {
+  // Whether a column stands on the right, which main and the jump bar keep clear of.
+  const side = listing !== undefined;
   return (
     <>
       <Ground waiting={waiting} />
@@ -49,7 +50,7 @@ export function Shell({
       >
         <div className="mx-auto max-w-(--content-width)">{children}</div>
       </main>
-      {column}
+      {listing && <Column listing={listing} now={now} />}
       <JumpBar destinations={destinations} side={side} />
     </>
   );

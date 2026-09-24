@@ -2,20 +2,26 @@
 // each to a function cn calls: brief.get for the headline, epics.list for health and the
 // rail, blockers.list for what waits on a person, events.recent for the feed and the log,
 // issues.list for the lists and the jump bar. Nothing here calls a mutation: the window
-// reads. A page for one id adds show.get from inside the gate that catches its not-found
-// (App.tsx). undefined from any of them is the subscription not having answered yet, never
-// an empty list; unanswered is the deployment not having answered at all.
+// reads. show.get is asked here too, through `useShown`, for the id on screen. undefined
+// from any of them is the subscription not having answered yet, never an empty list;
+// unanswered is the deployment not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
-import type { BriefView, EpicLineView, LogEvent } from "@cairn/cli/views";
-import { useConvexConnectionState, useQuery } from "convex/react";
+import type { BriefView, EpicLineView, LogEvent, Shown } from "@cairn/cli/views";
+import {
+  type RequestForQueries,
+  useConvexConnectionState,
+  useQueries,
+  useQuery,
+} from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { useHeld } from "./held.ts";
 import type { Listed } from "./ItemPages.tsx";
 import type { Destination } from "./JumpBar.tsx";
 import type { WaitingBlocker } from "./Overview.tsx";
 
-/** How much of the feed the Overview keeps beside it, and how much the log page holds. */
-const FEED = 30;
+/** How much of the feed the column shows: the head of the one subscription. */
+export const FEED = 30;
+/** How much the one events subscription holds, which is what the log page shows. */
 const LOG = 200;
 
 /**
@@ -42,16 +48,13 @@ export type Deployment = {
 };
 
 /** The five subscriptions, the jump bar's destinations, and whether the deployment answered. */
-export function useDeployment(secret: string | undefined, now: number, onLog: boolean): Deployment {
+export function useDeployment(secret: string | undefined, now: number): Deployment {
   const who: Who = secret === undefined ? {} : { secret };
   const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
   const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
   const blockers = useQuery(api.blockers.list, who);
   const issues: Listed[] | undefined = useQuery(api.issues.list, who);
-  const events = useHeld(
-    useQuery(api.events.recent, { ...who, limit: onLog ? LOG : FEED }),
-    onLog ? "log" : "feed",
-  );
+  const events = useHeld(useQuery(api.events.recent, { ...who, limit: LOG }));
 
   const destinations = useMemo<Destination[]>(
     () => [
@@ -77,4 +80,28 @@ export function useDeployment(secret: string | undefined, now: number, onLog: bo
   const unanswered = waited && !connection.hasEverConnected;
 
   return { who, brief, epics, blockers, issues, events, destinations, unanswered };
+}
+
+/**
+ * `cn show <id> --history`, live, for the page on screen: the answer, the Error the deployment
+ * threw, or undefined while it is on the way or there is no id. Through `useQueries`, which
+ * hands an error back rather than throwing it, so a missing id is a value the page reads
+ * (Lost) and not a boundary's business.
+ */
+export function useShown(who: Who, id: string | undefined, now: number): Shown | Error | undefined {
+  // `useQueries` subscribes by the request object's identity and sets state during render
+  // when it changes, so a fresh object every render is a render loop; `useQuery` memoises
+  // its own the same way.
+  const { secret } = who;
+  const request = useMemo((): RequestForQueries => {
+    if (id === undefined) return {};
+    return {
+      shown: {
+        query: api.show.get,
+        args: { ...(secret === undefined ? {} : { secret }), id, history: true, now },
+      },
+    };
+  }, [secret, id, now]);
+  const answers = useQueries(request);
+  return id === undefined ? undefined : (answers.shown as Shown | Error | undefined);
 }
