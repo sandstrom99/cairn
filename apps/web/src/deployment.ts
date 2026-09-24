@@ -2,12 +2,13 @@
 // each to a function cn calls: brief.get for the headline, epics.list for health and the
 // rail, blockers.list for what waits on a person, events.recent for the feed and the log,
 // issues.list for the lists and the jump bar. Nothing here calls a mutation: the window
-// reads. show.get is asked here too, through `useShown`, for the id on screen. undefined
-// from any of them is the subscription not having answered yet, never an empty list;
-// unanswered is the deployment not having answered at all.
+// reads. show.get is asked here too, through `useShown`, for the id on screen, and
+// review.get through `useReview`, for an epic's page. undefined from any of them is the
+// subscription not having answered yet, never an empty list; unanswered is the deployment
+// not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { JOURNAL_MAX, LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
-import type { BriefView, EpicLineView, LogEvent, Shown } from "@cairn/cli/views";
+import type { BriefView, EpicLineView, LogEvent, ReviewView, Shown } from "@cairn/cli/views";
 import {
   type RequestForQueries,
   useConvexConnectionState,
@@ -106,4 +107,24 @@ export function useShown(who: Who, id: string | undefined, now: number): Shown |
   }, [secret, id, now]);
   const answers = useQueries(request);
   return id === undefined ? undefined : (answers.shown as Shown | Error | undefined);
+}
+
+/**
+ * `cn review <ep>`, live, for an epic's page: the answer, or undefined while it is on the way,
+ * when the id is not an epic's, or when the deployment refused it.
+ */
+export function useReview(who: Who, id: string | undefined, now: number): ReviewView | undefined {
+  // Memoised for the reason `useShown`'s request is.
+  const { secret } = who;
+  const request = useMemo((): RequestForQueries => {
+    if (id === undefined || !id.startsWith("ep-")) return {};
+    return {
+      review: {
+        query: api.review.get,
+        args: { ...(secret === undefined ? {} : { secret }), id, now },
+      },
+    };
+  }, [secret, id, now]);
+  const answer = useQueries(request).review as ReviewView | Error | undefined;
+  return answer instanceof Error ? undefined : answer;
 }

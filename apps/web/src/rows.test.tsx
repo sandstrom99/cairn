@@ -274,7 +274,7 @@ const PINS: Pin[] = [
     element: <EpicPage epic={parent} issues={[listed]} now={now} />,
     text: [
       "Overview",
-      `${parent.id} Copy reference ${parent.title}`,
+      `${parent.id} Copy reference ? ${parent.title}`,
       `${epicWord(parent)} ${countsRun(parent.counts)}`,
       "In progress 1",
       issueLine(bare),

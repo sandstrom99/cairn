@@ -6,7 +6,7 @@
 //
 // Nothing here asks the deployment anything; App.tsx does, and these render what came
 // back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
-// and the page sets their pieces (sheet.test.tsx).
+// and the page sets their pieces (sheet.test.tsx). The ask menu's lines come from prompts.ts.
 import { JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
 import {
   blockerFacts,
@@ -16,9 +16,10 @@ import {
   proofParts,
   stateParts,
 } from "@cairn/cli/parts";
-import type { ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
+import type { ReviewView, ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
 import type { Referable } from "@cairn/cli/ref";
 import { Group } from "./page.tsx";
+import { blockerPrompts, epicPrompts, issuePrompts } from "./prompts.ts";
 import { Prose } from "./Prose.tsx";
 import { Refs, Run } from "./Ref.tsx";
 import { Groups, HealthRows, type Listed } from "./rows.tsx";
@@ -47,7 +48,7 @@ export function IssuePage({
       <Crumbs epic={issue.epic}>
         <Neighbours compact before={before} after={after} where={where} />
       </Crumbs>
-      <Heading item={issue} />
+      <Heading item={issue} prompts={issuePrompts(issue, now)} />
       <State word={state.word}>
         {state.refs ? (
           <>
@@ -130,17 +131,20 @@ export function JournalEntry({ entry, now }: { entry: Entry; now: number }) {
 export function EpicPage({
   epic,
   issues,
+  review,
   now,
 }: {
   epic: ShownEpic;
   issues: Listed[];
+  /** `cn review` of this epic, for the ask menu's line about a mess; undefined until it answers. */
+  review?: ReviewView;
   now: number;
 }) {
   const { counts, rows } = healthParts(epic, now);
   return (
     <article>
       <Crumbs />
-      <Heading item={epic} />
+      <Heading item={epic} prompts={epicPrompts(epic, review)} />
       <State word={epicWord(epic)}>
         <Run text={counts} />
       </State>
@@ -175,7 +179,7 @@ export function BlockerPage({ blocker, now }: { blocker: ShownBlocker; now: numb
   return (
     <article>
       <Crumbs />
-      <Heading item={blocker} />
+      <Heading item={blocker} prompts={blockerPrompts(blocker)} />
       <State word={resolved ? "resolved" : "waiting"}>
         {resolved ? blocker.resolution : `on ${blocker.owner}`}
       </State>

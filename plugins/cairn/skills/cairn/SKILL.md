@@ -4,7 +4,11 @@ description: >
   The agent worklist. Use for any work that spans sessions, machines or agents: what is
   ready, what is in progress, what is waiting on a human, what a task is and what happened
   to it. Trigger on "what's ready", "track this", "pick up where we left off", "what is
-  app-14", "close this", "log a finding". Everything goes through the `cn` CLI.
+  app-14", "close this", "log a finding". Also trigger, unprompted, on a sentence that
+  names an issue, epic or blocker in the reference form and asks where it stands, why it
+  is quiet, what it is waiting on, whether it is still worth doing, what should happen
+  next, or for help deciding: read it with `cn show` or `cn review` before answering.
+  Everything goes through the `cn` CLI.
 allowed-tools: "Bash(cn:*)"
 version: "0.1.0"
 ---
@@ -88,6 +92,21 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
   `cn release <id>` when it is not, so the next session can take it.
 - **With the person.** `/cairn:review <epic>` goes through `cn review` together: what to
   look at, and the verb for each line. It writes nothing.
+
+## When the person speaks plainly
+
+The web page offers the person lines to say, never commands to run: "Catch me up on
+cn-14 "…": where it stands, what's been tried, what's left", "cn-14 "…" has been quiet
+for 9 days. Find out why and tell me what it needs to move", "ep-3 "…" has gotten
+messy. Help me sort it out". A message that names an issue, epic or blocker in the
+reference form and asks about it is one of these, whether or not it came from the page.
+Read before answering, every time: `cn show <id>` for an issue or a blocker, with
+`--history` when the question is what happened or what was tried; `cn show <ep>` and
+`cn review <ep>` for an epic. Then answer in the person's terms — where it stands, what
+has been tried, what it needs, what the options cost — and take the verb that follows
+yourself: `cn claim <id>` for "pick it up", `cn wait <id>` for what needs them, `cn dep
+add` for a duplicate found. Never hand back a `cn` line or a slash command for the person
+to paste. Steering agents is not their job.
 
 ## Three boundaries
 

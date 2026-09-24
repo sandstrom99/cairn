@@ -431,6 +431,32 @@
     transition-timing-function: var(--motion-ease);
   }
 
+  /* ---------- the second motion the reader asks for: the ask menu opening ---------- */
+
+  .ask-pop {
+    transform-origin: var(--radix-popover-content-transform-origin);
+    animation: pop 220ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  }
+
+  .ask-line {
+    animation: settle 260ms var(--motion-ease) both;
+    animation-delay: calc(var(--i) * 40ms);
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+  }
+
+  @keyframes settle {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .landed,
     .landed::after {
@@ -447,6 +473,11 @@
 
     .folds {
       transition: none;
+    }
+
+    .ask-pop,
+    .ask-line {
+      animation: none;
     }
   }
 }
