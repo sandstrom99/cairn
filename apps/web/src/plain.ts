@@ -12,8 +12,9 @@ const ENTITIES: Record<string, string> = {
 /** Whitespace closed up to single spaces: cn pads its columns, a page sets them. */
 export const squeeze = (text: string): string => text.replace(/\s+/g, " ").trim();
 
-/** The elements the page uses as blocks. A row is an `li`, never a bare link, for this. */
-const BLOCK_END = /<\/(?:div|h[1-6]|header|li|p|section|ul)>/g;
+/** The elements the page uses as blocks, each ending a line. A row is an `li`, never a bare link, for this. */
+const BLOCK_END =
+  /<\/(?:article|aside|dd|details|div|dl|dt|h[1-6]|header|li|nav|p|pre|section|summary|ul)>/g;
 
 export const plain = (markup: string): string =>
   squeeze(

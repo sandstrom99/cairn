@@ -9,6 +9,7 @@ import type { CairnError } from "@cairn/backend/convex/lib/errors.js";
 import { ConvexError } from "convex/values";
 import { Component, type ReactNode } from "react";
 import { Connect } from "./Connect.tsx";
+import { Title } from "./page.tsx";
 import { shortcut } from "./platform.ts";
 
 /** The deployment's own `{ kind, message }` when the error is one it threw, else undefined. */
@@ -62,9 +63,7 @@ export class Gate extends Component<
 export function Lost({ what }: { what: string }) {
   return (
     <div>
-      <h1 className="text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em]">
-        Nothing here is called {what}
-      </h1>
+      <Title>Nothing here is called {what}</Title>
       <p className="mt-3 text-slate">
         It may have been typed wrong, or live on another deployment.{" "}
         <a href="/" className="text-ink underline decoration-faint underline-offset-[3px]">
@@ -80,9 +79,7 @@ export function Lost({ what }: { what: string }) {
 export function Broken({ message }: { message: string }) {
   return (
     <div>
-      <h1 className="text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em]">
-        Something broke
-      </h1>
+      <Title>Something broke</Title>
       <p className="mt-3 text-slate">
         <span className="font-mono text-row">{message}</span>{" "}
         <a href="/" className="text-ink underline decoration-faint underline-offset-[3px]">

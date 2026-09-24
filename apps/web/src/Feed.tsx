@@ -24,9 +24,10 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { type ComponentType, useEffect, useRef } from "react";
+import { type ComponentType, Fragment, type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Pending } from "./page.tsx";
 import { Ref } from "./Ref.tsx";
 
 // By the word after the dot: `issue.claim` and a later `thing.claim` are the same act.
@@ -56,7 +57,52 @@ export function FeedEvent({
   landed?: boolean;
 }) {
   const { target, kind, actor, when, changes } = logParts(event, now);
+  return (
+    <EventEntry
+      kind={kind}
+      head={target ? <Ref item={target} clip /> : <span className="text-mark">—</span>}
+      mark={kind}
+      actor={actor}
+      when={when}
+      changes={changes}
+      landed={landed}
+    />
+  );
+}
+
+const ENTRY =
+  "relative grid grid-cols-[30px_minmax(0,1fr)] gap-[11px] overflow-hidden rounded-[14px] px-3 py-[13px] [&+li]:before:absolute [&+li]:before:top-0 [&+li]:before:right-3 [&+li]:before:left-[53px] [&+li]:before:border-t [&+li]:before:border-hair";
+
+/**
+ * One event as the pieces of its line, on the tile and grid every entry shares. The head is
+ * the bold top-left cell, the mark the mono piece before the actor on the meta line. Where
+ * the head falls in the text is the line's: first, where logLine leads with the target, or
+ * after `when`, where a history line puts the kind third.
+ */
+export function EventEntry({
+  kind,
+  head,
+  mark,
+  actor,
+  when,
+  changes,
+  headAfterWhen = false,
+  landed = false,
+}: {
+  /** The event's kind, which picks the icon. */
+  kind: string;
+  head: ReactNode;
+  mark: string;
+  actor: string;
+  when: string;
+  changes: string[];
+  headAfterWhen?: boolean;
+  landed?: boolean;
+}) {
   const Icon = ICONS[kind.split(".")[1] ?? ""] ?? CircleDot;
+  const cell = (
+    <span className="col-start-1 row-start-1 min-w-0 text-row font-semibold">{head}</span>
+  );
   return (
     <li className={cn(ENTRY, landed && "landed")}>
       <span className="grid size-[30px] place-items-center rounded-[9px] bg-lift shadow-ring">
@@ -64,13 +110,12 @@ export function FeedEvent({
       </span>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2.5">
         {/* The spaces between the pieces are cn's; a grid does not draw a bare one. */}
-        <span className="col-start-1 row-start-1 min-w-0 text-row font-semibold">
-          {target ? <Ref item={target} clip /> : <span className="text-mark">—</span>}
-        </span>{" "}
+        {!headAfterWhen && <>{cell} </>}
         <span className="col-span-2 row-start-2 mt-px flex gap-2.5 text-meta text-slate">
-          <span className="font-mono">{kind}</span> <span>{actor}</span>
+          <span className="font-mono">{mark}</span> <span>{actor}</span>
         </span>{" "}
         <span className="col-start-2 row-start-1 text-meta text-slate">{when}</span>{" "}
+        {headAfterWhen && <>{cell} </>}
         <Changes changes={changes} />
       </div>
     </li>
@@ -169,9 +214,27 @@ export function Column({
         {/* The keys are deliberate: the same feed keeps its list and its scroll from the overview
             to an epic, and one id's history is its own list. */}
         {listing.kind === "feed" ? (
-          <FeedList key="feed" events={listing.events} now={now} />
+          <EventList
+            key="feed"
+            events={listing.events}
+            empty={
+              <p className="px-5 text-small text-slate">
+                Nothing has happened here yet. The first cn write shows up as it lands.
+              </p>
+            }
+            entry={(event, landed) => <FeedEvent event={event} now={now} landed={landed} />}
+          />
         ) : (
-          <HistoryList key={listing.self} events={listing.events} now={now} self={listing.self} />
+          // One thing's own history, newest first: `cn show <id> --history`, which prints it
+          // oldest first because a terminal is read downwards and a column beside a page is
+          // read from the top. `self` is that id, so an edge among the events reads from this end.
+          <EventList
+            key={listing.self}
+            events={listing.events && [...listing.events].reverse()}
+            entry={(event, landed) => (
+              <HistoryEntry event={event} now={now} self={listing.self} landed={landed} />
+            )}
+          />
         )}
         {listing.kind === "feed" && (
           <div className="px-5 pt-3 pb-4 text-small text-slate">
@@ -200,64 +263,28 @@ function useLanded(newest: number | undefined): (at: number) => boolean {
   return (at) => threshold !== undefined && at > threshold;
 }
 
-/** The deployment's feed, newest first. */
-function FeedList({ events, now }: { events: LogEvent[] | undefined; now: number }) {
+/** A column's list, newest first: the pending line until the subscription answers, then a row per event, each marked when it arrived while the page was open. */
+function EventList<E extends { at: number; kind: string }>({
+  events,
+  empty,
+  entry,
+}: {
+  events: E[] | undefined;
+  /** What stands where there is nothing yet. A thing's own history always has its create, so it passes none. */
+  empty?: ReactNode;
+  entry: (event: E, landed: boolean) => ReactNode;
+}) {
   const landed = useLanded(events?.[0]?.at);
-  return events === undefined ? (
-    <p className="px-5 text-small text-slate">Listening…</p>
-  ) : events.length === 0 ? (
-    <p className="px-5 text-small text-slate">
-      Nothing has happened here yet. The first cn write shows up as it lands.
-    </p>
-  ) : (
+  if (events === undefined) return <Pending className="px-5 text-small">Listening…</Pending>;
+  if (events.length === 0) return empty ?? null;
+  return (
     <ul className={LIST}>
       {events.map((event) => (
-        <FeedEvent
-          key={`${event.at} ${event.kind}`}
-          event={event}
-          now={now}
-          landed={landed(event.at)}
-        />
+        <Fragment key={`${event.at} ${event.kind}`}>{entry(event, landed(event.at))}</Fragment>
       ))}
     </ul>
   );
 }
-
-/**
- * One thing's own history, newest first: `cn show <id> --history`, which prints it oldest
- * first because a terminal is read downwards and a column beside a page is read from the top.
- * `self` is that id, so an edge among the events reads from this end.
- */
-function HistoryList({
-  events,
-  now,
-  self,
-}: {
-  events: HistoryEvent[] | undefined;
-  now: number;
-  self: string;
-}) {
-  const newestFirst = events === undefined ? undefined : [...events].reverse();
-  const landed = useLanded(newestFirst?.[0]?.at);
-  return newestFirst === undefined ? (
-    <p className="px-5 text-small text-slate">Listening…</p>
-  ) : (
-    <ul className={LIST}>
-      {newestFirst.map((event) => (
-        <HistoryEntry
-          key={`${event.at} ${event.kind}`}
-          event={event}
-          now={now}
-          self={self}
-          landed={landed(event.at)}
-        />
-      ))}
-    </ul>
-  );
-}
-
-const ENTRY =
-  "relative grid grid-cols-[30px_minmax(0,1fr)] gap-[11px] overflow-hidden rounded-[14px] px-3 py-[13px] [&+li]:before:absolute [&+li]:before:top-0 [&+li]:before:right-3 [&+li]:before:left-[53px] [&+li]:before:border-t [&+li]:before:border-hair";
 
 /** `r4  wsl/claude  2h ago  issue.update  priority 2 → 1`, with the kind drawn first. */
 export function HistoryEntry({
@@ -272,20 +299,16 @@ export function HistoryEntry({
   landed?: boolean;
 }) {
   const { revision, actor, when, kind, changes } = historyParts(event, now, self);
-  const Icon = ICONS[kind.split(".")[1] ?? ""] ?? CircleDot;
   return (
-    <li className={cn(ENTRY, landed && "landed")}>
-      <span className="grid size-[30px] place-items-center rounded-[9px] bg-lift shadow-ring">
-        <Icon className="size-[15px]" />
-      </span>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2.5">
-        <span className="col-span-2 row-start-2 mt-px flex gap-2.5 text-meta text-slate">
-          <span className="font-mono">{revision}</span> <span>{actor}</span>
-        </span>{" "}
-        <span className="col-start-2 row-start-1 text-meta text-slate">{when}</span>{" "}
-        <span className="col-start-1 row-start-1 font-mono text-row font-semibold">{kind}</span>{" "}
-        <Changes changes={changes} />
-      </div>
-    </li>
+    <EventEntry
+      kind={kind}
+      head={<span className="font-mono">{kind}</span>}
+      mark={revision}
+      actor={actor}
+      when={when}
+      changes={changes}
+      headAfterWhen
+      landed={landed}
+    />
   );
 }

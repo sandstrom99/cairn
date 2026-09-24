@@ -23,11 +23,13 @@ import { FEED, useDeployment, useShown, WAIT } from "./deployment.ts";
 import type { Listing } from "./Feed.tsx";
 import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
 import { useStale } from "./held.ts";
-import { BlockerPage, EpicPage, IssuePage, type Listed } from "./ItemPages.tsx";
+import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { type Route, routeOf, useLinks, usePath } from "./location.ts";
 import { useMinute } from "./now.ts";
 import { Brief, Epics, Waiting } from "./Overview.tsx";
+import { Pending } from "./page.tsx";
+import type { Listed } from "./rows.tsx";
 import { devSecret, readSecret, writeSecret } from "./secret.ts";
 import { Shell } from "./Shell.tsx";
 
@@ -130,7 +132,7 @@ function Window({
         <Lost what={path} />
       ) : route.page === "overview" ? (
         brief === undefined || epics === undefined ? (
-          <p className="text-slate">Reading {host}…</p>
+          <Pending>Reading {host}…</Pending>
         ) : (
           <>
             <Brief view={brief} />
@@ -151,7 +153,7 @@ function Window({
               <Broken message={errorData(error)?.message ?? error.message} />
             )
           ) : shown === undefined ? (
-            <p className="text-slate">Reading {route.id}…</p>
+            <Pending>Reading {route.id}…</Pending>
           ) : (
             <ItemPage shown={shown} stale={stale} issues={issues} now={now} />
           )}
