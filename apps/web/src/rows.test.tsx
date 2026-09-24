@@ -315,7 +315,7 @@ const PINS: Pin[] = [
   },
   {
     name: "the rail's epics",
-    element: <Rail host="h" epics={[busy, still]} />,
+    element: <Rail host="h" epics={[busy, still]} theme="light" onToggleTheme={() => {}} />,
     rows: [ref(busy), ref(still)],
   },
   {

@@ -11,6 +11,7 @@ import { Column, type ColumnState, type Listing } from "./Feed.tsx";
 import { Ground } from "./Ground.tsx";
 import { type Destination, JumpBar } from "./JumpBar.tsx";
 import { Rail } from "./Rail.tsx";
+import type { Theme } from "./theme.ts";
 
 /** The page's frame around `children`, which is the page for the route. */
 export function Shell({
@@ -22,6 +23,8 @@ export function Shell({
   listing,
   collapsed,
   onToggleColumn,
+  theme,
+  onToggleTheme,
   now,
   destinations,
   onForget,
@@ -37,6 +40,9 @@ export function Shell({
   /** Whether the column is collapsed to its strip: this browser's choice, held by Window. */
   collapsed: boolean;
   onToggleColumn: () => void;
+  /** Light or dark: this browser's choice or the system's, held by App. */
+  theme: Theme;
+  onToggleTheme: () => void;
   now: number;
   destinations: Destination[];
   onForget: () => void;
@@ -47,7 +53,15 @@ export function Shell({
   return (
     <>
       <Ground waiting={waiting} />
-      <Rail host={host} epics={epics} current={current} epicId={epicId} onForget={onForget} />
+      <Rail
+        host={host}
+        epics={epics}
+        current={current}
+        epicId={epicId}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        onForget={onForget}
+      />
       <main
         className={cn(
           "folds relative z-10 ml-(--main-left) px-10 pt-16 pb-36 narrow:ml-0 narrow:px-4 narrow:pt-9",

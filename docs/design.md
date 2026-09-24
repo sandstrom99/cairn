@@ -685,7 +685,12 @@ The look, and what each choice rules out:
   contents fading rather than reflowing; `prefers-reduced-motion` turns it off.
   The choice is the browser's, kept in localStorage beside the secret and never
   the deployment's. Below 1100px the column is hidden, and that is its only state.
-- Light first. Dark is a second set of values for the same tokens.
+- **Light first, and dark as the second set of values for the same tokens**, under
+  `.dark` on `<html>` and nothing else. The page follows the system's setting until
+  the reader flips the switch in the rail's head, and the choice is kept in
+  localStorage beside the secret and the column's state, never the deployment's. A
+  script in `index.html` sets the class before first paint, so a dark page never
+  flashes light.
 
 Components are shadcn's, on Tailwind 4 and Radix, restyled through the tokens in
 `apps/web/src/index.css`.
