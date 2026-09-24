@@ -16,7 +16,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { JOURNAL_KINDS, need, oneOf } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError, say } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 
@@ -48,8 +47,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
-  const entry = await client.mutation(api.journal.append, { actor: actor(), ...parsed.args });
+  const { client, actor } = connect();
+  const entry = await client.mutation(api.journal.append, { actor, ...parsed.args });
   // Nothing on stdout: the entry is the answer and it is already stored, so a pipeline
   // reading this verb would only be reading back what it wrote.
   say(`${entry.kind} recorded on ${entry.id}`);

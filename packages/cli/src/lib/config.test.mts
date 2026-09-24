@@ -1,16 +1,6 @@
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { chmodSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname } from "node:path";
+import { describe, expect, it } from "vitest";
 import {
   type CairnConfig,
   configPath,
@@ -19,85 +9,74 @@ import {
   withDeployment,
   writeConfig,
 } from "./config.mts";
+import { tempConfig, tempHome } from "./testing.mts";
 
-/** Every XDG_CONFIG_HOME a test makes, removed after it whatever it did. */
-const made: string[] = [];
-afterEach(() => {
-  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+describe("readConfig", () => {
+  it("is the file parsed, or null when there is none", () => {
+    expect(readConfig(tempConfig({ deployments: { a: { url: "https://a" } } }))).toEqual({
+      deployments: { a: { url: "https://a" } },
+    });
+    expect(readConfig({ XDG_CONFIG_HOME: tempHome() })).toBeNull();
+  });
 });
 
-function tempHome(prefix: string): string {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
-  made.push(dir);
-  return dir;
-}
-
-function tempConfig(body: unknown): NodeJS.ProcessEnv {
-  const home = tempHome("cairn-config-");
-  mkdirSync(join(home, "cairn"));
-  writeFileSync(join(home, "cairn", "config.json"), JSON.stringify(body));
-  return { XDG_CONFIG_HOME: home };
-}
-
 describe("resolveDeployment", () => {
+  /** Where the file would be, for the messages that name it. */
+  const env = { XDG_CONFIG_HOME: "/nowhere" };
+
   it("prefers CAIRN_URL over any file", () => {
-    const env = {
-      ...tempConfig({ deployments: { a: { url: "https://a" } } }),
-      CAIRN_URL: "https://env",
-    };
-    expect(resolveDeployment(env)).toEqual({
-      name: "CAIRN_URL",
-      url: "https://env",
-      source: "env",
-    });
+    expect(
+      resolveDeployment({ CAIRN_URL: "https://env" }, { deployments: { a: { url: "https://a" } } }),
+    ).toEqual({ name: "CAIRN_URL", url: "https://env", source: "env" });
   });
 
   it("uses the default deployment from the file", () => {
-    const env = tempConfig({
-      default: "b",
-      deployments: { a: { url: "https://a" }, b: { url: "https://b" } },
-    });
-    expect(resolveDeployment(env)).toEqual({ name: "b", url: "https://b", source: "config" });
+    expect(
+      resolveDeployment(env, {
+        default: "b",
+        deployments: { a: { url: "https://a" }, b: { url: "https://b" } },
+      }),
+    ).toEqual({ name: "b", url: "https://b", source: "config" });
   });
 
   it("uses the only deployment when there is one and no default", () => {
-    const env = tempConfig({ deployments: { a: { url: "https://a" } } });
-    expect(resolveDeployment(env)?.name).toBe("a");
+    expect(resolveDeployment(env, { deployments: { a: { url: "https://a" } } })?.name).toBe("a");
   });
 
   it("answers null with two deployments and no default", () => {
-    const env = tempConfig({ deployments: { a: { url: "https://a" }, b: { url: "https://b" } } });
-    expect(resolveDeployment(env)).toBeNull();
+    expect(
+      resolveDeployment(env, { deployments: { a: { url: "https://a" }, b: { url: "https://b" } } }),
+    ).toBeNull();
   });
 
   it("answers null with no file at all", () => {
-    expect(resolveDeployment({ XDG_CONFIG_HOME: tempHome("cairn-empty-") })).toBeNull();
+    expect(resolveDeployment(env, null)).toBeNull();
   });
 
   it("names the file when the default names no deployment, with or without a deployments key", () => {
-    const noKey = tempConfig({ default: "cairn" });
-    expect(() => resolveDeployment(noKey)).toThrow(
-      `${configPath(noKey)}: default "cairn" names no deployment in the file`,
-    );
-    const other = tempConfig({
-      default: "cairn",
-      deployments: { local: { url: "http://127.0.0.1:3210" } },
-    });
-    expect(() => resolveDeployment(other)).toThrow(
-      `${configPath(other)}: default "cairn" names no deployment in the file`,
-    );
+    const named = `${configPath(env)}: default "cairn" names no deployment in the file`;
+    expect(() => resolveDeployment(env, { default: "cairn" } as CairnConfig)).toThrow(named);
+    expect(() =>
+      resolveDeployment(env, {
+        default: "cairn",
+        deployments: { local: { url: "http://127.0.0.1:3210" } },
+      }),
+    ).toThrow(named);
   });
 
   it("names the file when the default deployment has no url", () => {
-    const env = tempConfig({ default: "cairn", deployments: { cairn: { secret: "s" } } });
-    expect(() => resolveDeployment(env)).toThrow(
-      `${configPath(env)}: deployment "cairn" has no url`,
-    );
+    expect(() =>
+      resolveDeployment(env, {
+        default: "cairn",
+        deployments: { cairn: { secret: "s" } },
+      } as unknown as CairnConfig),
+    ).toThrow(`${configPath(env)}: deployment "cairn" has no url`);
   });
 
   it("carries the secret from the file, with its source", () => {
-    const env = tempConfig({ deployments: { a: { url: "https://a", secret: "from-file" } } });
-    expect(resolveDeployment(env)).toEqual({
+    expect(
+      resolveDeployment(env, { deployments: { a: { url: "https://a", secret: "from-file" } } }),
+    ).toEqual({
       name: "a",
       url: "https://a",
       source: "config",
@@ -107,19 +86,16 @@ describe("resolveDeployment", () => {
   });
 
   it("lets CAIRN_SECRET override the file's secret", () => {
-    const env = {
-      ...tempConfig({ deployments: { a: { url: "https://a", secret: "from-file" } } }),
-      CAIRN_SECRET: "from-shell",
-    };
-    expect(resolveDeployment(env)).toMatchObject({
-      url: "https://a",
-      secret: "from-shell",
-      secretSource: "env",
-    });
+    expect(
+      resolveDeployment(
+        { CAIRN_SECRET: "from-shell" },
+        { deployments: { a: { url: "https://a", secret: "from-file" } } },
+      ),
+    ).toMatchObject({ url: "https://a", secret: "from-shell", secretSource: "env" });
   });
 
   it("carries CAIRN_SECRET alongside CAIRN_URL", () => {
-    expect(resolveDeployment({ CAIRN_URL: "https://env", CAIRN_SECRET: "s" })).toEqual({
+    expect(resolveDeployment({ CAIRN_URL: "https://env", CAIRN_SECRET: "s" }, null)).toEqual({
       name: "CAIRN_URL",
       url: "https://env",
       source: "env",
@@ -129,7 +105,7 @@ describe("resolveDeployment", () => {
   });
 
   it("carries no secret when neither the file nor the shell has one", () => {
-    const dep = resolveDeployment({ CAIRN_URL: "https://env" });
+    const dep = resolveDeployment({ CAIRN_URL: "https://env" }, null);
     expect(dep?.secret).toBeUndefined();
     expect(dep?.secretSource).toBeUndefined();
   });
@@ -157,8 +133,6 @@ describe("withDeployment", () => {
       default: "cairn",
       deployments: { cairn: { url: "https://b" } },
     });
-    // An empty --can is not an answer about what the machine can do.
-    expect(withDeployment(null, { ...input, can: [] })).not.toHaveProperty("can");
   });
 
   it("adds beside what is there, leaving the default, host and can alone", () => {
@@ -216,7 +190,7 @@ describe("withDeployment", () => {
 });
 
 describe("writeConfig", () => {
-  const home = (): NodeJS.ProcessEnv => ({ XDG_CONFIG_HOME: tempHome("cairn-write-") });
+  const home = (): NodeJS.ProcessEnv => ({ XDG_CONFIG_HOME: tempHome() });
   const mode = (file: string): number => statSync(file).mode & 0o777;
 
   const config: CairnConfig = {

@@ -28,13 +28,11 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
-import { can } from "../lib/can.mts";
 import { answer } from "../lib/cli.mts";
-import { api, connect } from "../lib/client.mts";
-import { resolveDeployment } from "../lib/config.mts";
+import { api, connectTo } from "../lib/client.mts";
 import { briefLines, unjournaledLine } from "../lib/lines.mts";
 import { unjournaled } from "../lib/parts.mts";
+import { session } from "../lib/session.mts";
 
 export const name = "brief";
 export const summary =
@@ -58,14 +56,12 @@ export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
   // Nothing configured is not an error here: a hook on a machine without cairn is silent.
   // A deployment that is configured and does not answer throws, like every other verb.
-  const deployment = resolveDeployment();
+  const { deployment, actor: me, can } = session({ can: parsed.can });
   if (!deployment) return 0;
 
-  const capabilities = can(parsed.can);
-  const { client } = connect();
+  const client = connectTo(deployment);
   // The actor goes along so the deployment can mark which claims are this session's.
-  const me = actor();
-  const view = await client.query(api.brief.get, { can: capabilities, actor: me });
+  const view = await client.query(api.brief.get, { can, actor: me });
   if (parsed.unjournaled) {
     // The rows are the deployment's marks on what it says is this session's; the line is
     // one or none, and a silent exit 0 is the answer "nothing held quiet".
@@ -76,7 +72,7 @@ export async function run(argv: string[]): Promise<number> {
     return 0;
   }
   answer(parsed.json, view, (v) =>
-    briefLines(v, { deployment: deployment.name, actor: me.name, can: capabilities }),
+    briefLines(v, { deployment: deployment.name, actor: me.name, can }),
   );
   return 0;
 }

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { DAY, HOUR, MINUTE, ago, now } from "./testing.mts";
 import { age, day, silence, since } from "./time.mts";
-
-const now = Date.UTC(2026, 8, 17, 12, 0, 0);
-const ago = (ms: number): number => now - ms;
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
 
 describe("age", () => {
   it("is one token, coarsening as it gets older", () => {

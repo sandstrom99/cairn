@@ -15,7 +15,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { date, maybe, onlyId, priority, revision } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
@@ -84,8 +83,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
-  const issue = await client.mutation(api.issues.update, { actor: actor(), ...parsed.args });
+  const { client, actor } = connect();
+  const issue = await client.mutation(api.issues.update, { actor, ...parsed.args });
   console.log(issueLine(issue));
   return 0;
 }

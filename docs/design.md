@@ -745,8 +745,8 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
  │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  review.ts       │
  └────────────────────────────────────┘  call per    │ projects.ts  events.ts             │
        cn  (Node 24, .mts, no build)     verb        │ lib/  ids · revision · actor ·     │
-       config.mts → url, secret, can[]               │       events · guard · verification│
-       actor.mts  → { name, kind }                   └────────────────────────────────────┘
+       session.mts → deployment, actor, can[]        │       events · guard · verification│
+                     from config.json, read once     └────────────────────────────────────┘
        client.mts → ConvexHttpClient                                 ▲
        verbs/*    → api.<module>.<fn> → ref()                        │
                                                                      │

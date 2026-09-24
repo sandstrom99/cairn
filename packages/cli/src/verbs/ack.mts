@@ -12,7 +12,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { api, connect } from "../lib/client.mts";
 import { blockerLine } from "../lib/lines.mts";
 
@@ -30,9 +29,7 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
-  console.log(
-    blockerLine(await client.mutation(api.blockers.ack, { actor: actor(), ...parsed.args })),
-  );
+  const { client, actor } = connect();
+  console.log(blockerLine(await client.mutation(api.blockers.ack, { actor, ...parsed.args })));
   return 0;
 }

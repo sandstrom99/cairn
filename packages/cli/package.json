@@ -12,7 +12,8 @@
     "./views": "./src/lib/views.mts",
     "./time": "./src/lib/time.mts",
     "./parts": "./src/lib/parts.mts",
-    "./lines": "./src/lib/lines.mts"
+    "./lines": "./src/lib/lines.mts",
+    "./testing": "./src/lib/testing.mts"
   },
   "scripts": {
     "cn": "node src/main.mts",

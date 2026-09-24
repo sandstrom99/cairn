@@ -9,46 +9,13 @@ import {
   stateLine,
   stateParts,
 } from "./parts.mts";
-import type { Shown } from "./views.mts";
-
-const now = Date.UTC(2026, 8, 17, 12, 0, 0);
-const ago = (ms: number): number => now - ms;
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
-const issue = {
-  kind: "issue",
-  id: "cn-1",
-  project: "cn",
-  epic: { id: "ep-1", title: "Create to close" },
-  title: "schema, ids, revision, events",
-  design: "transcribe §3\nthen the functions",
-  requires: [],
-  status: "open",
-  priority: 0,
-  lastActivity: ago(HOUR),
-  revision: 0,
-  createdAt: ago(2 * HOUR),
-  journal: [],
-  blocks: [],
-  blockedBy: [],
-  related: [],
-  discoveredFrom: [],
-  duplicates: [],
-  supersedes: [],
-  waitingOn: [],
-  followUps: [],
-} as unknown as Shown;
+import { DAY, HOUR, MINUTE, ago, issue, now } from "./testing.mts";
 
 describe("stateParts", () => {
-  const shown = issue as Extract<Shown, { kind: "issue" }>;
-  const at = <T extends object>(patch: T) => ({ ...shown, ...patch }) as typeof shown;
-
   it("is one word and what it rests on, in the order the words matter", () => {
     expect(
       stateParts(
-        at({
+        issue({
           status: "in_progress",
           claimedBy: { name: "wsl/claude", kind: "agent" },
           claimedAt: ago(2 * HOUR),
@@ -57,36 +24,36 @@ describe("stateParts", () => {
       ),
     ).toEqual({ word: "moving", tail: "wsl/claude 2h" });
     const held = { id: "bl-4", title: "name the day" };
-    expect(stateParts(at({ waitingOn: [held], stuck: true }), now)).toEqual({
+    expect(stateParts(issue({ waitingOn: [held], stuck: true }), now)).toEqual({
       word: "waiting",
       tail: "on",
       refs: [held],
     });
-    expect(stateParts(at({ stuck: true, lastActivity: ago(9 * DAY) }), now)).toEqual({
+    expect(stateParts(issue({ stuck: true, lastActivity: ago(9 * DAY) }), now)).toEqual({
       word: "stuck",
       tail: "silent 9d",
     });
     const live = { id: "cn-2", title: "the lifecycle", status: "open" as const };
     const done = { id: "cn-3", title: "the graph", status: "closed" as const };
-    expect(stateParts(at({ blockedBy: [done, live] }), now)).toEqual({
+    expect(stateParts(issue({ blockedBy: [done, live] }), now)).toEqual({
       word: "blocked",
       tail: "by",
       refs: [live],
     });
-    expect(stateParts(at({ deferUntil: Date.UTC(2026, 9, 1) }), now)).toEqual({
+    expect(stateParts(issue({ deferUntil: Date.UTC(2026, 9, 1) }), now)).toEqual({
       word: "deferred",
       tail: "until 2026-10-01",
     });
-    expect(stateParts(at({ deferUntil: ago(DAY) }), now)).toEqual({ word: "open" });
-    expect(stateParts(at({ status: "closed", closedAt: ago(HOUR) }), now)).toEqual({
+    expect(stateParts(issue({ deferUntil: ago(DAY) }), now)).toEqual({ word: "open" });
+    expect(stateParts(issue({ status: "closed", closedAt: ago(HOUR) }), now)).toEqual({
       word: "closed",
       tail: "1h ago",
     });
-    expect(stateParts(at({ status: "dropped", closedAt: ago(HOUR) }), now)).toEqual({
+    expect(stateParts(issue({ status: "dropped", closedAt: ago(HOUR) }), now)).toEqual({
       word: "dropped",
       tail: "1h ago",
     });
-    expect(stateParts(shown, now)).toEqual({ word: "open" });
+    expect(stateParts(issue(), now)).toEqual({ word: "open" });
   });
 
   it("joins to one run, the things it names in the reference form", () => {

@@ -1,8 +1,12 @@
 // client.mts: the typed Convex client, and the generated `api` every verb calls through.
 //
 //   import { api, connect } from "../lib/client.mts";
-//   const { client } = connect();
+//   const { client, actor } = connect();
 //   const issues = await client.query(api.issues.list, { project: "app" });
+//
+// `connect()` is the session of lib/session.mts, read once, with the client for the
+// deployment it resolved: a verb takes the client and the actor from one call and reads
+// nothing else, and with no deployment it fails with the one sentence that names `cn init`.
 //
 // `api` comes from @cairn/backend's generated code, so a verb whose arguments drift from
 // the function's validator fails `vp check`, not the agent. This is the whole reason the
@@ -22,7 +26,8 @@
 
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { ConvexHttpClient } from "convex/browser";
-import { type Deployment, noDeploymentMessage, resolveDeployment } from "./config.mts";
+import { type Deployment, noDeploymentMessage } from "./config.mts";
+import { type Session, session } from "./session.mts";
 
 export { api };
 
@@ -59,12 +64,15 @@ export function connectTo(target: { url: string; secret?: string }): CairnClient
   return withSecret(client(target.url), target.secret);
 }
 
-/** The client for the deployment this machine resolves, or a message saying there is none. */
-export function connect(env: NodeJS.ProcessEnv = process.env): {
-  client: CairnClient;
-  deployment: Deployment;
-} {
-  const deployment = resolveDeployment(env);
-  if (!deployment) throw new Error(noDeploymentMessage());
-  return { client: connectTo(deployment), deployment };
+/** A session that resolved a deployment, with the client for it. */
+type Connected = Session & { deployment: Deployment; client: CairnClient };
+
+/** This call's session and the client for its deployment, or the one sentence saying there is none. */
+export function connect(
+  flag: { can?: string[] } = {},
+  env: NodeJS.ProcessEnv = process.env,
+): Connected {
+  const s = session(flag, env);
+  if (!s.deployment) throw new Error(noDeploymentMessage());
+  return { ...s, deployment: s.deployment, client: connectTo(s.deployment) };
 }

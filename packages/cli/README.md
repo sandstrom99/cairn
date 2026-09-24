@@ -85,16 +85,19 @@ src/lib/
   args.mts       the one argument parser, typed by the spec a verb hands it
   flags.mts      what a flag's value has to be: revision, priority, date, one of a set of words, once;
                  and which positionals a verb takes, onlyId and onlyFlags
+  session.mts    what one call is: the config read once, and the deployment, actor and can from it
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
   can.mts        what this session can do: --can, then CAIRN_CAN, then the config
-  client.mts     the typed Convex client and the generated `api`
+  client.mts     the typed Convex client and the generated `api`; connect() is the session with its client
   actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>, with CAIRN_SESSION beside it
+  ping.mts       one projects.list as the proof a deployment answers and takes the secret, for doctor and init
   views.mts      the shapes the lines read: four of the deployment's return types, the rest structural
   time.mts       how long ago, in one token: age, since, day
   parts.mts      the pieces a line is joined from, which the web window sets as rows
   lines.mts      the lines cn prints: a list line, an epic line, the show brief
   run.mts        runs the command `cn close --run` proves with, and keeps its tail
   ref.mts        the reference form: id and title, always
+  testing.mts    the fixtures every test builds from, the web's too, through @cairn/cli/testing
 ```
 
 ## Verbs
