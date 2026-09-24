@@ -4,7 +4,8 @@
 // and the output a proof stored, is printed whole.
 import { brief, historyLines, issueLine } from "@cairn/cli/lines";
 import { stateLine, stateParts } from "@cairn/cli/parts";
-import type { HistoryEvent, ShownBlocker, ShownIssue } from "@cairn/cli/views";
+import { DAY, HOUR, agent, blocker, epic, issue, now } from "@cairn/cli/testing";
+import type { HistoryEvent, ShownIssue } from "@cairn/cli/views";
 import { ref } from "@cairn/cli/ref";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -13,50 +14,27 @@ import { IssueRows } from "./IssueRows.tsx";
 import { BlockerPage, EpicPage, IssuePage, JournalEntry, type Listed } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
 
-const now = Date.UTC(2026, 8, 21, 12, 0);
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-const agent = { kind: "agent" as const, name: "balder/claude" };
-
-const issue: ShownIssue = {
-  kind: "issue",
+/** The issue the page is opened on: held by this session, with an edge each way. */
+const held = issue({
   id: "cn-26",
-  project: "cn",
   epic: { id: "ep-4", title: "Humans in the loop" },
   title: "apps/web, the read-only window",
-  description: undefined,
   design: "On the skeleton.\n\nLines come from lines.mts.",
   acceptance: "- The page lists open epics.\n- Nothing on the page calls a mutation.",
-  type: "task",
-  followUpKind: undefined,
-  parent: undefined,
   requires: ["web"],
   status: "in_progress",
   priority: 2,
   claimedBy: agent,
   claimedAt: now - 2 * HOUR,
-  lastActivity: now - HOUR,
-  deferUntil: undefined,
-  verification: undefined,
-  droppedReason: undefined,
-  closedAt: undefined,
   revision: 1,
   createdAt: now - DAY,
-  stuck: false,
   journal: [{ author: agent, kind: "decision", body: "rows, not lines", at: now - 3 * HOUR }],
   blocks: [{ id: "cn-11", title: "the human channel", status: "open" }],
   blockedBy: [
     { id: "cn-23", title: "the skeleton", status: "closed" },
     { id: "cn-24", title: "the feed", status: "open" },
   ],
-  related: [],
-  discoveredFrom: [],
-  duplicates: [],
-  supersedes: [],
-  waitingOn: [],
-  followUps: [],
-  events: undefined,
-};
+});
 
 /** The brief's lines from the first labelled one down to where the long text begins. */
 const factsOf = (text: string): string =>
@@ -81,31 +59,31 @@ const stateOf = (shown: ShownIssue): string => {
 };
 
 describe("an issue's page", () => {
-  const markup = renderToStaticMarkup(<IssuePage issue={issue} siblings={[]} now={now} />);
+  const markup = renderToStaticMarkup(<IssuePage issue={held} siblings={[]} now={now} />);
 
   it("sets cn show's labelled lines as its table, in cn's words and order", () => {
     const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
-    expect(plain(table)).toBe(factsOf(brief(issue, now)));
+    expect(plain(table)).toBe(factsOf(brief(held, now)));
     // A finished end of a blocking edge carries cn's word after its reference.
     expect(plain(table)).toContain('blocked by cn-23 "the skeleton" done, cn-24 "the feed"');
   });
 
   it("opens with the state line cn's status line opens with, for every state", () => {
     const states: ShownIssue[] = [
-      issue,
-      { ...issue, status: "open", claimedBy: undefined, claimedAt: undefined },
-      { ...issue, status: "open", claimedBy: undefined, stuck: true, lastActivity: now - 9 * DAY },
+      held,
+      { ...held, status: "open", claimedBy: undefined, claimedAt: undefined },
+      { ...held, status: "open", claimedBy: undefined, stuck: true, lastActivity: now - 9 * DAY },
       {
-        ...issue,
+        ...held,
         status: "open",
         claimedBy: undefined,
         waitingOn: [{ id: "bl-4", title: "name the day" }],
       },
-      { ...issue, status: "open", claimedBy: undefined, blockedBy: [], deferUntil: now + 9 * DAY },
-      { ...issue, status: "open", claimedBy: undefined, blockedBy: [] },
-      { ...issue, status: "closed", claimedBy: undefined, closedAt: now - HOUR },
+      { ...held, status: "open", claimedBy: undefined, blockedBy: [], deferUntil: now + 9 * DAY },
+      { ...held, status: "open", claimedBy: undefined, blockedBy: [] },
+      { ...held, status: "closed", claimedBy: undefined, closedAt: now - HOUR },
       {
-        ...issue,
+        ...held,
         status: "dropped",
         claimedBy: undefined,
         closedAt: now - HOUR,
@@ -114,7 +92,7 @@ describe("an issue's page", () => {
     ];
     expect(states.map(stateOf)).toEqual(states.map((s) => squeeze(stateLine(stateParts(s, now)))));
     expect(states.map(stateOf)).toEqual([
-      "moving balder/claude 2h",
+      "moving wsl/claude 2h",
       'blocked by cn-24 "the feed"',
       "stuck silent 9d",
       'waiting on bl-4 "name the day"',
@@ -126,7 +104,7 @@ describe("an issue's page", () => {
   });
 
   it("prints in full what the brief cuts to a first line", () => {
-    expect(brief(issue, now)).toContain("On the skeleton.…");
+    expect(brief(held, now)).toContain("On the skeleton.…");
     expect(plain(markup)).toContain("On the skeleton. Lines come from lines.mts.");
     expect(markup.match(/<li>/g)).toHaveLength(2);
   });
@@ -137,23 +115,23 @@ describe("an issue's page", () => {
   });
 
   it("links what the state names", () => {
-    const held = {
-      ...issue,
+    const waiting = {
+      ...held,
       status: "open" as const,
       claimedBy: undefined,
       waitingOn: [{ id: "bl-4", title: "name the day" }],
     };
-    const markup = renderToStaticMarkup(<IssuePage issue={held} siblings={[]} now={now} />);
+    const markup = renderToStaticMarkup(<IssuePage issue={waiting} siblings={[]} now={now} />);
     expect(markup.slice(0, markup.indexOf("<dl"))).toContain('href="/bl-4"');
   });
 
   it("steps to the issue before and the one after, in the epic's order", () => {
     const siblings = [
       { id: "cn-25", title: "before" },
-      { id: "cn-26", title: issue.title },
+      { id: "cn-26", title: held.title },
       { id: "cn-11", title: "after" },
     ];
-    const stepped = renderToStaticMarkup(<IssuePage issue={issue} siblings={siblings} now={now} />);
+    const stepped = renderToStaticMarkup(<IssuePage issue={held} siblings={siblings} now={now} />);
     expect(stepped).toContain('href="/cn-25"');
     expect(stepped).toContain('href="/cn-11"');
     expect(plain(stepped)).toContain("2 of 3");
@@ -161,7 +139,7 @@ describe("an issue's page", () => {
 
   it("prints the proof a close stored as cn's line, and what the command said in full", () => {
     const closed: ShownIssue = {
-      ...issue,
+      ...held,
       status: "closed",
       claimedBy: undefined,
       closedAt: now - HOUR,
@@ -176,7 +154,7 @@ describe("an issue's page", () => {
     const line = brief(closed, now)
       .split("\n")
       .find((l) => l.startsWith("proof"))!;
-    expect(line).toBe("proof           vp run verify (exit 0) by balder/claude 1h ago");
+    expect(line).toBe("proof           vp run verify (exit 0) by wsl/claude 1h ago");
     const text = page(closed);
     expect(text).toContain(squeeze(line));
     expect(text).toContain("output Test Files 33 passed Tests 227 passed");
@@ -185,7 +163,7 @@ describe("an issue's page", () => {
 
   it("prints the reason a drop gave as cn's line", () => {
     const dropped: ShownIssue = {
-      ...issue,
+      ...held,
       status: "dropped",
       claimedBy: undefined,
       closedAt: now - HOUR,
@@ -197,7 +175,7 @@ describe("an issue's page", () => {
 
   it("prints the description in full, where the brief keeps its first line", () => {
     const described: ShownIssue = {
-      ...issue,
+      ...held,
       description:
         "Balder, 2026-09-21: the journal is the most context an issue has.\n\nSo show it.",
     };
@@ -212,8 +190,8 @@ describe("an issue's page", () => {
 
 describe("a journal entry", () => {
   it("reads as cn show prints it", () => {
-    const entry = issue.journal[0]!;
-    const line = brief(issue, now)
+    const entry = held.journal[0]!;
+    const line = brief(held, now)
       .split("\n")
       .find((l) => l.includes("decision:"))!;
     expect(plain(renderToStaticMarkup(<JournalEntry entry={entry} now={now} />))).toBe(
@@ -240,20 +218,12 @@ describe("a row of a list of issues", () => {
   });
 
   it("drops the epic on the epic's own page, as cn show ep-4 does", () => {
-    const epic = {
-      kind: "epic" as const,
+    const parent = epic({
       id: "ep-4",
       title: "Humans in the loop",
-      description: undefined,
-      status: "open" as const,
-      droppedReason: undefined,
-      revision: 0,
-      createdAt: now - DAY,
       counts: { open: 0, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
-      health: { moving: [], stuck: undefined, waiting: [] },
-      issues: [],
-    };
-    const markup = renderToStaticMarkup(<EpicPage epic={epic} issues={[listed]} now={now} />);
+    });
+    const markup = renderToStaticMarkup(<EpicPage epic={parent} issues={[listed]} now={now} />);
     const rows = markup.slice(markup.lastIndexOf("<ul"));
     const { epic: _, ...bare } = listed;
     expect(plain(rows)).toBe(squeeze(issueLine(bare)));
@@ -290,29 +260,18 @@ describe("an entry of a thing's own history", () => {
 });
 
 describe("a blocker's page", () => {
-  const blocker: ShownBlocker = {
-    kind: "blocker",
+  const raised = blocker({
     id: "bl-4",
     title: "name the day the page goes live",
     blockerKind: "decision",
-    owner: "balder",
     whatResolves: "a date on or after 2026-09-24",
-    nudgeAt: undefined,
-    status: "raised",
-    raisedBy: agent,
-    raisedAt: now - 2 * HOUR,
-    resolvedBy: undefined,
-    resolvedAt: undefined,
-    resolution: undefined,
-    revision: 0,
     issues: [{ id: "cn-21", title: "put the page on a public URL" }],
-    events: undefined,
-  };
+  });
 
   it("sets cn show's lines for it as its table", () => {
-    const markup = renderToStaticMarkup(<BlockerPage blocker={blocker} now={now} />);
+    const markup = renderToStaticMarkup(<BlockerPage blocker={raised} now={now} />);
     const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
-    expect(plain(table)).toBe(factsOf(brief(blocker, now)));
-    expect(plain(markup)).toContain(ref(blocker.issues[0]!));
+    expect(plain(table)).toBe(factsOf(brief(raised, now)));
+    expect(plain(markup)).toContain(ref(raised.issues[0]!));
   });
 });

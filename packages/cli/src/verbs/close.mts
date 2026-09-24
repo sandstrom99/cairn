@@ -28,7 +28,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { FOLLOW_UP_KINDS, maybe, oneOf, onlyId, priority, revision } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { closedLines } from "../lib/lines.mts";
@@ -112,10 +111,10 @@ export async function run(argv: string[]): Promise<number> {
   if ("run" in proof) say(`running ${proof.run}`);
   const verification = "run" in proof ? runCommand(proof.run) : proof;
 
-  const { client } = connect();
+  const { client, actor } = connect();
   try {
     const closed = await client.mutation(api.issues.close, {
-      actor: actor(),
+      actor,
       id,
       revision: parsed.revision,
       verification,

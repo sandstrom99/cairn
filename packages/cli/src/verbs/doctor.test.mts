@@ -1,7 +1,14 @@
-import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
-import { checkLines, deploymentCheck, nodeCheck, parse, pingChecks } from "./doctor.mts";
+import {
+  actorCheck,
+  canCheck,
+  checkLines,
+  deploymentCheck,
+  nodeCheck,
+  parse,
+  pingChecks,
+} from "./doctor.mts";
 
 const cloud = {
   name: "cairn",
@@ -48,27 +55,48 @@ describe("cn doctor", () => {
   });
 
   it("reads the ping as answered, and the secret as accepted where one was held", () => {
-    expect(pingChecks(cloud, { projects: 2 })).toEqual([
+    expect(pingChecks(cloud, { answered: true, projects: 2 })).toEqual([
       { check: "ping", ok: true, line: "deployment answered: 2 project(s)" },
       { check: "secret", ok: true, line: "secret accepted by cairn" },
     ]);
     expect(
-      pingChecks({ name: "local", url: "http://127.0.0.1:3210", source: "env" }, { projects: 0 }),
+      pingChecks(
+        { name: "local", url: "http://127.0.0.1:3210", source: "env" },
+        { answered: true, projects: 0 },
+      ),
     ).toEqual([{ check: "ping", ok: true, line: "deployment answered: 0 project(s)" }]);
   });
 
   it("names the field to put the secret in when the deployment refuses, and the error otherwise", () => {
-    const refused = pingChecks(cloud, {
-      error: new ConvexError({ kind: "unauthorized", message: "wrong secret" }),
-    });
+    const refused = pingChecks(cloud, { answered: false, refused: true, message: "wrong secret" });
     expect(refused).toHaveLength(1);
     expect(refused[0]).toMatchObject({ check: "ping", ok: false });
     expect(refused[0]!.line).toMatch(
       /^cairn needs a secret: put it under deployments\.cairn\.secret in .*config\.json, or set CAIRN_SECRET$/,
     );
-    expect(pingChecks(null, { error: new Error("fetch failed") })).toEqual([
+    expect(pingChecks(null, { answered: false, refused: false, message: "fetch failed" })).toEqual([
       { check: "ping", ok: false, line: "deployment did not answer: fetch failed" },
     ]);
+  });
+
+  it("names who this shell acts as, with its session where the hook exported one", () => {
+    expect(actorCheck({ name: "wsl/claude", kind: "agent", session: "s-1" })).toEqual({
+      check: "actor",
+      ok: true,
+      line: "actor wsl/claude (agent), session s-1",
+    });
+    expect(actorCheck({ name: "wsl/balder", kind: "human" }).line).toBe(
+      "actor wsl/balder (human), no session",
+    );
+  });
+
+  it("names what this session can do, and says so when it declared nothing", () => {
+    expect(canCheck(["web", "android"])).toEqual({
+      check: "can",
+      ok: true,
+      line: "can web android",
+    });
+    expect(canCheck([]).line).toBe("can nothing declared");
   });
 
   it("prints one marked line per check", () => {

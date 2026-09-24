@@ -30,9 +30,9 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { maybe, onlyFlags } from "../lib/flags.mts";
-import { UsageError, checkLine, errorData, say } from "../lib/cli.mts";
-import { api, connectTo } from "../lib/client.mts";
+import { UsageError, checkLine, say } from "../lib/cli.mts";
 import { type CairnConfig, readConfig, withDeployment, writeConfig } from "../lib/config.mts";
+import { ping } from "../lib/ping.mts";
 import { captureStdout } from "../lib/run.mts";
 
 export const name = "init";
@@ -117,7 +117,8 @@ export async function run(argv: string[]): Promise<number> {
   // The file first: a name that is taken fails here, offline and in the time it takes to
   // read one file, before a secret command has made anybody unlock anything. A file that
   // cannot be parsed throws out of readConfig and is reported like any other error; cn
-  // init does not guess at it.
+  // init does not guess at it. This is the one verb that reads the file itself rather
+  // than through the session, because it is about to write it.
   const existing = readConfig();
   const build = (secret?: string): CairnConfig =>
     withDeployment(existing, {
@@ -156,28 +157,21 @@ export async function run(argv: string[]): Promise<number> {
   const next = build(secret);
 
   // The check is `cn doctor`'s ping against a deployment that is not in the file yet, so
-  // what gets written is a deployment that answered once.
-  try {
-    const client = connectTo({ url: parsed.url, ...maybe("secret", secret) });
-    const projects = await client.query(api.projects.list, {});
-    ok(`${parsed.name} → ${parsed.url} answered: ${projects.length} project(s)`);
-    if (secret !== undefined) ok(`secret accepted (from ${parsed.secret.from})`);
-  } catch (e) {
-    if (errorData(e)?.kind === "unauthorized")
-      bad(
-        secret === undefined
+  // what gets written is a deployment that answered once. The secret is struck from the
+  // message of a deployment that did not answer before it is printed (lib/ping.mts).
+  const answer = await ping({ url: parsed.url, ...maybe("secret", secret) });
+  if (!answer.answered) {
+    bad(
+      !answer.refused
+        ? `${parsed.url} did not answer: ${answer.message}; nothing written`
+        : secret === undefined
           ? `${parsed.url} needs a secret: pass --secret-cmd, or set CAIRN_SECRET; nothing written`
           : `${parsed.url} refused the secret; nothing written`,
-      );
-    else {
-      // A deployment that does not know the `secret` argument says so by quoting the
-      // arguments back, so the one value that must never be printed is cut out first.
-      const said = (e as Error).message;
-      const message = secret === undefined ? said : said.split(secret).join("[secret]");
-      bad(`${parsed.url} did not answer: ${message}; nothing written`);
-    }
+    );
     return 1;
   }
+  ok(`${parsed.name} → ${parsed.url} answered: ${answer.projects} project(s)`);
+  if (secret !== undefined) ok(`secret accepted (from ${parsed.secret.from})`);
 
   ok(`wrote ${writeConfig(next)} (mode 600)`);
   if (next.default !== parsed.name)

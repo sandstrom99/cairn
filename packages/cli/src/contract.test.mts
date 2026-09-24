@@ -10,7 +10,9 @@
 //     `cn <word>` anywhere, since that is what an agent is told to run;
 //   - design §10's table, which is, in its own words, the contract the skill teaches and
 //     the headers restate: it names every flag of every verb, except --json, which it
-//     states once below the table for every read verb.
+//     states once below the table for every read verb;
+//   - AGENTS.md's verify table, whose per-verb rows are the rows scripts/verify-e2e.mjs
+//     runs: the same names, in the same order, and the count the table quotes.
 //
 // The docs are prose, so nothing else fails when a verb is renamed, a flag dropped, or
 // one written down before it is built — and an agent told to run `cn review --all` runs
@@ -155,6 +157,36 @@ describe("the docs name verbs and flags that exist", () => {
       }
     });
   }
+});
+
+/** The per-verb rows of AGENTS.md's verify table: its "Changed" cells from the first `verbs/` row on. */
+function verifyRows(): string[] {
+  const text = read("AGENTS.md");
+  const start = text.indexOf("\n## Verify a change");
+  const end = text.indexOf("\n## ", start + 1);
+  expect(start).toBeGreaterThan(0);
+  const cells = text
+    .slice(start, end)
+    .split("\n")
+    .filter((line) => line.startsWith("| `"))
+    .map((line) => line.slice(2, line.indexOf(" | ")).replace(/`/g, ""));
+  const first = cells.findIndex((cell) => cell.startsWith("verbs/"));
+  expect(first).toBeGreaterThan(0);
+  return cells.slice(first);
+}
+
+/** The rows scripts/verify-e2e.mjs declares, in the order it runs them. */
+const e2eRows = (): string[] =>
+  [...read("scripts", "verify-e2e.mjs").matchAll(/^row\("([^"]+)", /gm)].map((m) => m[1]!);
+
+describe("AGENTS.md's per-verb rows are the e2e script's rows", () => {
+  it("names the same rows, in the same order", () => {
+    expect(e2eRows()).toEqual(verifyRows());
+  });
+
+  it("quotes the count the script prints when every row passes", () => {
+    expect(read("AGENTS.md")).toContain(`e2e: ${e2eRows().length} rows passed`);
+  });
 });
 
 describe("design §10 names every flag of every verb, --json aside", () => {

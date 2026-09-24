@@ -19,7 +19,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { edgeLine } from "../lib/lines.mts";
@@ -72,8 +71,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
+  const { client, actor } = connect();
   const fn = parsed.action === "add" ? api.edges.add : api.edges.remove;
-  console.log(edgeLine(await client.mutation(fn, { actor: actor(), ...parsed.args })));
+  console.log(edgeLine(await client.mutation(fn, { actor, ...parsed.args })));
   return 0;
 }

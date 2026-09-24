@@ -22,7 +22,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { FOLLOW_UP_KINDS, ISSUE_TYPES, maybe, oneOf, onlyFlags, priority } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError, errorData, fail } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine, nearLine, placedLine } from "../lib/lines.mts";
@@ -91,9 +90,9 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
+  const { client, actor } = connect();
   try {
-    const created = await client.mutation(api.issues.create, { actor: actor(), ...parsed.args });
+    const created = await client.mutation(api.issues.create, { actor, ...parsed.args });
     console.log(issueLine(created));
     for (const match of created.near) console.log(nearLine(match));
     if (created.placed && created.parent) console.log(placedLine(created.parent));

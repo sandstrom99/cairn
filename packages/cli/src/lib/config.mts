@@ -1,7 +1,7 @@
 // config.mts: which deployment cn talks to.
 //
-//   import { resolveDeployment } from "../lib/config.mts";
-//   const dep = resolveDeployment();   // { url, source } or null
+//   import { readConfig, resolveDeployment } from "../lib/config.mts";
+//   const dep = resolveDeployment(env, readConfig(env));   // { url, source } or null
 //
 // The rule for how a session resolves repo → project → deployment is deferred
 // (docs/design.md §13); the lean is global config, since a project is coarse and
@@ -31,7 +31,8 @@
 // adds a deployment and never replaces one, and the file lands mode 600 in a 700
 // directory, because the secret is in it.
 //
-// $XDG_CONFIG_HOME replaces ~/.config when set.
+// $XDG_CONFIG_HOME replaces ~/.config when set. The file is read by `readConfig`, once per
+// call, in lib/session.mts, and handed to everything that derives a fact from it.
 
 import {
   chmodSync,
@@ -101,15 +102,13 @@ export function withDeployment(existing: CairnConfig | null, input: NewDeploymen
       `${name} is already a deployment in the config, at ${taken.url};` +
         " cn init adds, it does not replace. Edit the file to change it.",
     );
-  // An empty --can is not an answer: it leaves what the file already said alone.
-  const capabilities = can && can.length > 0 ? can : undefined;
   return {
     ...existing,
     // The first deployment a file has is what every verb resolves to, so it is the
     // default whether or not --default was passed.
     ...(makeDefault || existing?.default === undefined ? { default: name } : {}),
     ...(host === undefined ? {} : { host }),
-    ...(capabilities === undefined ? {} : { can: capabilities }),
+    ...(can === undefined ? {} : { can }),
     deployments: { ...deployments, [name]: { url, ...(secret === undefined ? {} : { secret }) } },
   };
 }
@@ -137,13 +136,15 @@ export function noDeploymentMessage(): string {
   return "no deployment: run `cn init` to set this machine up (cn init --help), or set CAIRN_URL";
 }
 
-/** The deployment to use, or null when nothing names one. */
-export function resolveDeployment(env: NodeJS.ProcessEnv = process.env): Deployment | null {
+/** The deployment to use, from the environment or the config as read, or null when nothing names one. */
+export function resolveDeployment(
+  env: NodeJS.ProcessEnv,
+  cfg: CairnConfig | null,
+): Deployment | null {
   const fromEnv = env.CAIRN_SECRET
     ? { secret: env.CAIRN_SECRET, secretSource: "env" as const }
     : {};
   if (env.CAIRN_URL) return { name: "CAIRN_URL", url: env.CAIRN_URL, source: "env", ...fromEnv };
-  const cfg = readConfig(env);
   if (!cfg) return null;
   // A hand-edited file can lack the key altogether; that is a file with no deployments.
   const deployments = cfg.deployments ?? {};

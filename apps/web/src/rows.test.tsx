@@ -5,22 +5,12 @@
 //
 // Rendered to a string rather than to a DOM, like everything in this suite.
 import { blockerLine, healthLines, holdsLine, logLine } from "@cairn/cli/lines";
-import type { EpicLineView, LogEvent } from "@cairn/cli/views";
+import { DAY, HOUR, epic, logEvent, now } from "@cairn/cli/testing";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FeedEvent } from "./Feed.tsx";
 import { Epics, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { plain, squeeze } from "./plain.ts";
-
-const now = Date.UTC(2026, 8, 21, 12, 0);
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-
-const epic = (over: Partial<EpicLineView> & Pick<EpicLineView, "id" | "title">): EpicLineView => ({
-  counts: { open: 0, inProgress: 0, closed: 0, followUps: 0 },
-  health: { moving: [], waiting: [] },
-  ...over,
-});
 
 /** The rows of one rendered block, a line each, by the element that closes a row. */
 const rowsOf = (markup: string, closing: string): string[] =>
@@ -33,13 +23,13 @@ describe("an epic's health block", () => {
   const busy = epic({
     id: "ep-4",
     title: 'Humans in the "loop"',
-    counts: { open: 1, inProgress: 1, closed: 5, followUps: 1 },
+    counts: { open: 1, inProgress: 1, closed: 5, dropped: 0, followUps: 1 },
     health: {
       moving: [
         {
           id: "cn-26",
           title: "apps/web, the read-only window",
-          claimedBy: { name: "balder/claude" },
+          claimedBy: { name: "balder/claude", kind: "agent" },
           claimedAt: now - 2 * HOUR,
         },
       ],
@@ -96,20 +86,17 @@ describe("what waits on a person", () => {
 });
 
 describe("an event in the feed", () => {
-  const event = (over: Partial<LogEvent>): LogEvent => ({
-    at: now - 4 * 60_000,
-    actor: { kind: "agent", name: "balder/claude" },
-    kind: "issue.close",
-    revision: 3,
-    changes: undefined,
-    issue: { id: "cn-25", title: "clock-dependent lines go stale under a subscription" },
-    epic: undefined,
-    blocker: undefined,
-    ...over,
-  });
+  /** An event on cn-25, an hour ago, by this session. */
+  const event = (over: Partial<Parameters<typeof logEvent>[0]>) =>
+    logEvent({
+      issue: { id: "cn-25", title: "clock-dependent lines go stale under a subscription" },
+      ...over,
+    });
 
   it("reads as the line cn log prints, the changes one to a row", () => {
     const closed = event({
+      kind: "issue.close",
+      revision: 3,
       changes: {
         status: { from: "in_progress", to: "closed" },
         verification: { to: "vp run verify (exit 0)" },

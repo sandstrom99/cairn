@@ -1,14 +1,6 @@
-import type { BriefView } from "@cairn/cli/views";
+import { briefView as view } from "@cairn/cli/testing";
 import { describe, expect, it } from "vitest";
 import { headline, underline } from "./brief.ts";
-
-const view = (over: Partial<BriefView> = {}): BriefView => ({
-  ready: { count: 0, top: [] },
-  inProgress: [],
-  followUps: { count: 0, covered: [] },
-  waiting: 0,
-  ...over,
-});
 
 describe("headline", () => {
   it("says the three counts in a fixed order, waiting first", () => {

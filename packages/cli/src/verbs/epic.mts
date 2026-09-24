@@ -20,7 +20,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { maybe, onlyFlags, onlyId, revision } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError, answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { epicClosedLines, healthLines } from "../lib/lines.mts";
@@ -75,16 +74,14 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
+  const { client, actor } = connect();
   if (parsed.action === "new") {
-    console.log(ref(await client.mutation(api.epics.create, { actor: actor(), ...parsed.args })));
+    console.log(ref(await client.mutation(api.epics.create, { actor, ...parsed.args })));
     return 0;
   }
   if (parsed.action === "close") {
     console.log(
-      epicClosedLines(
-        await client.mutation(api.epics.close, { actor: actor(), ...parsed.args }),
-      ).join("\n"),
+      epicClosedLines(await client.mutation(api.epics.close, { actor, ...parsed.args })).join("\n"),
     );
     return 0;
   }

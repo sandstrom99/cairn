@@ -3,15 +3,22 @@
 //   cn doctor [--json]      one line per check; exit 1 if any fails
 //
 // Checks the Node floor, that the generated Convex API is importable (so @cairn/backend
-// is installed and codegen has run), which deployment config resolves, and then calls
-// that deployment: `projects.list` is the ping, so a green doctor means a verb will run.
+// is installed and codegen has run), which deployment config resolves, who this shell
+// acts as and what it declares it can do, and then calls that deployment:
+// `projects.list` is the ping, so a green doctor means a verb will run.
 //
 // Where the deployment is fenced by a secret (docs/design.md §12), the ping is what
 // proves the secret this machine holds is the one the deployment wants, and the line
 // after it says so. Doctor names where a secret came from and never prints it.
 //
+// The actor and the capabilities are facts, never failures: the name a claim will carry
+// and the session beside it (lib/actor.mts), and the list `cn ready` marks rows against
+// (lib/can.mts), so a `--mine` that finds nothing or a row marked `needs ios` can be read
+// back to where the name or the list came from.
+//
 // --json is the same checks as rows, `{ check, ok, line }`, named node, api, deployment,
-// ping and, where a secret was held and taken, secret.
+// actor and can, then ping where a deployment resolved, and secret where one was held
+// and taken.
 //
 // The `deployment <name> → <url> (…)` line is read by the SessionStart hook
 // (plugins/cairn/hooks/session-start.sh) to name a deployment that did not answer, so
@@ -19,13 +26,11 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
-import { answer, checkLine, errorData } from "../lib/cli.mts";
-import {
-  type Deployment,
-  configPath,
-  noDeploymentMessage,
-  resolveDeployment,
-} from "../lib/config.mts";
+import type { Actor } from "../lib/actor.mts";
+import { answer, checkLine } from "../lib/cli.mts";
+import { type Deployment, configPath, noDeploymentMessage } from "../lib/config.mts";
+import type { Ping } from "../lib/ping.mts";
+import { session } from "../lib/session.mts";
 
 export const name = "doctor";
 export const summary = "whether this machine can run cn against a deployment";
@@ -34,13 +39,10 @@ export const spec = { bool: ["json"] } as const satisfies ArgSpec;
 const NODE_FLOOR = 24;
 
 type Check = {
-  check: "node" | "api" | "deployment" | "ping" | "secret";
+  check: "node" | "api" | "deployment" | "actor" | "can" | "ping" | "secret";
   ok: boolean;
   line: string;
 };
-
-/** What the ping came back with: how many projects, or the error. */
-type Ping = { projects: number } | { error: unknown };
 
 type Parsed = { action: "doctor"; json: boolean };
 
@@ -79,9 +81,28 @@ export function deploymentCheck(dep: Deployment | null): Check {
   };
 }
 
+/** Who this shell acts as, and in which session, when the hook exported one. */
+export function actorCheck(me: Actor): Check {
+  const who = `actor ${me.name} (${me.kind})`;
+  return {
+    check: "actor",
+    ok: true,
+    line: me.session === undefined ? `${who}, no session` : `${who}, session ${me.session}`,
+  };
+}
+
+/** What this session declares it can do; nothing declared marks every fenced row. */
+export function canCheck(can: string[]): Check {
+  return {
+    check: "can",
+    ok: true,
+    line: can.length > 0 ? `can ${can.join(" ")}` : "can nothing declared",
+  };
+}
+
 /** The ping read as checks: answered, and the secret taken where one was held; or why not. */
 export function pingChecks(dep: Deployment | null, ping: Ping): Check[] {
-  if ("projects" in ping) {
+  if (ping.answered) {
     const checks: Check[] = [
       { check: "ping", ok: true, line: `deployment answered: ${ping.projects} project(s)` },
     ];
@@ -90,9 +111,9 @@ export function pingChecks(dep: Deployment | null, ping: Ping): Check[] {
     return checks;
   }
   const line =
-    errorData(ping.error)?.kind === "unauthorized" && dep
+    ping.refused && dep
       ? `${dep.name} needs a secret: put it under deployments.${dep.name}.secret in ${configPath()}, or set CAIRN_SECRET`
-      : `deployment did not answer: ${(ping.error as Error).message}`;
+      : `deployment did not answer: ${ping.message}`;
   return [{ check: "ping", ok: false, line }];
 }
 
@@ -117,17 +138,15 @@ export async function run(argv: string[]): Promise<number> {
     });
   }
 
-  const dep = resolveDeployment();
-  checks.push(deploymentCheck(dep));
+  const { deployment, actor, can } = session();
+  checks.push(deploymentCheck(deployment), actorCheck(actor), canCheck(can));
 
-  let ping: Ping;
-  try {
-    const { api, connect } = await import("../lib/client.mts");
-    ping = { projects: (await connect().client.query(api.projects.list, {})).length };
-  } catch (error) {
-    ping = { error };
+  // The ping needs the generated api, so it loads the way the api check did: a machine
+  // where codegen has not run gets that line, not a crash before any line.
+  if (deployment) {
+    const { ping } = await import("../lib/ping.mts");
+    checks.push(...pingChecks(deployment, await ping(deployment)));
   }
-  checks.push(...pingChecks(dep, ping));
 
   answer(parsed.json, checks, checkLines);
   return checks.every((c) => c.ok) ? 0 : 1;

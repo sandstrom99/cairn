@@ -10,7 +10,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
-import { actor } from "../lib/actor.mts";
 import { UsageError, answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { projectLine } from "../lib/lines.mts";
@@ -39,11 +38,9 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
+  const { client, actor } = connect();
   if (parsed.action === "new") {
-    console.log(
-      projectLine(await client.mutation(api.projects.create, { actor: actor(), ...parsed.args })),
-    );
+    console.log(projectLine(await client.mutation(api.projects.create, { actor, ...parsed.args })));
     return 0;
   }
   const projects = await client.query(api.projects.list, {});

@@ -22,13 +22,20 @@ import {
   unjournaledLine,
 } from "./lines.mts";
 import { logParts, unjournaled } from "./parts.mts";
-import type { BriefView, ReviewView, Shown } from "./views.mts";
-
-const now = Date.UTC(2026, 8, 17, 12, 0, 0);
-const ago = (ms: number): number => now - ms;
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
+import {
+  DAY,
+  HOUR,
+  MINUTE,
+  agent,
+  ago,
+  blocker,
+  briefView,
+  epic,
+  human,
+  issue,
+  now,
+} from "./testing.mts";
+import type { BriefView, ReviewView } from "./views.mts";
 
 describe("issueLine", () => {
   it("starts with the reference form and names the epic", () => {
@@ -106,14 +113,14 @@ describe("healthLines", () => {
 });
 
 describe("reviewLines", () => {
-  const epic = {
+  const reviewed = {
     id: "ep-1",
     title: "Create to close",
     revision: 0,
     counts: { open: 2, inProgress: 1, closed: 1, dropped: 0, followUps: 1 },
   };
   const quiet = {
-    epic,
+    epic: reviewed,
     canClose: false,
     near: [],
     inbox: [],
@@ -196,7 +203,7 @@ describe("reviewLines", () => {
 
   it("prints the can close row alone when that is the one finding", () => {
     const done = {
-      ...epic,
+      ...reviewed,
       revision: 4,
       counts: { open: 0, inProgress: 0, closed: 4, dropped: 0, followUps: 0 },
     };
@@ -232,7 +239,7 @@ describe("placedLine", () => {
 });
 
 describe("closedLines", () => {
-  const issue = {
+  const closed = {
     id: "cn-6",
     title: "the same title",
     status: "closed",
@@ -242,7 +249,7 @@ describe("closedLines", () => {
   };
 
   it("is the issue line alone when the close made nothing else", () => {
-    expect(closedLines({ issue })).toEqual([
+    expect(closedLines({ issue: closed })).toEqual([
       'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
     ]);
   });
@@ -250,13 +257,13 @@ describe("closedLines", () => {
   it("prints the follow-up the same mutation made under it, and the epic's offer last", () => {
     expect(
       closedLines({
-        issue,
+        issue: closed,
         followUp: {
           id: "cn-8",
           title: "verify: the same title",
           status: "open",
           priority: 2,
-          epic: issue.epic,
+          epic: closed.epic,
           revision: 0,
         },
         epicDone: { id: "ep-2", title: "scratch: review", revision: 0 },
@@ -270,9 +277,9 @@ describe("closedLines", () => {
 });
 
 describe("epicClosedLines", () => {
-  const epic = { id: "ep-3", title: "An epic tells the truth", revision: 2 };
+  const told = { id: "ep-3", title: "An epic tells the truth", revision: 2 };
   const closed = (followUps: number) => ({
-    epic: { ...epic, status: "closed", counts: { followUps } },
+    epic: { ...told, status: "closed", counts: { followUps } },
     dropped: [],
   });
 
@@ -294,7 +301,7 @@ describe("epicClosedLines", () => {
   it("lists each issue a drop took with the epic, at the answer column", () => {
     expect(
       epicClosedLines({
-        epic: { ...epic, status: "dropped", counts: { followUps: 0 } },
+        epic: { ...told, status: "dropped", counts: { followUps: 0 } },
         dropped: [
           { id: "cn-4", title: "a" },
           { id: "cn-7", title: "b" },
@@ -402,51 +409,26 @@ describe("edgeLine", () => {
   });
 });
 
-const issue = {
-  kind: "issue",
-  id: "cn-1",
-  project: "cn",
-  epic: { id: "ep-1", title: "Create to close" },
-  title: "schema, ids, revision, events",
-  design: "transcribe §3\nthen the functions",
-  requires: [],
-  status: "open",
-  priority: 0,
-  lastActivity: ago(HOUR),
-  revision: 0,
-  createdAt: ago(2 * HOUR),
-  journal: [],
-  blocks: [],
-  blockedBy: [],
-  related: [],
-  discoveredFrom: [],
-  duplicates: [],
-  supersedes: [],
-  waitingOn: [],
-  followUps: [],
-} as unknown as Shown;
-
 describe("brief", () => {
   it("opens with the reference form and leaves out what is empty", () => {
-    const lines = brief(issue, now).split("\n");
+    const lines = brief(issue(), now).split("\n");
     expect(lines[0]).toBe('cn-1 "schema, ids, revision, events"');
     expect(lines[1]).toBe('epic            ep-1 "Create to close"');
     expect(lines[3]).toBe("status          open · P0 · created 2h ago · revision 0");
-    expect(brief(issue, now)).not.toMatch(/blocks|waiting on|journal|acceptance/);
+    expect(brief(issue(), now)).not.toMatch(/blocks|waiting on|journal|acceptance/);
   });
 
   it("says created just now, not created just now ago", () => {
-    const fresh = { ...issue, createdAt: now - 1_000 } as Shown;
+    const fresh = issue({ createdAt: now - 1_000 });
     expect(brief(fresh, now)).toContain("created just now · revision 0");
   });
 
   it("marks a design that continues past its first line", () => {
-    expect(brief(issue, now)).toMatch(/design {10}transcribe §3…/);
+    expect(brief(issue(), now)).toMatch(/design {10}transcribe §3…/);
   });
 
   it("prints the neighbourhood and the journal when there is any", () => {
-    const shown = {
-      ...issue,
+    const shown = issue({
       status: "in_progress",
       claimedBy: { name: "wsl/claude", kind: "agent" },
       claimedAt: ago(5 * MINUTE),
@@ -461,7 +443,7 @@ describe("brief", () => {
           at: ago(HOUR),
         },
       ],
-    } as unknown as Shown;
+    });
     const text = brief(shown, now);
     expect(text).toContain(
       "status          moving wsl/claude 5m · P0 · created 2h ago · revision 0",
@@ -473,18 +455,16 @@ describe("brief", () => {
   });
 
   it("opens the status line with the state word alone where the things it names have their own line", () => {
-    const waiting = {
-      ...issue,
+    const waiting = issue({
       waitingOn: [{ id: "bl-1", title: "the App Store agreement" }],
-    } as unknown as Shown;
+    });
     expect(brief(waiting, now).split("\n").slice(3, 5)).toEqual([
       "status          waiting · P0 · created 2h ago · revision 0",
       'waiting on      bl-1 "the App Store agreement"',
     ]);
-    const blocked = {
-      ...issue,
+    const blocked = issue({
       blockedBy: [{ id: "cn-2", title: "the lifecycle", status: "open" }],
-    } as unknown as Shown;
+    });
     expect(brief(blocked, now).split("\n").slice(3, 5)).toEqual([
       "status          blocked · P0 · created 2h ago · revision 0",
       'blocked by      cn-2 "the lifecycle"',
@@ -492,10 +472,9 @@ describe("brief", () => {
   });
 
   it("prints the description's first line before the design's", () => {
-    const shown = {
-      ...issue,
+    const shown = issue({
       description: "Balder, 2026-09-21: the journal is the most context an issue has.\n\nMore.",
-    } as unknown as Shown;
+    });
     expect(brief(shown, now).split("\n").slice(4, 6)).toEqual([
       "description     Balder, 2026-09-21: the journal is the most context an issue has.…",
       "design          transcribe §3…",
@@ -503,8 +482,7 @@ describe("brief", () => {
   });
 
   it("prints the proof a close stored, and the reason a drop gave", () => {
-    const closed = {
-      ...issue,
+    const closed = issue({
       status: "closed",
       closedAt: ago(HOUR),
       revision: 4,
@@ -515,29 +493,28 @@ describe("brief", () => {
         at: ago(HOUR),
         by: { name: "wsl/claude", kind: "agent" },
       },
-    } as unknown as Shown;
+    });
     expect(brief(closed, now).split("\n").slice(3, 5)).toEqual([
       "status          closed 1h ago · P0 · created 2h ago · revision 4",
       "proof           vp run verify (exit 0) by wsl/claude 1h ago",
     ]);
     expect(brief(closed, now)).not.toContain("33 passed");
-    const unverified = {
+    const unverified = issue({
       ...closed,
       verification: {
         unverified: "ran on the device, see the evidence entry",
         at: ago(HOUR),
         by: { name: "wsl/claude", kind: "agent" },
       },
-    } as unknown as Shown;
+    });
     expect(brief(unverified, now)).toContain(
       "proof           unverified by wsl/claude 1h ago: ran on the device, see the evidence entry",
     );
-    const dropped = {
-      ...issue,
+    const dropped = issue({
       status: "dropped",
       closedAt: ago(2 * HOUR),
       droppedReason: "not going to happen",
-    } as unknown as Shown;
+    });
     expect(brief(dropped, now).split("\n").slice(3, 5)).toEqual([
       "status          dropped 2h ago · P0 · created 2h ago · revision 0",
       "reason          not going to happen",
@@ -545,39 +522,37 @@ describe("brief", () => {
   });
 
   it("marks a blocking edge whose far end is finished as done, and it does not block", () => {
-    const shown = {
-      ...issue,
+    const shown = issue({
       blocks: [{ id: "cn-3", title: "the graph", status: "dropped" }],
       blockedBy: [
         { id: "cn-2", title: "the lifecycle", status: "closed" },
         { id: "cn-4", title: "the brief", status: "in_progress" },
       ],
-    } as unknown as Shown;
+    });
     const lines = brief(shown, now).split("\n");
     expect(lines.slice(3, 6)).toEqual([
       "status          blocked · P0 · created 2h ago · revision 0",
       'blocks          cn-3 "the graph" dropped',
       'blocked by      cn-2 "the lifecycle" done, cn-4 "the brief"',
     ]);
-    const done = {
+    const done = issue({
       ...shown,
       blockedBy: [{ id: "cn-2", title: "the lifecycle", status: "closed" }],
-    } as unknown as Shown;
+    });
     expect(brief(done, now).split("\n")[3]).toBe(
       "status          open · P0 · created 2h ago · revision 0",
     );
   });
 
   it("prints each edge type on its own line, blocking ones first", () => {
-    const shown = {
-      ...issue,
-      blocks: [{ id: "cn-3", title: "the graph" }],
-      blockedBy: [{ id: "cn-2", title: "the lifecycle" }],
+    const shown = issue({
+      blocks: [{ id: "cn-3", title: "the graph", status: "open" }],
+      blockedBy: [{ id: "cn-2", title: "the lifecycle", status: "open" }],
       related: [{ id: "cn-4", title: "the brief" }],
       discoveredFrom: [{ id: "cn-2", title: "the lifecycle" }],
       duplicates: [{ id: "cn-5", title: "a duplicate" }],
       supersedes: [{ id: "cn-6", title: "the old plan" }],
-    } as unknown as Shown;
+    });
     const lines = brief(shown, now).split("\n");
     expect(lines.slice(4, 10)).toEqual([
       'blocks          cn-3 "the graph"',
@@ -590,7 +565,7 @@ describe("brief", () => {
   });
 
   it("prints the history after the journal, when it was asked for", () => {
-    const shown = { ...issue, events: [changed] } as unknown as Shown;
+    const shown = issue({ events: [changed] });
     const lines = brief(shown, now).split("\n");
     expect(lines.at(-2)).toBe("history");
     expect(lines.at(-1)).toBe(
@@ -599,21 +574,16 @@ describe("brief", () => {
   });
 
   it("prints an epic as its line, its description and its open issues", () => {
-    const shown = {
-      kind: "epic",
-      id: "ep-1",
-      title: "Create to close",
+    const shown = epic({
       description: "an agent creates, claims, journals and closes work",
-      status: "open",
-      revision: 0,
-      createdAt: ago(DAY),
       counts: { open: 1, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
       health: {
         moving: [],
+        stuck: undefined,
         waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
       },
       issues: [{ id: "cn-1", title: "schema, ids", status: "open", priority: 0 }],
-    } as unknown as Shown;
+    });
     expect(brief(shown, now).split("\n")).toEqual([
       'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups',
       '  waiting  bl-3 "confirm the invite copy" · owner balder',
@@ -623,20 +593,10 @@ describe("brief", () => {
   });
 
   it("prints a blocker as who must act, what would end it and what it holds", () => {
-    const shown = {
-      kind: "blocker",
-      id: "bl-1",
-      title: "the App Store agreement",
-      blockerKind: "approval",
-      owner: "balder",
-      whatResolves: "accept it in App Store Connect",
+    const shown = blocker({
       nudgeAt: Date.UTC(2026, 9, 1),
-      status: "raised",
-      raisedBy: { name: "wsl/claude", kind: "agent" },
-      raisedAt: ago(2 * HOUR),
-      revision: 0,
       issues: [{ id: "cn-1", title: "schema, ids" }],
-    } as unknown as Shown;
+    });
     expect(brief(shown, now).split("\n")).toEqual([
       'bl-1 "the App Store agreement"',
       "kind            approval · owner balder",
@@ -648,23 +608,15 @@ describe("brief", () => {
   });
 
   it("prints who ended a resolved blocker, and its history when it was asked for", () => {
-    const shown = {
-      kind: "blocker",
-      id: "bl-1",
-      title: "the App Store agreement",
-      blockerKind: "approval",
-      owner: "balder",
-      whatResolves: "accept it in App Store Connect",
+    const shown = blocker({
       status: "resolved",
-      raisedBy: { name: "wsl/claude", kind: "agent" },
       raisedAt: ago(DAY),
-      resolvedBy: { name: "wsl/balder", kind: "human" },
+      resolvedBy: human,
       resolvedAt: ago(HOUR),
       resolution: "accepted",
       revision: 1,
-      issues: [],
       events: [changed],
-    } as unknown as Shown;
+    });
     const lines = brief(shown, now).split("\n");
     expect(lines).toContain("status          resolved · raised 1d ago by wsl/claude");
     expect(lines).toContain("resolved        by wsl/balder 1h ago: accepted");
@@ -690,7 +642,7 @@ describe("issueLine with a revision", () => {
 
 const changed = {
   revision: 4,
-  actor: { name: "wsl/claude" },
+  actor: agent,
   at: ago(2 * HOUR),
   kind: "issue.update",
   changes: { priority: { from: 2, to: 1 }, epic: { from: "ep-1", to: "ep-2" } },
@@ -1106,12 +1058,7 @@ describe("logLine", () => {
 describe("briefLines", () => {
   const claude = { name: "balder/claude", kind: "agent" } as const;
   const where = { deployment: "local", actor: "balder/claude", can: ["web"] };
-  const empty: BriefView = {
-    ready: { count: 0, top: [] },
-    inProgress: [],
-    followUps: { count: 0, covered: [] },
-    waiting: 0,
-  };
+  const empty = briefView();
 
   it("is the five lines of design §8", () => {
     const lines = briefLines(
@@ -1250,12 +1197,7 @@ describe("briefLines", () => {
 
 describe("unjournaledLine", () => {
   const session = { name: "balder/claude", kind: "agent", session: "s-1" } as const;
-  const empty: BriefView = {
-    ready: { count: 0, top: [] },
-    inProgress: [],
-    followUps: { count: 0, covered: [] },
-    waiting: 0,
-  };
+  const empty = briefView();
   const held = (over: Partial<BriefView["inProgress"][number]> = {}) => ({
     id: "cn-38",
     title: "a Stop hook hands back one state line",

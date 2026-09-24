@@ -17,7 +17,6 @@
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
-import { can } from "../lib/can.mts";
 import { answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { readyLine } from "../lib/lines.mts";
@@ -38,8 +37,8 @@ export function parse(argv: string[]): Parsed {
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const { client } = connect();
-  const issues = await client.query(api.ready.list, { can: can(parsed.can) });
+  const { client, can } = connect({ can: parsed.can });
+  const issues = await client.query(api.ready.list, { can });
   answer(parsed.json, issues, (all) => all.map((i) => readyLine(i)));
   return 0;
 }
