@@ -26,7 +26,7 @@ export const name = "ready";
 export const summary = "what can be picked up right now, marked with what this session cannot do";
 export const spec = { bool: ["json"], list: ["can"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "ready"; json: boolean; can: string[] | undefined };
+type Parsed = { action: "ready"; json: boolean; can: string[] | undefined };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);

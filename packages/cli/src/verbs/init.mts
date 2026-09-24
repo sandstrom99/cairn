@@ -46,12 +46,12 @@ export const spec = {
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 
 /** Where the secret comes from. Decided here; the command itself runs in `run`. */
-export type SecretFrom =
+type SecretFrom =
   | { from: "--secret-cmd"; command: string }
   | { from: "CAIRN_SECRET"; value: string }
   | { from: "none" };
 
-export type Parsed = {
+type Parsed = {
   action: "init";
   name: string;
   url: string;

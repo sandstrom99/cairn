@@ -44,7 +44,7 @@ export const spec = {
 /** How much of a failed run belongs on the screen beside the refusal. */
 const ON_REFUSAL = 10;
 
-export type FollowUp = {
+type FollowUp = {
   title: string;
   kind: (typeof FOLLOW_UP_KINDS)[number];
   requires?: string[];
@@ -52,9 +52,9 @@ export type FollowUp = {
 };
 
 /** What proves it: a command to run here, or a reason it could not be run here. */
-export type Proof = { run: string } | { unverified: string };
+type Proof = { run: string } | { unverified: string };
 
-export type Parsed = {
+type Parsed = {
   action: "close";
   id: string;
   revision: number;

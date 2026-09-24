@@ -16,7 +16,7 @@ export const name = "release";
 export const summary = "give an issue back: open again, claim cleared";
 export const spec = {} as const satisfies ArgSpec;
 
-export type Parsed = { action: "release"; args: { id: string } };
+type Parsed = { action: "release"; args: { id: string } };
 
 export function parse(argv: string[]): Parsed {
   const { pos } = parseArgs(argv, spec);

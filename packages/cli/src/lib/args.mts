@@ -28,11 +28,11 @@ export type ArgSpec = {
 type Names<A> = A extends readonly (infer N extends string)[] ? N : never;
 
 /** The flags a spec names, each typed by its shape. */
-export type Opts<S extends ArgSpec> = { [K in Names<S["bool"]>]: boolean } & {
+type Opts<S extends ArgSpec> = { [K in Names<S["bool"]>]: boolean } & {
   [K in Names<S["value"]>]?: string;
 } & { [K in Names<S["list"]>]?: string[] };
 
-export type ParsedArgs<S extends ArgSpec> = { pos: string[]; opts: Opts<S> };
+type ParsedArgs<S extends ArgSpec> = { pos: string[]; opts: Opts<S> };
 
 export function parseArgs<const S extends ArgSpec>(argv: string[], spec: S): ParsedArgs<S> {
   const { bool = [], value = [], list = [] } = spec;

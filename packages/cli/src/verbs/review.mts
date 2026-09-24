@@ -26,7 +26,7 @@ export const name = "review";
 export const summary = "what to look at in one epic, together; writes nothing";
 export const spec = { bool: ["json"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "review"; id: string; json: boolean };
+type Parsed = { action: "review"; id: string; json: boolean };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);

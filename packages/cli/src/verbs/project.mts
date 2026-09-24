@@ -19,7 +19,7 @@ export const name = "project";
 export const summary = "the id prefixes work is minted under";
 export const spec = { bool: ["json"], value: ["name"] } as const satisfies ArgSpec;
 
-export type Parsed =
+type Parsed =
   | { action: "new"; args: { slug: string; name: string } }
   | { action: "list"; json: boolean };
 

@@ -8,8 +8,8 @@
 //
 // Nothing waiting prints nothing and exits 0. This is the pull-only channel of
 // docs/design.md §6: there is no push, no email and no mirror, so a blocker raised on
-// Friday is seen the next time somebody asks. The count is what `cn brief` will open a
-// session with.
+// Friday is seen the next time somebody asks. The count is what `cn brief` opens a
+// session with, as `waiting on you`.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
@@ -21,7 +21,7 @@ export const name = "waiting";
 export const summary = "what waits on a person: every unresolved blocker, and what it holds";
 export const spec = { bool: ["json"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "waiting"; json: boolean };
+type Parsed = { action: "waiting"; json: boolean };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);

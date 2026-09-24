@@ -20,7 +20,7 @@ export const name = "claim";
 export const summary = "take an issue: first writer wins, no lease";
 export const spec = {} as const satisfies ArgSpec;
 
-export type Parsed = { action: "claim"; args: { id: string } };
+type Parsed = { action: "claim"; args: { id: string } };
 
 export function parse(argv: string[]): Parsed {
   const { pos } = parseArgs(argv, spec);

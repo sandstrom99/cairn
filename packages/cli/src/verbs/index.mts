@@ -32,7 +32,7 @@ import * as update from "./update.mts";
 import * as wait from "./wait.mts";
 import * as waiting from "./waiting.mts";
 
-export type Verb = { name: string; summary: string; spec: ArgSpec; run: CliBody };
+type Verb = { name: string; summary: string; spec: ArgSpec; run: CliBody };
 
 /** The `--help` text of the verb called `name`: the leading comment of `verbs/<name>.mts`. */
 export const header = (name: string): string =>

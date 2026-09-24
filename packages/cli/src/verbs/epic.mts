@@ -33,7 +33,7 @@ export const spec = {
   value: ["description", "revision", "reason"],
 } as const satisfies ArgSpec;
 
-export type Parsed =
+type Parsed =
   | { action: "new"; args: { title: string; description?: string } }
   | { action: "list"; json: boolean; args: { all?: boolean } }
   | {

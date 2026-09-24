@@ -41,7 +41,7 @@ export const summary =
   "the situation report a session opens with: counts and the head of each queue";
 export const spec = { bool: ["json", "unjournaled"], list: ["can"] } as const satisfies ArgSpec;
 
-export type Parsed = {
+type Parsed = {
   action: "brief";
   json: boolean;
   can: string[] | undefined;

@@ -37,10 +37,10 @@ const RELATIONS = [
 ] as const;
 export const spec = { value: RELATIONS } as const satisfies ArgSpec;
 
-export type EdgeType = "blocks" | "related" | "discovered-from" | "duplicates" | "supersedes";
-export type EdgeArgs = { from: string; to: string; type: EdgeType };
+type EdgeType = "blocks" | "related" | "discovered-from" | "duplicates" | "supersedes";
+type EdgeArgs = { from: string; to: string; type: EdgeType };
 
-export type Parsed = { action: "add" | "rm"; args: EdgeArgs };
+type Parsed = { action: "add" | "rm"; args: EdgeArgs };
 
 const USAGE =
   "cn dep add|rm <id> --blocked-by|--blocks|--related|--discovered-from|--duplicates|--supersedes <other>";

@@ -32,7 +32,7 @@ export const name = "log";
 export const summary = "what happened across the deployment, newest first";
 export const spec = { bool: ["json"], value: ["limit", "before"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "log"; limit?: number; before?: number; json: boolean };
+type Parsed = { action: "log"; limit?: number; before?: number; json: boolean };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);

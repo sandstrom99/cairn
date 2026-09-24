@@ -78,6 +78,8 @@ src/smoke.test.mts   the real cn under the real Node, every verb's --help; the t
 src/contract.test.mts   the verb contract held in one place: each header's synopsis
                  equals its spec, and the skill, the commands, design §10 and this
                  README name only flags that exist
+src/exports.test.mts   every export has an importer, in this package or in apps/web
+                 through the exports map; a type kept for a caller that never came fails here
 src/lib/
   cli.mts        main(), UsageError, answer, fail, say/warn — the shell every verb runs in
   args.mts       the one argument parser, typed by the spec a verb hands it
@@ -102,5 +104,5 @@ file's own header: the contract of the Convex function behind it. The table in
 docs/design.md §10 maps each verb, and each action word of `epic`, `project` and `dep`,
 to its function. Every read verb takes `--json`, every line naming an issue or epic
 starts with the reference form, and a verb takes flags only unless its header names a
-positional: `cn ready ios` is refused, since it means `--can ios`. Whether the next verb
-exists yet is cairn's own worklist: `cn ready`.
+positional: `cn ready ios` is refused, since it means `--can ios`. Every verb in that
+table exists; what to build next is cairn's own worklist, `cn ready`.

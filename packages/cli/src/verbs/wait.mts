@@ -31,7 +31,7 @@ export const summary = "raise a human blocker on an issue, or attach one that ex
 const DESCRIBING = ["kind", "owner", "title", "resolves", "nudge"] as const;
 export const spec = { value: ["on", ...DESCRIBING] } as const satisfies ArgSpec;
 
-export type WaitArgs = {
+type WaitArgs = {
   issue: string;
   on?: string;
   kind?: (typeof BLOCKER_KINDS)[number];
@@ -41,7 +41,7 @@ export type WaitArgs = {
   nudgeAt?: number;
 };
 
-export type Parsed = { action: "wait"; args: WaitArgs };
+type Parsed = { action: "wait"; args: WaitArgs };
 
 const USAGE =
   "cn wait <id> --kind approval --owner <who> --title <what> --resolves <what ends it>, or cn wait <id> --on bl-3";
