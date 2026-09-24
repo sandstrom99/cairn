@@ -9,8 +9,10 @@
 // CLI holds the Convex communication rather than an MCP server in between: the types
 // flow from the schema to the verb with nothing to keep in sync by hand.
 //
-// A second consumer — a web app, an MCP wrapper — imports this module. It lifts into
-// its own package when that consumer exists, not before.
+// The second consumer, apps/web, arrived on 2026-09-20 and did not need this module: a
+// page subscribes through convex/react and takes `api` from @cairn/backend by name, and
+// what it shares with cn is the lines, through the exports map. So this stays the CLI's
+// own; an MCP wrapper would be the consumer that lifts it, and there is none (§10).
 //
 // The deployment's shared secret rides on every call, added here and nowhere else, so no
 // verb knows it exists. The deployment checks it in `lib/guard.ts` and strips it before
@@ -31,7 +33,7 @@ export type CairnClient = {
 };
 
 /** A client for one deployment. Cheap; nothing is opened until the first call. */
-export const client = (url: string): ConvexHttpClient => new ConvexHttpClient(url);
+const client = (url: string): ConvexHttpClient => new ConvexHttpClient(url);
 
 /**
  * `http` with the deployment's secret spread into the arguments of every call, or `http`

@@ -15,15 +15,16 @@
 //
 // `captureStdout` is the other shape, for `cn init --secret-cmd`: the same `sh -c` with
 // the two streams kept apart, because there the stdout is a secret and only the stderr
-// may be shown.
+// may be shown. Both go through the one `spawn` below, which is where a timeout becomes
+// exit 124 and a signal 128 + N, so the two shapes cannot read the same end two ways.
 
 import { spawnSync } from "node:child_process";
 import { constants } from "node:os";
 
 /** What a verification record carries, before the deployment stamps `at` and `by`. */
-export type RunResult = { command: string; exitCode: number; output: string };
+type RunResult = { command: string; exitCode: number; output: string };
 
-export type RunOptions = {
+type RunOptions = {
   /** How long the command may take before it is killed and the run exits 124. */
   timeoutMs?: number;
   /** How many lines of the tail to keep. */
@@ -57,6 +58,41 @@ const tail = (text: string, lines: number): string =>
 /** A signal's number, for the 128 + N convention a shell reports. */
 const signalNumber = (signal: NodeJS.Signals): number => constants.signals[signal] ?? 0;
 
+/** What `sh -c <command>` did: the two streams apart, and the exit code as a shell reports it. */
+type Spawned = {
+  /** 124 on a timeout, 128 + N for a signal, else the status, and 1 when there is none. */
+  exitCode: number;
+  timedOut: boolean;
+  stdout: string;
+  stderr: string;
+  /** Why the spawn itself failed, when it did: a shell that could not be started at all. */
+  error?: string;
+};
+
+/** Runs `command` through `sh -c`, stdin closed, both streams captured, bounded by `timeoutMs`. */
+function spawn(command: string, timeoutMs: number): Spawned {
+  const result = spawnSync("sh", ["-c", command], {
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    maxBuffer: MAX_BUFFER,
+    timeout: timeoutMs,
+  });
+  const error = result.error as NodeJS.ErrnoException | undefined;
+  const timedOut = error?.code === "ETIMEDOUT";
+  const exitCode = timedOut
+    ? 124
+    : result.signal
+      ? 128 + signalNumber(result.signal)
+      : (result.status ?? 1);
+  return {
+    exitCode,
+    timedOut,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    ...(error ? { error: error.message } : {}),
+  };
+}
+
 /**
  * A command's stdout alone, for a value that must not be merged, tailed or echoed: a
  * secret. The two streams stay apart so a caller can show why it failed without ever
@@ -69,22 +105,14 @@ export function captureStdout(
   command: string,
   timeoutMs = UNLOCK,
 ): { exitCode: number; stdout: string; stderr: string } {
-  const result = spawnSync("sh", ["-c", command], {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-    timeout: timeoutMs,
-  });
-
-  const error = result.error as NodeJS.ErrnoException | undefined;
-  const timedOut = error?.code === "ETIMEDOUT";
-  const exitCode = timedOut
-    ? 124
-    : result.signal
-      ? 128 + signalNumber(result.signal)
-      : (result.status ?? 1);
+  const ran = spawn(command, timeoutMs);
   // A spawn that never ran has nothing on either stream, so its message is the diagnosis.
-  const said = `${result.stderr ?? ""}${error ? `\n${error.message}` : ""}`;
-  return { exitCode, stdout: (result.stdout ?? "").replace(/[\r\n]+$/, ""), stderr: said.trim() };
+  const said = `${ran.stderr}${ran.error ? `\n${ran.error}` : ""}`;
+  return {
+    exitCode: ran.exitCode,
+    stdout: ran.stdout.replace(/[\r\n]+$/, ""),
+    stderr: said.trim(),
+  };
 }
 
 /** Runs `command` and returns what it did, as the verification record takes it. */
@@ -92,29 +120,15 @@ export function runCommand(
   command: string,
   { timeoutMs = TEN_MINUTES, tailLines = TAIL }: RunOptions = {},
 ): RunResult {
-  const result = spawnSync("sh", ["-c", command], {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-    maxBuffer: MAX_BUFFER,
-    timeout: timeoutMs,
-  });
-
-  const error = result.error as NodeJS.ErrnoException | undefined;
-  const timedOut = error?.code === "ETIMEDOUT";
-  const written = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const ran = spawn(command, timeoutMs);
+  const written = `${ran.stdout}${ran.stderr}`;
   // A spawn that never ran at all still has to say why, so its message is the output.
-  const said = error && !timedOut ? `${written}\n${error.message}` : written;
-
-  const exitCode = timedOut
-    ? 124
-    : result.signal
-      ? 128 + signalNumber(result.signal)
-      : (result.status ?? 1);
+  const said = ran.error && !ran.timedOut ? `${written}\n${ran.error}` : written;
   const output = tail(said.replace(ANSI, ""), tailLines);
   return {
     command,
-    exitCode,
-    output: timedOut
+    exitCode: ran.exitCode,
+    output: ran.timedOut
       ? `${output}\n[cn: timed out after ${Math.round(timeoutMs / MINUTE)} minutes]`
       : output,
   };

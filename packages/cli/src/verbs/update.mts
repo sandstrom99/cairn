@@ -36,7 +36,7 @@ export const spec = {
   list: ["requires"],
 } as const satisfies ArgSpec;
 
-export type UpdateArgs = {
+type UpdateArgs = {
   id: string;
   revision: number;
   title?: string;
@@ -49,7 +49,7 @@ export type UpdateArgs = {
   requires?: string[];
 };
 
-export type Parsed = { action: "update"; args: UpdateArgs };
+type Parsed = { action: "update"; args: UpdateArgs };
 
 /** `--defer-until`: a date, or `none` to clear it. */
 const deferUntil = (given: string | undefined): number | null | undefined =>

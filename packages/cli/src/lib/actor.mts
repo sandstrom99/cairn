@@ -19,10 +19,10 @@
 import { hostname, userInfo } from "node:os";
 import { readConfig } from "./config.mts";
 
-export type Actor = { name: string; kind: "human" | "agent"; session?: string };
+type Actor = { name: string; kind: "human" | "agent"; session?: string };
 
 /** The machine facts the actor is built from, injectable so the derivation is testable. */
-export type Sys = { hostname: () => string; username: () => string };
+type Sys = { hostname: () => string; username: () => string };
 
 const SYS: Sys = { hostname, username: () => userInfo().username };
 

@@ -33,16 +33,16 @@ export const spec = { bool: ["json"] } as const satisfies ArgSpec;
 
 const NODE_FLOOR = 24;
 
-export type Check = {
+type Check = {
   check: "node" | "api" | "deployment" | "ping" | "secret";
   ok: boolean;
   line: string;
 };
 
 /** What the ping came back with: how many projects, or the error. */
-export type Ping = { projects: number } | { error: unknown };
+type Ping = { projects: number } | { error: unknown };
 
-export type Parsed = { action: "doctor"; json: boolean };
+type Parsed = { action: "doctor"; json: boolean };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);

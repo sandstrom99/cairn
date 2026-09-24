@@ -267,7 +267,7 @@ const factLine = ({ label: name, code, text, refs: items }: Fact): string =>
   `${label(name)}${code ? `${code} ` : ""}${items ? refs(items) : (text ?? "")}`;
 
 /** One journal entry as `cn show` prints it: `  2h wsl/claude finding: what turned out true`. */
-export const journalLine = (e: JournalEntry, now: number = Date.now()): string => {
+const journalLine = (e: JournalEntry, now: number = Date.now()): string => {
   const { when, author, kind, body } = journalParts(e, now);
   return `  ${when} ${author} ${kind}: ${body}`;
 };

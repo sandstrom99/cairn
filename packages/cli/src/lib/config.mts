@@ -45,7 +45,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export type DeploymentConfig = { url: string; secret?: string };
+type DeploymentConfig = { url: string; secret?: string };
 export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
@@ -80,7 +80,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CairnConfig | 
 }
 
 /** What `cn init` was told, already validated by the verb. */
-export type NewDeployment = {
+type NewDeployment = {
   name: string;
   url: string;
   secret?: string;

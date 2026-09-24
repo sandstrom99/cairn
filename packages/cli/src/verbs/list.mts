@@ -4,10 +4,10 @@
 //           [--mine] [--json]
 //
 // One line per issue, ordered by priority then age, each starting with the reference form.
-// --mine is the issues claimed by this machine's actor (CAIRN_ACTOR, else <host>/<user>).
+// --mine is the issues claimed under this machine's actor name: CAIRN_ACTOR, else
+// <host>/claude in a Claude Code session and <host>/<user> at a terminal (lib/actor.mts).
 // Nothing is hidden: a deferred issue is still listed, because a list that goes quiet is
-// how work disappears. What is *ready* to pick up is `cn ready`, which lands with the
-// graph; this is the flat list.
+// how work disappears. What is *ready* to pick up is `cn ready`; this is the flat list.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { ISSUE_STATUSES, maybe, oneOf, onlyFlags } from "../lib/flags.mts";
@@ -23,14 +23,14 @@ export const spec = {
   value: ["project", "epic", "status"],
 } as const satisfies ArgSpec;
 
-export type ListArgs = {
+type ListArgs = {
   project?: string;
   epic?: string;
   status?: (typeof ISSUE_STATUSES)[number];
   claimedBy?: string;
 };
 
-export type Parsed = { action: "list"; json: boolean; args: ListArgs };
+type Parsed = { action: "list"; json: boolean; args: ListArgs };
 
 /** `me` is the actor --mine means; run passes this machine's. */
 export function parse(argv: string[], me: string): Parsed {

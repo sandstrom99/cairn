@@ -23,7 +23,7 @@ export const name = "show";
 export const summary = "one id, and its neighbourhood";
 export const spec = { bool: ["json", "history"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "show"; json: boolean; args: { id: string; history?: boolean } };
+type Parsed = { action: "show"; json: boolean; args: { id: string; history?: boolean } };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);

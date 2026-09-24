@@ -727,9 +727,12 @@ the CLI, and the reasons it went are below.
   `.mcp.json` for *developing* cairn: tables, logs, function runs. That is a dev
   tool, not the agent surface.
 
-If a second consumer ever needs the typed client — a web app, an MCP wrapper —
-it imports `packages/cli/src/lib/client.mts`, and that module lifts into its own
-package then, not before.
+The second consumer arrived on 2026-09-20 and did not need the typed client:
+`apps/web` subscribes through `convex/react` and imports the generated `api`
+from `@cairn/backend` by name, and what it shares with `cn` is the lines, through
+`@cairn/cli`'s exports map (§8). So `packages/cli/src/lib/client.mts` stays the
+CLI's own, and lifts into a package of its own only for a consumer that needs the
+HTTP client with the secret spread in, an MCP wrapper, which there is not.
 
 ### How the parts talk
 

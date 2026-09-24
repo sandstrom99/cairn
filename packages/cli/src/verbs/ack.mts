@@ -20,7 +20,7 @@ export const name = "ack";
 export const summary = "a person saying seen: a blocker moves from raised to waiting";
 export const spec = {} as const satisfies ArgSpec;
 
-export type Parsed = { action: "ack"; args: { id: string } };
+type Parsed = { action: "ack"; args: { id: string } };
 
 export function parse(argv: string[]): Parsed {
   const { pos } = parseArgs(argv, spec);

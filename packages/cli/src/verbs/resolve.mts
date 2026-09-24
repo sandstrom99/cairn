@@ -21,7 +21,7 @@ export const name = "resolve";
 export const summary = "end a blocker, and free every issue it holds";
 export const spec = { value: ["note"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "resolve"; args: { id: string; note: string } };
+type Parsed = { action: "resolve"; args: { id: string; note: string } };
 
 const USAGE = "cn resolve <bl-id> --note <what happened>";
 

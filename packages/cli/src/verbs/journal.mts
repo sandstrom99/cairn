@@ -24,13 +24,13 @@ export const name = "journal";
 export const summary = "record what happened: an entry that cannot conflict";
 export const spec = { value: ["kind"] } as const satisfies ArgSpec;
 
-export type JournalArgs = {
+type JournalArgs = {
   id: string;
   kind: (typeof JOURNAL_KINDS)[number];
   body: string;
 };
 
-export type Parsed = { action: "journal"; args: JournalArgs };
+type Parsed = { action: "journal"; args: JournalArgs };
 
 const USAGE = "cn journal <id> --kind finding <body…>";
 

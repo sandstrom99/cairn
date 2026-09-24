@@ -21,7 +21,7 @@ import type {
 } from "./views.mts";
 
 /** The issue line in pieces, each already the token the line prints: `P2`, `r3`. */
-export type IssueParts = {
+type IssueParts = {
   target: Referable;
   priority: string;
   status: string;
@@ -49,7 +49,7 @@ export function issueParts(view: IssueLineView): IssueParts {
  * and the status word is dropped where the tense already says it, so a raised blocker
  * reads `raised 5m ago` rather than `raised · raised 5m ago`.
  */
-export type BlockerParts = { target: Referable; kind: string; tail: string };
+type BlockerParts = { target: Referable; kind: string; tail: string };
 
 export function blockerParts(view: BlockerLineView, now: number = Date.now()): BlockerParts {
   const owner = `owner ${view.owner}`;
@@ -67,7 +67,7 @@ export function blockerParts(view: BlockerLineView, now: number = Date.now()): B
 export type HealthRow = { fact: "moving" | "stuck" | "waiting"; target: Referable; tail: string };
 
 /** The health block in pieces: the epic, its counts as one run, and a row per fact. */
-export type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
+type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
 
 /** The counts as one run: `2 done · 0 open · 1 follow-up`. The health block and the review both head with it. */
 export const countsRun = (counts: EpicLineView["counts"]): string => {
@@ -244,7 +244,7 @@ const attachPiece = (
  * at the start of its line already names what was created, except a project, which has no
  * reference to lead with and so is its slug and name here. Anything else is `changePieces`.
  */
-export const eventPieces = (kind: string, changes: unknown, self: string | undefined): string[] => {
+const eventPieces = (kind: string, changes: unknown, self: string | undefined): string[] => {
   if (kind === "project.create" && hasStrings(changes, "slug", "name"))
     return [clip(ref({ id: changes.slug, title: changes.name }))];
   if (kind.endsWith(".create")) return [];
@@ -268,7 +268,7 @@ export const eventPieces = (kind: string, changes: unknown, self: string | undef
 };
 
 /** One event of a thing's own history, in pieces. It names no target: the thing is the page. */
-export type HistoryParts = {
+type HistoryParts = {
   revision: string;
   actor: string;
   when: string;
@@ -296,7 +296,7 @@ export function historyParts(
 }
 
 /** One event in pieces: a target where it names one, and its payload a change at a time. */
-export type LogParts = {
+type LogParts = {
   target?: Referable;
   kind: string;
   actor: string;
@@ -328,7 +328,7 @@ export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
 export type Fact = { label: string; code?: string; text?: string; refs?: Named[] };
 
 /** The one word for where an issue stands. */
-export type StateWord =
+type StateWord =
   | "moving"
   | "waiting"
   | "stuck"
@@ -344,7 +344,7 @@ export type StateWord =
  * it does not, `tail` is the rest of the line, `moving balder/claude 2h`, `stuck silent
  * 9d`, `deferred until 2026-10-01`, `closed 2h ago`; and `open` stands alone.
  */
-export type StateParts = { word: StateWord; tail?: string; refs?: Referable[] };
+type StateParts = { word: StateWord; tail?: string; refs?: Referable[] };
 
 // Anything not known to be finished holds: a deployment that does not send a status yet
 // (the CLI is ahead of it until `push:cloud`) keeps reading its blockers as live.
@@ -397,7 +397,7 @@ export const stateLine = ({ word, tail, refs: items }: StateParts): string =>
  * unverified close has no `ran`, and its reason ends the text. The output is the record's
  * whole; the brief leaves it out and the page prints it.
  */
-export type ProofParts = { ran?: string; text: string; output?: string };
+type ProofParts = { ran?: string; text: string; output?: string };
 
 export function proofParts(record: Verification, now: number = Date.now()): ProofParts {
   const by = `by ${record.by.name} ${since(record.at, now)}`;
@@ -478,7 +478,7 @@ export const journalParts = (e: JournalEntry, now: number = Date.now()) => ({
 });
 
 /** An in-progress row this session holds with nothing journaled past the threshold. */
-export type HeldQuiet = BriefView["inProgress"][number] & { unjournaledSince: number };
+type HeldQuiet = BriefView["inProgress"][number] & { unjournaledSince: number };
 
 /** The in-progress rows this session holds with nothing journaled past the threshold. */
 export const unjournaled = (view: BriefView): HeldQuiet[] =>

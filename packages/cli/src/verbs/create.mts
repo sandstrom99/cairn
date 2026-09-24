@@ -46,7 +46,7 @@ export const spec = {
   list: ["requires"],
 } as const satisfies ArgSpec;
 
-export type CreateArgs = {
+type CreateArgs = {
   project: string;
   epic?: string;
   title: string;
@@ -60,7 +60,7 @@ export type CreateArgs = {
   requires?: string[];
 };
 
-export type Parsed = { action: "create"; args: CreateArgs };
+type Parsed = { action: "create"; args: CreateArgs };
 
 const USAGE = "cn create --project <slug> --title <title> [--epic <ep-id>]";
 

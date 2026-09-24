@@ -17,7 +17,7 @@ export const name = "drop";
 export const summary = "closed without doing, with the reason it was not";
 export const spec = { value: ["revision", "reason"] } as const satisfies ArgSpec;
 
-export type Parsed = { action: "drop"; args: { id: string; revision: number; reason: string } };
+type Parsed = { action: "drop"; args: { id: string; revision: number; reason: string } };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);
