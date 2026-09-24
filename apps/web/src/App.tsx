@@ -1,8 +1,8 @@
 // App.tsx: the secret and the route, and nothing else. `App` holds the secret as state and
 // the gate that turns a refused secret into the form; `Window` reads the route, asks
 // `useDeployment` and `useShown` (deployment.ts), holds the previous id's page across a
-// change with `useStale` (held.ts), and hands the `Shell` the page and what the column lists;
-// `ItemPage` is the page for one id.
+// change with `useStale` (held.ts), and hands the `Shell` the page and what the column lists
+// and whether the column is collapsed (column.ts); `ItemPage` is the page for one id.
 //
 // The path picks the page (location.ts). The rail, the ground and the jump bar stay where
 // they are across pages and so do the subscriptions under them, so going from an epic to
@@ -17,6 +17,7 @@ import { ref } from "@cairn/cli/ref";
 import type { Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { readCollapsed, writeCollapsed } from "./column.ts";
 import { Unanswered } from "./Connect.tsx";
 import { FEED, useDeployment, useShown, WAIT } from "./deployment.ts";
 import type { Listing } from "./Feed.tsx";
@@ -68,6 +69,13 @@ function Window({
 }) {
   useLinks();
   const path = usePath();
+  // Whether the column is collapsed is this browser's choice, kept like the secret: read once
+  // on load, written the moment it is made.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggleColumn = () => {
+    writeCollapsed(!collapsed);
+    setCollapsed(!collapsed);
+  };
   const route = routeOf(path);
   const now = useMinute();
   const { who, brief, epics, blockers, issues, events, destinations, unanswered } = useDeployment(
@@ -112,6 +120,8 @@ function Window({
       epicId={epicId}
       waiting={(brief?.waiting ?? 0) > 0}
       listing={listing}
+      collapsed={collapsed}
+      onToggleColumn={toggleColumn}
       now={now}
       destinations={destinations}
       onForget={onForget}

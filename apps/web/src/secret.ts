@@ -6,8 +6,9 @@
 // in this browser's localStorage alone — never in the bundle, never in an env var, where
 // anyone served the page would get it too.
 //
-// Storage is passed in rather than reached for, because a test has no localStorage and a
-// browser in private mode has one that throws on touch. Every path here tolerates both.
+// Storage is passed in, and why every path here tolerates having none is in storage.ts.
+
+import { safeStorage } from "./storage.ts";
 
 export const SECRET_KEY = "cairn:secret";
 
@@ -17,15 +18,6 @@ export const SECRET_KEY = "cairn:secret";
  */
 export const devSecret = (): string | undefined =>
   (typeof __CAIRN_DEV_SECRET__ === "string" ? __CAIRN_DEV_SECRET__ : "") || undefined;
-
-/** `globalThis.localStorage`, or undefined where there is none or the accessor throws. */
-function safeStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 /** The stored secret, or undefined when it is absent, empty or unreadable. */
 export function readSecret(

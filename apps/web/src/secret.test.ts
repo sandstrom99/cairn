@@ -1,29 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SECRET_KEY, devSecret, readSecret, writeSecret } from "./secret.ts";
-
-/** A localStorage that is a Map, so a test needs no DOM. */
-function fakeStorage() {
-  const entries = new Map<string, string>();
-  return {
-    entries,
-    getItem: (key: string) => entries.get(key) ?? null,
-    setItem: (key: string, value: string) => void entries.set(key, value),
-    removeItem: (key: string) => void entries.delete(key),
-  };
-}
-
-/** A localStorage in a browser that refuses it: every method throws. */
-const throwingStorage = {
-  getItem: (): string => {
-    throw new Error("denied");
-  },
-  setItem: (): void => {
-    throw new Error("denied");
-  },
-  removeItem: (): void => {
-    throw new Error("denied");
-  },
-};
+import { fakeStorage, throwingStorage } from "./storage.fixtures.ts";
 
 describe("readSecret and writeSecret", () => {
   it("round-trips a secret under one key", () => {
