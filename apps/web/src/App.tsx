@@ -117,11 +117,11 @@ function Window({ host, secret }: { host: string; secret: string | undefined }) 
       <Rail host={host} epics={epics} current={path} epicId={epicId} />
       <main
         className={cn(
-          "relative z-10 ml-[276px] px-10 pt-16 pb-36 max-[720px]:ml-0 max-[720px]:px-4 max-[720px]:pt-9",
-          side && "mr-[396px] max-[1100px]:mr-0",
+          "relative z-10 ml-(--main-left) px-10 pt-16 pb-36 narrow:ml-0 narrow:px-4 narrow:pt-9",
+          side && "mr-(--main-right) mid:mr-0",
         )}
       >
-        <div className="mx-auto max-w-[760px]">
+        <div className="mx-auto max-w-(--content-width)">
           {route === undefined ? (
             <Lost what={path} />
           ) : route.page === "overview" ? (

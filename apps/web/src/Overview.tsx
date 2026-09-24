@@ -16,12 +16,13 @@ import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { headline, underline } from "./brief.ts";
 import { Ref, Run } from "./Ref.tsx";
+import { StateWord } from "./tone.tsx";
 
 export function Brief({ view }: { view: BriefView }) {
   const under = underline(view);
   return (
     <header>
-      <h1 className="text-brief font-bold tracking-[-0.028em] text-balance max-[720px]:text-[1.875rem]">
+      <h1 className="text-brief font-bold tracking-[-0.028em] text-balance narrow:text-[1.875rem]">
         {headline(view).map((clause, i) => (
           <Fragment key={clause.text}>
             {i > 0 && " "}
@@ -36,26 +37,9 @@ export function Brief({ view }: { view: BriefView }) {
   );
 }
 
-const FACT: Record<HealthRow["fact"] | "blocker", { dot: string; word: string }> = {
-  moving: { dot: "bg-moving", word: "text-moving-ink" },
-  stuck: { dot: "bg-stuck", word: "text-stuck-ink" },
-  waiting: { dot: "bg-waiting", word: "text-waiting-ink" },
-  blocker: { dot: "bg-waiting", word: "text-waiting-ink" },
-};
-
-/** The state word that opens a row, with its dot: the only chroma on the page. */
-function Fact({ tone, children }: { tone: keyof typeof FACT; children: string }) {
-  return (
-    <span className={cn("inline-flex items-center gap-2 text-small font-[550]", FACT[tone].word)}>
-      <i className={cn("size-2 shrink-0 rounded-full", FACT[tone].dot)} />
-      {children}
-    </span>
-  );
-}
-
 const ROW =
-  "grid grid-cols-[92px_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 px-4 py-[13px] max-[720px]:grid-cols-[78px_minmax(0,1fr)]";
-const TAIL = "text-small whitespace-nowrap text-slate max-[720px]:col-start-2";
+  "grid grid-cols-[92px_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 px-4 py-[13px] narrow:grid-cols-[78px_minmax(0,1fr)]";
+const TAIL = "text-small whitespace-nowrap text-slate narrow:col-start-2";
 
 /** `cn waiting`, as the block the page puts first: each blocker, and what it holds. */
 export function Waiting({ blockers, now }: { blockers: WaitingBlocker[]; now: number }) {
@@ -81,10 +65,10 @@ function BlockerRow({ blocker, now }: { blocker: WaitingBlocker; now: number }) 
   return (
     <div className="divide-y divide-hair">
       {/* cn's order is reference, kind, tail; the page leads with the kind as its state word. */}
-      <div className="grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 px-4 py-[13px] max-[720px]:grid-cols-[78px_minmax(0,1fr)]">
+      <div className="grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 px-4 py-[13px] narrow:grid-cols-[78px_minmax(0,1fr)]">
         <Ref item={target} className="col-start-2 row-start-1" />{" "}
         <span className="col-start-1 row-start-1">
-          <Fact tone="blocker">{kind}</Fact>
+          <StateWord word={kind} tone="waiting" className="text-small" />
         </span>
         <span className="col-start-2 text-small text-slate">
           <span className="unseen"> · </span>
@@ -92,7 +76,7 @@ function BlockerRow({ blocker, now }: { blocker: WaitingBlocker; now: number }) 
         </span>
       </div>
       {blocker.issues.length > 0 && (
-        <div className="grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] text-row max-[720px]:grid-cols-[78px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] text-row narrow:grid-cols-[78px_minmax(0,1fr)]">
           <span className="text-small text-slate">holds</span>{" "}
           <span>
             {blocker.issues.map((issue, i) => (
@@ -127,7 +111,7 @@ export function Epics({ epics, now }: { epics: EpicLineView[]; now: number }) {
             <h2 className="text-title font-[620] tracking-[-0.012em]">
               <Ref item={epic} />
             </h2>{" "}
-            <Run text={counts} className="ml-auto text-small text-slate max-[720px]:ml-0" />
+            <Run text={counts} className="ml-auto text-small text-slate narrow:ml-0" />
           </div>
           <HealthRows rows={rows} />
         </section>
@@ -142,7 +126,7 @@ export function Epics({ epics, now }: { epics: EpicLineView[]; now: number }) {
               <li key={epic.id}>
                 <a
                   href={`/${epic.id}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 px-4 py-[13px] hover:bg-ink/[0.022] max-[720px]:grid-cols-1 hover:[&_.ref-title]:underline"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 px-4 py-[13px] hover:bg-ink/[0.022] narrow:grid-cols-1 hover:[&_.ref-title]:underline"
                 >
                   <Ref item={epic} plain className="decoration-faint underline-offset-[3px]" />{" "}
                   <Run text={counts} className="text-small text-slate" />
@@ -176,7 +160,7 @@ function HealthRowLine({ row }: { row: HealthRow }) {
         href={`/${row.target.id}`}
         className={cn(ROW, "hover:bg-ink/[0.022] hover:[&_.ref-title]:underline")}
       >
-        <Fact tone={row.fact}>{row.fact}</Fact>{" "}
+        <StateWord word={row.fact} className="text-small" />{" "}
         <Ref item={row.target} plain className="decoration-faint underline-offset-[3px]" />{" "}
         <span className={TAIL}>
           {led && <span className="unseen">· </span>}

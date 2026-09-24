@@ -6,9 +6,10 @@ import { issueParts } from "@cairn/cli/parts";
 import type { IssueLineView } from "@cairn/cli/views";
 import { cn } from "@/lib/utils";
 import { Ref } from "./Ref.tsx";
+import { StateWord } from "./tone.tsx";
 
-const WORD: Record<string, string> = {
-  in_progress: "text-moving-ink",
+/** A resting status word in a column, by weight rather than tone: no chroma, no dot. */
+const LEVEL: Record<string, string> = {
   open: "text-ink",
   closed: "text-slate",
   dropped: "text-faint",
@@ -30,7 +31,7 @@ function IssueRow({ issue }: { issue: IssueLineView }) {
     <li>
       <a
         href={`/${target.id}`}
-        className="grid grid-cols-[112px_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-[13px] hover:bg-ink/[0.022] max-[720px]:grid-cols-[112px_minmax(0,1fr)] hover:[&_.ref-title]:underline"
+        className="grid grid-cols-[112px_minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-0.5 px-4 py-[13px] hover:bg-ink/[0.022] narrow:grid-cols-[112px_minmax(0,1fr)] hover:[&_.ref-title]:underline"
       >
         <Ref
           item={target}
@@ -40,18 +41,21 @@ function IssueRow({ issue }: { issue: IssueLineView }) {
             (status === "closed" || status === "dropped") && "text-slate",
           )}
         />{" "}
-        <span className="col-start-3 row-start-1 font-mono text-meta text-slate max-[720px]:col-start-2 max-[720px]:row-start-3">
+        <span className="col-start-3 row-start-1 font-mono text-meta text-slate narrow:col-start-2 narrow:row-start-3">
           {priority}
         </span>{" "}
-        <span
-          className={cn(
-            "col-start-1 row-start-1 inline-flex items-center gap-2 text-small font-[550]",
-            WORD[status],
-          )}
-        >
-          {status === "in_progress" && <i className="size-2 shrink-0 rounded-full bg-moving" />}
-          {status}
-        </span>
+        {status === "in_progress" ? (
+          <StateWord word={status} tone="moving" className="col-start-1 row-start-1 text-small" />
+        ) : (
+          <span
+            className={cn(
+              "col-start-1 row-start-1 inline-flex items-center gap-2 text-small font-[550]",
+              LEVEL[status],
+            )}
+          >
+            {status}
+          </span>
+        )}
         {epic && (
           <>
             {" "}
@@ -59,7 +63,7 @@ function IssueRow({ issue }: { issue: IssueLineView }) {
           </>
         )}
         {claimedBy && (
-          <span className="col-start-4 row-start-1 text-small text-slate max-[720px]:col-start-2 max-[720px]:row-start-4">
+          <span className="col-start-4 row-start-1 text-small text-slate narrow:col-start-2 narrow:row-start-4">
             <span className="unseen"> · </span>
             {claimedBy}
           </span>

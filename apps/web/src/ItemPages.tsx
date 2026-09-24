@@ -21,24 +21,11 @@ import { IssueRows } from "./IssueRows.tsx";
 import { HealthRows } from "./Overview.tsx";
 import { Prose } from "./Prose.tsx";
 import { Run } from "./Ref.tsx";
-import {
-  Crumbs,
-  Group,
-  Heading,
-  Neighbours,
-  Passage,
-  Refs,
-  Sheet,
-  State,
-  type Tone,
-} from "./Sheet.tsx";
+import { Crumbs, Group, Heading, Neighbours, Passage, Refs, Sheet, State } from "./Sheet.tsx";
+import { epicWord } from "./tone.tsx";
 
 /** An issue as a list carries it: enough for a row, and which epic and kind it is. */
 export type Listed = IssueLineView & { epic: Referable; type: string };
-
-/** The colour a state word gets: the three the design names, and grey for the rest. */
-const toneOf = (word: string): Tone =>
-  word === "moving" || word === "stuck" || word === "waiting" ? word : "still";
 
 export function IssuePage({
   issue,
@@ -63,7 +50,7 @@ export function IssuePage({
         <Neighbours compact before={before} after={after} where={where} />
       </Crumbs>
       <Heading item={issue} />
-      <State tone={toneOf(state.word)} word={state.word}>
+      <State word={state.word}>
         {state.refs ? (
           <>
             {state.tail} <Refs items={state.refs} />
@@ -91,7 +78,7 @@ export function IssuePage({
         )}
         {output !== undefined && output.trim() !== "" && (
           <Passage label="output">
-            <pre className="max-h-72 overflow-auto font-mono text-micro whitespace-pre-wrap text-[#3a4150]">
+            <pre className="max-h-72 overflow-auto font-mono text-micro whitespace-pre-wrap text-code">
               {output}
             </pre>
           </Passage>
@@ -124,18 +111,18 @@ type Entry = ShownIssue["journal"][number];
 export function JournalEntry({ entry, now }: { entry: Entry; now: number }) {
   const { when, author, kind, body } = journalParts(entry, now);
   return (
-    <li className="grid grid-cols-[116px_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1.5 px-4 py-[13px] max-[720px]:grid-cols-[minmax(0,1fr)_auto]">
-      <span className="col-start-3 row-start-1 text-meta text-slate max-[720px]:col-start-2">
+    <li className="grid grid-cols-[116px_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1.5 px-4 py-[13px] narrow:grid-cols-[minmax(0,1fr)_auto]">
+      <span className="col-start-3 row-start-1 text-meta text-slate narrow:col-start-2">
         {when}
       </span>{" "}
-      <span className="col-start-2 row-start-1 text-small text-slate max-[720px]:col-start-1 max-[720px]:row-start-2">
+      <span className="col-start-2 row-start-1 text-small text-slate narrow:col-start-1 narrow:row-start-2">
         {author}
       </span>{" "}
       <span className="col-start-1 row-start-1 text-small font-[550]">
         {kind}
         <span className="unseen">: </span>
       </span>
-      <div className="col-span-2 col-start-2 row-start-2 max-[720px]:col-start-1 max-[720px]:row-start-3">
+      <div className="col-span-2 col-start-2 row-start-2 narrow:col-start-1 narrow:row-start-3">
         <Prose text={body} />
       </div>
     </li>
@@ -169,20 +156,11 @@ export function EpicPage({
   now: number;
 }) {
   const { counts, rows } = healthParts(epic, now);
-  const tone: Tone =
-    epic.health.waiting.length > 0
-      ? "waiting"
-      : epic.health.stuck
-        ? "stuck"
-        : epic.health.moving.length > 0
-          ? "moving"
-          : "still";
-  const word = tone === "still" ? (epic.status === "open" ? "nothing moving" : epic.status) : tone;
   return (
     <article>
       <Crumbs />
       <Heading item={epic} />
-      <State tone={tone} word={word}>
+      <State word={epicWord(epic)}>
         <Run text={counts} />
       </State>
 
@@ -225,7 +203,7 @@ export function BlockerPage({ blocker, now }: { blocker: ShownBlocker; now: numb
     <article>
       <Crumbs />
       <Heading item={blocker} />
-      <State tone={resolved ? "still" : "waiting"} word={resolved ? "resolved" : "waiting"}>
+      <State word={resolved ? "resolved" : "waiting"}>
         {resolved ? blocker.resolution : `on ${blocker.owner}`}
       </State>
       <Sheet facts={blockerFacts(blocker, now)} />

@@ -53,7 +53,7 @@ export function FeedEvent({
   const Icon = ICONS[kind.split(".")[1] ?? ""] ?? CircleDot;
   return (
     <li className={cn(ENTRY, landed && "landed")}>
-      <span className="grid size-[30px] place-items-center rounded-[9px] bg-white/80 shadow-[0_0_0_1px_rgb(21_24_30/0.06)]">
+      <span className="grid size-[30px] place-items-center rounded-[9px] bg-lift shadow-ring">
         <Icon className="size-[15px]" />
       </span>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2.5">
@@ -74,7 +74,7 @@ export function FeedEvent({
 function Changes({ changes }: { changes: string[] }) {
   if (changes.length === 0) return null;
   return (
-    <ul className="col-span-2 row-start-3 mt-1.5 font-mono text-micro [overflow-wrap:anywhere] text-[#3a4150]">
+    <ul className="col-span-2 row-start-3 mt-1.5 font-mono text-micro [overflow-wrap:anywhere] text-code">
       {changes.map((change, i) => (
         // The changes of one event never reorder, so the index is a stable key.
         <li key={i}>
@@ -116,7 +116,7 @@ function Side({
   return (
     <aside
       aria-label={label}
-      className="glass fixed top-3 right-3 bottom-3 z-20 flex w-[384px] flex-col rounded-3xl max-[1100px]:hidden"
+      className="glass fixed top-(--gutter) right-(--gutter) bottom-(--gutter) z-20 flex w-(--side-width) flex-col rounded-3xl mid:hidden"
     >
       <div className="flex items-center px-5 pt-5 pb-3">
         <h2 className="text-[0.96875rem] font-[650] tracking-[-0.01em]">{label}</h2>
@@ -238,7 +238,7 @@ export function HistoryEntry({
   const Icon = ICONS[kind.split(".")[1] ?? ""] ?? CircleDot;
   return (
     <li className={cn(ENTRY, landed && "landed")}>
-      <span className="grid size-[30px] place-items-center rounded-[9px] bg-white/80 shadow-[0_0_0_1px_rgb(21_24_30/0.06)]">
+      <span className="grid size-[30px] place-items-center rounded-[9px] bg-lift shadow-ring">
         <Icon className="size-[15px]" />
       </span>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2.5">
