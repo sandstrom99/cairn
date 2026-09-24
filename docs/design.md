@@ -621,6 +621,17 @@ said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
 
+Under the headline, each epic with a health row is its `cn epic list` block,
+with the epic's description between the head line and the rows the way `cn show`
+prints it, set small. With no epic showing a row, the two epics with the newest
+`lastActivity` stand where the live ones would, each its head line, its
+description and the newest log line that landed in it, so the page still says
+what the deployment has been doing; "Nothing moving" lists the rest, and an epic
+shown above is not listed again. `lastActivity` on an `epics.list` row is the
+newest write to the epic or to any issue under it, as the issues stamp it, the
+same notion of activity the stuck line measures against, so an edge or a blocker
+on its own moves nothing. Added 2026-09-24.
+
 A page for one id is `cn show` with room. An issue opens with its state,
 `stateParts`, the head of the brief's status line: `moving balder/claude 2h`,
 `waiting on bl-4 "…"`, `blocked by` the ends still live, `stuck silent 9d`,

@@ -67,6 +67,10 @@ export type BlockerLineView = Referable & {
 
 /** Enough of an epic to print its health block: the counts, and the three lines of §8. */
 export type EpicLineView = Referable & {
+  /** The epic's own, which the overview prints under its head line the way `cn show` does. */
+  description?: string;
+  /** The newest write to the epic or to any issue under it, as the issues stamp it; the overview sorts by it. */
+  lastActivity: number;
   counts: { open: number; inProgress: number; closed: number; followUps: number };
   health: {
     moving: (Referable & { claimedBy: { name: string }; claimedAt: number })[];

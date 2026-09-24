@@ -43,6 +43,9 @@ export function stuckOf(issues: Doc<"issues">[], now: number): Doc<"issues"> | u
  *
  * It takes the epic's issues preloaded, so a caller that already holds them (`show.get`,
  * `epics.list`) reads them once.
+ *
+ * `lastActivity` is the newest write to the epic or to any issue under it, as the issues
+ * stamp it, so an edge or a blocker on its own moves nothing; the overview sorts by it.
  */
 export async function epicHealth(
   ctx: QueryCtx,
@@ -79,5 +82,22 @@ export async function epicHealth(
   }
   waiting.sort(idOrder);
 
-  return { ...epicView(doc, issues), health: { moving, stuck, waiting } };
+  // The newest write to the epic or to anything under it, as the issues themselves stamp
+  // it: a create, a claim, a close, an edit, a journal entry. An edge or a blocker stamps
+  // nothing (edges.ts), which is the notion of activity the stuck line already measures
+  // against. The epic's own events are its create, close or drop, which the index holds
+  // beside each issue.create under it, read newest first. `_creationTime` carries a
+  // fraction of a millisecond to order writes inside one; the floor makes it whole
+  // milliseconds, as `Date.now()` stamps an issue's `lastActivity`.
+  const own = await ctx.db
+    .query("events")
+    .withIndex("by_epic", (q) => q.eq("epicId", doc._id))
+    .order("desc")
+    .first();
+  const lastActivity = Math.max(
+    Math.floor(own?._creationTime ?? doc._creationTime),
+    ...issues.map((i) => i.lastActivity),
+  );
+
+  return { ...epicView(doc, issues), lastActivity, health: { moving, stuck, waiting } };
 }

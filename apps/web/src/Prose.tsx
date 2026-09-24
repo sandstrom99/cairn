@@ -3,6 +3,7 @@
 // line that opens `- ` is a list item, and `backticks` mark something typed. It is not
 // markdown and does not try to be: nothing here is parsed that an agent did not mean.
 import { Fragment } from "react";
+import { cn } from "@/lib/utils";
 
 type Block = { list: boolean; lines: string[] };
 
@@ -49,9 +50,9 @@ function Inline({ text }: { text: string }) {
   );
 }
 
-export function Prose({ text }: { text: string }) {
+export function Prose({ text, className }: { text: string; className?: string }) {
   return (
-    <div className="grid max-w-[68ch] gap-2.5 text-body">
+    <div className={cn("grid max-w-[68ch] gap-2.5 text-body", className)}>
       {blocksOf(text).map((block, i) =>
         block.list ? (
           <ul key={i} className="grid list-disc gap-1 pl-[1.1em] marker:text-mark">

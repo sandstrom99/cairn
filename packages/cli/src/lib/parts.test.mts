@@ -92,6 +92,7 @@ describe("the parts a line is joined from", () => {
     const view = {
       id: "ep-3",
       title: "An epic tells the truth",
+      lastActivity: now - DAY,
       counts: { open: 1, inProgress: 1, closed: 2, followUps: 1 },
       health: {
         moving: [

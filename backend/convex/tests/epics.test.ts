@@ -175,6 +175,27 @@ describe("epic health", () => {
       health: { moving: [{ id: "cn-1" }], waiting: [] },
     });
   });
+
+  it("carries lastActivity as the newest write to the epic or an issue under it, and an edge moves nothing", async () => {
+    at("2026-09-20T10:00:00Z");
+    const t = await seed({ issues: ["work 1"] });
+    at("2026-09-21T10:00:00Z");
+    await t.mutation(api.journal.append, { actor, id: "cn-1", kind: "finding", body: "a finding" });
+    at("2026-09-22T10:00:00Z");
+    await t.mutation(api.epics.create, { actor, title: "two" });
+    at("2026-09-23T10:00:00Z");
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "work 2" });
+    at("2026-09-24T10:00:00Z");
+    // cn-2 blocks cn-1, read from cn-1 as blocked by cn-2. An edge stamps no issue.
+    await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-1", type: "blocks" });
+    const listed = await t.query(api.epics.list, { all: true });
+    expect(listed.find((e) => e.id === "ep-1")!.lastActivity).toBe(
+      Date.parse("2026-09-23T10:00:00Z"),
+    );
+    expect(listed.find((e) => e.id === "ep-2")!.lastActivity).toBe(
+      Date.parse("2026-09-22T10:00:00Z"),
+    );
+  });
 });
 
 describe("epics.close", () => {
