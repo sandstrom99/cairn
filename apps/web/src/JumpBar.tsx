@@ -9,10 +9,22 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { navigate } from "./location.ts";
+import { isId, navigate } from "./location.ts";
+import { shortcut } from "./platform.ts";
 
 /** Something the bar can go to, and the word that says what it is. */
 export type Destination = Referable & { what: string };
+
+/**
+ * The rows for what was typed. A typed id that no list holds, a closed epic's or a
+ * resolved blocker's, gets one row that opens it by id: the page for it is `show.get`,
+ * which answers for anything ever minted, so nothing has to be listed to be reachable.
+ */
+export function withTyped(term: string, destinations: Destination[]): Destination[] {
+  const typed = term.trim().toLowerCase();
+  if (!isId(typed) || destinations.some((d) => d.id === typed)) return destinations;
+  return [...destinations, { id: typed, title: "Open it by id", what: "" }];
+}
 
 export function JumpBar({
   destinations,
@@ -60,7 +72,7 @@ export function JumpBar({
             <CommandEmpty className="px-3 py-2.5 text-left text-row text-slate">
               Nothing here is called that. Try an id like cn-26.
             </CommandEmpty>
-            {destinations.map(({ id, title, what }) => (
+            {withTyped(term, destinations).map(({ id, title, what }) => (
               <CommandItem
                 key={id}
                 value={`${id} ${title}`}
@@ -91,7 +103,7 @@ export function JumpBar({
             className="min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-hidden placeholder:text-slate"
           />
           <kbd className="rounded-[7px] bg-lift px-[7px] py-[3px] font-mono text-xs text-slate shadow-ring">
-            ⌘K
+            {shortcut()}
           </kbd>
         </label>
       </Command>

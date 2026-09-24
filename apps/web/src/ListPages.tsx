@@ -2,6 +2,7 @@
 // by where each issue stands, with what is finished folded away under what is not. The log
 // is `cn log`: the feed, with the room a column beside the overview does not have.
 import type { LogEvent } from "@cairn/cli/views";
+import type { ReactNode } from "react";
 import { FeedEvent } from "./Feed.tsx";
 import { IssueRows } from "./IssueRows.tsx";
 import type { Listed } from "./ItemPages.tsx";
@@ -18,7 +19,7 @@ const DONE: { title: string; pick: (issue: Listed) => boolean }[] = [
   { title: "Dropped", pick: (i) => i.status === "dropped" },
 ];
 
-function PageHead({ title, under }: { title: string; under: string }) {
+function PageHead({ title, under }: { title: string; under: ReactNode }) {
   return (
     <header>
       <h1 className="text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em]">{title}</h1>
@@ -35,9 +36,17 @@ export function IssuesPage({ issues }: { issues: Listed[] | undefined }) {
       <PageHead
         title="Issues"
         under={
-          issues.length === 0
-            ? "None yet."
-            : `${live.length} live of ${issues.length}, by priority then age, the way cn list orders them.`
+          issues.length === 0 ? (
+            <>
+              None yet.{" "}
+              <code className="font-mono">
+                cn create --project &lt;slug&gt; --epic &lt;ep-id&gt; --title "…"
+              </code>{" "}
+              puts the first one here.
+            </>
+          ) : (
+            `${live.length} live of ${issues.length}, by priority then age, the way cn list orders them.`
+          )
         }
       />
       {LIVE.map(({ title, pick }) => {
@@ -72,6 +81,11 @@ export function LogPage({ events, now }: { events: LogEvent[] | undefined; now: 
       <PageHead title="Log" under="Everything cn wrote to this deployment, newest first." />
       {events === undefined ? (
         <p className="mt-8 text-slate">Listening…</p>
+      ) : events.length === 0 ? (
+        <p className="mt-8 text-slate">
+          Nothing yet. Every write cn makes lands here, from the first{" "}
+          <code className="font-mono">cn epic new "…"</code> on.
+        </p>
       ) : (
         <ul className="paper mt-8 px-1 py-1">
           {events.map((event) => (

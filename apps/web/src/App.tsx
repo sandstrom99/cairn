@@ -1,8 +1,7 @@
-// App.tsx: the shell, and the only file that asks the deployment anything. Live
-// subscriptions, each to a function `cn` calls: `brief.get` for the headline, `epics.list`
-// for health and the rail, `blockers.list` for what waits on a person, `events.recent` for
-// the feed and the log, `issues.list` for the lists and the jump bar, and on a page for one
-// id, `show.get` with its history. Nothing here calls a mutation: the window reads.
+// App.tsx: the secret and the route, and nothing else. `App` holds the secret as state and
+// the gate that turns a refused secret into the form; `Window` reads the route, asks
+// `useDeployment` (deployment.ts), and puts the page for it into the `Shell`; `Item` is the
+// page for one id under its own gate.
 //
 // The path picks the page (location.ts). The rail, the ground and the jump bar stay where
 // they are across pages and so do the subscriptions under them, so going from an epic to
@@ -10,92 +9,71 @@
 //
 // The secret is state rather than a build-time value, because the deployment answers
 // `unauthorized` to a caller that did not send the right one and the page has to be able
-// to ask. An error boundary around the subscriptions is what carries that answer to the
-// reader: convex/react throws a ConvexError out of `useQuery`, and the guard's line names
-// the fix. Changing the secret remounts the boundary, so a fixed secret clears the error.
-// A second boundary sits around the page for one id, because an id nobody minted is the
-// deployment answering, not refusing.
+// to ask. A second gate sits around the page for one id, because an id nobody minted is
+// the deployment answering, not refusing.
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import type { LogEvent } from "@cairn/cli/views";
 import { ref } from "@cairn/cli/ref";
 import { useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
-import { Component, type ReactNode, useEffect, useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
-import { Connect } from "./Connect.tsx";
+import { useEffect, useState } from "react";
+import { Unanswered } from "./Connect.tsx";
+import { useDeployment, WAIT, type Who } from "./deployment.ts";
 import { Feed, History } from "./Feed.tsx";
-import { Ground } from "./Ground.tsx";
+import { Gate, Lost } from "./Gate.tsx";
 import { useHeld } from "./held.ts";
 import { BlockerPage, EpicPage, IssuePage, type Listed } from "./ItemPages.tsx";
-import { type Destination, JumpBar } from "./JumpBar.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { type Route, routeOf, useLinks, usePath } from "./location.ts";
 import { useMinute } from "./now.ts";
 import { Brief, Epics, Waiting } from "./Overview.tsx";
-import { Rail } from "./Rail.tsx";
 import { devSecret, readSecret, writeSecret } from "./secret.ts";
-
-/** How much of the feed the Overview keeps beside it, and how much the log page holds. */
-const FEED = 30;
-const LOG = 200;
+import { Shell } from "./Shell.tsx";
 
 export function App({ url }: { url: string }) {
   const [secret, setSecret] = useState<string | undefined>(() => readSecret() ?? devSecret());
+  // Every submit and every forget remounts the gate, so a secret that is wrong twice is tried twice.
+  const [attempt, setAttempt] = useState(0);
   const host = new URL(url).host;
-
+  // The value entered is the secret for this page load, whether or not storage keeps it.
+  const connect = (entered: string) => {
+    const trimmed = entered.trim();
+    writeSecret(trimmed);
+    setSecret(trimmed || devSecret());
+    setAttempt((n) => n + 1);
+  };
+  const forget = () => {
+    writeSecret("");
+    setSecret(devSecret());
+    setAttempt((n) => n + 1);
+  };
   return (
-    <ErrorBoundary
-      key={secret ?? ""}
-      fallback={(message) => (
-        <>
-          <Ground waiting={false} />
-          <Connect
-            host={host}
-            message={message}
-            onSecret={(entered) => {
-              writeSecret(entered);
-              setSecret(readSecret() ?? devSecret());
-            }}
-          />
-        </>
-      )}
-    >
-      <Window host={host} secret={secret} />
-    </ErrorBoundary>
+    <Gate key={attempt} host={host} onSecret={connect}>
+      <Window host={host} secret={secret} onForget={forget} onSecret={connect} />
+    </Gate>
   );
 }
 
-type Who = { secret?: string };
-
 /** The live page. `undefined` is a subscription not having answered yet, never an empty list. */
-function Window({ host, secret }: { host: string; secret: string | undefined }) {
+function Window({
+  host,
+  secret,
+  onForget,
+  onSecret,
+}: {
+  host: string;
+  secret: string | undefined;
+  onForget: () => void;
+  onSecret: (secret: string) => void;
+}) {
   useLinks();
   const path = usePath();
   const route = routeOf(path);
   const now = useMinute();
-  const who: Who = secret === undefined ? {} : { secret };
-
-  const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
-  const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
-  const blockers = useQuery(api.blockers.list, who);
-  const issues: Listed[] | undefined = useQuery(api.issues.list, who);
   const onLog = route?.page === "log";
-  const events = useHeld(
-    useQuery(api.events.recent, { ...who, limit: onLog ? LOG : FEED }),
-    onLog ? "log" : "feed",
-  );
-
-  const destinations = useMemo<Destination[]>(
-    () => [
-      ...(issues ?? []).map(({ id, title, status }) => ({
-        id,
-        title,
-        what: status.replace("_", " "),
-      })),
-      ...(epics ?? []).map(({ id, title }) => ({ id, title, what: "epic" })),
-      ...(blockers ?? []).map(({ id, title }) => ({ id, title, what: "blocker" })),
-    ],
-    [issues, epics, blockers],
+  const { who, brief, epics, blockers, issues, events, destinations, unanswered } = useDeployment(
+    secret,
+    now,
+    onLog,
   );
 
   // The epic the rail marks: the one on screen, or the one the issue on screen belongs to.
@@ -108,47 +86,46 @@ function Window({ host, secret }: { host: string; secret: string | undefined }) 
     document.title = title;
   }, [title]);
 
-  // The log is the feed with room, so it has no feed beside it and takes the width.
+  if (unanswered) return <Unanswered host={host} seconds={WAIT / 1000} />;
+
+  // The log is the feed with room, so it has no feed beside it and takes the width. One id's
+  // page brings its own column, the history, from inside <Item>.
   const item = route?.page === "item";
   const side = !onLog;
   return (
-    <>
-      <Ground waiting={(brief?.waiting ?? 0) > 0} />
-      <Rail host={host} epics={epics} current={path} epicId={epicId} />
-      <main
-        className={cn(
-          "relative z-10 ml-(--main-left) px-10 pt-16 pb-36 narrow:ml-0 narrow:px-4 narrow:pt-9",
-          side && "mr-(--main-right) mid:mr-0",
-        )}
-      >
-        <div className="mx-auto max-w-(--content-width)">
-          {route === undefined ? (
-            <Lost what={path} />
-          ) : route.page === "overview" ? (
-            brief === undefined || epics === undefined ? (
-              <p className="text-slate">Reading {host}…</p>
-            ) : (
-              <>
-                <Brief view={brief} />
-                <Waiting blockers={blockers ?? []} now={now} />
-                <Epics epics={epics} now={now} />
-              </>
-            )
-          ) : route.page === "issues" ? (
-            <IssuesPage issues={issues} />
-          ) : route.page === "log" ? (
-            <LogPage events={events} now={now} />
-          ) : (
-            <ErrorBoundary key={route.id} fallback={() => <Lost what={route.id} />}>
-              <Item id={route.id} who={who} now={now} issues={issues} events={events} />
-            </ErrorBoundary>
-          )}
-        </div>
-      </main>
-      {/* One id's page brings its own column, the history, from inside <Item>. */}
-      {!item && side && <Feed events={events} now={now} />}
-      <JumpBar destinations={destinations} side={side} />
-    </>
+    <Shell
+      host={host}
+      epics={epics}
+      current={path}
+      epicId={epicId}
+      waiting={(brief?.waiting ?? 0) > 0}
+      side={side}
+      column={!item && side ? <Feed events={events} now={now} /> : undefined}
+      destinations={destinations}
+      onForget={onForget}
+    >
+      {route === undefined ? (
+        <Lost what={path} />
+      ) : route.page === "overview" ? (
+        brief === undefined || epics === undefined ? (
+          <p className="text-slate">Reading {host}…</p>
+        ) : (
+          <>
+            <Brief view={brief} />
+            <Waiting blockers={blockers ?? []} now={now} />
+            <Epics epics={epics} now={now} />
+          </>
+        )
+      ) : route.page === "issues" ? (
+        <IssuesPage issues={issues} />
+      ) : route.page === "log" ? (
+        <LogPage events={events} now={now} />
+      ) : (
+        <Gate key={route.id} host={host} what={route.id} onSecret={onSecret}>
+          <Item id={route.id} who={who} now={now} issues={issues} events={events} />
+        </Gate>
+      )}
+    </Shell>
   );
 }
 
@@ -203,55 +180,4 @@ function Item({
       <History events={shown.events} now={now} self={shown.id} />
     </>
   );
-}
-
-/** A path that names nothing: said plainly, with the way back. */
-function Lost({ what }: { what: string }) {
-  return (
-    <div>
-      <h1 className="text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em]">
-        Nothing here is called {what}
-      </h1>
-      <p className="mt-3 text-slate">
-        It may have been typed wrong, or live on another deployment.{" "}
-        <a href="/" className="text-ink underline decoration-faint underline-offset-[3px]">
-          Back to the overview
-        </a>
-        , or press ⌘K and look for it by title.
-      </p>
-    </div>
-  );
-}
-
-/**
- * A ConvexError's `data` when the backend threw one of its own (lib/errors.ts, lib/guard.ts):
- * the kind is for a program, the message is the line a person reads.
- */
-type ErrorData = { message?: unknown };
-
-/** What to show the reader: the deployment's own message where it sent one. */
-function messageOf(error: Error): string {
-  if (error instanceof ConvexError) {
-    const data = error.data as ErrorData | undefined;
-    if (typeof data === "object" && data !== null && typeof data.message === "string")
-      return data.message;
-  }
-  return error.message;
-}
-
-class ErrorBoundary extends Component<
-  { children: ReactNode; fallback: (message: string) => ReactNode },
-  { error?: Error }
-> {
-  state: { error?: Error } = {};
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  render(): ReactNode {
-    const { error } = this.state;
-    if (error === undefined) return this.props.children;
-    return this.props.fallback(messageOf(error));
-  }
 }
