@@ -75,8 +75,9 @@ describe("StateWord", () => {
     expect(plain(markup)).toBe("decision");
   });
 
-  it("keeps the tone's colour when a text size is passed in", () => {
+  it("keeps both the tone's colour and a text size passed in", () => {
     const markup = renderToStaticMarkup(<StateWord word="stuck" className="text-small" />);
     expect(markup).toContain("text-stuck-ink");
+    expect(markup).toContain("text-small");
   });
 });

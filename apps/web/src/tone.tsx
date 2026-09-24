@@ -36,9 +36,8 @@ export function Dot({ tone, className }: { tone: Tone; className?: string }) {
 }
 
 /**
- * A state word in its tone, the dot before it. The tone is the word's own unless given.
- * The tone's colour goes after `className`: tailwind-merge reads a `text-` class it does
- * not know, such as `text-small`, as a colour, and the later of two colours is the one kept.
+ * A state word in its tone, the dot before it. The tone is the word's own unless given,
+ * and its colour goes last: a caller sets the size and the place, never the chroma.
  */
 export function StateWord({
   word,
