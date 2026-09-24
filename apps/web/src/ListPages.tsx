@@ -1,35 +1,24 @@
 // ListPages.tsx: the two pages that are a list of everything. Issues is `cn list`, grouped
 // by where each issue stands, with what is finished folded away under what is not. The log
 // is `cn log`: the feed, with the room a column beside the overview does not have.
+import { LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
 import type { LogEvent } from "@cairn/cli/views";
 import type { ReactNode } from "react";
 import { FeedEvent } from "./Feed.tsx";
-import { IssueRows } from "./IssueRows.tsx";
-import type { Listed } from "./ItemPages.tsx";
-import { Group } from "./Sheet.tsx";
-
-const LIVE: { title: string; pick: (issue: Listed) => boolean }[] = [
-  { title: "In progress", pick: (i) => i.status === "in_progress" },
-  { title: "Open", pick: (i) => i.status === "open" && i.type !== "follow-up" },
-  { title: "Follow-ups", pick: (i) => i.status === "open" && i.type === "follow-up" },
-];
-
-const DONE: { title: string; pick: (issue: Listed) => boolean }[] = [
-  { title: "Closed", pick: (i) => i.status === "closed" },
-  { title: "Dropped", pick: (i) => i.status === "dropped" },
-];
+import { Pending, Title } from "./page.tsx";
+import { Groups, type Listed } from "./rows.tsx";
 
 function PageHead({ title, under }: { title: string; under: ReactNode }) {
   return (
     <header>
-      <h1 className="text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em]">{title}</h1>
+      <Title>{title}</Title>
       <p className="mt-2 text-slate">{under}</p>
     </header>
   );
 }
 
 export function IssuesPage({ issues }: { issues: Listed[] | undefined }) {
-  if (issues === undefined) return <p className="text-slate">Reading the issues…</p>;
+  if (issues === undefined) return <Pending>Reading the issues…</Pending>;
   const live = issues.filter((i) => i.status === "open" || i.status === "in_progress");
   return (
     <article>
@@ -49,28 +38,7 @@ export function IssuesPage({ issues }: { issues: Listed[] | undefined }) {
           )
         }
       />
-      {LIVE.map(({ title, pick }) => {
-        const picked = issues.filter(pick);
-        return picked.length === 0 ? null : (
-          <Group key={title} title={title} count={picked.length}>
-            <IssueRows issues={picked} />
-          </Group>
-        );
-      })}
-      {DONE.map(({ title, pick }) => {
-        const picked = issues.filter(pick);
-        return picked.length === 0 ? null : (
-          <details key={title} className="group mt-8">
-            <summary className="ml-0.5 cursor-pointer text-small font-semibold text-slate hover:text-ink">
-              {title}
-              <span className="ml-2 font-mono font-normal text-faint">{picked.length}</span>
-            </summary>
-            <div className="mt-2.5">
-              <IssueRows issues={picked} />
-            </div>
-          </details>
-        );
-      })}
+      <Groups issues={issues} />
     </article>
   );
 }
@@ -80,7 +48,7 @@ export function LogPage({ events, now }: { events: LogEvent[] | undefined; now: 
     <article>
       <PageHead title="Log" under="Everything cn wrote to this deployment, newest first." />
       {events === undefined ? (
-        <p className="mt-8 text-slate">Listening…</p>
+        <Pending className="mt-8">Listening…</Pending>
       ) : events.length === 0 ? (
         <p className="mt-8 text-slate">
           Nothing yet. Every write cn makes lands here, from the first{" "}
@@ -93,10 +61,10 @@ export function LogPage({ events, now }: { events: LogEvent[] | undefined; now: 
           ))}
         </ul>
       )}
-      {events !== undefined && events.length >= 200 && (
+      {events !== undefined && events.length >= LOG_LIMIT && (
         <p className="mt-2 ml-0.5 text-meta text-slate">
-          The 200 newest. <code className="font-mono">cn log --before &lt;date&gt;</code> reads
-          further back.
+          The {LOG_LIMIT} newest. <code className="font-mono">cn log --before &lt;date&gt;</code>{" "}
+          reads further back.
         </p>
       )}
     </article>

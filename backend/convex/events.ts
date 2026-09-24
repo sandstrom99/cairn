@@ -14,10 +14,10 @@ import type { QueryCtx } from "./_generated/server";
 import { invalid } from "./lib/errors";
 import { type EventView, eventView } from "./lib/graph";
 import { query } from "./lib/guard";
+import { LOG_LIMIT } from "./lib/limits";
 import { type Ref, ref } from "./lib/views";
 
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
 
 /**
  * Resolves a Convex id to its Ref, once per call: fifty events usually name a handful of
@@ -48,8 +48,8 @@ function resolver(ctx: QueryCtx) {
 export const recent = query({
   args: { limit: v.optional(v.number()), before: v.optional(v.number()) },
   handler: async (ctx, { limit = DEFAULT_LIMIT, before }) => {
-    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT)
-      throw invalid(`limit is a whole number from 1 to ${MAX_LIMIT}, not ${limit}`);
+    if (!Number.isInteger(limit) || limit < 1 || limit > LOG_LIMIT)
+      throw invalid(`limit is a whole number from 1 to ${LOG_LIMIT}, not ${limit}`);
 
     const resolve = resolver(ctx);
     const out: LogEvent[] = [];

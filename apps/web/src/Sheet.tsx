@@ -5,13 +5,14 @@
 //
 // The facts are `issueFacts` and `blockerFacts` from @cairn/cli, the ones `cn show` prints,
 // so the table says what the brief says, in its words and its order (sheet.test.tsx).
-import type { Fact, Named } from "@cairn/cli/parts";
-import type { Referable } from "@cairn/cli/ref";
+import type { Fact } from "@cairn/cli/parts";
+import { type Referable, ref } from "@cairn/cli/ref";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { CopyRef } from "./CopyRef.tsx";
-import { Ref, Run } from "./Ref.tsx";
+import { Title } from "./page.tsx";
+import { Ref, Refs, Run } from "./Ref.tsx";
 import { StateWord } from "./tone.tsx";
 
 /** Where this page sits: the overview, then the epic where there is one. */
@@ -39,12 +40,10 @@ export function Heading({ item }: { item: Referable }) {
   return (
     <header className="mt-5">
       <div className="flex items-center gap-2.5">
-        <span className="font-mono text-body font-medium text-slate">{item.id}</span>
+        <span className="font-mono text-body font-medium text-slate">{item.id}</span>{" "}
         <CopyRef item={item} />
       </div>
-      <h1 className="mt-1.5 text-[1.875rem] leading-[1.18] font-bold tracking-[-0.024em] text-balance narrow:text-[1.5rem]">
-        {item.title}
-      </h1>
+      <Title className="mt-1.5 text-balance narrow:text-[1.5rem]">{item.title}</Title>
     </header>
   );
 }
@@ -60,21 +59,6 @@ export function State({ word, children }: { word: string; children?: ReactNode }
 
 const LINE =
   "grid grid-cols-[116px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] narrow:grid-cols-1 narrow:gap-1";
-
-/** The things a line names, each a link, with cn's word after one that is finished: `cn-6 "…" done`. */
-export function Refs({ items }: { items: Named[] }) {
-  return (
-    <>
-      {items.map((item, i) => (
-        <Fragment key={item.id}>
-          {i > 0 && <span className="text-mark">, </span>}
-          <Ref item={item} />
-          {item.tail && <span className="text-slate"> {item.tail}</span>}
-        </Fragment>
-      ))}
-    </>
-  );
-}
 
 /**
  * `cn show`'s labelled lines, and under them whatever long text the page passes in. A
@@ -105,29 +89,6 @@ export function Passage({ label, children }: { label: string; children: ReactNod
     <section className={cn(LINE, "py-4")}>
       <h2 className="text-small text-slate">{label}</h2>
       <div className="min-w-0">{children}</div>
-    </section>
-  );
-}
-
-/** A titled group under the sheet. */
-export function Group({
-  title,
-  count,
-  children,
-}: {
-  title: string;
-  count?: number;
-  children: ReactNode;
-}) {
-  return (
-    <section className="mt-8">
-      <h2 className="mb-2.5 ml-0.5 text-small font-semibold text-slate">
-        {title}{" "}
-        {count !== undefined && (
-          <span className="ml-1 font-mono font-normal text-faint">{count}</span>
-        )}
-      </h2>
-      {children}
     </section>
   );
 }
@@ -174,8 +135,8 @@ function Step({ item, label, children }: { item?: Referable; label: string; chil
   return (
     <a
       href={`/${item.id}`}
-      aria-label={`${label}: ${item.id} ${item.title}`}
-      title={`${item.id} ${item.title}`}
+      aria-label={`${label}: ${ref(item)}`}
+      title={ref(item)}
       className={cn(box, "bg-lift text-slate shadow-ring hover:text-ink")}
     >
       {children}

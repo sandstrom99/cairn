@@ -23,6 +23,7 @@ import {
 } from "./lib/graph";
 import { query } from "./lib/guard";
 import { epicHealth, stuckOf } from "./lib/health";
+import { JOURNAL_HEAD } from "./lib/limits";
 import { blockerById, epicById, issueById } from "./lib/lookup";
 import { priorityOrder } from "./lib/order";
 import { isLive } from "./lib/validators";
@@ -52,7 +53,7 @@ async function issue(ctx: QueryCtx, doc: Doc<"issues">, withHistory: boolean, no
     .query("journal")
     .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
     .order("desc")
-    .take(5);
+    .take(JOURNAL_HEAD);
   const outgoing = await edgesFrom(ctx, doc._id);
   const incoming = await edgesTo(ctx, doc._id);
   const followUps = await ctx.db

@@ -7,6 +7,7 @@
 // Nothing here asks the deployment anything; App.tsx does, and these render what came
 // back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
 // and the page sets their pieces (sheet.test.tsx).
+import { JOURNAL_HEAD } from "@cairn/backend/convex/lib/limits.js";
 import {
   blockerFacts,
   healthParts,
@@ -15,17 +16,14 @@ import {
   proofParts,
   stateParts,
 } from "@cairn/cli/parts";
-import type { IssueLineView, ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
+import type { ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
 import type { Referable } from "@cairn/cli/ref";
-import { IssueRows } from "./IssueRows.tsx";
-import { HealthRows } from "./Overview.tsx";
+import { Group } from "./page.tsx";
 import { Prose } from "./Prose.tsx";
-import { Run } from "./Ref.tsx";
-import { Crumbs, Group, Heading, Neighbours, Passage, Refs, Sheet, State } from "./Sheet.tsx";
+import { Refs, Run } from "./Ref.tsx";
+import { Groups, HealthRows, type Listed } from "./rows.tsx";
+import { Crumbs, Heading, Neighbours, Passage, Sheet, State } from "./Sheet.tsx";
 import { epicWord } from "./tone.tsx";
-
-/** An issue as a list carries it: enough for a row, and which epic and kind it is. */
-export type Listed = IssueLineView & { epic: Referable; type: string };
 
 export function IssuePage({
   issue,
@@ -92,7 +90,7 @@ export function IssuePage({
               <JournalEntry key={entry.at} entry={entry} now={now} />
             ))}
           </ul>
-          {issue.journal.length >= 5 && (
+          {issue.journal.length >= JOURNAL_HEAD && (
             <p className="mt-2 ml-0.5 text-meta text-slate">
               The five newest, which is what cn show carries. Older entries are in the history.
             </p>
@@ -128,23 +126,6 @@ export function JournalEntry({ entry, now }: { entry: Entry; now: number }) {
     </li>
   );
 }
-
-const GROUPS: { title: string; pick: (issue: Listed) => boolean }[] = [
-  { title: "In progress", pick: (i) => i.status === "in_progress" },
-  { title: "Open", pick: (i) => i.status === "open" && i.type !== "follow-up" },
-  { title: "Follow-ups", pick: (i) => i.status === "open" && i.type === "follow-up" },
-  { title: "Closed", pick: (i) => i.status === "closed" },
-  { title: "Dropped", pick: (i) => i.status === "dropped" },
-];
-
-/** A row on an epic's own page does not repeat the epic, the way `cn show ep-3` does not. */
-const withoutEpic = ({ id, title, status, priority, claimedBy }: Listed): IssueLineView => ({
-  id,
-  title,
-  status,
-  priority,
-  claimedBy,
-});
 
 export function EpicPage({
   epic,
@@ -184,15 +165,7 @@ export function EpicPage({
           files the first.
         </p>
       )}
-      {GROUPS.map(({ title, pick }) => {
-        const picked = issues.filter(pick);
-        if (picked.length === 0) return null;
-        return (
-          <Group key={title} title={title} count={picked.length}>
-            <IssueRows issues={picked.map(withoutEpic)} />
-          </Group>
-        );
-      })}
+      <Groups issues={issues} ownEpic />
     </article>
   );
 }

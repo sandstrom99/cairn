@@ -6,6 +6,7 @@ import type { EpicLineView } from "@cairn/cli/views";
 import { Clock3, LayoutDashboard, List, Lock } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
+import { Ref } from "./Ref.tsx";
 import { Dot, epicWord, toneOf } from "./tone.tsx";
 
 function Glyph() {
@@ -116,8 +117,7 @@ export function Rail({
               className="flex h-8 items-center gap-[9px] rounded-[9px] px-2.5 text-row hover:bg-lift/50 aria-[current=true]:bg-lift aria-[current=true]:shadow-lift"
             >
               <Dot tone={toneOf(epicWord(epic))} />
-              <span className="shrink-0 font-mono text-meta text-slate">{epic.id}</span>
-              <span className="truncate">{epic.title}</span>
+              <Ref item={epic} plain clip className="min-w-0" />
             </a>
           </li>
         ))}

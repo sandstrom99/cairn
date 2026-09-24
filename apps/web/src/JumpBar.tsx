@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { ColumnState } from "./Feed.tsx";
 import { isId, navigate } from "./location.ts";
 import { shortcut } from "./platform.ts";
+import { Ref } from "./Ref.tsx";
 
 /** Something the bar can go to, and the word that says what it is. */
 export type Destination = Referable & { what: string };
@@ -26,6 +27,27 @@ export function withTyped(term: string, destinations: Destination[]): Destinatio
   const typed = term.trim().toLowerCase();
   if (!isId(typed) || destinations.some((d) => d.id === typed)) return destinations;
   return [...destinations, { id: typed, title: "Open it by id", what: "" }];
+}
+
+/**
+ * One row of the list: the reference form, then the word for what it is. A typed id no list
+ * holds is marked by an empty `what` and is not a reference: it reads as the id and the offer.
+ * The spaces between the pieces are there for the text; a flex row does not draw a bare one.
+ */
+export function JumpRow({ id, title, what }: Destination) {
+  return (
+    <>
+      {what === "" ? (
+        <>
+          <span className="shrink-0 font-mono text-meta text-slate">{id}</span>{" "}
+          <span className="truncate">{title}</span>
+        </>
+      ) : (
+        <Ref item={{ id, title }} plain clip className="min-w-0" />
+      )}{" "}
+      <span className="ml-auto pl-3 text-meta whitespace-nowrap text-slate">{what}</span>
+    </>
+  );
 }
 
 export function JumpBar({
@@ -93,11 +115,7 @@ export function JumpBar({
                   }}
                   className="gap-1.5 rounded-xl px-3 py-[9px] text-[0.875rem] data-selected:bg-lift [&>svg:last-child]:hidden"
                 >
-                  <span className="shrink-0 font-mono text-meta text-slate">{id}</span>
-                  <span className="truncate">{title}</span>
-                  <span className="ml-auto pl-3 text-meta whitespace-nowrap text-slate">
-                    {what}
-                  </span>
+                  <JumpRow id={id} title={title} what={what} />
                 </CommandItem>
               ))}
             </CommandList>

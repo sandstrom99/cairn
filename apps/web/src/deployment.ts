@@ -6,6 +6,7 @@
 // from any of them is the subscription not having answered yet, never an empty list;
 // unanswered is the deployment not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
+import { LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
 import type { BriefView, EpicLineView, LogEvent, Shown } from "@cairn/cli/views";
 import {
   type RequestForQueries,
@@ -15,14 +16,12 @@ import {
 } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { useHeld } from "./held.ts";
-import type { Listed } from "./ItemPages.tsx";
 import type { Destination } from "./JumpBar.tsx";
 import type { WaitingBlocker } from "./Overview.tsx";
+import type { Listed } from "./rows.tsx";
 
 /** How much of the feed the column shows: the head of the one subscription. */
 export const FEED = 30;
-/** How much the one events subscription holds, which is what the log page shows. */
-const LOG = 200;
 
 /**
  * How long the page gives a deployment to open its socket before it says the deployment
@@ -54,15 +53,12 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
   const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
   const blockers = useQuery(api.blockers.list, who);
   const issues: Listed[] | undefined = useQuery(api.issues.list, who);
-  const events = useHeld(useQuery(api.events.recent, { ...who, limit: LOG }));
+  const events = useHeld(useQuery(api.events.recent, { ...who, limit: LOG_LIMIT }));
 
   const destinations = useMemo<Destination[]>(
     () => [
-      ...(issues ?? []).map(({ id, title, status }) => ({
-        id,
-        title,
-        what: status.replace("_", " "),
-      })),
+      // The status as `cn list` prints it, `in_progress` included: the page words nothing a second way.
+      ...(issues ?? []).map(({ id, title, status }) => ({ id, title, what: status })),
       ...(epics ?? []).map(({ id, title }) => ({ id, title, what: "epic" })),
       ...(blockers ?? []).map(({ id, title }) => ({ id, title, what: "blocker" })),
     ],

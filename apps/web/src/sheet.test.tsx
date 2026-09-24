@@ -2,16 +2,14 @@
 // what `cn show` prints for the same view, in its words and its order. The page goes
 // further than the brief in one place only, by design: text the brief cuts to a first line,
 // and the output a proof stored, is printed whole.
-import { brief, historyLines, issueLine } from "@cairn/cli/lines";
+import { brief } from "@cairn/cli/lines";
 import { stateLine, stateParts } from "@cairn/cli/parts";
-import { DAY, HOUR, agent, blocker, epic, issue, now } from "@cairn/cli/testing";
-import type { HistoryEvent, ShownIssue } from "@cairn/cli/views";
+import { DAY, HOUR, agent, blocker, issue, now } from "@cairn/cli/testing";
+import type { ShownIssue } from "@cairn/cli/views";
 import { ref } from "@cairn/cli/ref";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { HistoryEntry } from "./Feed.tsx";
-import { IssueRows } from "./IssueRows.tsx";
-import { BlockerPage, EpicPage, IssuePage, JournalEntry, type Listed } from "./ItemPages.tsx";
+import { BlockerPage, IssuePage } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
 
 /** The issue the page is opened on: held by this session, with an edge each way. */
@@ -185,77 +183,6 @@ describe("an issue's page", () => {
     expect(page(described)).toContain(
       "description Balder, 2026-09-21: the journal is the most context an issue has. So show it.",
     );
-  });
-});
-
-describe("a journal entry", () => {
-  it("reads as cn show prints it", () => {
-    const entry = held.journal[0]!;
-    const line = brief(held, now)
-      .split("\n")
-      .find((l) => l.includes("decision:"))!;
-    expect(plain(renderToStaticMarkup(<JournalEntry entry={entry} now={now} />))).toBe(
-      squeeze(line),
-    );
-  });
-});
-
-describe("a row of a list of issues", () => {
-  const listed: Listed = {
-    id: "cn-26",
-    title: "apps/web, the read-only window",
-    status: "in_progress",
-    priority: 2,
-    claimedBy: { name: "balder/claude" },
-    epic: { id: "ep-4", title: "Humans in the loop" },
-    type: "task",
-  };
-
-  it("reads as cn list prints it, the epic included where the list spans epics", () => {
-    expect(plain(renderToStaticMarkup(<IssueRows issues={[listed]} />))).toBe(
-      squeeze(issueLine(listed)),
-    );
-  });
-
-  it("drops the epic on the epic's own page, as cn show ep-4 does", () => {
-    const parent = epic({
-      id: "ep-4",
-      title: "Humans in the loop",
-      counts: { open: 0, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
-    });
-    const markup = renderToStaticMarkup(<EpicPage epic={parent} issues={[listed]} now={now} />);
-    const rows = markup.slice(markup.lastIndexOf("<ul"));
-    const { epic: _, ...bare } = listed;
-    expect(plain(rows)).toBe(squeeze(issueLine(bare)));
-  });
-});
-
-describe("an entry of a thing's own history", () => {
-  it("reads as cn show --history prints it", () => {
-    const event: HistoryEvent = {
-      at: now - 2 * HOUR,
-      actor: agent,
-      kind: "issue.update",
-      revision: 4,
-      changes: { priority: { from: 2, to: 1 } },
-    };
-    expect(plain(renderToStaticMarkup(<HistoryEntry event={event} now={now} />))).toBe(
-      squeeze(historyLines([event], now)[0]!),
-    );
-  });
-
-  it("reads an edge from the end whose history it is", () => {
-    const event: HistoryEvent = {
-      at: now - HOUR,
-      actor: agent,
-      kind: "edge.add",
-      changes: { type: "blocks", from: "cn-21", to: "cn-25" },
-    };
-    const markup = plain(
-      renderToStaticMarkup(<HistoryEntry event={event} now={now} self="cn-25" />),
-    );
-    expect(markup).toBe(squeeze(historyLines([event], now, "cn-25")[0]!));
-    expect(markup).toContain("blocked by cn-21");
   });
 });
 

@@ -8,7 +8,9 @@
 //
 // Every reference is a link to its own page, `/cn-26`: one URL per id is what gives the
 // form somewhere to point.
+import type { Named } from "@cairn/cli/parts";
 import { type Referable, refParts } from "@cairn/cli/ref";
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -50,6 +52,21 @@ export function Ref({ item, clip = false, plain = false, className }: Props) {
     >
       {body}
     </a>
+  );
+}
+
+/** The things a line names, each a link, with cn's word after one that is finished: `cn-6 "…" done`. */
+export function Refs({ items }: { items: Named[] }) {
+  return (
+    <>
+      {items.map((item, i) => (
+        <Fragment key={item.id}>
+          {i > 0 && <span className="text-mark">, </span>}
+          <Ref item={item} />
+          {item.tail && <span className="text-slate"> {item.tail}</span>}
+        </Fragment>
+      ))}
+    </>
   );
 }
 
