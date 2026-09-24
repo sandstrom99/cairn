@@ -49,12 +49,15 @@ export function Rail({
   epics,
   current = "/",
   epicId,
+  onForget,
 }: {
   host: string;
   epics: EpicLineView[] | undefined;
   current?: string;
   /** The epic on screen, or the one the issue on screen belongs to. */
   epicId?: string;
+  /** Forgets the secret this browser keeps; the button shows only where it is given. */
+  onForget?: () => void;
 }) {
   const open = epics?.reduce(
     (sum, { counts }) => sum + counts.open + counts.inProgress + counts.followUps,
@@ -125,6 +128,18 @@ export function Rail({
         <span>
           <strong className="block font-semibold text-ink">Read-only window</strong>
           Shared secret, kept in this browser
+          {onForget && (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={onForget}
+                className="cursor-pointer text-ink underline decoration-faint underline-offset-[3px] hover:decoration-ink"
+              >
+                Forget it
+              </button>
+            </>
+          )}
         </span>
       </div>
     </aside>

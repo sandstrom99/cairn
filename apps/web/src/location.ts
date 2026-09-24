@@ -15,6 +15,9 @@ export type Route =
 /** An id as cn mints one: a project slug, `ep` or `bl`, a dash and a number. */
 const ID = /^[a-z][a-z0-9]*-\d+$/;
 
+/** Whether a string is an id as cn mints one, which is lowercase: lowercase what was typed first. */
+export const isId = (text: string): boolean => ID.test(text);
+
 /** `/` is the overview, `/issues` and `/log` are themselves, and `/app-14` is that id's page. */
 export function routeOf(pathname: string): Route | undefined {
   const path = pathname.replace(/\/+$/, "");
