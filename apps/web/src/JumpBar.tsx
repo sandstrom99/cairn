@@ -9,6 +9,7 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import type { ColumnState } from "./Feed.tsx";
 import { isId, navigate } from "./location.ts";
 import { shortcut } from "./platform.ts";
 
@@ -28,11 +29,11 @@ export function withTyped(term: string, destinations: Destination[]): Destinatio
 
 export function JumpBar({
   destinations,
-  side = true,
+  column,
 }: {
   destinations: Destination[];
-  /** Whether a column stands on the right, which the bar centres itself clear of. */
-  side?: boolean;
+  /** What stands on the right, which the bar centres itself clear of: the column, its strip, or nothing. */
+  column: ColumnState;
 }) {
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState(false);
@@ -53,8 +54,12 @@ export function JumpBar({
   return (
     <div
       className={cn(
-        "pointer-events-none fixed bottom-[22px] left-(--main-left) z-30 flex justify-center px-10 narrow:left-0 narrow:px-4",
-        side ? "right-(--main-right) mid:right-0" : "right-0",
+        "folds pointer-events-none fixed bottom-[22px] left-(--main-left) z-30 flex justify-center px-10 narrow:left-0 narrow:px-4",
+        column === "none"
+          ? "right-0"
+          : column === "open"
+            ? "right-(--main-right) mid:right-0"
+            : "right-(--main-right-strip) mid:right-0",
       )}
     >
       <div className="under-bar absolute inset-x-0 bottom-[-22px] h-[132px]" />

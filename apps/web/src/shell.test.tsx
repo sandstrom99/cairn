@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { Listing } from "./Feed.tsx";
 import { Shell } from "./Shell.tsx";
 
-const render = (listing?: Listing): string =>
+const render = (listing?: Listing, collapsed = false): string =>
   renderToStaticMarkup(
     <Shell
       host="h"
@@ -16,6 +16,8 @@ const render = (listing?: Listing): string =>
       epicId={undefined}
       waiting={false}
       listing={listing}
+      collapsed={collapsed}
+      onToggleColumn={() => {}}
       now={now}
       destinations={[]}
       onForget={() => {}}
@@ -26,6 +28,13 @@ const render = (listing?: Listing): string =>
 
 const asides = (markup: string): number => markup.split("<aside").length - 1;
 const afterMain = (markup: string): string => markup.slice(markup.indexOf("</main>") + 7);
+/** The opening tag that starts at `start`, up to its first `>`. */
+const tagAt = (markup: string, start: string): string => {
+  const from = markup.indexOf(start);
+  return from < 0 ? "" : markup.slice(from, markup.indexOf(">", from) + 1);
+};
+const mainTag = (markup: string): string => tagAt(markup, "<main");
+const columnTag = (markup: string): string => tagAt(markup, '<aside aria-label="Activity"');
 
 describe("Shell", () => {
   it("puts the feed's column after main, beside the rail", () => {
@@ -44,5 +53,33 @@ describe("Shell", () => {
     const markup = render();
     expect(asides(markup)).toBe(1);
     expect(afterMain(markup)).not.toMatch(/^<aside/);
+    expect(mainTag(markup)).not.toContain("mr-(");
+    expect(markup).not.toContain("right-(--main-right");
+    expect(markup).toContain("right-0");
+  });
+
+  it("keeps main and the bar clear of the open column", () => {
+    const markup = render({ kind: "feed", events: [] });
+    // With the closing paren, since the strip's `mr-(--main-right-strip)` starts the same way.
+    expect(mainTag(markup)).toContain("mr-(--main-right)");
+    expect(mainTag(markup)).not.toContain("mr-(--main-right-strip)");
+    expect(columnTag(markup)).toContain("w-(--side-width)");
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('aria-label="Collapse the column"');
+    expect(markup).not.toContain('inert=""');
+    expect(markup).toContain("right-(--main-right)");
+    expect(markup).not.toContain("right-(--main-right-strip)");
+  });
+
+  it("collapses to the strip, main and the bar taking the room, the contents kept but inert", () => {
+    const markup = render({ kind: "feed", events: [] }, true);
+    expect(mainTag(markup)).toContain("mr-(--main-right-strip)");
+    expect(columnTag(markup)).toContain("w-(--side-strip)");
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain('aria-label="Expand the column"');
+    expect(markup).toContain('inert=""');
+    expect(markup).toContain("right-(--main-right-strip)");
+    expect(markup).toContain(">Activity</h2>");
+    expect(markup).toContain("Nothing has happened here yet");
   });
 });

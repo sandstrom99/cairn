@@ -665,6 +665,13 @@ The look, and what each choice rules out:
   `cn-11`'s answers will be typed.
 - **One motion nobody asked for**: an event arriving over the subscription lands
   in the feed with a sheen. It is the proof that no reload brought it.
+- **One motion the reader asks for**: a control in the column's head collapses
+  it to a strip and expands it again, and main takes the room. The column's
+  width, main's margin and the jump bar's inset ease together on the page's one
+  pace and curve, `--motion-duration` and `--motion-ease` in `index.css`, the
+  contents fading rather than reflowing; `prefers-reduced-motion` turns it off.
+  The choice is the browser's, kept in localStorage beside the secret and never
+  the deployment's. Below 1100px the column is hidden, and that is its only state.
 - Light first. Dark is a second set of values for the same tokens.
 
 Components are shadcn's, on Tailwind 4 and Radix, restyled through the tokens in

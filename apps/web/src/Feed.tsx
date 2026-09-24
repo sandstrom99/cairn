@@ -5,6 +5,8 @@
 //
 // An event that arrives while the page is open lands with a sheen: the one motion on the
 // page that nobody asked for, and the proof that a subscription, not a reload, brought it.
+// The column collapses to a strip from a control in its head, and whether it is collapsed is
+// the reader's choice, kept in this browser (column.ts).
 import { historyParts, logParts } from "@cairn/cli/parts";
 import type { HistoryEvent, LogEvent } from "@cairn/cli/views";
 import {
@@ -14,6 +16,8 @@ import {
   Flag,
   Link2,
   NotebookPen,
+  PanelRightClose,
+  PanelRightOpen,
   Pencil,
   Play,
   Plus,
@@ -21,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { type ComponentType, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Ref } from "./Ref.tsx";
 
@@ -107,35 +112,75 @@ export type Listing =
   | { kind: "feed"; events: LogEvent[] | undefined }
   | { kind: "history"; self: string; events: HistoryEvent[] | undefined };
 
-/** The glass column on the right, mounted once by the shell. What it lists is the route's to say. */
-export function Column({ listing, now }: { listing: Listing; now: number }) {
+/** What stands on the right: the column, the strip it collapses to, or nothing where the route lists nothing. */
+export type ColumnState = "open" | "collapsed" | "none";
+
+/** The glass column on the right, mounted once by the shell. What it lists is the route's to say; whether it is collapsed is the reader's. */
+export function Column({
+  listing,
+  now,
+  collapsed,
+  onToggle,
+}: {
+  listing: Listing;
+  now: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const label = listing.kind === "feed" ? "Activity" : "History";
   return (
     <aside
       aria-label={label}
-      className="glass fixed top-(--gutter) right-(--gutter) bottom-(--gutter) z-20 flex w-(--side-width) flex-col rounded-3xl mid:hidden"
+      className={cn(
+        "glass folds fixed top-(--gutter) right-(--gutter) bottom-(--gutter) z-20 overflow-hidden rounded-3xl mid:hidden",
+        collapsed ? "w-(--side-strip)" : "w-(--side-width)",
+      )}
     >
-      <div className="flex items-center px-5 pt-5 pb-3">
-        <h2 className="text-[0.96875rem] font-[650] tracking-[-0.01em]">{label}</h2>
-        <span className="ml-auto inline-flex items-center gap-[7px] text-meta text-slate">
-          <i className="size-2 rounded-full bg-moving" />
-          live
-        </span>
-      </div>
-      {/* The keys are deliberate: the same feed keeps its list and its scroll from the overview
-          to an epic, and one id's history is its own list. */}
-      {listing.kind === "feed" ? (
-        <FeedList key="feed" events={listing.events} now={now} />
-      ) : (
-        <HistoryList key={listing.self} events={listing.events} now={now} self={listing.self} />
-      )}
-      {listing.kind === "feed" && (
-        <div className="px-5 pt-3 pb-4 text-small text-slate">
-          <a href="/log" className="hover:text-ink">
-            Open the log
-          </a>
+      {/* The one control, outside what fades, first in the tab order and above it: 12px in from
+          the right, so it is centred in the strip. */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expand the column" : "Collapse the column"}
+        className="absolute top-[18px] right-3 z-10 text-slate"
+      >
+        {collapsed ? <PanelRightOpen /> : <PanelRightClose />}
+      </Button>
+      {/* Laid out at the column's full width and anchored to its right edge, so the aside narrows
+          over it and nothing inside reflows: the contents fade, and while collapsed they are
+          inert, out of the tab order and unread. */}
+      <div
+        inert={collapsed}
+        className={cn(
+          "folds absolute inset-y-0 right-0 flex w-(--side-width) flex-col",
+          collapsed && "opacity-0",
+        )}
+      >
+        <div className="flex items-center pt-5 pr-12 pb-3 pl-5">
+          <h2 className="text-[0.96875rem] font-[650] tracking-[-0.01em]">{label}</h2>
+          <span className="ml-auto inline-flex items-center gap-[7px] text-meta text-slate">
+            <i className="size-2 rounded-full bg-moving" />
+            live
+          </span>
         </div>
-      )}
+        {/* The keys are deliberate: the same feed keeps its list and its scroll from the overview
+            to an epic, and one id's history is its own list. */}
+        {listing.kind === "feed" ? (
+          <FeedList key="feed" events={listing.events} now={now} />
+        ) : (
+          <HistoryList key={listing.self} events={listing.events} now={now} self={listing.self} />
+        )}
+        {listing.kind === "feed" && (
+          <div className="px-5 pt-3 pb-4 text-small text-slate">
+            <a href="/log" className="hover:text-ink">
+              Open the log
+            </a>
+          </div>
+        )}
+      </div>
     </aside>
   );
 }
