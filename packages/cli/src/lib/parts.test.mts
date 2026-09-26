@@ -3,6 +3,7 @@ import { blockerLine, healthLines } from "./lines.mts";
 import {
   blockerParts,
   changePieces,
+  firstLine,
   healthParts,
   logParts,
   proofParts,
@@ -183,5 +184,15 @@ describe("the parts a line is joined from", () => {
     expect(
       logParts({ ...created, kind: "project.create", issue: undefined }, now).target,
     ).toBeUndefined();
+  });
+});
+
+describe("firstLine", () => {
+  it("is the first line, marked where more follows, with a Markdown heading's #s gone", () => {
+    expect(firstLine("one line")).toBe("one line");
+    expect(firstLine("first\n\nsecond")).toBe("first…");
+    expect(firstLine("first\n  \n")).toBe("first");
+    expect(firstLine("## Shape 1 first\n\n- no credentials")).toBe("Shape 1 first…");
+    expect(firstLine("#48 merged, no heading")).toBe("#48 merged, no heading");
   });
 });
