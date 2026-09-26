@@ -8,7 +8,7 @@
 // index lookups over a graph of a few hundred documents.
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { edgesTo, unresolvedBlockersOn } from "./graph";
+import { edgesFrom, edgesTo, unresolvedBlockersOn } from "./graph";
 import { priorityOrder } from "./order";
 import { isLive } from "./validators";
 import { type Ref, issueView, ref } from "./views";
@@ -47,6 +47,11 @@ export const isReady = (blocked: Blocked): boolean =>
   blocked.blockers.length === 0 &&
   blocked.deferredUntil === undefined;
 
+/** One ready row: the issue, marked with what `can` cannot satisfy. */
+async function readyRow(ctx: QueryCtx, doc: Doc<"issues">, have: Set<string>) {
+  return { ...(await issueView(ctx, doc)), cannot: doc.requires.filter((r) => !have.has(r)) };
+}
+
 /**
  * The ready rows themselves, in ready order, each marked with what `can` cannot satisfy.
  * `ready.list` is this function and nothing else, and `brief.get` counts the same rows,
@@ -70,10 +75,35 @@ export async function readyIssues(
   ready.sort(priorityOrder);
 
   const have = new Set(can ?? []);
-  return await Promise.all(
-    ready.map(async (doc) => ({
-      ...(await issueView(ctx, doc)),
-      cannot: doc.requires.filter((r) => !have.has(r)),
-    })),
-  );
+  return await Promise.all(ready.map((doc) => readyRow(ctx, doc, have)));
+}
+
+/**
+ * The open issues a just-closed issue was the last thing holding: every `blocks` edge
+ * from it, its far end re-read after the write and kept where nothing holds it now — no
+ * other live issue, no unresolved blocker, no deferral — through the same `blockedBy` and
+ * `isReady` that `ready.list` answers with, so a close never says ready where the list
+ * would not. `issues.close` answers them and `cn close` prints them under the closed
+ * issue, so an agent's loop continues without a second call. Nothing is stored for it:
+ * the edge stays, and reads `done` (docs/design.md §7).
+ */
+export async function madeReadyBy(
+  ctx: QueryCtx,
+  closed: Doc<"issues">,
+  can: string[] | undefined,
+  now: number = Date.now(),
+) {
+  const outgoing = await edgesFrom(ctx, closed._id, "blocks");
+  const targets = await Promise.all(outgoing.map((e) => ctx.db.get(e.to)));
+
+  // Open, never in progress: `readyIssues` reads through `by_status` for "open", so a
+  // claimed issue is not ready and a close does not say it was made so.
+  const ready = [];
+  for (const doc of targets)
+    if (doc !== null && doc.status === "open" && isReady(await blockedBy(ctx, doc, now)))
+      ready.push(doc);
+  ready.sort(priorityOrder);
+
+  const have = new Set(can ?? []);
+  return await Promise.all(ready.map((doc) => readyRow(ctx, doc, have)));
 }

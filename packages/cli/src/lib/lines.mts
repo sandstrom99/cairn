@@ -183,6 +183,12 @@ export function reviewLines(view: ReviewView, now: number = Date.now()): string[
 export const epicDoneLine = (epic: Referable & { revision: number }): string =>
   `  ${answer("epic")}${ref(epic)} can close · cn epic close ${epic.id} --revision ${epic.revision}`;
 
+/**
+ * Under `cn close`, an issue this close was the last thing holding, as `cn ready` would
+ * print it: `  ready      cn-3 "…" P2 open  ep-1 "…" r0 · needs ios`.
+ */
+const madeReadyLine = (view: ReadyLineView): string => `  ${answer("ready")}${readyLine(view)}`;
+
 /** Under `cn create`, one live issue in the epic whose title is near-identical to the new one. */
 export const nearLine = (match: Referable): string => `  ${answer("near")}${ref(match)}`;
 
@@ -196,11 +202,14 @@ const followUpLine = (issue: IssueLineView): string =>
 
 /**
  * The lines of a close: the issue as it now stands, then under it the follow-up the same
- * mutation spawned, and the offer to close the epic when this was its last issue.
+ * mutation spawned, each open issue the close was the last thing holding as a `ready`
+ * line, so the next pick is on the screen without a `cn ready`, and the offer to close
+ * the epic when this was its last issue.
  */
 export function closedLines(view: ClosedView): string[] {
   const lines = [issueLine(view.issue)];
   if (view.followUp) lines.push(followUpLine(view.followUp));
+  for (const ready of view.madeReady) lines.push(madeReadyLine(ready));
   if (view.epicDone) lines.push(epicDoneLine(view.epicDone));
   return lines;
 }

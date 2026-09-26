@@ -251,7 +251,7 @@ describe("closedLines", () => {
   };
 
   it("is the issue line alone when the close made nothing else", () => {
-    expect(closedLines({ issue: closed })).toEqual([
+    expect(closedLines({ issue: closed, madeReady: [] })).toEqual([
       'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
     ]);
   });
@@ -269,10 +269,32 @@ describe("closedLines", () => {
           revision: 0,
         },
         epicDone: { id: "ep-2", title: "scratch: review", revision: 0 },
+        madeReady: [],
       }),
     ).toEqual([
       'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
       '  follow-up  cn-8 "verify: the same title" P2 open  ep-2 "scratch: review" r0',
+      '  epic       ep-2 "scratch: review" can close · cn epic close ep-2 --revision 0',
+    ]);
+  });
+
+  it("prints each issue the close was the last thing holding as a ready line, between the follow-up and the offer", () => {
+    const open = { status: "open", priority: 2, epic: closed.epic, revision: 0 };
+    expect(
+      closedLines({
+        issue: closed,
+        followUp: { ...open, id: "cn-8", title: "verify: the same title" },
+        madeReady: [
+          { ...open, id: "cn-9", title: "confirm on a device", cannot: ["ios"] },
+          { ...open, id: "cn-10", title: "the page", priority: 3, cannot: [] },
+        ],
+        epicDone: { id: "ep-2", title: "scratch: review", revision: 0 },
+      }),
+    ).toEqual([
+      'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
+      '  follow-up  cn-8 "verify: the same title" P2 open  ep-2 "scratch: review" r0',
+      '  ready      cn-9 "confirm on a device" P2 open  ep-2 "scratch: review" r0 · needs ios',
+      '  ready      cn-10 "the page" P3 open  ep-2 "scratch: review" r0',
       '  epic       ep-2 "scratch: review" can close · cn epic close ep-2 --revision 0',
     ]);
   });
