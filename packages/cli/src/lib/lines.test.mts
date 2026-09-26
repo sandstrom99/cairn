@@ -18,6 +18,7 @@ import {
   projectLine,
   readyLine,
   reviewLines,
+  searchLine,
   staleLines,
   unjournaledLine,
 } from "./lines.mts";
@@ -381,6 +382,20 @@ describe("readyLine", () => {
     expect(readyLine({ ...row, cannot: ["ios", "device"] })).toBe(
       `${issueLine(row)} · needs ios, device`,
     );
+  });
+});
+
+describe("searchLine", () => {
+  const row = {
+    id: "cn-4",
+    title: "confirm the retry path on a device",
+    status: "open",
+    priority: 1,
+    epic: { id: "ep-1", title: "Create to close" },
+  };
+
+  it("is the issue line, marked with the field that held the text", () => {
+    expect(searchLine({ ...row, matched: "journal" })).toBe(`${issueLine(row)} · in journal`);
   });
 });
 

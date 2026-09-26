@@ -356,6 +356,37 @@ row("verbs/journal.mts", () => {
   assert.equal(json("show cn-2").journal[0].body, body, "the entry is not shown newest first");
 });
 
+row("verbs/search.mts", () => {
+  /** The one line a search printed, held to how it starts and the field it ends on. */
+  const one = (text, start, field) => {
+    const found = lines(pass(`search ${text}`, `cn search ${text} was refused`).stdout);
+    assert.equal(found.length, 1, `cn search ${text} did not print exactly one line`);
+    assert.ok(found[0].startsWith(start), `cn search ${text} does not lead with ${start}`);
+    assert.ok(found[0].endsWith(` · in ${field}`), `cn search ${text} is not marked in ${field}`);
+  };
+  one("first", 'cn-1 "scratch: first" P2 open', "title");
+  one("paragraph", 'cn-1 "scratch: first"', "description");
+  one("FINDING", 'cn-2 "scratch: second" P1 in_progress', "journal");
+
+  const all = json("search scratch");
+  assert.deepEqual(ids(all), ["cn-2", "cn-1", "cn-3"], "the hits are not in priority then age");
+  assert.ok(
+    all.every((h) => h.matched === "title"),
+    "cn search --json does not carry matched",
+  );
+  assert.deepEqual(
+    ids(json("search scratch --status open")),
+    ["cn-1", "cn-3"],
+    "--status open did not leave the claimed cn-2 out",
+  );
+  assert.equal(json("search scratch --project cn").length, 3, "--project cn lost a hit");
+
+  const none = cn("search nothing-like-this");
+  assert.equal(none.status, 0, "a search nothing holds did not exit 0");
+  assert.equal(none.stdout, "", "a search nothing holds printed something");
+  assert.equal(cn("search").status, 2, "cn search with no text was not a usage error");
+});
+
 row("verbs/dep.mts", () => {
   pass("dep add cn-2 --blocked-by cn-1", "cn dep add refused");
   assert.deepEqual(ids(json("show cn-2").blockedBy), ["cn-1"], "cn-2 is not blocked by cn-1");

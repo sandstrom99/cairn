@@ -810,7 +810,7 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
  │ SKILL.md           teaches the verbs│              │ issues.ts  epics.ts  journal.ts    │
  │ /cairn:* commands  ──  cn …        │  ── HTTPS ─► │ edges.ts  blockers.ts  ready.ts    │
  │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  review.ts       │
- └────────────────────────────────────┘  call per    │ projects.ts  events.ts             │
+ └────────────────────────────────────┘  call per    │ projects.ts  events.ts  search.ts  │
        cn  (Node 24, .mts, no build)     verb        │ lib/  ids · revision · actor ·     │
        session.mts → deployment, actor, can[]        │       events · guard · verification│
                      from config.json, read once     └────────────────────────────────────┘
@@ -859,6 +859,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn brief [--can ios web …] [--unjournaled]` | `brief.get` | query |
 | `cn ready [--can ios web …]` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine]` | `issues.list` | query |
+| `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description or a journal entry holds the text, case aside, each with the field it was found in | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
 | `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |

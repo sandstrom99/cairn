@@ -41,6 +41,7 @@ import type * as lib_views from "../lib/views.js";
 import type * as projects from "../projects.js";
 import type * as ready from "../ready.js";
 import type * as review from "../review.js";
+import type * as search from "../search.js";
 import type * as show from "../show.js";
 
 import type {
@@ -83,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   ready: typeof ready;
   review: typeof review;
+  search: typeof search;
   show: typeof show;
 }>;
 

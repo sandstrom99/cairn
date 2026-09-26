@@ -57,6 +57,7 @@ an issue.
 | `cn brief` | the session-start report, under 20 lines | `brief.get` |
 | `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine` | `issues.list` |
+| `cn search <text>` | the issues whose title, description or a journal entry holds the text, across every status, each marked with the field; run before `cn create` | `search.find` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line | `issues.create` |
@@ -87,6 +88,8 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
 - **During.** `cn journal <id> --kind finding` or `--kind decision` the moment something
   would be lost to compaction. `cn wait <id>` the moment the work needs a person.
   `cn dep add <id> --blocked-by <other>` when one thing turns out to block another.
+  `cn search <text>` before `cn create`: what you are about to file may already be there,
+  open or closed, and then the answer is that issue, not a second one.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
   `cn release <id>` when it is not, so the next session can take it.

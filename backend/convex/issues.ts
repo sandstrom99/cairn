@@ -20,7 +20,7 @@ import type { Actor } from "./lib/actor";
 import { claimed, epicRequired, invalid } from "./lib/errors";
 import { createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
-import { hasChild, issuesIn } from "./lib/graph";
+import { hasChild, issuesIn, issuesWhere } from "./lib/graph";
 import { INBOX_ID, openEpicArg } from "./lib/inbox";
 import {
   type IssueEdit,
@@ -140,34 +140,10 @@ export const list = query({
     claimedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // One index does the work and the rest of the filters run in memory: a company's
-    // worth of issues is a few hundred documents, two orders off Convex's 16,384 cap.
     const project = args.project === undefined ? null : await projectBySlug(ctx, args.project);
     const epic = args.epic === undefined ? null : await epicById(ctx, args.epic);
 
-    let rows: Doc<"issues">[];
-    if (epic) {
-      rows = await issuesIn(ctx, epic._id);
-    } else if (project) {
-      rows = await ctx.db
-        .query("issues")
-        .withIndex("by_project", (q) =>
-          args.status === undefined
-            ? q.eq("projectId", project._id)
-            : q.eq("projectId", project._id).eq("status", args.status),
-        )
-        .collect();
-    } else if (args.status !== undefined) {
-      rows = await ctx.db
-        .query("issues")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .collect();
-    } else {
-      rows = await ctx.db.query("issues").collect();
-    }
-
-    if (project) rows = rows.filter((i) => i.projectId === project._id);
-    if (args.status !== undefined) rows = rows.filter((i) => i.status === args.status);
+    let rows = await issuesWhere(ctx, { project, epic, status: args.status });
     if (args.claimedBy !== undefined)
       rows = rows.filter((i) => i.claimedBy?.name === args.claimedBy);
     rows.sort(priorityOrder);
