@@ -1,7 +1,11 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UsageError } from "./cli.mts";
 import {
   BLOCKER_KINDS,
+  TEXT_MAX_BYTES,
+  type TextIo,
   date,
   duration,
   integer,
@@ -11,7 +15,9 @@ import {
   onlyId,
   priority,
   revision,
+  text,
 } from "./flags.mts";
+import { tempHome } from "./testing.mts";
 
 describe("maybe", () => {
   it("is the key where there is a value, and nothing where there is none", () => {
@@ -115,5 +121,52 @@ describe("oneOf", () => {
       /^--kind is one of approval, external-wait, decision, credential, purchase, not "vibes"$/,
     );
     expect(() => oneOf("", "kind", BLOCKER_KINDS)).toThrow(UsageError);
+  });
+});
+
+describe("text", () => {
+  // A stdin with two lines on it, one file that exists, and a missing one for everything else.
+  const io: TextIo = {
+    stdin: () => "line1\nline2",
+    file: (p) => {
+      if (p === "notes.md") return "# notes\n";
+      const e = new Error("nope") as NodeJS.ErrnoException;
+      e.code = "ENOENT";
+      throw e;
+    },
+    interactive: () => false,
+  };
+
+  it("is the value itself when it does not start with @, or nothing when not given", () => {
+    expect(text("a plain value", "--design", io)).toBe("a plain value");
+    expect(text(undefined, "--design", io)).toBeUndefined();
+  });
+
+  it("reads @- from stdin, and refuses it on a terminal with nothing piped in", () => {
+    expect(text("@-", "the body", io)).toBe("line1\nline2");
+    expect(() => text("@-", "the body", { ...io, interactive: () => true })).toThrow(
+      /^the body @- reads stdin, and nothing is piped in$/,
+    );
+  });
+
+  it("reads @path from the file, and names the path and the code when it cannot", () => {
+    expect(text("@notes.md", "--design", io)).toBe("# notes\n");
+    expect(() => text("@missing.md", "--design", io)).toThrow(UsageError);
+    expect(() => text("@missing.md", "--design", io)).toThrow(
+      /^--design @missing\.md: cannot read missing\.md \(ENOENT\)$/,
+    );
+  });
+
+  it("refuses a text over 64 KiB, naming its size", () => {
+    expect(() => text("x".repeat(TEXT_MAX_BYTES + 1024), "--design", io)).toThrow(
+      /^--design is 65 KiB, over the 64 KiB/,
+    );
+    expect(text("x".repeat(TEXT_MAX_BYTES), "--design", io)).toHaveLength(TEXT_MAX_BYTES);
+  });
+
+  it("reads a real file through the default reader", () => {
+    const path = join(tempHome("cairn-text-"), "notes.md");
+    writeFileSync(path, "# notes\n\n- one\n");
+    expect(text(`@${path}`, "--design")).toBe("# notes\n\n- one\n");
   });
 });

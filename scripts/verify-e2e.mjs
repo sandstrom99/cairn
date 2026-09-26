@@ -102,14 +102,15 @@ function words(line) {
  * (CLAUDECODE set, actor `e2e/claude`), a person (no CLAUDECODE), or a second agent on
  * another machine (CAIRN_ACTOR set). `session` is the Claude Code session it runs in,
  * when it runs in one. `xdg` is the config home it reads, and `viaConfig` withholds
- * CAIRN_URL so it has to.
+ * CAIRN_URL so it has to. `input` is what it reads on stdin, which is empty without it.
  */
-function cn(line, { as = "agent", xdg = home, viaConfig = false, session } = {}) {
+function cn(line, { as = "agent", xdg = home, viaConfig = false, session, input } = {}) {
   const env = environment({ as, xdg, viaConfig, session });
   const result = spawnSync(process.execPath, [MAIN, ...words(line)], {
     encoding: "utf8",
     cwd: xdg,
     env,
+    input,
   });
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
@@ -218,11 +219,26 @@ row("verbs/epic.mts", () => {
 });
 
 row("verbs/create.mts", () => {
+  const missing = cn(
+    "create --project cn --epic ep-1 --title 'scratch: nothing' --design @missing.md",
+  );
+  assert.equal(missing.status, 2, "a --design naming a missing file was not a usage error");
+  assert.match(
+    missing.out,
+    /--design @missing\.md: cannot read missing\.md/,
+    "the refusal does not name the missing file",
+  );
+  assert.deepEqual(json("list"), [], "a create refused for a missing file minted an issue");
+
+  // `cn` runs in the config home, so a relative `@notes.md` is read from there.
+  const design = "scratch: design from a file\n\n- one\n- two\n";
+  writeFileSync(join(home, "notes.md"), design);
   const first = pass(
-    `create --project cn --epic ep-1 --title 'scratch: first' --description "scratch: the first line\n\nand a second paragraph"`,
+    `create --project cn --epic ep-1 --title 'scratch: first' --description "scratch: the first line\n\nand a second paragraph" --design @notes.md`,
     "cn create was refused",
   );
   assert.match(first.out, /cn-1/, "the first issue did not mint cn-1");
+  assert.equal(json("show cn-1").design, design, "--design @notes.md did not store the file");
   const second = pass(
     `create --project cn --epic ep-1 --title 'scratch: second'`,
     "the second cn create was refused",
@@ -369,6 +385,16 @@ row("verbs/journal.mts", () => {
   const body = "scratch: a finding";
   pass(`journal cn-2 --kind finding '${body}'`, "cn journal was refused");
   assert.equal(json("show cn-2").journal[0].body, body, "the entry is not shown newest first");
+
+  pass("journal cn-2 --kind finding @-", "cn journal @- was refused", { input: "line1\nline2" });
+  assert.equal(
+    json("show cn-2").journal[0].body,
+    "line1\nline2",
+    "the body read from stdin did not land whole",
+  );
+  const empty = cn("journal cn-2 --kind finding @-");
+  assert.equal(empty.status, 2, "an empty stdin was not a usage error");
+  assert.match(empty.out, /the body is missing/, "an empty stdin was not refused as no body");
 });
 
 row("verbs/search.mts", () => {

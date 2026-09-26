@@ -8,6 +8,7 @@
 // The word lists are the deployment's, checked against its own types: a word missing
 // from a validator is a type error here, not a refusal at run time.
 
+import { readFileSync } from "node:fs";
 import type {
   BlockerKind,
   FollowUpKind,
@@ -107,6 +108,56 @@ export function date(given: string | undefined, flag: string): number | undefine
   const at = Date.parse(given);
   if (Number.isNaN(at)) throw new UsageError(`--${flag} is a date, as YYYY-MM-DD, not "${given}"`);
   return at;
+}
+
+/** What a text value is read through: the real stdin and filesystem, or a test's stand-ins. */
+export type TextIo = {
+  stdin: () => string;
+  file: (path: string) => string;
+  interactive: () => boolean;
+};
+
+const IO: TextIo = {
+  stdin: () => readFileSync(0, "utf8"),
+  file: (path) => readFileSync(path, "utf8"),
+  interactive: () => process.stdin.isTTY === true,
+};
+
+/** The most a text may be, in bytes: a body past this is a file, not a field. */
+export const TEXT_MAX_BYTES = 64 * 1024;
+
+/**
+ * `--design @notes.md`, `cn journal … @-`: a value that starts with `@` names where the
+ * text is, `-` for stdin and anything else a file, so a multi-line body never passes
+ * through shell quoting, which is where agents mangle it. Any other value is the text
+ * itself. `what` is how the refusal names the value: `--design`, or `the body`.
+ */
+export function text(given: string | undefined, what: string, io: TextIo = IO): string | undefined {
+  if (given === undefined) return undefined;
+  const value = given.startsWith("@") ? read(given.slice(1), what, io) : given;
+  // Counted in bytes, as a stored document is, and refused before anything connects: a
+  // body this long is a file to point at, not a field to read in a terminal.
+  const bytes = Buffer.byteLength(value, "utf8");
+  if (bytes > TEXT_MAX_BYTES)
+    throw new UsageError(
+      `${what} is ${Math.ceil(bytes / 1024)} KiB, over the 64 KiB a text may be`,
+    );
+  return value;
+}
+
+/** Where an `@` value points: stdin for `-`, a file for anything else, an empty name included. */
+function read(path: string, what: string, io: TextIo): string {
+  if (path === "-") {
+    // A terminal with nothing piped would wait on a read nobody means to answer.
+    if (io.interactive()) throw new UsageError(`${what} @- reads stdin, and nothing is piped in`);
+    return io.stdin();
+  }
+  try {
+    return io.file(path);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    throw new UsageError(`${what} @${path}: cannot read ${path}${code ? ` (${code})` : ""}`);
+  }
 }
 
 /** The unit a duration's letter names, spelled with the day the rest of cn prints. */

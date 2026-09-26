@@ -247,7 +247,9 @@ the source, which reads as text in a terminal, and cuts a field to its first lin
 so the first line is a plain sentence that stands alone; a heading's `#`s are dropped
 from a cut line. The page sets it (§8). Settled 2026-09-26 on cn-77, after the page's
 reader of three habits (paragraphs, `- ` lists, backticks) turned the numbered lists
-agents write into one run of text.
+agents write into one run of text. `cn` reads any of them from stdin as `@-` or from a
+file as `@path`, so a multi-line body never passes through shell quoting, and refuses
+one over 64 KiB.
 
 **What beads calls `notes` is deliberately absent.** Its own docs define it as
 *"current state, not cumulative"*, so it is rewritten on every handoff. That is

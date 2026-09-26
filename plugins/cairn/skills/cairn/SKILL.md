@@ -102,6 +102,9 @@ Description, design, acceptance, an epic's description and every journal entry a
 Markdown, and the person reads them on the web page, set: headings, lists, bold, links,
 code, tables. A wall of plain text is what the page is there to avoid.
 
+- **A body of more than a line goes in through stdin or a file, never through quoting.**
+  `cn journal <id> --kind handoff @-` with a heredoc, or `--design @notes.md`; shell
+  quoting is where multi-line text gets mangled.
 - **The first line stands alone.** It is all `cn show` prints of a field and all `cn log`
   prints of an entry: a plain sentence that says what this is, never a heading.
 - **Give the rest a shape.** Short paragraphs; `- ` lists; numbered steps where order
@@ -110,6 +113,16 @@ code, tables. A wall of plain text is what the page is there to avoid.
 - **Acceptance is a `- ` list**, one criterion a line, each answerable yes or no.
 - Commands, paths and ids in backticks, and output in a fenced block. A link as
   `[what it is](url)`. No raw HTML: the page shows it as text.
+
+```bash
+cn journal cn-14 --kind handoff @- <<'EOF'
+Where it stands, in one plain sentence.
+
+- done: …
+- unverified: …
+- next: …
+EOF
+```
 
 ## When the person speaks plainly
 
