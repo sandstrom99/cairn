@@ -1,5 +1,8 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
+import { tempHome } from "../lib/testing.mts";
 import { parse } from "./journal.mts";
 
 describe("cn journal", () => {
@@ -24,5 +27,27 @@ describe("cn journal", () => {
     expect(() => parse(["cn-2", "body"])).toThrow(UsageError);
     expect(() => parse(["cn-2", "--kind", "note", "body"])).toThrow(UsageError);
     expect(() => parse(["cn-2", "--kind", "finding"])).toThrow(UsageError);
+  });
+
+  /** A real file holding a two-line Markdown body, gone after the test. */
+  const notes = (): string => {
+    const path = join(tempHome("cairn-text-"), "notes.md");
+    writeFileSync(path, "# design\n\n- one\n");
+    return path;
+  };
+
+  it("reads the body from the file an @ value names, and refuses a missing one", () => {
+    expect(parse(["cn-2", "--kind", "handoff", `@${notes()}`])).toEqual({
+      action: "journal",
+      args: { id: "cn-2", kind: "handoff", body: "# design\n\n- one" },
+    });
+    expect(() => parse(["cn-2", "--kind", "finding", "@missing.md"])).toThrow(UsageError);
+  });
+
+  it("reads @- as stdin only when it is the whole body, not when words follow it", () => {
+    expect(() => parse(["cn-2", "--kind", "finding", "@-", "more"])).toThrow(UsageError);
+    expect(() => parse(["cn-2", "--kind", "finding", "@-", "more"])).toThrow(
+      /^the body @- more: cannot read - more/,
+    );
   });
 });

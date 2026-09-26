@@ -12,10 +12,11 @@
 // --defer-until parks the issue until a date, which hides it from `cn ready` and from
 // nothing else; `none` clears the date. `--requires none` clears the capabilities.
 // --design is HOW and may change; --acceptance is WHAT and should not. All three text
-// fields are Markdown, as `cn create --help` says.
+// fields are Markdown, and take `@-` for stdin or `@path` for a file, as `cn create --help`
+// says.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { date, maybe, onlyId, priority, revision } from "../lib/flags.mts";
+import { date, maybe, onlyId, priority, revision, text } from "../lib/flags.mts";
 import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
@@ -69,9 +70,9 @@ export function parse(argv: string[]): Parsed {
     id,
     revision: rev,
     ...maybe("title", opts.title),
-    ...maybe("description", opts.description),
-    ...maybe("design", opts.design),
-    ...maybe("acceptance", opts.acceptance),
+    ...maybe("description", text(opts.description, "--description")),
+    ...maybe("design", text(opts.design, "--design")),
+    ...maybe("acceptance", text(opts.acceptance, "--acceptance")),
     ...maybe("priority", priority(opts.priority)),
     ...maybe("epic", opts.epic),
     ...maybe("deferUntil", deferUntil(opts["defer-until"])),

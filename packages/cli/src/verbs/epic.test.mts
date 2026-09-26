@@ -1,5 +1,8 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
+import { tempHome } from "../lib/testing.mts";
 import { parse } from "./epic.mts";
 
 describe("cn epic", () => {
@@ -59,5 +62,22 @@ describe("cn epic", () => {
     expect(() => parse(["new"])).toThrow(UsageError);
     expect(() => parse(["drop", "ep-1"])).toThrow(UsageError);
     expect(() => parse(["list", "ep-1"])).toThrow(UsageError);
+  });
+
+  /** A real file holding a two-line Markdown body, gone after the test. */
+  const notes = (): string => {
+    const path = join(tempHome("cairn-text-"), "notes.md");
+    writeFileSync(path, "# design\n\n- one\n");
+    return path;
+  };
+
+  it("reads new's description from the file an @ value names, and refuses a missing one", () => {
+    expect(parse(["new", "Create to close", "--description", `@${notes()}`])).toEqual({
+      action: "new",
+      args: { title: "Create to close", description: "# design\n\n- one\n" },
+    });
+    expect(() => parse(["new", "Create to close", "--description", "@missing.md"])).toThrow(
+      UsageError,
+    );
   });
 });

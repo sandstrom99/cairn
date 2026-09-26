@@ -1,5 +1,8 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
+import { tempHome } from "../lib/testing.mts";
 import { parse } from "./update.mts";
 
 describe("cn update", () => {
@@ -80,5 +83,20 @@ describe("cn update", () => {
     expect(() => parse(["cn-2", "--revision", "1", "--priority="])).toThrow(
       /--priority is a whole number from 0 to 4/,
     );
+  });
+
+  /** A real file holding a two-line Markdown body, gone after the test. */
+  const notes = (): string => {
+    const path = join(tempHome("cairn-text-"), "notes.md");
+    writeFileSync(path, "# design\n\n- one\n");
+    return path;
+  };
+
+  it("reads a text field from the file an @ value names, and refuses a missing one", () => {
+    expect(parse(["cn-2", "--revision", "1", "--description", `@${notes()}`])).toEqual({
+      action: "update",
+      args: { id: "cn-2", revision: 1, description: "# design\n\n- one\n" },
+    });
+    expect(() => parse(["cn-2", "--revision", "1", "--design", "@missing.md"])).toThrow(UsageError);
   });
 });

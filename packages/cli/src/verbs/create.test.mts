@@ -1,5 +1,8 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
+import { tempHome } from "../lib/testing.mts";
 import { parse } from "./create.mts";
 
 describe("cn create", () => {
@@ -73,5 +76,24 @@ describe("cn create", () => {
     expect(() => parse([...base, "--priority", "soon"])).toThrow(UsageError);
     expect(() => parse([...base, "--priority="])).toThrow(/--priority is a whole number/);
     expect(() => parse([...base, "--priority", "5"])).toThrow(UsageError);
+  });
+
+  /** A real file holding a two-line Markdown body, gone after the test. */
+  const notes = (): string => {
+    const path = join(tempHome("cairn-text-"), "notes.md");
+    writeFileSync(path, "# design\n\n- one\n");
+    return path;
+  };
+
+  it("reads a text field from the file an @ value names, and refuses a missing one", () => {
+    const base = ["--project", "cn", "--title", "one"];
+    expect(parse([...base, "--design", `@${notes()}`])).toEqual({
+      action: "create",
+      args: { project: "cn", title: "one", design: "# design\n\n- one\n" },
+    });
+    expect(() => parse([...base, "--acceptance", "@missing.md"])).toThrow(UsageError);
+    expect(() => parse([...base, "--acceptance", "@missing.md"])).toThrow(
+      /^--acceptance @missing\.md: cannot read missing\.md \(ENOENT\)$/,
+    );
   });
 });

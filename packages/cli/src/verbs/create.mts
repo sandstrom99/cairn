@@ -19,6 +19,9 @@
 // prints as written. Open each with a plain sentence, since cn prints the first line
 // alone, and write --acceptance as a `- ` list, one criterion a line.
 //
+// A value `@-` reads the text from stdin and `@notes.md` from that file, so a multi-line
+// body never passes through shell quoting; a text over 64 KiB is refused, naming its size.
+//
 // A live issue in the epic whose title is near-identical to this one is printed under
 // the line, `near` and its reference, and the issue is still created: whether it is a
 // duplicate is yours to decide. An issue given --epic ep-0 with a --parent in an open
@@ -29,7 +32,15 @@
 // or half-done: then the answer is that issue, not a second one.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { FOLLOW_UP_KINDS, ISSUE_TYPES, maybe, oneOf, onlyFlags, priority } from "../lib/flags.mts";
+import {
+  FOLLOW_UP_KINDS,
+  ISSUE_TYPES,
+  maybe,
+  oneOf,
+  onlyFlags,
+  priority,
+  text,
+} from "../lib/flags.mts";
 import { UsageError, errorData, fail } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine, nearLine, placedLine } from "../lib/lines.mts";
@@ -84,9 +95,9 @@ export function parse(argv: string[]): Parsed {
       project,
       title,
       ...maybe("epic", opts.epic),
-      ...maybe("description", opts.description),
-      ...maybe("design", opts.design),
-      ...maybe("acceptance", opts.acceptance),
+      ...maybe("description", text(opts.description, "--description")),
+      ...maybe("design", text(opts.design, "--design")),
+      ...maybe("acceptance", text(opts.acceptance, "--acceptance")),
       ...maybe("priority", priority(opts.priority)),
       ...maybe("type", oneOf(opts.type, "type", ISSUE_TYPES)),
       ...maybe("followUpKind", oneOf(opts.kind, "kind", FOLLOW_UP_KINDS)),

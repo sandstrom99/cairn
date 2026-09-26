@@ -16,9 +16,13 @@
 //
 // The body is Markdown, which the web page sets. Its first line is all `cn log` prints,
 // so open with a plain sentence.
+//
+// `@-` reads the body from stdin and `@path` from a file, so a handoff written as a heredoc
+// never passes through shell quoting: `cn journal cn-2 --kind handoff @- <<'EOF'`, the
+// body, `EOF`.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { JOURNAL_KINDS, need, oneOf } from "../lib/flags.mts";
+import { JOURNAL_KINDS, need, oneOf, text } from "../lib/flags.mts";
 import { UsageError, say } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 
@@ -42,8 +46,9 @@ export function parse(argv: string[]): Parsed {
   const [id, ...rest] = pos;
   if (!id) throw new UsageError(USAGE);
   const kind = need(oneOf(opts.kind, "kind", JOURNAL_KINDS), USAGE);
-  // The body is the rest of the line, so an entry needs no quoting to be written.
-  const body = rest.join(" ").trim();
+  // The body is the rest of the line, so an entry needs no quoting to be written, or `@-`
+  // and `@path` alone, read through `text`; an empty stdin is a missing body like no body.
+  const body = (text(rest.join(" ").trim(), "the body") ?? "").trim();
   if (!body) throw new UsageError(`${USAGE}: the body is missing`);
   return { action: "journal", args: { id, kind, body } };
 }

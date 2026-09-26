@@ -5,6 +5,8 @@
 //   cn epic close <id> --revision N                        the outcome is reached
 //   cn epic close <id> --revision N --drop --reason <why>  it is not going to happen
 //
+// `--description` is Markdown and takes `@-` or `@path` like `cn create`'s.
+//
 // An epic is an outcome, not a place: it belongs to no project, and an issue in it may
 // come from any. ep-0 "Inbox" is where an issue goes when no epic fits, and it is created
 // on first use. The counts are tasks — open, in progress, done — with open follow-ups
@@ -19,7 +21,7 @@
 // with that reason first, so nothing is left pointing at an epic nobody will finish.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { maybe, onlyFlags, onlyId, revision } from "../lib/flags.mts";
+import { maybe, onlyFlags, onlyId, revision, text } from "../lib/flags.mts";
 import { UsageError, answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { epicClosedLines, healthLines } from "../lib/lines.mts";
@@ -69,7 +71,10 @@ export function parse(argv: string[]): Parsed {
   if (action !== "new") throw new UsageError(`cn epic new|list|close, not "${action ?? ""}"`);
   const title = rest.join(" ").trim();
   if (!title) throw new UsageError("cn epic new <title> [--description <text>]");
-  return { action: "new", args: { title, ...maybe("description", opts.description) } };
+  return {
+    action: "new",
+    args: { title, ...maybe("description", text(opts.description, "--description")) },
+  };
 }
 
 export async function run(argv: string[]): Promise<number> {
