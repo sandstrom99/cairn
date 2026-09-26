@@ -6,7 +6,7 @@
 // where it starts to answer differently from the first.
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import type { EdgeType } from "./validators";
+import type { EdgeType, IssueStatus } from "./validators";
 
 /** The issues of an epic, in creation order. Every epic read starts here and hands them on. */
 export async function issuesIn(ctx: QueryCtx, epicId: Id<"epics">): Promise<Doc<"issues">[]> {
@@ -14,6 +14,43 @@ export async function issuesIn(ctx: QueryCtx, epicId: Id<"epics">): Promise<Doc<
     .query("issues")
     .withIndex("by_epic", (q) => q.eq("epicId", epicId))
     .collect();
+}
+
+/**
+ * The issues under one epic, or one project, or one status, or all of them: the one index
+ * that narrows, then the rest in memory. A company's worth of issues is a few hundred
+ * documents, two orders off Convex's 16,384 cap, so the filters after the index cost
+ * nothing worth an index of their own. `issues.list` and `search.find` narrow the same way.
+ */
+export async function issuesWhere(
+  ctx: QueryCtx,
+  where: { project: Doc<"projects"> | null; epic: Doc<"epics"> | null; status?: IssueStatus },
+): Promise<Doc<"issues">[]> {
+  const { project, epic, status } = where;
+  let rows: Doc<"issues">[];
+  if (epic) {
+    rows = await issuesIn(ctx, epic._id);
+  } else if (project) {
+    rows = await ctx.db
+      .query("issues")
+      .withIndex("by_project", (q) =>
+        status === undefined
+          ? q.eq("projectId", project._id)
+          : q.eq("projectId", project._id).eq("status", status),
+      )
+      .collect();
+  } else if (status !== undefined) {
+    rows = await ctx.db
+      .query("issues")
+      .withIndex("by_status", (q) => q.eq("status", status))
+      .collect();
+  } else {
+    rows = await ctx.db.query("issues").collect();
+  }
+
+  if (project) rows = rows.filter((i) => i.projectId === project._id);
+  if (status !== undefined) rows = rows.filter((i) => i.status === status);
+  return rows;
 }
 
 /**

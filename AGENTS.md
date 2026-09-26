@@ -28,9 +28,9 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  14 passed (14)      ← backend
- Test Files  41 passed (41)      ← cli
- Test Files  17 passed (17)      ← web
+ Test Files  15 passed (15)      ← backend
+ Test Files  42 passed (42)      ← cli
+ Test Files  19 passed (19)      ← web
 ```
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
@@ -46,7 +46,7 @@ holds the script's rows to the table's, name for name and in order, so a row
 renamed in one place and not the other fails `vp run verify`. Its last line is:
 
 ```
-e2e: 24 rows passed against an empty throwaway deployment
+e2e: 25 rows passed against an empty throwaway deployment
 ```
 
 To run one row by hand, `vp run @cairn/backend#dev:throwaway` in another terminal
@@ -78,6 +78,7 @@ change works where it runs:
 | `verbs/claim.mts`, `verbs/release.mts` | `cn claim cn-2`, then `CAIRN_ACTOR=other/agent cn claim cn-2`, then `cn release cn-2` and `cn claim cn-2` again | the first wins and prints `in_progress`; the second exits 1 naming who holds it and since when; a release hands it back |
 | `verbs/update.mts` | `cn update cn-2 --revision N --priority 1` twice, against the revision `cn show` printed | the second is refused with every change since that revision and the line to retry with |
 | `verbs/journal.mts` | `cn journal cn-2 --kind finding "scratch: a finding"`, then `cn show cn-2` | the entry lands whatever the revision is, and shows newest first |
+| `verbs/search.mts` | `cn search first`, then `cn search paragraph`, then `cn search FINDING`, then `cn search scratch --json`, then `cn search scratch --status open --json`, then `cn search nothing-like-this`, then `cn search` | one line each: the cn-1 row marked `· in title`, the same row marked `· in description`, and the cn-2 row marked `· in journal` from its entry alone, case aside; `--json` carrying cn-2, cn-1, cn-3 in priority then age, each with `matched`; `--status` leaving the claimed cn-2 out; nothing matching printing nothing and exiting 0; and no text exiting 2 |
 | `verbs/dep.mts` | `cn dep add cn-2 --blocked-by cn-1`, then `cn show cn-2`, `cn show cn-1` and `cn ready`, then `cn dep rm cn-2 --blocked-by cn-1` | one row, read as `blocked by` from cn-2 and as `blocks` from cn-1, holding cn-2 out of ready, and removed by exactly that name |
 | `verbs/wait.mts` | `cn create --project cn --epic ep-0 --title "scratch: blocker round trip"` → cn-4, then `cn wait cn-4 --kind decision --owner balder --title "scratch" --resolves "the round trip is done"` → bl-1, then `cn ready`, then `cn list` | the issue leaves ready the moment the blocker is raised and stays in list |
 | `verbs/waiting.mts` | `cn waiting`, then `cn waiting --json`, then `cn show bl-1` | one line per unresolved blocker in reference form, the issues it holds under it, and the blocker read on its own |

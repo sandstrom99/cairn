@@ -23,6 +23,10 @@
 // the line, `near` and its reference, and the issue is still created: whether it is a
 // duplicate is yours to decide. An issue given --epic ep-0 with a --parent in an open
 // epic goes beside its parent instead, and the answer says so on a `placed` line.
+//
+// Search first. `cn search <text>` reads every issue's title, description and journal
+// across every status, and what you are about to file may already be there, done, dropped
+// or half-done: then the answer is that issue, not a second one.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { FOLLOW_UP_KINDS, ISSUE_TYPES, maybe, oneOf, onlyFlags, priority } from "../lib/flags.mts";

@@ -38,6 +38,7 @@ import type {
   LogEvent,
   ReadyLineView,
   ReviewView,
+  SearchLineView,
   Shown,
 } from "./views.mts";
 
@@ -68,6 +69,11 @@ const needs = (line: string, cannot: string[]): string =>
 /** The issue line, marked with what this session cannot do. */
 export function readyLine(view: ReadyLineView): string {
   return needs(issueLine(view), view.cannot);
+}
+
+/** The issue line, marked with the field the search text was found in: `· in journal`. */
+export function searchLine(view: SearchLineView): string {
+  return `${issueLine(view)} · in ${view.matched}`;
 }
 
 /**
