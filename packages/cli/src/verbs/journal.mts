@@ -13,6 +13,9 @@
 //
 // Proof that ran elsewhere goes in as `evidence` and the close points at it with
 // --unverified; proof cn can run itself goes in `cn close --run`.
+//
+// The body is Markdown, which the web page sets. Its first line is all `cn log` prints,
+// so open with a plain sentence.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { JOURNAL_KINDS, need, oneOf } from "../lib/flags.mts";

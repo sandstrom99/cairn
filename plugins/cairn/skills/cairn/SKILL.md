@@ -93,6 +93,21 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
 - **With the person.** `/cairn:review <epic>` goes through `cn review` together: what to
   look at, and the verb for each line. It writes nothing.
 
+## Writing into an issue
+
+Description, design, acceptance, an epic's description and every journal entry are
+Markdown, and the person reads them on the web page, set: headings, lists, bold, links,
+code, tables. A wall of plain text is what the page is there to avoid.
+
+- **The first line stands alone.** It is all `cn show` prints of a field and all `cn log`
+  prints of an entry: a plain sentence that says what this is, never a heading.
+- **Give the rest a shape.** Short paragraphs; `- ` lists; numbered steps where order
+  matters; a `**bold lead.**` to open an item a reader will scan for; a table where
+  options compare; `### A heading` only when a field holds several parts.
+- **Acceptance is a `- ` list**, one criterion a line, each answerable yes or no.
+- Commands, paths and ids in backticks, and output in a fenced block. A link as
+  `[what it is](url)`. No raw HTML: the page shows it as text.
+
 ## When the person speaks plainly
 
 The web page offers the person lines to say, never commands to run: "Catch me up on

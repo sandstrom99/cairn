@@ -11,7 +11,8 @@
 //
 // --defer-until parks the issue until a date, which hides it from `cn ready` and from
 // nothing else; `none` clears the date. `--requires none` clears the capabilities.
-// --design is HOW and may change; --acceptance is WHAT and should not.
+// --design is HOW and may change; --acceptance is WHAT and should not. All three text
+// fields are Markdown, as `cn create --help` says.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { date, maybe, onlyId, priority, revision } from "../lib/flags.mts";

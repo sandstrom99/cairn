@@ -241,6 +241,14 @@ would the acceptance criteria still apply? If not, they're design notes, not
 criteria."* `- [ ] Use batchUpdate approach` is design wearing a criterion's
 clothes; `- [ ] Formatting is applied atomically` is a criterion.
 
+The three fields, an epic's description and every journal body are **Markdown**:
+CommonMark with GitHub's tables, task lists, strikethrough and bare links. cn prints
+the source, which reads as text in a terminal, and cuts a field to its first line,
+so the first line is a plain sentence that stands alone; a heading's `#`s are dropped
+from a cut line. The page sets it (§8). Settled 2026-09-26 on cn-77, after the page's
+reader of three habits (paragraphs, `- ` lists, backticks) turned the numbered lists
+agents write into one run of text.
+
 **What beads calls `notes` is deliberately absent.** Its own docs define it as
 *"current state, not cumulative"*, so it is rewritten on every handoff. That is
 how a "tested on device" update disappears, and `--append-notes` dropped 3 of 16
@@ -639,8 +647,8 @@ A page for one id is `cn show` with room. An issue opens with its state,
 the brief's labelled lines as a table, `issueFacts`, the proof a close stored
 and the reason a drop gave among them, and a `blocks` edge with a finished end
 marked `done` rather than dropped (§7); then everything written into it printed
-whole where the brief keeps a first line, the output the proof carries among
-that, then its whole journal where the brief carries the five newest (`show.get`
+whole where the brief keeps a first line and set as the Markdown it is (§3), the
+output the proof carries among that, then its whole journal where the brief carries the five newest (`show.get`
 takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for
 a journal that long), with its own history in the column where the Overview has
 the feed. An epic is its health and every issue under it, the finished ones
@@ -696,6 +704,11 @@ The look, and what each choice rules out:
 - **One face, Recursive**, from sans to mono along its MONO axis. Prose in sans;
   ids, commands and verification records in mono, because they get pasted into
   a terminal.
+- **Written text is set in the same terms** (`apps/web/src/Prose.tsx`). A heading is
+  weight and never outranks the page's own, a link is an underline, code is a tint,
+  a quote is a rule, a task's box is ink or hollow; no hue anywhere, since chroma
+  means state. react-markdown builds React elements, so raw HTML shows as text and a
+  `javascript:` link goes nowhere.
 - **A jump bar where a chat page has its composer.** Type an id or part of a
   title and go. It reads, like everything else on the page, and it is where
   `cn-11`'s answers will be typed.

@@ -15,6 +15,10 @@
 // clothes. --requires is what a session needs to do it at all: ios, android, web, device,
 // decision. --priority is 0 highest to 4 backlog, and defaults to 2.
 //
+// --description, --design and --acceptance are Markdown, which the web page sets and cn
+// prints as written. Open each with a plain sentence, since cn prints the first line
+// alone, and write --acceptance as a `- ` list, one criterion a line.
+//
 // A live issue in the epic whose title is near-identical to this one is printed under
 // the line, `near` and its reference, and the issue is still created: whether it is a
 // duplicate is yours to decide. An issue given --epic ep-0 with a --parent in an open

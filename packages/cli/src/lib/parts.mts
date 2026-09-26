@@ -106,10 +106,14 @@ export type Named = Referable & { tail?: string };
 export const named = (item: Named): string => (item.tail ? `${ref(item)} ${item.tail}` : ref(item));
 export const refs = (items: Named[]): string => items.map(named).join(", ");
 
-/** The first line of a text, marked `…` where more follows it. */
+/**
+ * The first line of a text, marked `…` where more follows it. The text is Markdown, and a
+ * heading's `#`s are markup a line has no use for: `## Shape 1 first` prints as its words.
+ */
 export const firstLine = (text: string): string => {
-  const [head, ...rest] = text.split("\n");
-  return rest.length > 0 && rest.join("").trim() !== "" ? `${head}…` : (head ?? "");
+  const [first = "", ...rest] = text.split("\n");
+  const head = first.replace(/^ {0,3}#{1,6}[ \t]+/, "");
+  return rest.length > 0 && rest.join("").trim() !== "" ? `${head}…` : head;
 };
 
 /** As much of one event's payload as belongs on a line. */
