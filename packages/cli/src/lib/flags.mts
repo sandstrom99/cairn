@@ -17,6 +17,7 @@ import type {
   JournalKind,
 } from "@cairn/backend/convex/lib/validators.js";
 import { UsageError } from "./cli.mts";
+import { DAY, HOUR, MINUTE } from "./time.mts";
 
 export const ISSUE_TYPES = ["task", "follow-up"] as const satisfies readonly IssueType[];
 export const FOLLOW_UP_KINDS = [
@@ -157,6 +158,17 @@ function read(path: string, what: string, io: TextIo): string {
     const code = (e as NodeJS.ErrnoException).code;
     throw new UsageError(`${what} @${path}: cannot read ${path}${code ? ` (${code})` : ""}`);
   }
+}
+
+/** The unit a duration's letter names, spelled with the day the rest of cn prints. */
+const UNITS: Record<string, number> = { m: MINUTE, h: HOUR, d: DAY };
+
+/** `--silent 3d`: a count and a unit, `90m`, `36h` or `3d`, as milliseconds, where given. */
+export function duration(given: string | undefined, flag: string): number | undefined {
+  if (given === undefined) return undefined;
+  const match = /^(\d+)([mhd])$/.exec(given);
+  if (!match) throw new UsageError(`--${flag} is a duration, as 90m, 36h or 3d, not "${given}"`);
+  return Number(match[1]) * UNITS[match[2]!]!;
 }
 
 /** `--kind finding`: one of the words the flag takes, where given. */

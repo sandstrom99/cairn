@@ -12,6 +12,7 @@ import {
   historyLines,
   holdsLine,
   issueLine,
+  listLine,
   logLine,
   nearLine,
   placedLine,
@@ -403,6 +404,39 @@ describe("readyLine", () => {
   it("marks what this session cannot do, rather than hiding the row", () => {
     expect(readyLine({ ...row, cannot: ["ios", "device"] })).toBe(
       `${issueLine(row)} · needs ios, device`,
+    );
+  });
+});
+
+describe("listLine", () => {
+  const row = {
+    id: "cn-4",
+    title: "confirm the retry path on a device",
+    status: "open",
+    priority: 1,
+    epic: { id: "ep-1", title: "Create to close" },
+  };
+  const holder = [{ id: "cn-1", title: "schema, ids" }];
+
+  it("is the issue line when the list was asked neither question", () => {
+    expect(listLine(row, now)).toBe(issueLine(row));
+  });
+
+  it("ends on how long nobody has touched it", () => {
+    expect(listLine({ ...row, silentSince: ago(4 * DAY) }, now)).toBe(
+      `${issueLine(row)} · silent 4d`,
+    );
+  });
+
+  it("ends on what holds it, in the reference form", () => {
+    expect(listLine({ ...row, blockedBy: holder }, now)).toBe(
+      `${issueLine(row)} · blocked by cn-1 "schema, ids"`,
+    );
+  });
+
+  it("puts the silence before what holds it when both were asked", () => {
+    expect(listLine({ ...row, silentSince: ago(4 * DAY), blockedBy: holder }, now)).toBe(
+      `${issueLine(row)} · silent 4d · blocked by cn-1 "schema, ids"`,
     );
   });
 });

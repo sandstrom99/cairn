@@ -42,6 +42,9 @@ export type IssueLineView = Referable & {
 /** A ready row: an issue line, plus what this session cannot satisfy. */
 export type ReadyLineView = IssueLineView & { cannot: string[] };
 
+/** A list row under `--silent` or `--blocked`: the issue line, plus its silence or what holds it. */
+export type ListLineView = IssueLineView & { silentSince?: number; blockedBy?: Referable[] };
+
 /** A search hit: the issue line, plus which of title, description or journal held the text. */
 export type SearchLineView = IssueLineView & { matched: "title" | "description" | "journal" };
 

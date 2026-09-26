@@ -253,6 +253,21 @@ row("verbs/list.mts", () => {
   const listed = json("list --epic ep-1");
   assert.deepEqual(ids(listed), ["cn-1", "cn-2"], "cn list is not priority then age");
   for (const issue of listed) assert.equal(typeof issue.title, "string", "--json has no title");
+
+  const silent = lines(pass("list --silent 0d", "cn list --silent 0d was refused").stdout);
+  assert.equal(silent.length, 2, "a zero duration did not list every live issue");
+  for (const line of silent)
+    assert.ok(line.endsWith(" · silent just now"), `not marked silent: ${line}`);
+  for (const issue of json("list --silent 0d"))
+    assert.equal(typeof issue.silentSince, "number", "--json has no silentSince");
+
+  const day = cn("list --silent 1d");
+  assert.equal(day.status, 0, "cn list --silent 1d did not exit 0");
+  assert.equal(day.stdout, "", "an issue made just now is silent for a day");
+  const blocked = cn("list --blocked");
+  assert.equal(blocked.status, 0, "cn list --blocked did not exit 0");
+  assert.equal(blocked.stdout, "", "cn list --blocked listed an issue with no edge into it");
+  assert.equal(cn("list --silent 3x").status, 2, "a duration without a unit was not refused");
 });
 
 row("verbs/ready.mts", () => {
@@ -418,8 +433,14 @@ row("verbs/dep.mts", () => {
   assert.deepEqual(ids(json("show cn-2").blockedBy), ["cn-1"], "cn-2 is not blocked by cn-1");
   assert.deepEqual(ids(json("show cn-1").blocks), ["cn-2"], "cn-1 does not block cn-2");
   assert.ok(!ids(json("ready")).includes("cn-2"), "a blocked issue is still ready");
+  const held = lines(pass("list --blocked", "cn list --blocked refused").stdout);
+  assert.equal(held.length, 1, `cn list --blocked is not exactly cn-2: ${held.join(" | ")}`);
+  assert.match(held[0], /^cn-2 "scratch: second" .* · blocked by cn-1 "scratch: first"$/);
   pass("dep rm cn-2 --blocked-by cn-1", "cn dep rm refused");
   assert.deepEqual(ids(json("show cn-2").blockedBy), [], "the edge survived cn dep rm");
+  const freed = cn("list --blocked");
+  assert.equal(freed.status, 0, "cn list --blocked after the rm did not exit 0");
+  assert.equal(freed.stdout, "", "cn list --blocked still lists cn-2 after the rm");
 });
 
 row("verbs/wait.mts", () => {

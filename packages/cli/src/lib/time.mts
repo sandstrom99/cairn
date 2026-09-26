@@ -2,9 +2,9 @@
 // sets says when something happened the same way, so the words are spelled here once:
 // `just now`, `5m`, `2h`, `3d`, and the three forms built on them.
 
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
+export const MINUTE = 60_000;
+export const HOUR = 60 * MINUTE;
+export const DAY = 24 * HOUR;
 
 /** How long ago, in one token: `just now`, `5m`, `2h`, `3d`. */
 export function age(sinceMs: number, now: number = Date.now()): string {
