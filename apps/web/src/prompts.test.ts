@@ -44,6 +44,12 @@ const issues = {
   deferred: issue({ deferUntil: now + DAY }),
   "in progress, 20 days old": issue({ status: "in_progress", createdAt: ago(20 * DAY) }),
   "open, 20 days old": issue({ createdAt: ago(20 * DAY) }),
+  "stuck, waiting and 20 days old": issue({
+    stuck: true,
+    lastActivity: ago(4 * DAY),
+    waitingOn: [bl4],
+    createdAt: ago(20 * DAY),
+  }),
   closed: issue({ status: "closed", closedAt: ago(HOUR) }),
   dropped: issue({ status: "dropped", closedAt: ago(HOUR), droppedReason: "no" }),
 };
@@ -66,19 +72,27 @@ const epics = {
 
 describe("an issue's lines", () => {
   it.each([
-    ["an open issue", ["catch-up", "pick-up"]],
-    ["stuck", ["catch-up", "quiet", "pick-up"]],
-    ["waiting", ["catch-up", "waiting"]],
-    ["waiting on two", ["catch-up", "waiting"]],
-    ["blocked by a live issue", ["catch-up"]],
-    ["blocked by a closed issue", ["catch-up", "pick-up"]],
-    ["deferred", ["catch-up"]],
-    ["in progress, 20 days old", ["catch-up", "worth"]],
-    ["open, 20 days old", ["catch-up", "worth", "pick-up"]],
-    ["closed", ["catch-up", "walk-through"]],
-    ["dropped", ["catch-up"]],
+    ["an open issue", ["explain", "catch-up", "pick-up"]],
+    ["stuck", ["explain", "catch-up", "quiet", "pick-up"]],
+    ["waiting", ["explain", "catch-up", "waiting"]],
+    ["waiting on two", ["explain", "catch-up", "waiting"]],
+    ["blocked by a live issue", ["explain", "catch-up"]],
+    ["blocked by a closed issue", ["explain", "catch-up", "pick-up"]],
+    ["deferred", ["explain", "catch-up"]],
+    ["in progress, 20 days old", ["explain", "catch-up", "worth"]],
+    ["open, 20 days old", ["explain", "catch-up", "worth", "pick-up"]],
+    ["closed", ["explain", "catch-up", "walk-through"]],
+    ["dropped", ["explain", "catch-up"]],
+    ["stuck, waiting and 20 days old", ["explain", "catch-up", "quiet", "waiting"]],
   ] as const)("%s: %j", (state, expected) => {
     expect(keys(issuePrompts(issues[state], now))).toEqual(expected);
+  });
+
+  it("asks for the issue in plain terms, the same sentence in every state", () => {
+    for (const shown of Object.values(issues))
+      expect(said(issuePrompts(shown, now), "explain")).toBe(
+        `Explain ${ref(shown)} in plain terms: what it's about and why it matters, in a few sentences.`,
+      );
   });
 
   it("counts the days an issue has been quiet", () => {

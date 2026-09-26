@@ -13,8 +13,9 @@ describe("the ask menu", () => {
 
   it("numbers its lines and names the item by its id", () => {
     expect(rows(<AskList prompts={prompts} active={0} />)).toEqual([
-      "1 Catch me up on cn-1: where it stands, what's been tried, what's left.",
-      "2 Pick up cn-1 and get it moving.",
+      "1 Explain cn-1 in plain terms: what it's about and why it matters, in a few sentences.",
+      "2 Catch me up on cn-1: where it stands, what's been tried, what's left.",
+      "3 Pick up cn-1 and get it moving.",
     ]);
   });
 

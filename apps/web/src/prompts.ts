@@ -41,7 +41,17 @@ export function issuePrompts(issue: ShownIssue, now: number): Prompt[] {
     (issue.deferUntil === undefined || issue.deferUntil <= now);
   const days = Math.max(1, Math.floor((now - issue.lastActivity) / DAY));
 
+  // First, because understanding an issue comes before every other question about it. On an
+  // issue that is stuck, waiting and long open at once, the cap drops the last line.
   const prompts: (Prompt | false)[] = [
+    {
+      key: "explain",
+      parts: [
+        "Explain ",
+        r,
+        " in plain terms: what it's about and why it matters, in a few sentences.",
+      ],
+    },
     {
       key: "catch-up",
       parts: ["Catch me up on ", r, ": where it stands, what's been tried, what's left."],
