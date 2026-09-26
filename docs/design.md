@@ -662,7 +662,10 @@ into a session to say which work they mean.
 
 Beside Copy reference, a round `?` chip opens the ask menu: at most four lines a person
 can say to their agent about the thing on screen, chosen by its kind and state from what
-the page already reads. `Catch me up on cn-14 "…": where it stands, what's been tried,
+the page already reads. `Explain cn-14 "…" in plain terms: what it's about and why it
+matters, in a few sentences` first on every issue, because understanding one comes before
+every other question about it, and a follow-up's title is often in cairn's own words
+(added 2026-09-26, cn-78); `Catch me up on cn-14 "…": where it stands, what's been tried,
 what's left` on every issue; `cn-14 "…" has been quiet for 9 days. Find out why and tell
 me what it needs to move` while it is stuck; `Is cn-14 "…" still worth doing? Make the
 case either way` past fourteen days open; `ep-3 "…" has gotten messy. Help me sort it

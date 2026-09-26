@@ -5,8 +5,8 @@ description: >
   ready, what is in progress, what is waiting on a human, what a task is and what happened
   to it. Trigger on "what's ready", "track this", "pick up where we left off", "what is
   app-14", "close this", "log a finding". Also trigger, unprompted, on a sentence that
-  names an issue, epic or blocker in the reference form and asks where it stands, why it
-  is quiet, what it is waiting on, whether it is still worth doing, what should happen
+  names an issue, epic or blocker in the reference form and asks what it is about, where
+  it stands, why it is quiet, what it is waiting on, whether it is still worth doing, what should happen
   next, or for help deciding: read it with `cn show` or `cn review` before answering.
   Everything goes through the `cn` CLI.
 allowed-tools: "Bash(cn:*)"
@@ -110,7 +110,8 @@ code, tables. A wall of plain text is what the page is there to avoid.
 
 ## When the person speaks plainly
 
-The web page offers the person lines to say, never commands to run: "Catch me up on
+The web page offers the person lines to say, never commands to run: "Explain cn-14 "…"
+in plain terms: what it's about and why it matters, in a few sentences", "Catch me up on
 cn-14 "…": where it stands, what's been tried, what's left", "cn-14 "…" has been quiet
 for 9 days. Find out why and tell me what it needs to move", "ep-3 "…" has gotten
 messy. Help me sort it out". A message that names an issue, epic or blocker in the
@@ -122,6 +123,13 @@ has been tried, what it needs, what the options cost — and take the verb that 
 yourself: `cn claim <id>` for "pick it up", `cn wait <id>` for what needs them, `cn dep
 add` for a duplicate found. Never hand back a `cn` line or a slash command for the person
 to paste. Steering agents is not their job.
+
+"Explain" asks for meaning, not status, and quickly. Where the issue has no description,
+a follow-up often has only a title in cairn's own terms, with its context on the parent:
+read the parent, and the epic, before answering. Then three to five plain sentences: what
+the problem is and who meets it, why the issue exists, and in one line how big it is and
+where it stands. No file, function or event names, no ids past the first reference, no
+list of cases; the person asks "catch me up" for the rest.
 
 ## Three boundaries
 
