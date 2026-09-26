@@ -56,7 +56,7 @@ an issue.
 |---|---|---|
 | `cn brief` | the session-start report, under 20 lines | `brief.get` |
 | `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
-| `cn list` | issues by project, epic, status, or `--mine` | `issues.list` |
+| `cn list` | issues by project, epic, status, or `--mine`; `--silent 3d` for what nobody has touched, `--blocked` for what a live edge holds | `issues.list` |
 | `cn search <text>` | the issues whose title, description or a journal entry holds the text, across every status, each marked with the field; run before `cn create` | `search.find` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |

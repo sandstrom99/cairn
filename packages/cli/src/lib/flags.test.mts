@@ -3,6 +3,7 @@ import { UsageError } from "./cli.mts";
 import {
   BLOCKER_KINDS,
   date,
+  duration,
   integer,
   maybe,
   need,
@@ -83,6 +84,23 @@ describe("date", () => {
     expect(() => date("next tuesday", "nudge")).toThrow(
       /^--nudge is a date, as YYYY-MM-DD, not "next tuesday"$/,
     );
+  });
+});
+
+describe("duration", () => {
+  it("is a count of minutes, hours or days in milliseconds, or nothing when not given", () => {
+    expect(duration("90m", "silent")).toBe(90 * 60_000);
+    expect(duration("36h", "silent")).toBe(36 * 3_600_000);
+    expect(duration("3d", "silent")).toBe(259_200_000);
+    expect(duration("0d", "silent")).toBe(0);
+    expect(duration(undefined, "silent")).toBeUndefined();
+  });
+
+  it("refuses a count with no unit, a unit with no count, and any other unit", () => {
+    for (const given of ["3x", "3", "d", "", "1.5d", "-1d"])
+      expect(() => duration(given, "silent")).toThrow(
+        new RegExp(`^--silent is a duration, as 90m, 36h or 3d, not "${given}"$`),
+      );
   });
 });
 

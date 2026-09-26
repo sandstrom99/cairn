@@ -25,6 +25,23 @@ describe("cn list", () => {
     expect(parse([], me)).toEqual({ action: "list", json: false, args: {} });
   });
 
+  it("turns --silent into milliseconds and --blocked into true", () => {
+    expect(parse(["--silent", "3d"], me).args).toEqual({ silentFor: 259_200_000 });
+    expect(parse(["--blocked"], me).args).toEqual({ blocked: true });
+  });
+
+  it("composes --silent and --blocked with --epic and --mine", () => {
+    expect(parse(["--silent", "36h", "--blocked", "--epic", "ep-1", "--mine"], me)).toEqual({
+      action: "list",
+      json: false,
+      args: { epic: "ep-1", claimedBy: me, silentFor: 36 * 3_600_000, blocked: true },
+    });
+  });
+
+  it("refuses a duration without a unit it knows", () => {
+    expect(() => parse(["--silent", "3x"], me)).toThrow(UsageError);
+  });
+
   it("refuses a status that is not one of the four", () => {
     expect(() => parse(["--status", "blocked"], me)).toThrow(UsageError);
   });
