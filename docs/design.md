@@ -780,7 +780,7 @@ the CLI, and the reasons it went are below.
 | Surface | For |
 |---|---|
 | **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function. |
-| **Claude Code plugin** | Skill, SessionStart and Stop hooks, slash commands. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
+| **Claude Code plugin** | Skill, SessionStart and Stop hooks, slash commands, and the evals that hold the skill's rules in a real session. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
 | **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
 
 ### Why not an MCP server
@@ -900,6 +900,22 @@ wu03.2" was unreadable a day later. `cn show <id>` prints a ten-line brief,
 every list line starts with the reference form, and `--json` carries both
 fields. A URL into the web app slots in behind the same form later. The form is
 spelled in one place, `ref()` in `packages/cli/src/lib/ref.mts`.
+
+The form is the floor, not the context, settled 2026-09-24. After a while in a
+session, "what is next" was answered with "you can do cn-45, you can do cn-50",
+and the person had to open the page to learn what had just been said to them.
+The page is for status; a reply has to stand on its own. So the first time a
+reply names an issue or epic in a session, it carries the form and then a
+sentence of what the work is and where it stands, read from `cn show` rather
+than invented; a later mention in the same session is the form alone; and
+compaction or `/clear` makes every issue a first mention again, since the
+explanation went with the context. The rule lives in the skill, as doctrine
+does (§8), and the plugin ships an eval that holds it: a fresh session with only
+the plugin and the brief in context, asked what is next, has to name every issue
+with its title and say what each one is, so the bare list fails. An eval runs a
+`claude -p` child on a person's credential, so it is a verify-table row run by
+hand, not a CI step. The Stop hook does not police the rule: the hook carries
+state, never doctrine, and a bare id inside a `cn show` line is not a slip.
 
 ### Repo layout
 

@@ -3,8 +3,8 @@ name: cairn
 description: >
   The agent worklist. Use for any work that spans sessions, machines or agents: what is
   ready, what is in progress, what is waiting on a human, what a task is and what happened
-  to it. Trigger on "what's ready", "track this", "pick up where we left off", "what is
-  app-14", "close this", "log a finding". Also trigger, unprompted, on a sentence that
+  to it. Trigger on "what's next", "what's ready", "track this", "pick up where we left
+  off", "what is app-14", "close this", "log a finding". Also trigger, unprompted, on a sentence that
   names an issue, epic or blocker in the reference form and asks what it is about, where
   it stands, why it is quiet, what it is waiting on, whether it is still worth doing, what should happen
   next, or for help deciding: read it with `cn show` or `cn review` before answering.
@@ -25,7 +25,10 @@ anything else: no verb below can work until the config exists. Where it opened w
 call to it failed: run `cn doctor` and read its last line before any verb, and hand the
 person what it names if it is the URL or the secret, since neither is yours to change.
 
-## The one rule that must not slip
+## How work is named in a reply
+
+Two rules. The first is the floor and must not slip; the second is what lets a reply
+stand on its own, without the page.
 
 **Every mention of an issue or epic carries its id and its title**, in this form:
 
@@ -36,7 +39,32 @@ app-14 "fix connection retry"
 In a reply, a journal entry, a commit message, a handoff. A bare `app-14` is a bug: the
 reader has nothing to hold on to, and a session's worth of "working on wu03.2" is
 unreadable a day later. Every `cn` list line starts with this form; copy it, do not
-shorten it. `cn show app-14` prints a ten-line brief when you need more.
+shorten it.
+
+**The first time a reply names an issue or epic in a session, it says what it is.** A
+title is a handle, not an explanation: `app-14 "fix connection retry"` tells the person
+nothing about what doing it would mean or why it is next. So a first mention is the
+reference form, then a sentence of what the work is and where it stands — open, held by
+whom and since when, blocked by what, needing what — read from `cn show <id>` before the
+reply, never invented. An answer to "what is next" says why each one is next: its
+priority, that nothing holds it, what it needs that this session has. Named again later
+in the same session, the reference form alone is enough; the person has just read what
+it is. After compaction or `/clear`, every issue is a first mention again: the brief
+came back with the session, and the explanation has to come back with it. A `cn show`
+costs one call; a reply the person has to open the page to understand costs more.
+
+The bare list, which is the reply to avoid:
+
+> Ready: app-31, then app-40. app-31 is P1.
+
+The same reply, with each issue said once:
+
+> Two are ready. **app-31 "retry on reconnect"** is first, P1: the app drops its socket
+> on a network change and never reconnects, so the person sees a spinner until they
+> restart it. It is open, nothing holds it, and this session can do it.
+> **app-40 "invite landing copy"** is P2 and open: the invite page still reads as a
+> placeholder. It needs a screenshot from a phone, and this machine has no device, so it
+> is next for a session with iOS.
 
 ## What cairn is for
 
