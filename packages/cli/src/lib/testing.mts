@@ -13,12 +13,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 import type { BriefView, LogEvent, ShownBlocker, ShownEpic, ShownIssue } from "./views.mts";
+import { DAY, HOUR, MINUTE } from "./time.mts";
 
 /** Noon UTC on 2026-09-21, the day the web window was settled. Every age is read against it. */
 export const now = Date.UTC(2026, 8, 21, 12, 0);
-export const MINUTE = 60_000;
-export const HOUR = 60 * MINUTE;
-export const DAY = 24 * HOUR;
+/** The units every age here is built from, spelled once in time.mts and re-exported for tests. */
+export { DAY, HOUR, MINUTE };
 /** `ms` before `now`. */
 export const ago = (ms: number): number => now - ms;
 

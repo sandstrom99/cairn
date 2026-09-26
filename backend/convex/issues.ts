@@ -14,9 +14,10 @@
 // moves that rule "at cn create", because a parent in an open epic is a fact and the
 // inbox is only the answer when nothing says where the work belongs.
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { actorValidator, sameSession } from "./lib/actor";
 import type { Actor } from "./lib/actor";
+import { nowArg } from "./lib/clock";
 import { claimed, epicRequired, invalid } from "./lib/errors";
 import { createFollowUp } from "./lib/followUp";
 import { mutation, query } from "./lib/guard";
@@ -34,7 +35,7 @@ import {
 import { epicById, issueById, projectBySlug } from "./lib/lookup";
 import { idOrder, priorityOrder } from "./lib/order";
 import { DEFAULT_PRIORITY } from "./lib/priority";
-import { madeReadyBy } from "./lib/readiness";
+import { blockedBy, madeReadyBy } from "./lib/readiness";
 import { expectRevision } from "./lib/revision";
 import { nearIdentical } from "./lib/titles";
 import {
@@ -133,22 +134,60 @@ export const create = mutation({
   },
 });
 
+/**
+ * The flat list, narrowed by where an issue sits and who holds it, and by two questions
+ * asked of its state: `silentFor` keeps what nobody has touched for at least that many
+ * milliseconds, and `blocked` keeps what a live `blocks` edge holds, each row then carrying
+ * `silentSince` or `blockedBy` as the answer to the question it was kept for.
+ *
+ * Both read live issues unless `status` asks for the others, because a closed or dropped
+ * issue is silent and past holding by nature: without the default, every finished issue
+ * would answer "silent" and bury the one that went quiet mid-work. Blocked stays derived,
+ * read from the edges through `blockedBy` on every call and never stored (docs/design.md
+ * §3, §4), so the list and `cn ready` answer the same question the same way.
+ */
 export const list = query({
   args: {
     project: v.optional(v.string()),
     epic: v.optional(v.string()),
     status: v.optional(issueStatusValidator),
     claimedBy: v.optional(v.string()),
+    silentFor: v.optional(v.number()),
+    blocked: v.optional(v.boolean()),
+    ...nowArg,
   },
   handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
     const project = args.project === undefined ? null : await projectBySlug(ctx, args.project);
     const epic = args.epic === undefined ? null : await epicById(ctx, args.epic);
 
     let rows = await issuesWhere(ctx, { project, epic, status: args.status });
     if (args.claimedBy !== undefined)
       rows = rows.filter((i) => i.claimedBy?.name === args.claimedBy);
+
+    const narrowing = args.silentFor !== undefined || args.blocked === true;
+    if (narrowing && args.status === undefined) rows = rows.filter(isLive);
+    const silentFor = args.silentFor;
+    if (silentFor !== undefined) rows = rows.filter((i) => now - i.lastActivity >= silentFor);
+
+    // Read once per row: the holders both decide the row and are its answer.
+    const holders = new Map<Id<"issues">, Ref[]>();
+    if (args.blocked) {
+      for (const doc of rows) {
+        const { issues } = await blockedBy(ctx, doc, now);
+        if (issues.length > 0) holders.set(doc._id, issues);
+      }
+      rows = rows.filter((i) => holders.has(i._id));
+    }
+
     rows.sort(priorityOrder);
-    return await Promise.all(rows.map((doc) => issueView(ctx, doc)));
+    return await Promise.all(
+      rows.map(async (doc) => ({
+        ...(await issueView(ctx, doc)),
+        ...(silentFor !== undefined ? { silentSince: doc.lastActivity } : {}),
+        ...(args.blocked ? { blockedBy: holders.get(doc._id)! } : {}),
+      })),
+    );
   },
 });
 

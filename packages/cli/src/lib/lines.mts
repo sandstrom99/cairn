@@ -35,6 +35,7 @@ import type {
   HistoryEvent,
   IssueLineView,
   JournalEntry,
+  ListLineView,
   LogEvent,
   ReadyLineView,
   ReviewView,
@@ -69,6 +70,18 @@ const needs = (line: string, cannot: string[]): string =>
 /** The issue line, marked with what this session cannot do. */
 export function readyLine(view: ReadyLineView): string {
   return needs(issueLine(view), view.cannot);
+}
+
+/**
+ * The issue line, plus `· silent 4d` where the list was asked what nobody has touched and
+ * `· blocked by cn-1 "…"` where it was asked what a live edge holds: the words `cn show`'s
+ * status line uses for the same two facts, so a list and a brief never disagree.
+ */
+export function listLine(view: ListLineView, now: number = Date.now()): string {
+  let line = issueLine(view);
+  if (view.silentSince !== undefined) line += ` · silent ${age(view.silentSince, now)}`;
+  if (view.blockedBy && view.blockedBy.length > 0) line += ` · blocked by ${refs(view.blockedBy)}`;
+  return line;
 }
 
 /** The issue line, marked with the field the search text was found in: `· in journal`. */

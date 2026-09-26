@@ -861,7 +861,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 |---|---|---|
 | `cn brief [--can ios web …] [--unjournaled]` | `brief.get` | query |
 | `cn ready [--can ios web …]` | `ready.list` | query |
-| `cn list [--project] [--epic] [--status] [--mine]` | `issues.list` | query |
+| `cn list [--project] [--epic] [--status] [--mine] [--silent] [--blocked]` | `issues.list`; `--silent <duration>` is what nobody has touched for that long and `--blocked` what a live `blocks` edge holds, both over live issues unless `--status` says otherwise, each row then carrying its silence or its holders | query |
 | `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description or a journal entry holds the text, case aside, each with the field it was found in | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |

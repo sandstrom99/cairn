@@ -315,6 +315,61 @@ describe("issues.list", () => {
       (await t.query(api.issues.list, { project: "cn", status: "open" })).map((i) => i.id),
     ).toEqual(["cn-2", "cn-3"]);
   });
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const ids = (rows: { id: string }[]) => rows.map((i) => i.id);
+
+  it("narrows to issues silent for at least the duration, live ones unless status says, each carrying silentSince", async () => {
+    const T0 = Date.parse("2026-09-01T00:00:00Z");
+    at(T0);
+    const t = await seed({ issues: ["quiet", "heard from", "finished"] });
+    at(T0 + DAY);
+    await closeIssue(t, "cn-3");
+    at(T0 + 4 * DAY);
+    await t.mutation(api.journal.append, { actor, id: "cn-2", kind: "finding", body: "here" });
+
+    const now = T0 + 5 * DAY;
+    const silent = await t.query(api.issues.list, { silentFor: 3 * DAY, now });
+    expect(ids(silent)).toEqual(["cn-1"]);
+    expect(silent[0]).toMatchObject({ silentSince: T0 });
+    expect(
+      ids(await t.query(api.issues.list, { silentFor: 3 * DAY, status: "closed", now })),
+    ).toEqual(["cn-3"]);
+    expect(await t.query(api.issues.list, { silentFor: 3 * DAY, now: T0 + 2 * DAY })).toEqual([]);
+  });
+
+  it("narrows to issues a live blocks edge holds, naming the holders, and composes", async () => {
+    const t = await seed({ issues: ["first", "second", "third", "fourth", "fifth"] });
+    const blocks = (from: string, to: string) =>
+      t.mutation(api.edges.add, { actor, from, to, type: "blocks" });
+    await blocks("cn-1", "cn-2");
+    await blocks("cn-4", "cn-3");
+    await blocks("cn-1", "cn-5");
+    await closeIssue(t, "cn-4");
+    await closeIssue(t, "cn-5");
+
+    const blocked = await t.query(api.issues.list, { blocked: true });
+    expect(ids(blocked)).toEqual(["cn-2"]);
+    expect(blocked[0]!.blockedBy).toEqual([{ id: "cn-1", title: "first" }]);
+    expect(ids(await t.query(api.issues.list, { blocked: true, status: "closed" }))).toEqual([
+      "cn-5",
+    ]);
+    expect(ids(await t.query(api.issues.list, { blocked: true, epic: "ep-1" }))).toEqual(["cn-2"]);
+    const both = await t.query(api.issues.list, { blocked: true, silentFor: 0 });
+    expect(ids(both)).toEqual(["cn-2"]);
+    expect(both[0]).toHaveProperty("blockedBy", [{ id: "cn-1", title: "first" }]);
+    expect(both[0]).toHaveProperty("silentSince");
+  });
+
+  it("carries neither silentSince nor blockedBy when neither filter is on", async () => {
+    const t = await seed({ issues: ["first", "second"] });
+    const rows = await t.query(api.issues.list, {});
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).not.toHaveProperty("silentSince");
+      expect(row).not.toHaveProperty("blockedBy");
+    }
+  });
 });
 
 // The lifecycle, claim to close. Each rule below is a way work could be lost or taken:
