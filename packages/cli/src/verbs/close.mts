@@ -25,6 +25,10 @@
 // when the close finishes the last issue of its epic, follow-ups included, the answer
 // says the epic can close and prints the `cn epic close` line. It is an offer; the close
 // of the epic is yours to run.
+//
+// Under the closed issue's line come the follow-up it spawned, each open issue this close
+// was the last thing holding as a `ready` line, the way `cn ready` prints it, and the
+// `cn epic close` line when it was the epic's last task.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { FOLLOW_UP_KINDS, maybe, oneOf, onlyId, priority, revision } from "../lib/flags.mts";
@@ -111,7 +115,7 @@ export async function run(argv: string[]): Promise<number> {
   if ("run" in proof) say(`running ${proof.run}`);
   const verification = "run" in proof ? runCommand(proof.run) : proof;
 
-  const { client, actor } = connect();
+  const { client, actor, can } = connect();
   try {
     const closed = await client.mutation(api.issues.close, {
       actor,
@@ -119,6 +123,7 @@ export async function run(argv: string[]): Promise<number> {
       revision: parsed.revision,
       verification,
       ...maybe("followUp", followUp),
+      can,
     });
     console.log(closedLines(closed).join("\n"));
     return 0;

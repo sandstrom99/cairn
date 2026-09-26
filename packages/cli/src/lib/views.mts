@@ -85,11 +85,15 @@ export type EpicLineView = Referable & {
 /** One journal entry, as `cn show` carries the five newest. */
 export type JournalEntry = { at: number; author: { name: string }; kind: string; body: string };
 
-/** What `cn close` answers: the issue, the follow-up where one was made, and the epic's offer. */
+/**
+ * What `cn close` answers: the issue, the follow-up where one was made, the epic's offer,
+ * and the open issues the close was the last thing holding.
+ */
 export type ClosedView = {
   issue: IssueLineView;
   followUp?: IssueLineView;
   epicDone?: Referable & { revision: number };
+  madeReady: ReadyLineView[];
 };
 
 /** What `cn epic close` answers: the epic as it now stands, and what a drop took with it. */

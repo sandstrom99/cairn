@@ -345,7 +345,10 @@ itself and records the command, its exit status and the tail of its output; the
 agent never types the output in, so there is nothing to fabricate. `issues.close`
 refuses a non-zero exit unless the close is `--unverified` with a reason. A
 follow-up given on the same close is created in the same mutation, so a parent
-never closes without its residue existing.
+never closes without its residue existing. The answer also carries the open issues
+this close was the last thing holding, each as a ready row, and `cn close` prints
+them under the closed issue so an agent's loop continues without a second
+`cn ready`. Nothing is stored for it: the edge stays, and reads `done` (§7).
 
 ### Follow-ups: residue that must not hang
 

@@ -442,13 +442,24 @@ row("verbs/drop.mts", () => {
 });
 
 row("verbs/close.mts", () => {
+  // cn-3 is held by two issues before either closes, so the close of the first says
+  // nothing about it and the close of the second prints it as ready.
+  pass("dep add cn-3 --blocked-by cn-1", "cn dep add cn-3 --blocked-by cn-1 refused");
+  pass("dep add cn-3 --blocked-by cn-2", "cn dep add cn-3 --blocked-by cn-2 refused");
+  assert.ok(!ids(json("ready")).includes("cn-3"), "cn-3 is ready while two issues hold it");
+
   const failed = cn(`close cn-1 --revision ${revisionOf("cn-1")} --run 'exit 3'`);
   assert.notEqual(failed.status, 0, "a close on a command that failed was allowed");
   assert.equal(json("show cn-1").status, "open", "the refused close closed the issue anyway");
 
-  pass(
+  const second = pass(
     `close cn-2 --revision ${revisionOf("cn-2")} --run 'echo proof' --follow-up 'scratch: follow-up' --kind verify`,
     "cn close --run 'echo proof' was refused",
+  );
+  assert.doesNotMatch(
+    second.stdout,
+    /^ {2}ready /m,
+    "closing one of the two issues holding cn-3 printed a ready line",
   );
   const shown = json("show cn-2");
   assert.equal(shown.status, "closed", "the issue is not closed");
@@ -464,15 +475,30 @@ row("verbs/close.mts", () => {
     "cn show does not print the proof as its line",
   );
 
+  // The last thing holding cn-3 closes, and the answer says so the way cn ready would. The
+  // e2e session has no can, so the row is marked with what cn-3 requires.
+  const freed = pass(
+    `close cn-1 --revision ${revisionOf("cn-1")} --run 'echo proof'`,
+    "the second cn close cn-1 was refused",
+  );
+  assert.ok(
+    lines(freed.stdout).some((l) =>
+      /^ {2}ready {6}cn-3 "scratch: needs ios" P2 open {2}ep-1 "Create to close" r\d+ · needs ios$/.test(
+        l,
+      ),
+    ),
+    "closing the last issue holding cn-3 did not print it as a ready line",
+  );
+  assert.equal(json("show cn-1").status, "closed", "the second close of cn-1 did not close it");
+
   // A blocking edge from a finished issue is history, not a hold: cn show marks the end
-  // done, and cn ready never noticed it (§7).
-  pass("dep add cn-3 --blocked-by cn-2", "cn dep add refused");
+  // done, and cn ready lists the issue again (§7).
   const held = cn("show cn-3");
   assert.match(held.out, /^status {10}open · /m, "a finished blocker reads as blocking");
   assert.match(
     held.out,
-    /^blocked by {6}cn-2 "scratch: second" done$/m,
-    "the finished end of the edge is not marked done",
+    /^blocked by {6}cn-1 "scratch: first" done, cn-2 "scratch: second" done$/m,
+    "the finished ends of the two edges are not both marked done",
   );
   assert.ok(ids(json("ready")).includes("cn-3"), "a finished blocker held cn-3 out of ready");
 });
@@ -521,10 +547,14 @@ row("verbs/log.mts", () => {
   const added = whole.filter((l) => / {2}edge\.add {2}.* {2}blocked by cn-1$/.test(l));
   assert.equal(
     added.length,
-    1,
-    `cn dep add cn-2 --blocked-by cn-1 is listed ${added.length} times, not once`,
+    2,
+    `the edges blocked by cn-1 are listed ${added.length} times, not twice`,
   );
-  assert.match(added[0], /^cn-2 "/, "the edge is not listed on the end that leads its sentence");
+  assert.deepEqual(
+    added.map((l) => l.split(" ")[0]),
+    ["cn-3", "cn-2"],
+    "each edge is not listed once, newest first, on the end that leads its sentence",
+  );
 
   const capped = pass("log --limit 3", "cn log --limit 3 was refused");
   assert.equal(lines(capped.stdout).length, 3, "cn log --limit 3 did not print exactly 3 lines");
@@ -552,7 +582,7 @@ row("verbs/log.mts", () => {
 row("verbs/epic.mts (close)", () => {
   const refused = cn(`epic close ep-1 --revision ${revisionOf("ep-1")}`);
   assert.equal(refused.status, 1, "an epic with open work was allowed to close");
-  assert.match(refused.out, /cn-1|cn-3/, "the refusal does not name what is still open");
+  assert.match(refused.out, /cn-3/, "the refusal does not name cn-3, still open");
 });
 
 /** The two near-identical issues the create row mints in ep-2, read by the two rows after it. */

@@ -34,6 +34,7 @@ import {
 import { epicById, issueById, projectBySlug } from "./lib/lookup";
 import { idOrder, priorityOrder } from "./lib/order";
 import { DEFAULT_PRIORITY } from "./lib/priority";
+import { madeReadyBy } from "./lib/readiness";
 import { expectRevision } from "./lib/revision";
 import { nearIdentical } from "./lib/titles";
 import {
@@ -231,6 +232,10 @@ export const update = mutation({
  * the epic and its revision so `cn close` can print the `cn epic close` line. It is an
  * answer, never a close. It waits for open follow-ups too, which makes it stricter than
  * `epics.close`: that one is driven by a person, who may close over routed residue (§5).
+ *
+ * Beside them, `madeReady` is every open issue this close was the last thing holding, as
+ * the ready row `cn ready` would print for the caller's `can` (lib/readiness.ts). It is
+ * read, never stored.
  */
 export const close = mutation({
   args: {
@@ -246,6 +251,7 @@ export const close = mutation({
         priority: v.optional(v.number()),
       }),
     ),
+    can: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
@@ -284,8 +290,9 @@ export const close = mutation({
       epicFinished(await issuesIn(ctx, doc.epicId))
         ? { ...ref(epic), revision: epic.revision }
         : undefined;
+    const madeReady = await madeReadyBy(ctx, closed, args.can);
 
-    return { issue: await issueView(ctx, closed), followUp, epicDone };
+    return { issue: await issueView(ctx, closed), followUp, epicDone, madeReady };
   },
 });
 
