@@ -6,6 +6,7 @@
   "scripts": {
     "verify": "vp check && vp run -r test",
     "verify:e2e": "node scripts/verify-e2e.mjs",
+    "verify:evals": "node scripts/verify-evals.mjs",
     "check": "vp check",
     "test": "vp run -r test",
     "dev": "vp run @cairn/backend#dev",

@@ -1,7 +1,7 @@
 {
   "name": "cairn",
   "version": "0.1.0",
-  "description": "An agent worklist on Convex. The cn skill, the session-start situation report, the one line a session is handed when it stops holding an unjournaled claim, and the slash commands.",
+  "description": "An agent worklist on Convex. The cn skill, the session-start situation report, the one line a session is handed when it stops holding an unjournaled claim, the slash commands, and the evals that hold the skill's rules in a real session.",
   "author": {
     "name": "Balder Sandstrom",
     "url": "https://github.com/sandstrom99"

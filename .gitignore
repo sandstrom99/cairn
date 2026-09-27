@@ -10,3 +10,9 @@ backend/.env.local
 # Claude Code: per-machine settings and worktrees
 .claude/settings.local.json
 .claude/worktrees/
+
+# Claude Code: plugin eval results, one directory per run
+plugins/cairn/evals/results/
+
+# Claude Code: what the real cn printed for the eval child, rewritten every run
+plugins/cairn/evals/*/bin/recorded/

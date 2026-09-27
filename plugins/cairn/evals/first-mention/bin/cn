@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# cn, stood in for the eval child. With Bash granted, the eval sandbox makes the home
+# directory unreadable and reaches no port, so the real cn (node, under the home
+# directory) cannot run there. scripts/verify-evals.mjs records what the real cn prints
+# against a throwaway deployment into recorded/ beside this file, and the case's
+# case.yaml lists bin/ under context.add_dirs so the child may read it. One line is
+# one recording, keyed by its arguments; a line nobody recorded exits 1 and says so.
+set -eu
+here=$(cd -- "$(dirname -- "$0")" && pwd -P)
+key=$(printf '%s' "$*" | tr -c 'A-Za-z0-9.-' '_')
+rec="$here/recorded/$key"
+if [ -f "$rec.status" ]; then
+  [ -f "$rec.out" ] && cat "$rec.out"
+  [ -f "$rec.err" ] && cat "$rec.err" >&2
+  exit "$(cat "$rec.status")"
+fi
+printf 'cn %s: not recorded for this eval; the recorded lines are the files under %s/recorded\n' "$*" "$here" >&2
+exit 1
