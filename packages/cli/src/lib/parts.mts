@@ -126,17 +126,63 @@ const clip = (text: string): string =>
 const side = (value: unknown): string =>
   value === undefined ? "—" : typeof value === "string" ? value : JSON.stringify(value);
 
-// `from` or `to`, not both: a value of undefined is not stored, so the first write of a
-// field that had none comes back as `{ to }` alone.
-const isFieldMap = (
-  changes: unknown,
-): changes is Record<string, { from?: unknown; to?: unknown }> =>
+type FieldMap = Record<string, { from?: unknown; to?: unknown }>;
+
+// `from`, `to`, both or neither: a value of undefined is not stored, so the first write of
+// a field that had none comes back as `{ to }` alone, and a raw patch that cleared a field
+// already clear as `{}`.
+const isFieldMap = (changes: unknown): changes is FieldMap =>
   typeof changes === "object" &&
   changes !== null &&
   !Array.isArray(changes) &&
   Object.values(changes).every(
-    (v) => typeof v === "object" && v !== null && ("from" in v || "to" in v),
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      !Array.isArray(v) &&
+      Object.keys(v).every((key) => key === "from" || key === "to"),
   );
+
+/** The housekeeping a raw patch carries and no event records: the row's own time says it. */
+const HOUSEKEEPING = new Set(["claimedAt", "closedAt", "lastActivity", "resolvedAt"]);
+
+/**
+ * The actor a raw patch of this kind carries and today's event leaves out: a close or a
+ * drop ends the claim, which the claim's own event named, and a resolve's resolver is the
+ * event's actor.
+ */
+const UNRECORDED_ACTOR: Record<string, string> = {
+  "issue.close": "claimedBy",
+  "issue.drop": "claimedBy",
+  "blocker.resolve": "resolvedBy",
+};
+
+/** A raw patch's value as today's event records it: an actor by name, a proof as its summary. */
+const recordedValue = (value: unknown): unknown => {
+  if (hasStrings(value, "command") && "exitCode" in value)
+    return `${value.command} (exit ${String(value.exitCode)})`;
+  if (hasStrings(value, "unverified")) return `unverified: ${value.unverified}`;
+  if (hasStrings(value, "kind", "name")) return value.name;
+  return value;
+};
+
+/**
+ * A field map as the changes its move records today. Events written before 2026-09-20
+ * carry the raw patch of a claim, release, close, drop or a blocker's own resolve, since
+ * nothing migrates an audit trail (docs/design.md §3), so this is where the two shapes
+ * meet: an old close reads as `status in_progress → closed, verification — → vp run verify
+ * (exit 0)`, the same line a close made today prints. A map of today's shape passes
+ * through as it is.
+ */
+const asRecorded = (kind: string, changes: FieldMap): FieldMap => {
+  const kept: FieldMap = {};
+  for (const [field, { from, to }] of Object.entries(changes)) {
+    if (HOUSEKEEPING.has(field) || field === UNRECORDED_ACTOR[kind]) continue;
+    if (from === undefined && to === undefined) continue;
+    kept[field] = { from: recordedValue(from), to: recordedValue(to) };
+  }
+  return kept;
+};
 
 /**
  * One event's payload in pieces: `priority 2 → 1` per field for the field-map shape, the
@@ -213,6 +259,23 @@ const hasStrings = <K extends string>(
   changes !== null &&
   keys.every((key) => typeof (changes as Record<string, unknown>)[key] === "string");
 
+/** `changes` is an object whose named fields are all arrays, whatever else it carries. */
+const hasArrays = <K extends string>(
+  changes: unknown,
+  ...keys: K[]
+): changes is Record<K, unknown[]> =>
+  typeof changes === "object" &&
+  changes !== null &&
+  keys.every((key) => Array.isArray((changes as Record<string, unknown>)[key]));
+
+/**
+ * A `cn reconcile` run, which #32 deleted with the verb, in the words its answer headed
+ * with and who asked: `did 2 · raised 1 · by balder/claude`. ep-1 and ep-6 on the worklist
+ * still carry three, from 2026-09-17.
+ */
+const runPiece = ({ by, did, raised }: { by: string; did: unknown[]; raised: unknown[] }) =>
+  `${did.length === 0 && raised.length === 0 ? "nothing to do" : `did ${did.length} · raised ${raised.length}`} · by ${by}`;
+
 /**
  * A raise, the way `blockerLine` opens: `bl-3 "…" decision · owner balder`, on the line of
  * the issue it was raised on. Read from the blocker's own history the reference is the
@@ -244,9 +307,10 @@ const attachPiece = (
  * line>`, the way `cn show` lists the entry; an edge is `edgePiece` relative to `self`,
  * the issue the line is about, and a blocker's raise and attach read relative to it the
  * same way; the resolve recorded on each issue a blocker held is the blocker and the note,
- * `bl-3 "…": done`. A create has no payload, because the reference
+ * `bl-3 "…": done`; a reconcile run is `runPiece`. A create has no payload, because the reference
  * at the start of its line already names what was created, except a project, which has no
- * reference to lead with and so is its slug and name here. Anything else is `changePieces`.
+ * reference to lead with and so is its slug and name here. A field map is `changePieces`
+ * of it `asRecorded`, and anything else `changePieces` as it is.
  */
 const eventPieces = (kind: string, changes: unknown, self: string | undefined): string[] => {
   if (kind === "project.create" && hasStrings(changes, "slug", "name"))
@@ -268,7 +332,9 @@ const eventPieces = (kind: string, changes: unknown, self: string | undefined): 
         `${ref({ id: changes.blocker, title: changes.title })}: ${firstLine(changes.resolution)}`,
       ),
     ];
-  return changePieces(changes);
+  if (kind === "reconcile.run" && hasStrings(changes, "by") && hasArrays(changes, "did", "raised"))
+    return [runPiece(changes)];
+  return changePieces(isFieldMap(changes) ? asRecorded(kind, changes) : changes);
 };
 
 /** One event of a thing's own history, in pieces. It names no target: the thing is the page. */
