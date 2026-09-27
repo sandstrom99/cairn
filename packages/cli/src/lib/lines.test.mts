@@ -777,14 +777,17 @@ describe("staleLines", () => {
               at: now,
               kind: "issue.claim",
               // Convex stores no undefined, so a first write comes back as `{ to }` alone.
-              changes: { status: { from: "open", to: "in_progress" }, claimedAt: { to: now } },
+              changes: {
+                status: { from: "open", to: "in_progress" },
+                claimedBy: { to: "wsl/claude" },
+              },
             },
           ],
         },
         now,
       ),
     ).toEqual([
-      `  r1  wsl/claude  just now  issue.claim  status open → in_progress, claimedAt — → ${now}`,
+      "  r1  wsl/claude  just now  issue.claim  status open → in_progress, claimedBy — → wsl/claude",
     ]);
   });
 
@@ -943,6 +946,83 @@ describe("historyLines", () => {
     ).toBe(true);
     for (const line of lines) expect(line).not.toContain("…");
   });
+
+  // The shapes are the worklist's own, cn-24's claim and close, cn-1's close and cn-15's drop
+  // from before 2026-09-20: the patch as written, keys in the order Convex keeps them.
+  it("reads a raw patch from before 2026-09-20 as the line the same move prints today", () => {
+    const at = ago(2 * HOUR);
+    const event = (revision: number, kind: string, changes: unknown) => ({
+      revision,
+      actor: agent,
+      at,
+      kind,
+      changes,
+    });
+    const claim = event(1, "issue.claim", {
+      claimedAt: { to: at },
+      claimedBy: { to: agent },
+      lastActivity: { from: ago(3 * HOUR), to: at },
+      status: { from: "open", to: "in_progress" },
+    });
+    const release = event(2, "issue.release", {
+      claimedAt: { from: at },
+      claimedBy: { from: agent },
+      lastActivity: { from: at, to: at },
+      status: { from: "in_progress", to: "open" },
+    });
+    const close = event(3, "issue.close", {
+      claimedAt: { from: at },
+      claimedBy: { from: agent },
+      closedAt: { to: at },
+      lastActivity: { from: at, to: at },
+      status: { from: "in_progress", to: "closed" },
+      verification: {
+        to: { at, by: agent, command: "vp run verify", exitCode: 0, output: "pass: 88 files\n" },
+      },
+    });
+    // Closed with nothing claimed, the patch cleared two fields already clear, as `{}`.
+    const unclaimed = event(1, "issue.close", {
+      claimedAt: {},
+      claimedBy: {},
+      closedAt: { to: at },
+      lastActivity: { from: at, to: at },
+      status: { from: "open", to: "closed" },
+      verification: { to: { at, by: agent, unverified: "no device here" } },
+    });
+    const drop = event(1, "issue.drop", {
+      claimedAt: {},
+      claimedBy: {},
+      closedAt: { to: at },
+      droppedReason: { to: "scratch" },
+      lastActivity: { from: at, to: at },
+      status: { from: "open", to: "dropped" },
+    });
+    expect(historyLines([claim, release, close, unclaimed, drop], now)).toEqual([
+      "  r1  wsl/claude  2h ago  issue.claim  claimedBy — → wsl/claude, status open → in_progress",
+      "  r2  wsl/claude  2h ago  issue.release  claimedBy wsl/claude → —, status in_progress → open",
+      "  r3  wsl/claude  2h ago  issue.close  status in_progress → closed, verification — → vp run verify (exit 0)",
+      "  r1  wsl/claude  2h ago  issue.close  status open → closed, verification — → unverified: no device here",
+      "  r1  wsl/claude  2h ago  issue.drop  droppedReason — → scratch, status open → dropped",
+    ]);
+  });
+
+  it("reads a blocker's raw resolve from before 2026-09-20 without its resolver or its time", () => {
+    const resolve = {
+      revision: 2,
+      actor: human,
+      at: ago(HOUR),
+      kind: "blocker.resolve",
+      changes: {
+        resolution: { to: "done" },
+        resolvedAt: { to: ago(HOUR) },
+        resolvedBy: { to: human },
+        status: { from: "waiting", to: "resolved" },
+      },
+    };
+    expect(historyLines([resolve], now, "bl-1")).toEqual([
+      "  r2  wsl/balder  1h ago  blocker.resolve  resolution — → done, status waiting → resolved",
+    ]);
+  });
 });
 
 describe("logLine", () => {
@@ -1094,6 +1174,37 @@ describe("logLine", () => {
       epic: { id: "ep-1", title: "Create to close" },
     };
     expect(logLine(create, now)).toBe('ep-1 "Create to close"  epic.create  wsl/claude  2h ago');
+  });
+
+  it("reads a reconcile run, from before the verb was deleted, as what it did and who asked", () => {
+    const run = {
+      at: ago(9 * DAY),
+      actor: { name: "cairn/reconcile", kind: "agent" } as const,
+      kind: "reconcile.run",
+      revision: undefined,
+      changes: {
+        by: "balder/balder",
+        did: [
+          {
+            rule: "drop-edge",
+            from: { id: "cn-1", title: "schema, ids, revision, events, and the first verbs" },
+            to: { id: "cn-2", title: "the lifecycle, claim to close with evidence" },
+          },
+        ],
+        owner: "balder",
+        raised: [],
+      },
+      issue: undefined,
+      blocker: undefined,
+      epic: { id: "ep-1", title: "Create to close" },
+    };
+    expect(logLine(run, now)).toBe(
+      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  did 1 · raised 0 · by balder/balder',
+    );
+    const idle = { ...run, changes: { by: "balder/claude", did: [], owner: "balder", raised: [] } };
+    expect(logLine(idle, now)).toBe(
+      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  nothing to do · by balder/claude',
+    );
   });
 
   it("leads with — when a row names nothing, and a project's create is its slug and name", () => {

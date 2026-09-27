@@ -223,7 +223,12 @@ edge, a blocker's raise and an attach read relative to the id whose line it is, 
 §7 reads an edge from either end, `blocked by cn-1`, `waits on bl-3`, `holds cn-18`; the
 resolve recorded on each issue a blocker held is the blocker and the note. A create has no
 payload, since the reference leading its line already names what was created, except a
-project, which has no reference to lead with and prints as its slug and name.
+project, which has no reference to lead with and prints as its slug and name. A raw patch
+from before 2026-09-20, a blocker's own resolve among them, reads as the changes the same
+move records today: the housekeeping and the actor today's event leaves out are dropped,
+an actor prints by name and a verification record as its summary, so an old close and a
+new one print the same line. A `reconcile.run`, from before the sitting of §7 replaced
+the verb, reads as what it did and who asked, `did 5 · raised 0 · by balder/balder`.
 
 ### The three content fields
 
