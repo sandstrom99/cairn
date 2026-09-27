@@ -889,17 +889,22 @@ revision and the command to retry with.
 
 ### The reference form
 
-Every mention of an issue or epic, in a reply, a journal entry, a commit or a
-`cn` output line, carries its id **and** its title:
+Every journal entry, commit, handoff and `cn` output line that names an issue
+or epic, and the first mention of one in a reply, carries its id **and** its
+title:
 
     app-14 "fix connection retry"
 
-A bare `app-14` is a bug in the skill or the CLI. Beads ids like `invyte-wu03.2`
-gave the reader nothing to hold on to, and a session's worth of "working on
-wu03.2" was unreadable a day later. `cn show <id>` prints a ten-line brief,
-every list line starts with the reference form, and `--json` carries both
-fields. A URL into the web app slots in behind the same form later. The form is
-spelled in one place, `ref()` in `packages/cli/src/lib/ref.mts`.
+A bare `app-14` there is a bug in the skill or the CLI. Beads ids like
+`invyte-wu03.2` gave the reader nothing to hold on to, and a session's worth of
+"working on wu03.2" was unreadable a day later. Later in the same reply, with
+the form in sight above it, a bare id reads fine; settled 2026-09-27 from the
+eval below, whose first three runs each slipped once on a later mention and
+never on a first, while the reader's need was met by the form above. `cn show
+<id>` prints a ten-line brief, every list line starts with the reference form,
+and `--json` carries both fields. A URL into the web app slots in behind the
+same form later. The form is spelled in one place, `ref()` in
+`packages/cli/src/lib/ref.mts`.
 
 The form is the floor, not the context, settled 2026-09-24. After a while in a
 session, "what is next" was answered with "you can do cn-45, you can do cn-50",
@@ -912,9 +917,12 @@ compaction or `/clear` makes every issue a first mention again, since the
 explanation went with the context. The rule lives in the skill, as doctrine
 does (§8), and the plugin ships an eval that holds it: a fresh session with only
 the plugin and the brief in context, asked what is next, has to name every issue
-with its title and say what each one is, so the bare list fails. An eval runs a
-`claude -p` child on a person's credential, so it is a verify-table row run by
-hand, not a CI step. The Stop hook does not police the rule: the hook carries
+with its title and say what each one is, so the bare list fails. The child reads
+a stand-in `cn` recorded from the real one against a throwaway moments before,
+because with Bash granted the eval's sandbox can read only the case's own
+directory and reach no port, and the real `cn` is node under the home
+directory. An eval runs a `claude -p` child on a person's credential, so it is
+a verify-table row run by hand, not a CI step. The Stop hook does not police the rule: the hook carries
 state, never doctrine, and a bare id inside a `cn show` line is not a slip.
 
 ### Repo layout

@@ -30,16 +30,17 @@ person what it names if it is the URL or the secret, since neither is yours to c
 Two rules. The first is the floor and must not slip; the second is what lets a reply
 stand on its own, without the page.
 
-**Every mention of an issue or epic carries its id and its title**, in this form:
+**Work is named in the reference form**, id and title together:
 
 ```
 app-14 "fix connection retry"
 ```
 
-In a reply, a journal entry, a commit message, a handoff. A bare `app-14` is a bug: the
-reader has nothing to hold on to, and a session's worth of "working on wu03.2" is
-unreadable a day later. Every `cn` list line starts with this form; copy it, do not
-shorten it.
+In every journal entry, commit message and handoff, on every `cn` line, and the first
+time a reply names it. A bare `app-14` there is a bug: the reader has nothing to hold on
+to, and a session's worth of "working on wu03.2" is unreadable a day later. Later in the
+same reply, with the form in sight above it, `after app-14` reads fine. Every `cn` list
+line starts with this form; copy it, do not shorten it.
 
 **The first time a reply names an issue or epic in a session, it says what it is.** A
 title is a handle, not an explanation: `app-14 "fix connection retry"` tells the person
