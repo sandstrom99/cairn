@@ -32,6 +32,7 @@ import {
   insertIssue,
   releaseIssue,
 } from "./lib/lifecycle";
+import { addLinks, linkInputValidator } from "./lib/links";
 import { epicById, issueById, projectBySlug } from "./lib/lookup";
 import { idOrder, priorityOrder } from "./lib/order";
 import { DEFAULT_PRIORITY } from "./lib/priority";
@@ -81,6 +82,7 @@ export const create = mutation({
     followUpKind: v.optional(followUpKindValidator),
     parent: v.optional(v.string()),
     requires: v.optional(v.array(v.string())),
+    link: v.optional(v.array(linkInputValidator)),
   },
   handler: async (ctx, args) => {
     const project = await projectBySlug(ctx, args.project);
@@ -128,6 +130,7 @@ export const create = mutation({
       followUpKind: args.followUpKind,
       parentIssueId: parent?._id,
       requires: args.requires ?? [],
+      links: addLinks([], args.link ?? [], { by: args.actor, at: Date.now() }),
       priority: args.priority ?? DEFAULT_PRIORITY,
     });
     return { ...created, near, placed };
@@ -239,6 +242,8 @@ export const update = mutation({
     // null clears the date; absent leaves it alone. The two are different intentions.
     deferUntil: v.optional(v.union(v.number(), v.null())),
     requires: v.optional(v.array(v.string())),
+    link: v.optional(v.array(linkInputValidator)),
+    unlink: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
@@ -254,6 +259,8 @@ export const update = mutation({
       requires: args.requires,
       deferUntil: args.deferUntil,
       epic: args.epic === undefined ? undefined : await openEpicArg(ctx, args.actor, args.epic),
+      link: args.link,
+      unlink: args.unlink,
     };
     return await issueView(ctx, await editIssue(ctx, args.actor, doc, edit));
   },

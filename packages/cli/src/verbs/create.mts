@@ -3,7 +3,7 @@
 //   cn create --project <slug> --epic <ep-id> --title <title>
 //             [--priority 0-4] [--description <text>] [--design <how>] [--acceptance <what>]
 //             [--type task|follow-up] [--kind verify|decide|cleanup] [--parent <id>]
-//             [--requires <cap>…]
+//             [--requires <cap>…] [--link <url>…]
 //
 // An epic is required and there is no orphan state: a create with no --epic exits 1 and
 // prints the open epics, so choosing one is cheaper than dumping into the inbox. `ep-0`
@@ -22,19 +22,25 @@
 // A value `@-` reads the text from stdin and `@notes.md` from that file, so a multi-line
 // body never passes through shell quoting; a text over 64 KiB is refused, naming its size.
 //
+// --link puts a link on the issue: a bare URL, or a Markdown link '[label](url)'. Only
+// http and https are accepted. It repeats. What to link is whatever the work leaves behind
+// that someone will want to find again.
+//
 // A live issue in the epic whose title is near-identical to this one is printed under
 // the line, `near` and its reference, and the issue is still created: whether it is a
 // duplicate is yours to decide. An issue given --epic ep-0 with a --parent in an open
 // epic goes beside its parent instead, and the answer says so on a `placed` line.
 //
-// Search first. `cn search <text>` reads every issue's title, description and journal
-// across every status, and what you are about to file may already be there, done, dropped
-// or half-done: then the answer is that issue, not a second one.
+// Search first. `cn search <text>` reads every issue's title, description, links and
+// journal across every status, and what you are about to file may already be there,
+// done, dropped or half-done: then the answer is that issue, not a second one.
 
+import type { LinkInput } from "@cairn/backend/convex/lib/links.js";
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import {
   FOLLOW_UP_KINDS,
   ISSUE_TYPES,
+  links,
   maybe,
   oneOf,
   onlyFlags,
@@ -61,7 +67,7 @@ export const spec = {
     "kind",
     "parent",
   ],
-  list: ["requires"],
+  list: ["requires", "link"],
 } as const satisfies ArgSpec;
 
 type CreateArgs = {
@@ -76,6 +82,7 @@ type CreateArgs = {
   followUpKind?: (typeof FOLLOW_UP_KINDS)[number];
   parent?: string;
   requires?: string[];
+  link?: LinkInput[];
 };
 
 type Parsed = { action: "create"; args: CreateArgs };
@@ -103,6 +110,7 @@ export function parse(argv: string[]): Parsed {
       ...maybe("followUpKind", oneOf(opts.kind, "kind", FOLLOW_UP_KINDS)),
       ...maybe("parent", opts.parent),
       ...maybe("requires", opts.requires),
+      ...maybe("link", links(opts.link)),
     },
   };
 }

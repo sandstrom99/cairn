@@ -1,5 +1,5 @@
-// A search is one substring rule, case aside, over title, description and every journal
-// body. Each case below is a way it could quietly answer less than the list holds: a field
+// A search is one substring rule, case aside, over title, description, each link's URL and
+// label, and every journal body. Each case below is a way it could quietly answer less than the list holds: a field
 // it forgot to read, a case it did not fold, an order that disagrees with `cn list`, or a
 // filter that let the wrong status through.
 import { describe, expect, it } from "vitest";
@@ -32,6 +32,28 @@ describe("search.find", () => {
     ]);
     const [hit] = await t.query(api.search.find, { text: "socket" });
     expect(hit).toMatchObject({ id: "cn-2", title: "the socket layer", matched: "title" });
+  });
+
+  it("finds by a link's URL or its label, and reads title first and links before journal", async () => {
+    const t = await seed({ issues: ["the socket layer", "retry the push", "logs"] });
+    const link = (id: string, url: string, label?: string) =>
+      t.mutation(api.issues.update, {
+        actor,
+        id,
+        revision: 0,
+        link: [{ url, ...(label === undefined ? {} : { label }) }],
+      });
+    await link("cn-1", "https://example.com/retry-design");
+    await link("cn-2", "https://example.com/pr/7", "the retry pull");
+    await link("cn-3", "https://example.com/logs", "Retry dashboard");
+    await finding(t, "cn-3", "retry shows here too");
+
+    expect(await find(t, { text: "retry" })).toEqual([
+      { id: "cn-1", matched: "links" },
+      { id: "cn-2", matched: "title" },
+      { id: "cn-3", matched: "links" },
+    ]);
+    expect(await find(t, { text: "example.com/pr" })).toEqual([{ id: "cn-2", matched: "links" }]);
   });
 
   it("reports the first field that holds the text", async () => {

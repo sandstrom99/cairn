@@ -83,7 +83,7 @@ src/exports.test.mts   every export has an importer, in this package or in apps/
 src/lib/
   cli.mts        main(), UsageError, answer, fail, say/warn — the shell every verb runs in
   args.mts       the one argument parser, typed by the spec a verb hands it
-  flags.mts      what a flag's value has to be: revision, priority, date, one of a set of words, once;
+  flags.mts      what a flag's value has to be: revision, priority, date, a link, one of a set of words, once;
                  and which positionals a verb takes, onlyId and onlyFlags
   session.mts    what one call is: the config read once, and the deployment, actor and can from it
   config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json

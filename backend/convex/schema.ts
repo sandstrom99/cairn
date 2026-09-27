@@ -11,6 +11,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { actorValidator } from "./lib/actor";
+import { linkValidator } from "./lib/links";
 import {
   blockerKindValidator,
   blockerStatusValidator,
@@ -58,6 +59,8 @@ export default defineSchema({
     followUpKind: v.optional(followUpKindValidator),
     parentIssueId: v.optional(v.id("issues")),
     requires: v.array(v.string()),
+    // Absent means none: an issue with no links carries no empty array (lib/links.ts).
+    links: v.optional(v.array(linkValidator)),
     status: issueStatusValidator,
     priority: v.number(),
     claimedBy: v.optional(actorValidator),

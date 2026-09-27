@@ -186,6 +186,22 @@ describe("show.get", () => {
     });
   });
 
+  it("carries the issue's links, and none when it has none", async () => {
+    const t = await withFirst();
+    await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 0,
+      link: [{ url: "https://example.com/doc", label: "doc" }],
+    });
+    expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({
+      links: [{ url: "https://example.com/doc", label: "doc", by: actor, at: expect.any(Number) }],
+    });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "bare" });
+    const bare = await t.query(api.show.get, { id: "cn-2" });
+    expect(bare.kind === "issue" ? bare.links : "not an issue").toBeUndefined();
+  });
+
   it("refuses an id nothing answers to", async () => {
     const t = await withFirst();
     for (const id of ["cn-9", "ep-9", "bl-9"]) {

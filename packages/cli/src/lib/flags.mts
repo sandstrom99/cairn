@@ -9,6 +9,7 @@
 // from a validator is a type error here, not a refusal at run time.
 
 import { readFileSync } from "node:fs";
+import type { LinkInput } from "@cairn/backend/convex/lib/links.js";
 import type {
   BlockerKind,
   FollowUpKind,
@@ -108,6 +109,33 @@ export function date(given: string | undefined, flag: string): number | undefine
   const at = Date.parse(given);
   if (Number.isNaN(at)) throw new UsageError(`--${flag} is a date, as YYYY-MM-DD, not "${given}"`);
   return at;
+}
+
+/**
+ * `--link https://…` or `--link '[label](https://…)'`, the Markdown form, where given. The
+ * label's trimming and every check of the URL are the deployment's: which schemes a link
+ * may have is decided there, once.
+ */
+export function links(given: string[] | undefined): LinkInput[] | undefined {
+  if (given === undefined) return undefined;
+  if (given.length === 0) throw new UsageError("--link needs a URL, or [label](url)");
+  return given.map((raw) => {
+    const value = raw.trim();
+    if (value === "") throw new UsageError("--link needs a URL, or [label](url)");
+    const m = /^\[(.*)\]\((.+)\)$/.exec(value);
+    return m ? { url: m[2]!.trim(), label: m[1]! } : { url: value };
+  });
+}
+
+/** `--unlink https://…`: each URL trimmed, where given, and none of them blank. */
+export function urls(given: string[] | undefined, flag: string): string[] | undefined {
+  if (given === undefined) return undefined;
+  if (given.length === 0) throw new UsageError(`${flag} needs a URL`);
+  return given.map((raw) => {
+    const value = raw.trim();
+    if (value === "") throw new UsageError(`${flag} needs a URL`);
+    return value;
+  });
 }
 
 /** What a text value is read through: the real stdin and filesystem, or a test's stand-ins. */

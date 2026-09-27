@@ -45,8 +45,10 @@ export type ReadyLineView = IssueLineView & { cannot: string[] };
 /** A list row under `--silent` or `--blocked`: the issue line, plus its silence or what holds it. */
 export type ListLineView = IssueLineView & { silentSince?: number; blockedBy?: Referable[] };
 
-/** A search hit: the issue line, plus which of title, description or journal held the text. */
-export type SearchLineView = IssueLineView & { matched: "title" | "description" | "journal" };
+/** A search hit: the issue line, plus which of title, description, links or journal held it. */
+export type SearchLineView = IssueLineView & {
+  matched: "title" | "description" | "links" | "journal";
+};
 
 /** One edge, as `edges.add` and `edges.remove` both answer. */
 export type EdgeView = { type: string; from: Referable; to: Referable };

@@ -60,6 +60,27 @@ describe("cn create", () => {
     expect(parsed).toEqual({ action: "create", args: { project: "cn", title: "no epic" } });
   });
 
+  it("reads each --link as a bare URL or a [label](url), and refuses an empty one", () => {
+    const base = ["--project", "cn", "--title", "one"];
+    expect(
+      parse([
+        ...base,
+        "--link",
+        "https://example.com/pr/7",
+        "--link",
+        "[doc](https://example.com/d)",
+      ]),
+    ).toEqual({
+      action: "create",
+      args: {
+        project: "cn",
+        title: "one",
+        link: [{ url: "https://example.com/pr/7" }, { url: "https://example.com/d", label: "doc" }],
+      },
+    });
+    expect(() => parse([...base, "--link", " "])).toThrow(/--link needs a URL/);
+  });
+
   it("needs a project and a title", () => {
     expect(() => parse(["--title", "one"])).toThrow(UsageError);
     expect(() => parse(["--project", "cn"])).toThrow(UsageError);

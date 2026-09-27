@@ -239,11 +239,22 @@ row("verbs/create.mts", () => {
   );
   assert.match(first.out, /cn-1/, "the first issue did not mint cn-1");
   assert.equal(json("show cn-1").design, design, "--design @notes.md did not store the file");
+  const ftp = cn(
+    `create --project cn --epic ep-1 --title 'scratch: ftp' --link ftp://example.com/x`,
+  );
+  assert.equal(ftp.status, 1, "a create with an ftp link was not refused");
+  assert.match(ftp.out, /ftp:\/\/example\.com\/x/, "the refusal does not name the link");
+  assert.deepEqual(ids(json("list")), ["cn-1"], "a create refused for its link minted an issue");
   const second = pass(
-    `create --project cn --epic ep-1 --title 'scratch: second'`,
+    `create --project cn --epic ep-1 --title 'scratch: second' --link https://example.com/created`,
     "the second cn create was refused",
   );
   assert.match(second.out, /cn-2/, "the second issue did not mint cn-2");
+  assert.deepEqual(
+    json("show cn-2").links.map((l) => l.url),
+    ["https://example.com/created"],
+    "cn create --link did not put the link on the issue",
+  );
   const orphan = cn(`create --project cn --title 'scratch: no epic'`);
   assert.equal(orphan.status, 1, "a create with no --epic was not refused");
   assert.match(orphan.out, /ep-1/, "the refusal does not list the open epics");
@@ -379,6 +390,64 @@ row("verbs/update.mts", () => {
     `  re-read with cn show cn-2 and retry with --revision ${current}`,
     "the refusal does not end with the real cn show and --revision to retry with",
   );
+
+  // Links are a field like any other: added, relabelled and taken off against the revision.
+  pass(
+    `update cn-2 --revision ${current} --link '[doc](https://example.com/d)' --link https://example.com/b`,
+    "cn update --link was refused",
+  );
+  const linked = cn("show cn-2").out.split("\n");
+  const at = linked.findIndex((l) => l.startsWith("links "));
+  assert.deepEqual(
+    linked.slice(at, at + 3),
+    [
+      "links           https://example.com/created · by e2e/claude just now",
+      "                doc · https://example.com/d · by e2e/claude just now",
+      "                https://example.com/b · by e2e/claude just now",
+    ],
+    "cn show does not print the links block, created first, then doc, then b",
+  );
+  const carried = json("show cn-2").links;
+  assert.deepEqual(
+    carried.map((l) => [l.url, l.label, l.by.name]),
+    [
+      ["https://example.com/created", undefined, "e2e/claude"],
+      ["https://example.com/d", "doc", "e2e/claude"],
+      ["https://example.com/b", undefined, "e2e/claude"],
+    ],
+    "cn show --json does not carry the three links with who added them",
+  );
+
+  pass(
+    `update cn-2 --revision ${revisionOf("cn-2")} --link '[the doc](https://example.com/d)'`,
+    "relabelling a link was refused",
+  );
+  pass(
+    `update cn-2 --revision ${revisionOf("cn-2")} --unlink https://example.com/b`,
+    "cn update --unlink was refused",
+  );
+  assert.deepEqual(
+    json("show cn-2").links.map((l) => [l.url, l.label]),
+    [
+      ["https://example.com/created", undefined],
+      ["https://example.com/d", "the doc"],
+    ],
+    "the relabel and the unlink did not land",
+  );
+
+  const settled = revisionOf("cn-2");
+  pass(
+    `update cn-2 --revision ${settled} --link https://example.com/created`,
+    "linking a URL the issue already carries was refused",
+  );
+  assert.equal(revisionOf("cn-2"), settled, "a link that changed nothing moved the revision");
+
+  const missing = cn(`update cn-2 --revision ${settled} --unlink https://example.com/missing`);
+  assert.equal(missing.status, 1, "unlinking a URL the issue does not carry was not refused");
+  assert.match(missing.out, /https:\/\/example\.com\/missing/, "the refusal does not name the URL");
+  const script = cn(`update cn-2 --revision ${settled} --link 'javascript:alert(1)'`);
+  assert.equal(script.status, 1, "a javascript: link was not refused");
+  assert.match(script.out, /javascript:alert\(1\)/, "the refusal does not name the link");
 });
 
 row("verbs/journal.mts", () => {
@@ -408,6 +477,12 @@ row("verbs/search.mts", () => {
   one("first", 'cn-1 "scratch: first" P2 open', "title");
   one("paragraph", 'cn-1 "scratch: first"', "description");
   one("FINDING", 'cn-2 "scratch: second" P1 in_progress', "journal");
+  one("example.com/d", 'cn-2 "scratch: second" P1 in_progress', "links");
+  assert.deepEqual(
+    json("search example.com/d").map((h) => [h.id, h.matched]),
+    [["cn-2", "links"]],
+    "cn search --json does not carry matched links",
+  );
 
   const all = json("search scratch");
   assert.deepEqual(ids(all), ["cn-2", "cn-1", "cn-3"], "the hits are not in priority then age");
@@ -585,6 +660,19 @@ row("verbs/log.mts", () => {
     ),
     "the blocker's own resolve does not read as a field map",
   );
+  for (const pieces of [
+    "linked doc · https://example.com/d, linked https://example.com/b",
+    "relabelled doc → the doc · https://example.com/d",
+    "unlinked https://example.com/b",
+  ])
+    assert.ok(
+      whole.some(
+        (l) =>
+          l.startsWith('cn-2 "scratch: second"  issue.update  ') &&
+          l.endsWith(`  just now  ${pieces}`),
+      ),
+      `the links change on cn-2 does not read as ${pieces}`,
+    );
   assert.ok(
     whole.some((l) =>
       l.endsWith('  project.create  e2e/claude  just now  cn "cairn: backend, cli, plugin"'),

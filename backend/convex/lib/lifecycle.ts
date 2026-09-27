@@ -15,6 +15,7 @@ import { invalid } from "./errors";
 import { record } from "./events";
 import { issuesHeldBy } from "./graph";
 import { mint } from "./ids";
+import { type Link, type LinkInput, addLinks, linkRecord, removeLinks } from "./links";
 import { checkPriority } from "./priority";
 import { applyRevision } from "./revision";
 import type { FollowUpKind, IssueType } from "./validators";
@@ -46,6 +47,7 @@ type NewIssue = {
   followUpKind?: FollowUpKind;
   parentIssueId?: Id<"issues">;
   requires: string[];
+  links: Link[];
   priority: number;
 };
 
@@ -73,6 +75,7 @@ export async function insertIssue(
     ...(fields.followUpKind === undefined ? {} : { followUpKind: fields.followUpKind }),
     ...(fields.parentIssueId === undefined ? {} : { parentIssueId: fields.parentIssueId }),
     requires: fields.requires,
+    ...(fields.links.length === 0 ? {} : { links: fields.links }),
     status: "open",
     priority: checkPriority(fields.priority),
     lastActivity: Date.now(),
@@ -217,7 +220,7 @@ export async function dropIssue(
 
 /**
  * What `cn update` can change. `deferUntil: null` clears the date; absent leaves it.
- * `epic` is the resolved open epic.
+ * `epic` is the resolved open epic. `link` adds or relabels and `unlink` takes off, by URL.
  */
 export type IssueEdit = {
   title?: string;
@@ -228,11 +231,15 @@ export type IssueEdit = {
   requires?: string[];
   deferUntil?: number | null;
   epic?: Doc<"epics">;
+  link?: LinkInput[];
+  unlink?: string[];
 };
 
 /**
  * The one `issue.update`: patches every field given, records each as `{ from, to }` and
- * stamps `lastActivity`. Refuses an empty edit.
+ * stamps `lastActivity`. Refuses an empty edit. A link edit that changes nothing is not
+ * one: the issue comes back as it was, with no revision and no event, so attaching a URL
+ * it already carries is harmless.
  */
 export async function editIssue(
   ctx: MutationCtx,
@@ -268,6 +275,20 @@ export async function editIssue(
     patch.epicId = edit.epic._id;
     // Recorded as the two public ids: nothing outside the deployment knows a Convex id.
     changes.epic = { from: was?.id, to: edit.epic.id };
+  }
+  if (edit.link !== undefined || edit.unlink !== undefined) {
+    const link = edit.link ?? [];
+    const unlink = edit.unlink ?? [];
+    for (const url of unlink)
+      if (link.some((l) => l.url.trim() === url.trim()))
+        throw invalid(`${url.trim()} is both linked and unlinked`);
+    const was = doc.links ?? [];
+    const next = addLinks(removeLinks(was, unlink, doc.id), link, { by: actor, at: Date.now() });
+    if (JSON.stringify(linkRecord(was)) !== JSON.stringify(linkRecord(next))) {
+      // undefined takes the field off, so an issue with no links carries no empty array.
+      patch.links = next.length > 0 ? next : undefined;
+      changes.links = { from: linkRecord(was), to: linkRecord(next) };
+    } else if (Object.keys(patch).length === 0) return doc;
   }
   if (Object.keys(patch).length === 0) throw invalid("nothing to update");
 

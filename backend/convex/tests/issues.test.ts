@@ -265,6 +265,51 @@ describe("issues.create", () => {
     const underClosed = await inbox("the hook, later", "cn-4");
     expect(underClosed).toMatchObject({ id: "cn-5", epic: { id: "ep-0" }, placed: false });
   });
+
+  it("stamps each link with the actor and the time, trims labels and collapses a repeated URL", async () => {
+    at("2026-09-27T09:00:00Z");
+    const t = await seed();
+    const created = await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "with links",
+      link: [
+        { url: " https://example.com/doc ", label: "  the doc " },
+        { url: "https://example.com/bare", label: "   " },
+        { url: "https://example.com/doc", label: "the doc, again" },
+      ],
+    });
+    const stamp = { by: actor, at: Date.now() };
+    expect(created.links).toEqual([
+      { url: "https://example.com/doc", label: "the doc, again", ...stamp },
+      { url: "https://example.com/bare", ...stamp },
+    ]);
+    expect((await rawIssue(t, "cn-1")).links).toEqual(created.links);
+  });
+
+  it("refuses a link that is not http or https, naming it, and mints nothing", async () => {
+    const t = await seed();
+    for (const url of ["ftp://example.com/x", "javascript:alert(1)", "not a url"])
+      await expect(
+        t.mutation(api.issues.create, {
+          actor,
+          project: "cn",
+          epic: "ep-1",
+          title: "a bad link",
+          link: [{ url }],
+        }),
+      ).rejects.toMatchObject({
+        data: { kind: "invalid", message: `${url} is not an http or https URL` },
+      });
+    expect(await eventsOf(t, "issue.create")).toHaveLength(0);
+  });
+
+  it("leaves the field absent when no link is given", async () => {
+    const t = await seed({ issues: ["no links"] });
+    const raw = await rawIssue(t, "cn-1");
+    expect("links" in raw).toBe(false);
+  });
 });
 
 describe("issues.list", () => {
@@ -587,6 +632,121 @@ describe("issues.update", () => {
     await expect(
       t.mutation(api.issues.update, { actor, id: "cn-1", revision: 1, priority: 1 }),
     ).rejects.toMatchObject({ data: { kind: "invalid" } });
+  });
+
+  it("adds, relabels and unlinks, and a bare re-link changes nothing and records nothing", async () => {
+    at("2026-09-27T09:00:00Z");
+    const t = await withIssue();
+    const first = Date.now();
+    const added = await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 0,
+      link: [{ url: "https://example.com/d", label: "doc" }, { url: "https://example.com/b" }],
+    });
+    expect(added).toMatchObject({ revision: 1 });
+    expect(added.links).toEqual([
+      { url: "https://example.com/d", label: "doc", by: actor, at: first },
+      { url: "https://example.com/b", by: actor, at: first },
+    ]);
+
+    at("2026-09-27T10:00:00Z");
+    const relabelled = await t.mutation(api.issues.update, {
+      actor: other,
+      id: "cn-1",
+      revision: 1,
+      link: [{ url: "https://example.com/d", label: "the doc" }],
+    });
+    expect(relabelled.links![0]).toEqual({
+      url: "https://example.com/d",
+      label: "the doc",
+      by: actor,
+      at: first,
+    });
+
+    const again = await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 2,
+      link: [{ url: "https://example.com/d" }, { url: "https://example.com/b" }],
+    });
+    expect(again.revision).toBe(2);
+    expect(again.links).toEqual(relabelled.links);
+    expect(await eventsOf(t, "issue.update")).toHaveLength(2);
+
+    const unlinked = await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 2,
+      unlink: [" https://example.com/b "],
+    });
+    expect(unlinked.links!.map((l) => l.url)).toEqual(["https://example.com/d"]);
+    await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 3,
+      unlink: ["https://example.com/d"],
+    });
+    expect("links" in (await rawIssue(t, "cn-1"))).toBe(false);
+  });
+
+  it("records a links change as the URLs and labels either side, with no who or when", async () => {
+    const t = await withIssue();
+    await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 0,
+      link: [{ url: "https://example.com/d", label: "doc" }],
+    });
+    await t.mutation(api.issues.update, {
+      actor,
+      id: "cn-1",
+      revision: 1,
+      link: [{ url: "https://example.com/b" }],
+      unlink: ["https://example.com/d"],
+    });
+    expect((await eventsOf(t, "issue.update")).map((e) => e.changes)).toEqual([
+      { links: { from: [], to: [{ url: "https://example.com/d", label: "doc" }] } },
+      {
+        links: {
+          from: [{ url: "https://example.com/d", label: "doc" }],
+          to: [{ url: "https://example.com/b" }],
+        },
+      },
+    ]);
+  });
+
+  it("refuses unlinking what is not there, the same URL both ways, a bad URL, a stale revision and a closed issue", async () => {
+    const t = await withIssue();
+    const update = (fields: Record<string, unknown>) =>
+      t.mutation(api.issues.update, { actor, id: "cn-1", revision: 0, ...fields });
+    await expect(update({ unlink: ["https://example.com/missing"] })).rejects.toMatchObject({
+      data: { kind: "invalid", message: "cn-1 has no link https://example.com/missing" },
+    });
+    await expect(
+      update({ link: [{ url: "https://example.com/d" }], unlink: ["https://example.com/d"] }),
+    ).rejects.toMatchObject({
+      data: { kind: "invalid", message: "https://example.com/d is both linked and unlinked" },
+    });
+    await expect(update({ link: [{ url: "javascript:alert(1)" }] })).rejects.toMatchObject({
+      data: { kind: "invalid", message: "javascript:alert(1) is not an http or https URL" },
+    });
+
+    await t.mutation(api.issues.update, { actor, id: "cn-1", revision: 0, priority: 1 });
+    await expect(update({ link: [{ url: "https://example.com/d" }] })).rejects.toMatchObject({
+      data: { kind: "stale", yours: 0, current: 1 },
+    });
+    await closeIssue(t, "cn-1", 1);
+    await expect(
+      t.mutation(api.issues.update, {
+        actor,
+        id: "cn-1",
+        revision: 2,
+        link: [{ url: "https://example.com/d" }],
+      }),
+    ).rejects.toMatchObject({
+      data: { kind: "invalid", message: "cn-1 is closed; nothing about it changes now" },
+    });
   });
 });
 

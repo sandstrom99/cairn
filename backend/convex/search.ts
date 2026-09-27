@@ -1,7 +1,7 @@
 // search.ts: one query, what the list already holds about a text. The scan is the design:
-// one substring rule, case aside, over title, description and every journal body, so the
-// three fields match the same way and the page's jump bar agrees. A Convex search index
-// comes when a measured deployment makes this slow, not before.
+// one substring rule, case aside, over title, description, each link's URL and label, and
+// every journal body, so the fields match the same way and the page's jump bar agrees. A
+// Convex search index comes when a measured deployment makes this slow, not before.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { issuesWhere } from "./lib/graph";
@@ -11,8 +11,8 @@ import { priorityOrder } from "./lib/order";
 import { issueStatusValidator } from "./lib/validators";
 import { issueView } from "./lib/views";
 
-/** The field a hit was found in: the first of the three that holds the text. */
-type Matched = "title" | "description" | "journal";
+/** The field a hit was found in: the first of the four that holds the text. */
+type Matched = "title" | "description" | "links" | "journal";
 
 export const find = query({
   args: {
@@ -35,6 +35,8 @@ export const find = query({
     for (const doc of rows) {
       if (has(doc.title)) hits.push({ doc, matched: "title" });
       else if (has(doc.description)) hits.push({ doc, matched: "description" });
+      else if (doc.links?.some((l) => has(l.url) || has(l.label)))
+        hits.push({ doc, matched: "links" });
       else rest.push(doc);
     }
 

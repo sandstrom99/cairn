@@ -490,6 +490,19 @@ describe("brief", () => {
     expect(brief(issue(), now)).not.toMatch(/blocks|waiting on|journal|acceptance/);
   });
 
+  it("prints each link on its own line under the label, the label before the URL where there is one", () => {
+    const links = [
+      { url: "https://example.com/doc", label: "doc", by: agent, at: ago(2 * HOUR) },
+      { url: "https://example.com/pr/7", by: agent, at: now },
+    ];
+    const lines = brief(issue({ links }), now).split("\n");
+    const at = lines.findIndex((line) => line.startsWith("links"));
+    expect(lines.slice(at, at + 2)).toEqual([
+      `links           doc · https://example.com/doc · by ${agent.name} 2h ago`,
+      `                https://example.com/pr/7 · by ${agent.name} just now`,
+    ]);
+  });
+
   it("says created just now, not created just now ago", () => {
     const fresh = issue({ createdAt: now - 1_000 });
     expect(brief(fresh, now)).toContain("created just now · revision 0");

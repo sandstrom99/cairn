@@ -2,14 +2,14 @@
 //
 //   cn search <text> [--project <slug>] [--status open|in_progress|closed|dropped] [--json]
 //
-// One line per issue whose title, description or a journal entry contains the text, case
-// aside, in priority then age order, each marked with the field it was found in: `· in
-// title`, `· in description` or `· in journal`, the first of those that holds it. Every
-// status is searched unless --status narrows it, because what you are about to file may
-// have been done or dropped already. The text is the words after the verb joined by one
-// space, so `cn search connection retry` and `cn search "connection retry"` are the same
-// search. Run it before `cn create`; a hit is the issue to build on, not a second one to
-// file.
+// One line per issue whose title, description, a link's URL or label, or a journal entry
+// contains the text, case aside, in priority then age order, each marked with the field it
+// was found in: `· in title`, `· in description`, `· in links` or `· in journal`, the first
+// of those that holds it. Every status is searched unless --status narrows it, because
+// what you are about to file may have been done or dropped already. The text is the words
+// after the verb joined by one space, so `cn search connection retry` and
+// `cn search "connection retry"` are the same search. Run it before `cn create`; a hit is
+// the issue to build on, not a second one to file.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { ISSUE_STATUSES, maybe, oneOf } from "../lib/flags.mts";
@@ -18,7 +18,7 @@ import { api, connect } from "../lib/client.mts";
 import { searchLine } from "../lib/lines.mts";
 
 export const name = "search";
-export const summary = "the issues whose title, description or journal holds a text";
+export const summary = "the issues whose title, description, links or journal holds a text";
 export const spec = { bool: ["json"], value: ["project", "status"] } as const satisfies ArgSpec;
 
 type SearchArgs = { text: string; project?: string; status?: (typeof ISSUE_STATUSES)[number] };

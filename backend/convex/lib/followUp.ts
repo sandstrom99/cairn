@@ -39,6 +39,7 @@ export async function createFollowUp(
     followUpKind: args.kind,
     parentIssueId: parent._id,
     requires: args.requires ?? [],
+    links: [],
     priority: args.priority ?? parent.priority,
   });
 }

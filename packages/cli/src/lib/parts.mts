@@ -184,11 +184,40 @@ const asRecorded = (kind: string, changes: FieldMap): FieldMap => {
   return kept;
 };
 
+/** A link as an event records it: the URL and its label, never who or when. */
+type LinkRecord = { url: string; label?: string };
+
+const isLinkRecords = (value: unknown): value is LinkRecord[] =>
+  Array.isArray(value) && value.every((link) => hasStrings(link, "url"));
+
+/** A link as the pieces name it: `doc · https://…`, or the URL alone. */
+const linkName = ({ url, label }: LinkRecord): string => (label ? `${label} · ${url}` : url);
+
+/**
+ * A links change in words rather than JSON: `linked <link>` for each URL `to` has and
+ * `from` does not, `unlinked <link>` for each the other way, named as it was, and
+ * `relabelled doc → the doc · https://…` for each in both whose label moved.
+ */
+const linkPieces = (from: LinkRecord[], to: LinkRecord[]): string[] => {
+  const pieces: string[] = [];
+  const was = new Map(from.map((link) => [link.url, link]));
+  const now = new Map(to.map((link) => [link.url, link]));
+  for (const link of to) if (!was.has(link.url)) pieces.push(`linked ${linkName(link)}`);
+  for (const link of from) if (!now.has(link.url)) pieces.push(`unlinked ${linkName(link)}`);
+  for (const link of to) {
+    const old = was.get(link.url);
+    if (old !== undefined && old.label !== link.label)
+      pieces.push(`relabelled ${old.label ?? "—"} → ${link.label ?? "—"} · ${link.url}`);
+  }
+  return pieces;
+};
+
 /**
  * One event's payload in pieces: `priority 2 → 1` per field for the field-map shape, the
- * compact JSON as a single piece for anything else. Joined with `, ` they are what a line
- * has room for, so the cut is made here, inside the piece it lands in, and nothing a
- * reader of the pieces sees differs from what a reader of the line sees.
+ * compact JSON as a single piece for anything else, and a links change `linkPieces`.
+ * Joined with `, ` they are what a line has room for, so the cut is made here, inside the
+ * piece it lands in, and nothing a reader of the pieces sees differs from what a reader of
+ * the line sees.
  */
 export const changePieces = (changes: unknown): string[] => {
   if (changes === undefined) return [];
@@ -196,8 +225,10 @@ export const changePieces = (changes: unknown): string[] => {
     const text = clip(JSON.stringify(changes) ?? "");
     return text === "" ? [] : [text];
   }
-  const pieces = Object.entries(changes).map(
-    ([field, { from, to }]) => `${field} ${side(from)} → ${side(to)}`,
+  const pieces = Object.entries(changes).flatMap(([field, { from, to }]) =>
+    field === "links" && isLinkRecords(from) && isLinkRecords(to)
+      ? linkPieces(from, to)
+      : [`${field} ${side(from)} → ${side(to)}`],
   );
   if (pieces.join(", ").length <= CHANGES) return pieces;
   const kept: string[] = [];
@@ -395,7 +426,26 @@ export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
  * printed under the reference, and the web window's page for an id is these set as a
  * table, so the two say the same facts in the same words.
  */
-export type Fact = { label: string; code?: string; text?: string; refs?: Named[] };
+export type Fact = {
+  label: string;
+  code?: string;
+  text?: string;
+  refs?: Named[];
+  links?: LinkParts[];
+};
+
+/** One link on an issue. */
+type ShownLink = NonNullable<ShownIssue["links"]>[number];
+
+/** A link in pieces: its label where it has one, its URL whole, and who added it when. */
+export type LinkParts = { url: string; label?: string; by: string };
+
+/** `by balder/claude 2h ago`, the same words as a proof's. */
+export const linkParts = (link: ShownLink, now: number = Date.now()): LinkParts => ({
+  url: link.url,
+  ...(link.label === undefined ? {} : { label: link.label }),
+  by: `by ${link.by.name} ${since(link.at, now)}`,
+});
 
 /** The one word for where an issue stands. */
 type StateWord =
@@ -515,6 +565,10 @@ export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] 
     ["waiting on", shown.waitingOn],
   ];
   for (const [name, items] of named) if (items.length > 0) facts.push({ label: name, refs: items });
+  // Read as `?? []`: a deployment not yet pushed with the field sends none.
+  const links = shown.links ?? [];
+  if (links.length > 0)
+    facts.push({ label: "links", links: links.map((link) => linkParts(link, now)) });
   return facts;
 }
 
