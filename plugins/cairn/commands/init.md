@@ -24,6 +24,8 @@ Then `cn init --name <name> --url <url> --secret-cmd '<command>' --can <cap>…`
 `cn doctor`, then `cn brief`, and show the person the brief.
 
 A refused secret or a deployment that does not answer writes nothing at all, so fix the
-input and run the same command again. A name that is taken means this machine is already
-set up for that deployment: read `cn doctor` before anything else. Never edit the config
-file by hand to get past a check that failed.
+input and run the same command again. A secret that worked and is now refused means the
+deployment's secret was rotated: run `cn init --refresh`, not a new `cn init`, and it
+re-runs the command this machine stored and rewrites that one secret. A name that is
+taken means this machine is already set up for that deployment: read `cn doctor` before
+anything else. Never edit the config file by hand to get past a check that failed.

@@ -28,7 +28,7 @@ import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
 import type { Actor } from "../lib/actor.mts";
 import { answer, checkLine } from "../lib/cli.mts";
-import { type Deployment, configPath, noDeploymentMessage } from "../lib/config.mts";
+import { type Deployment, noDeploymentMessage } from "../lib/config.mts";
 import type { Ping } from "../lib/ping.mts";
 import { session } from "../lib/session.mts";
 
@@ -111,10 +111,20 @@ export function pingChecks(dep: Deployment | null, ping: Ping): Check[] {
     return checks;
   }
   const line =
-    ping.refused && dep
-      ? `${dep.name} needs a secret: put it under deployments.${dep.name}.secret in ${configPath()}, or set CAIRN_SECRET`
-      : `deployment did not answer: ${ping.message}`;
+    ping.refused && dep ? refusedLine(dep) : `deployment did not answer: ${ping.message}`;
   return [{ check: "ping", ok: false, line }];
+}
+
+/**
+ * What a refused secret means, by where it came from: the shell's is the shell's to fix,
+ * and the file's is `cn init --refresh`'s, which re-runs the command this machine keeps.
+ */
+function refusedLine(dep: Deployment): string {
+  if (dep.source === "env" || dep.secretSource === "env")
+    return `${dep.name} ${dep.secret ? "refused CAIRN_SECRET" : "needs a secret"}: set CAIRN_SECRET to the deployment's current one`;
+  return dep.secret
+    ? `${dep.name} refused the secret this machine holds: cn init --refresh --name ${dep.name} takes the current one`
+    : `${dep.name} needs a secret: cn init --refresh --name ${dep.name} --secret-cmd '<command>' stores one`;
 }
 
 /** The checks as lines, marked. */

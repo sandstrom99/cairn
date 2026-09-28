@@ -17,7 +17,7 @@ const render = (error: Error, what?: string, secret?: string): string =>
 const guard = new ConvexError({
   kind: "unauthorized",
   message:
-    "this deployment needs a secret it did not get: put it under the deployment's `secret` in ~/.config/cairn/config.json, or set CAIRN_SECRET",
+    "this deployment needs a secret it did not get: cn init --refresh takes its current one onto this machine, or set CAIRN_SECRET",
 });
 
 // Word for word what a throwaway answered on 2026-09-28 when show.get was called over the
@@ -35,7 +35,7 @@ const validator = [
 ].join("\n");
 
 /** What a person in a browser must never be told to touch. */
-const cnsOwn = ["config.json", "CAIRN_SECRET", "cn doctor", "did not get"];
+const cnsOwn = ["config.json", "CAIRN_SECRET", "cn doctor", "cn init", "did not get"];
 
 describe("errorData", () => {
   it("reads the deployment's own kind and message", () => {

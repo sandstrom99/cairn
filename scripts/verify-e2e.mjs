@@ -23,6 +23,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -35,6 +37,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shipPage } from "../backend/scripts/page.mjs";
+import { convexSync } from "../backend/scripts/run-convex.mjs";
+import { changeSecret } from "../backend/scripts/secret.mjs";
 import { startThrowaway } from "../backend/scripts/throwaway.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -48,13 +52,23 @@ let home;
 /** The config home the `cn init` row starts empty, and a directory holding a `cn` on PATH. */
 let cold;
 let bin;
+/** A directory holding a stand-in `op`, for the secret rows, and the calls it logs. */
+let opBin;
+let opLog;
 /** The last `cn` call, which is what a failed row prints beside its assertion. */
 let last;
+/**
+ * What the secret rows set on the throwaway, each read by the rows after it. Never
+ * printed: an assertion names a secret by its letter, never by its value.
+ */
+const secrets = {};
 
 /** The environment every call gets: nothing of this machine's cairn, everything of this run's. */
-function environment({ as, xdg, viaConfig, session }) {
+function environment({ as, xdg, viaConfig, session, secret }) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("CAIRN_")) delete env[key];
+  // The secret rows fence the throwaway, and a call names the secret it carries.
+  if (secret !== undefined) env.CAIRN_SECRET = secret;
   delete env.CLAUDECODE;
   delete env.CLAUDE_ENV_FILE;
   // A `viaConfig` call names no deployment in the environment, so the only place one can
@@ -104,9 +118,10 @@ function words(line) {
  * another machine (CAIRN_ACTOR set). `session` is the Claude Code session it runs in,
  * when it runs in one. `xdg` is the config home it reads, and `viaConfig` withholds
  * CAIRN_URL so it has to. `input` is what it reads on stdin, which is empty without it.
+ * `secret` is the CAIRN_SECRET it carries, once the secret rows have fenced the throwaway.
  */
-function cn(line, { as = "agent", xdg = home, viaConfig = false, session, input } = {}) {
-  const env = environment({ as, xdg, viaConfig, session });
+function cn(line, { as = "agent", xdg = home, viaConfig = false, session, input, secret } = {}) {
+  const env = environment({ as, xdg, viaConfig, session, secret });
   const result = spawnSync(process.execPath, [MAIN, ...words(line)], {
     encoding: "utf8",
     cwd: xdg,
@@ -165,6 +180,60 @@ function stopHook(input, { path } = {}) {
   last = { line: "(stop hook)", status: result.status, stdout, stderr, out: stdout + stderr };
   return last;
 }
+
+/**
+ * `backend/scripts/secret.mjs` against the throwaway: what `#secret` runs against the cloud,
+ * with its lines collected rather than printed. `env` is the throwaway's own unless a row
+ * puts the stand-in `op` on PATH.
+ */
+function secretRun(action, { op, env } = {}) {
+  last = undefined;
+  const got = { status: undefined, out: [], err: [] };
+  got.status = changeSecret(action, {
+    op,
+    url,
+    deployment: "the throwaway",
+    cwd: deployment.dir,
+    env: env ?? deployment.env,
+    out: (secret) => got.out.push(secret),
+    err: (line) => got.err.push(line),
+  });
+  return got;
+}
+
+/**
+ * The throwaway's environment with the stand-in `op` first on PATH. `items` is what its
+ * `item list` prints; `exit` and `error` make every call of it fail with that line.
+ */
+const withOp = ({ items = "[]", exit, error } = {}) => ({
+  ...deployment.env,
+  PATH: `${opBin}:${deployment.env.PATH ?? ""}`,
+  OP_STUB_LOG: opLog,
+  OP_STUB_ITEMS: items,
+  ...(exit === undefined ? {} : { OP_STUB_EXIT: String(exit) }),
+  ...(error === undefined ? {} : { OP_STUB_ERR: error }),
+});
+
+/** Every call the stand-in `op` took since the log was last emptied, as argv arrays. */
+const opCalls = () =>
+  existsSync(opLog) ? lines(readFileSync(opLog, "utf8")).map((l) => JSON.parse(l)) : [];
+
+/** The secret a stand-in `op` call stored, read off its `secret[password]=` field. */
+const storedIn = (call) => {
+  const field = call.find((arg) => arg.startsWith("secret[password]="));
+  assert.ok(field, "the op call stores no secret field");
+  return field.slice("secret[password]=".length);
+};
+
+/** 32 random bytes as base64: what every secret the script sets has to be. */
+const BASE64_32 = /^[A-Za-z0-9+/]{43}=$/;
+
+/** No line in `said` carries `secret`: the script hands a secret out once and never echoes it. */
+const unechoed = (said, secret, what) =>
+  assert.ok(
+    said.every((line) => !line.includes(secret)),
+    `${what} printed the secret on stderr`,
+  );
 
 /** Revisions are read, never assumed: every write below carries what cn last printed. */
 const revisionOf = (id) => json(`show ${id}`).revision;
@@ -1077,7 +1146,7 @@ row("verbs/init.mts", () => {
   assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), {
     default: "e2e",
     can: ["web", "android"],
-    deployments: { e2e: { url, secret: "s3cret" } },
+    deployments: { e2e: { url, secret: "s3cret", secretCmd: "echo s3cret" } },
   });
 
   // The file alone is enough from here: nothing in the environment names a deployment.
@@ -1103,6 +1172,10 @@ row("verbs/init.mts", () => {
   assert.equal(both.default, "e2e", "a second deployment took the default without --default");
   assert.deepEqual(both.can, ["web", "android"], "a second deployment rewrote can");
   assert.ok(!("secret" in both.deployments.other), "a deployment with no secret got a secret key");
+  assert.ok(
+    !("secretCmd" in both.deployments.other),
+    "a deployment with no secret command got a secretCmd key",
+  );
 
   const dead = cn("init --name dead --url http://127.0.0.1:9", viaFile);
   assert.equal(dead.status, 1, "cn init against a deployment that does not answer was allowed");
@@ -1198,6 +1271,220 @@ row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
   assert.equal(missing.status, 404, "a missing asset is answered with something other than 404");
 });
 
+row("backend/scripts/secret.mjs (new)", () => {
+  // An open deployment has nothing to rotate, and refusing says so without fencing it.
+  const open = secretRun("rotate");
+  assert.equal(open.status, 2, "rotate on a deployment with no secret was not refused");
+  assert.match(open.err.join("\n"), /has no CAIRN_SECRET/, "the refusal does not say why");
+  pass("ready", "a refused rotate fenced the deployment anyway");
+
+  const revokeOp = secretRun("revoke", { op: "op://Vault/x" });
+  assert.equal(revokeOp.status, 2, "revoke took --op, which hands a secret to somebody");
+  const malformed = secretRun("new", { op: "Vault/x" });
+  assert.equal(malformed.status, 2, "an --op that is not op://<vault>/<item> was taken");
+  assert.match(malformed.err.join("\n"), /--op is op:\/\/<vault>\/<item>/, "not named");
+
+  // The first secret, straight into a 1Password item that does not exist yet.
+  writeFileSync(opLog, "");
+  const made = secretRun("new", { op: "op://Vault/cairn e2e", env: withOp() });
+  assert.equal(made.status, 0, `new --op did not pass:\n${made.err.join("\n")}`);
+  assert.deepEqual(made.out, [], "new --op put the secret on stdout as well");
+  const calls = opCalls();
+  assert.equal(calls.length, 2, "op was not called exactly twice, list then create");
+  assert.deepEqual(calls[0], ["item", "list", "--vault", "Vault", "--format", "json"]);
+  const a = storedIn(calls[1]);
+  assert.match(a, BASE64_32, "the secret is not 32 random bytes as base64");
+  assert.deepEqual(
+    calls[1],
+    [
+      "item",
+      "create",
+      "--vault",
+      "Vault",
+      "--category",
+      "Secure Note",
+      "--title",
+      "cairn e2e",
+      `url[url]=${url}`,
+      `secret[password]=${a}`,
+    ],
+    "the item is not created with the url and the secret",
+  );
+  unechoed(made.err, a, "new --op");
+  assert.ok(
+    made.err.some((line) => line.includes("cn init --name")),
+    "new does not print the line a machine sets up with",
+  );
+  secrets.a = a;
+
+  const fenced = cn("ready");
+  assert.equal(fenced.status, 1, "with a secret set, a call carrying none was answered");
+  assert.match(fenced.out, /cn init --refresh/, "the refusal does not name cn init --refresh");
+  pass("ready", "the deployment does not take the secret handed to 1Password", { secret: a });
+
+  const again = secretRun("new");
+  assert.equal(again.status, 2, "new on a deployment that has a secret was not refused");
+  assert.deepEqual(again.out, [], "a refused new printed a secret");
+  pass("ready", "a refused new changed the secret", { secret: a });
+});
+
+row("backend/scripts/secret.mjs (rotate)", () => {
+  const rotated = secretRun("rotate");
+  assert.equal(rotated.status, 0, `rotate did not pass:\n${rotated.err.join("\n")}`);
+  assert.equal(rotated.out.length, 1, "rotate did not print exactly one secret on stdout");
+  const b = rotated.out[0];
+  assert.match(b, BASE64_32, "the secret is not 32 random bytes as base64");
+  assert.notEqual(b, secrets.a, "rotate set the secret it replaced");
+  unechoed(rotated.err, b, "rotate");
+  assert.equal(
+    cn("ready", { secret: secrets.a }).status,
+    1,
+    "the rotated-out secret still answers",
+  );
+  pass("ready", "the rotated-in secret is not taken", { secret: b });
+
+  // Into an item that exists: edited, never created a second time.
+  writeFileSync(opLog, "");
+  const edited = secretRun("rotate", {
+    op: "op://Vault/cairn e2e",
+    env: withOp({ items: JSON.stringify([{ title: "cairn e2e" }]) }),
+  });
+  assert.equal(edited.status, 0, `rotate --op did not pass:\n${edited.err.join("\n")}`);
+  assert.deepEqual(edited.out, [], "rotate --op put the secret on stdout as well");
+  const call = opCalls().at(-1);
+  const c = storedIn(call);
+  assert.deepEqual(
+    call,
+    ["item", "edit", "cairn e2e", "--vault", "Vault", `secret[password]=${c}`],
+    "the item that exists is not edited",
+  );
+  unechoed(edited.err, c, "rotate --op");
+  pass("ready", "the secret written to the item is not taken", { secret: c });
+  assert.equal(cn("ready", { secret: b }).status, 1, "the rotated-out secret still answers");
+  secrets.c = c;
+
+  // A locked password manager: refused before anything changes.
+  const locked = secretRun("rotate", {
+    op: "op://Vault/cairn e2e",
+    env: withOp({ exit: 1, error: "[ERROR] account is not signed in" }),
+  });
+  assert.equal(locked.status, 1, "rotate passed with op failing");
+  assert.ok(
+    locked.err.some((line) => line.includes("nothing changed")),
+    "a failed op does not say nothing changed",
+  );
+  assert.ok(
+    locked.err.some((line) => line.includes("[ERROR] account is not signed in")),
+    "a failed op's own line is not passed on",
+  );
+  pass("ready", "an op that failed changed the secret anyway", { secret: c });
+});
+
+row("backend/scripts/secret.mjs (revoke)", () => {
+  const revoked = secretRun("revoke");
+  assert.equal(revoked.status, 0, `revoke did not pass:\n${revoked.err.join("\n")}`);
+  assert.deepEqual(revoked.out, [], "revoke handed a secret out");
+  assert.equal(revoked.err.length, 1, "revoke did not say exactly one line");
+  assert.match(revoked.err[0], /^revoked: /, "revoke's line does not say it revoked");
+  assert.equal(cn("ready", { secret: secrets.c }).status, 1, "the revoked secret still answers");
+  // Fenced, not opened: a call with no secret is refused too.
+  assert.equal(cn("ready").status, 1, "revoke opened the deployment to a call with no secret");
+
+  const held = convexSync(["env", "get", "CAIRN_SECRET"], {
+    cwd: deployment.dir,
+    env: deployment.env,
+  });
+  assert.equal(held.status, 0, "convex env get CAIRN_SECRET failed after revoke");
+  const value = (held.stdout ?? "").trim();
+  assert.ok(value !== "", "revoke left the deployment with no CAIRN_SECRET, which is open");
+  assert.ok(value !== secrets.c, "revoke left the secret it revoked in place");
+
+  // The one command that would open the deployment is not in the script at all.
+  const source = readFileSync(join(root, "backend", "scripts", "secret.mjs"), "utf8");
+  assert.ok(
+    !/["'`](remove|rm)["'`]/.test(source),
+    "secret.mjs names convex env remove, which opens a deployment",
+  );
+});
+
+row("verbs/init.mts (refresh)", () => {
+  const warm = mkdtempSync(join(tmpdir(), "cairn-e2e-warm-"));
+  try {
+    const heldFile = join(warm, "held");
+    const config = join(warm, "cairn", "config.json");
+    const viaFile = { xdg: warm, viaConfig: true };
+    const bytes = () => readFileSync(config, "utf8");
+
+    // The rotate after a revoke is what lets machines back in.
+    const rotated = secretRun("rotate");
+    assert.equal(rotated.status, 0, `rotate after revoke did not pass:\n${rotated.err.join("\n")}`);
+    const d = rotated.out[0];
+    writeFileSync(heldFile, d);
+
+    // A machine set up before commands were stored: a secret, and no command beside it.
+    const before = { default: "e2e", can: ["web"], deployments: { e2e: { url, secret: "stale" } } };
+    mkdirSync(join(warm, "cairn"), { recursive: true });
+    writeFileSync(config, `${JSON.stringify(before, null, 2)}\n`, { mode: 0o600 });
+    const original = bytes();
+
+    assert.equal(cn("ready", viaFile).status, 1, "the stale secret is taken");
+    const doctored = cn("doctor", viaFile);
+    assert.equal(doctored.status, 1, "cn doctor passed on a refused secret");
+    assert.match(
+      doctored.out,
+      /^✗ e2e refused the secret this machine holds: cn init --refresh --name e2e takes the current one$/m,
+      "cn doctor does not name cn init --refresh for a refused secret",
+    );
+
+    const bare = cn("init --refresh", viaFile);
+    assert.equal(bare.status, 1, "cn init --refresh with no command anywhere passed");
+    assert.match(bare.out, /--secret-cmd/, "the refusal does not name --secret-cmd");
+    assert.equal(bytes(), original, "a refused cn init --refresh wrote anyway");
+    assert.equal(cn("init --refresh --url x", viaFile).status, 2, "--refresh took --url");
+    assert.equal(cn("init --refresh --name nope", viaFile).status, 1, "a missing name passed");
+    assert.equal(bytes(), original, "a refresh of a missing name wrote anyway");
+
+    const command = `cat ${heldFile}`;
+    const first = pass(
+      `init --refresh --secret-cmd '${command}'`,
+      "cn init --refresh did not take the rotated secret",
+      viaFile,
+    );
+    assert.ok(!first.out.includes(d), "cn init --refresh printed the secret");
+    assert.deepEqual(
+      JSON.parse(bytes()),
+      { ...before, deployments: { e2e: { url, secret: d, secretCmd: command } } },
+      "cn init --refresh changed more than the secret and its command",
+    );
+    assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
+    pass("ready", "the refreshed config is not answered", viaFile);
+
+    // The next rotation: the stored command alone takes it.
+    const next = secretRun("rotate");
+    assert.equal(next.status, 0, `the second rotate did not pass:\n${next.err.join("\n")}`);
+    const e = next.out[0];
+    writeFileSync(heldFile, e);
+    assert.equal(cn("ready", viaFile).status, 1, "the rotated-out secret still answers");
+    pass("init --refresh", "cn init --refresh did not run the stored command", viaFile);
+    const refreshed = JSON.parse(bytes()).deployments.e2e;
+    assert.equal(refreshed.secretCmd, command, "the stored command changed");
+    assert.ok(refreshed.secret === e, "the stored command's secret was not written");
+    pass("ready", "the refreshed config is not answered", viaFile);
+    const healthy = pass("doctor", "cn doctor failed after cn init --refresh", viaFile);
+    assert.match(healthy.out, /^✓ secret accepted by e2e$/m, "the refreshed secret is not taken");
+
+    // A command that prints the wrong secret writes nothing.
+    writeFileSync(heldFile, "wrong");
+    const kept = bytes();
+    const wrong = cn("init --refresh", viaFile);
+    assert.equal(wrong.status, 1, "cn init --refresh wrote a secret the deployment refused");
+    assert.match(wrong.out, /nothing written/, "the refusal does not say nothing was written");
+    assert.equal(bytes(), kept, "a refused secret was written anyway");
+  } finally {
+    rmSync(warm, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 
 /** Runs the rows in order, stopping at the first failure: each one reads the last's state. */
@@ -1223,11 +1510,24 @@ async function runRows() {
 let deployment;
 let passed = false;
 
+/** The stand-in `op`, as a node script. */
+const OP_STUB = `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.OP_STUB_LOG, JSON.stringify(args) + "\\n");
+if (process.env.OP_STUB_ERR) process.stderr.write(process.env.OP_STUB_ERR + "\\n");
+const exit = Number(process.env.OP_STUB_EXIT ?? 0);
+if (exit === 0 && args[0] === "item" && args[1] === "list")
+  process.stdout.write(process.env.OP_STUB_ITEMS ?? "[]");
+process.exit(exit);
+`;
+
 const teardown = async () => {
   for (const [dir, clear] of [
     [home, () => (home = undefined)],
     [cold, () => (cold = undefined)],
     [bin, () => (bin = undefined)],
+    [opBin, () => (opBin = undefined)],
   ]) {
     if (!dir) continue;
     rmSync(dir, { recursive: true, force: true });
@@ -1255,6 +1555,12 @@ try {
   cold = mkdtempSync(join(tmpdir(), "cairn-e2e-cold-"));
   bin = mkdtempSync(join(tmpdir(), "cairn-e2e-bin-"));
   symlinkSync(join(root, "packages", "cli", "bin", "cn"), join(bin, "cn"));
+  // The secret rows' `op`: it logs every call, prints `$OP_STUB_ITEMS` for `item list`,
+  // and fails with `$OP_STUB_ERR` when `$OP_STUB_EXIT` says to. 1Password is never reached.
+  opBin = mkdtempSync(join(tmpdir(), "cairn-e2e-op-"));
+  opLog = join(opBin, "log");
+  writeFileSync(join(opBin, "op"), OP_STUB);
+  chmodSync(join(opBin, "op"), 0o755);
   passed = await runRows();
   if (passed) console.log(`e2e: ${rows.length} rows passed against an empty throwaway deployment`);
 } catch (e) {

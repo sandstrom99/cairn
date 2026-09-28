@@ -16,6 +16,8 @@ describe("guard", () => {
     await expect(t.query(api.projects.list, {})).rejects.toThrow(
       "this deployment needs a secret it did not get",
     );
+    // The fix it names is the one a machine can run itself, and the one cn doctor names.
+    await expect(t.query(api.projects.list, {})).rejects.toThrow("cn init --refresh");
     await expect(t.query(api.projects.list, { secret: "wrong" })).rejects.toMatchObject({
       data: { kind: "unauthorized" },
     });

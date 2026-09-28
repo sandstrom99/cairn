@@ -2,10 +2,12 @@
 //
 //   cn init --name <name> --url <url> [--secret-cmd '<command>']
 //           [--can ios android web device] [--host <name>] [--default]
+//   cn init --refresh [--name <name>] [--secret-cmd '<command>']
 //
 // For a machine with no config at all, and for adding a second deployment to one that
 // already has a file. It adds and never replaces: a name the file already carries is
-// refused, and changing a deployment that exists is an edit to the file by hand.
+// refused. The one change it makes to a deployment that exists is its secret, with
+// --refresh; any other change to one is an edit to the file by hand.
 //
 // --name is what the deployment is called, in the file and in `cn doctor`: lowercase
 // letters, digits and dashes, and usually the company or the repository whose worklist it
@@ -14,14 +16,23 @@
 // --secret-cmd is a command whose stdout is the deployment's shared secret, run once,
 // here — `op read "op://<vault>/<item>/secret"` and the like. The secret is never an
 // argument, so it is not in a shell history and not in an agent's transcript, and cn
-// never prints it. CAIRN_SECRET in the environment is the other way in; with neither, the
-// deployment is taken to be open, which is what the anonymous local one is.
+// never prints it. The command is kept beside the secret, as `secretCmd`, so --refresh can
+// run it again; it is a command, not a secret. CAIRN_SECRET in the environment is the
+// other way in; with neither, the deployment is taken to be open, which is what the
+// anonymous local one is.
 //
 // --can is what this machine can do: ios, android, web, device. It is the fallback for
 // `cn ready --can`, and it is a machine's capability, so `decision` is not one of them.
 // --host is what this machine calls itself in an actor name, the OS hostname when absent.
 // --default makes this deployment the one every verb resolves to, for a file that already
 // names another; the first deployment in a fresh file is the default either way.
+//
+// --refresh takes a rotated secret onto this machine. It re-runs the command the
+// deployment stores, or the --secret-cmd given, which then replaces the stored one: that
+// is how a machine set up before commands were kept takes its first. It checks that the
+// deployment accepts what the command printed, and rewrites that deployment's secret and
+// nothing else. --name is the deployment, the file's default when absent. CAIRN_SECRET
+// plays no part: the file is what gets fixed.
 //
 // It checks before it writes. The deployment has to answer, and where a secret was found
 // it has to be accepted; a check that fails writes nothing and says what to fix. What it
@@ -31,14 +42,21 @@
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { maybe, onlyFlags } from "../lib/flags.mts";
 import { UsageError, checkLine, say } from "../lib/cli.mts";
-import { type CairnConfig, readConfig, withDeployment, writeConfig } from "../lib/config.mts";
+import {
+  type CairnConfig,
+  configPath,
+  readConfig,
+  withDeployment,
+  withSecret,
+  writeConfig,
+} from "../lib/config.mts";
 import { ping } from "../lib/ping.mts";
 import { captureStdout } from "../lib/run.mts";
 
 export const name = "init";
 export const summary = "set this machine up: write the config for a deployment";
 export const spec = {
-  bool: ["default"],
+  bool: ["default", "refresh"],
   value: ["name", "url", "secret-cmd", "host"],
   list: ["can"],
 } as const satisfies ArgSpec;
@@ -51,15 +69,17 @@ type SecretFrom =
   | { from: "CAIRN_SECRET"; value: string }
   | { from: "none" };
 
-type Parsed = {
-  action: "init";
-  name: string;
-  url: string;
-  secret: SecretFrom;
-  host?: string;
-  can?: string[];
-  makeDefault: boolean;
-};
+type Parsed =
+  | {
+      action: "init";
+      name: string;
+      url: string;
+      secret: SecretFrom;
+      host?: string;
+      can?: string[];
+      makeDefault: boolean;
+    }
+  | { action: "refresh"; name?: string; command?: string };
 
 /** The url as it will be stored: a real http(s) URL, with no trailing slash. */
 function checkUrl(given: string): string {
@@ -79,10 +99,35 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
   onlyFlags(pos, "cn init --name <name> --url <url>");
 
   const deployment = opts.name;
+  const badName = (given: string) =>
+    new UsageError(`--name is lowercase letters, digits and dashes, not "${given}"`);
+
+  if (opts.refresh) {
+    // Everything else about a deployment is set up once and edited by hand; --refresh is
+    // the secret alone, so a flag that would change more is refused rather than dropped.
+    const other = (
+      [
+        ["url", opts.url !== undefined],
+        ["can", opts.can !== undefined],
+        ["host", opts.host !== undefined],
+        ["default", opts.default],
+      ] as const
+    ).find(([, given]) => given);
+    if (other)
+      throw new UsageError(
+        `cn init --refresh takes --name and --secret-cmd alone, not --${other[0]}`,
+      );
+    if (deployment !== undefined && !NAME.test(deployment)) throw badName(deployment);
+    return {
+      action: "refresh",
+      ...maybe("name", deployment),
+      ...maybe("command", opts["secret-cmd"] || undefined),
+    };
+  }
+
   if (!deployment)
     throw new UsageError("cn init --name <name> --url <url>: --name is what to call it here");
-  if (!NAME.test(deployment))
-    throw new UsageError(`--name is lowercase letters, digits and dashes, not "${deployment}"`);
+  if (!NAME.test(deployment)) throw badName(deployment);
 
   const given = opts.url;
   if (!given)
@@ -109,10 +154,82 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
   };
 }
 
+const ok = (line: string) => console.log(checkLine(true, line));
+const bad = (line: string) => console.log(checkLine(false, line));
+
+/**
+ * The secret a command prints, or undefined once it has said why there is none. Its
+ * stderr is shown when it fails, and never its stdout: stdout is the secret whatever the
+ * exit code was.
+ */
+function secretFrom(command: string): string | undefined {
+  const result = captureStdout(command);
+  if (result.exitCode !== 0) {
+    bad(`the secret command exited ${result.exitCode}`);
+    for (const line of result.stderr.split("\n")) if (line.trim()) console.log(`  ${line}`);
+    return undefined;
+  }
+  if (result.stdout === "") {
+    bad("the secret command printed nothing");
+    return undefined;
+  }
+  return result.stdout;
+}
+
+/**
+ * `cn init --refresh`: one deployment's secret, from its stored command or the one given,
+ * checked against the deployment and written with nothing else in the file changed.
+ */
+async function refresh(parsed: { name?: string; command?: string }): Promise<number> {
+  const path = configPath();
+  const existing = readConfig();
+  if (!existing) {
+    bad(`no config at ${path}: cn init --name <name> --url <url> sets this machine up first`);
+    return 1;
+  }
+  const deployments = existing.deployments ?? {};
+  const names = Object.keys(deployments);
+  const name = parsed.name ?? existing.default ?? (names.length === 1 ? names[0] : undefined);
+  if (name === undefined) {
+    bad(`${path} has no default; pass --name, one of ${names.join(", ")}`);
+    return 1;
+  }
+  const dep = deployments[name];
+  if (!dep) {
+    bad(`${name} is not a deployment in ${path}; it has ${names.join(", ")}`);
+    return 1;
+  }
+  const command = parsed.command ?? dep.secretCmd;
+  if (command === undefined) {
+    bad(
+      `${name} stores no secret command; pass --secret-cmd '<command>' once, and cn init --refresh keeps it`,
+    );
+    return 1;
+  }
+
+  const secret = secretFrom(command);
+  if (secret === undefined) return 1;
+
+  const answer = await ping({ url: dep.url, secret });
+  if (!answer.answered) {
+    bad(
+      answer.refused
+        ? `${dep.url} refused the secret the command printed; nothing written`
+        : `${dep.url} did not answer: ${answer.message}; nothing written`,
+    );
+    return 1;
+  }
+  ok(`${name} → ${dep.url} answered: ${answer.projects} project(s)`);
+  ok(
+    `secret accepted (from ${parsed.command === undefined ? "the stored command" : "--secret-cmd"})`,
+  );
+  ok(`wrote ${writeConfig(withSecret(existing, name, { secret, secretCmd: command }))} (mode 600)`);
+  return 0;
+}
+
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
-  const ok = (line: string) => console.log(checkLine(true, line));
-  const bad = (line: string) => console.log(checkLine(false, line));
+  if (parsed.action === "refresh") return refresh(parsed);
 
   // The file first: a name that is taken fails here, offline and in the time it takes to
   // read one file, before a secret command has made anybody unlock anything. A file that
@@ -125,6 +242,10 @@ export async function run(argv: string[]): Promise<number> {
       name: parsed.name,
       url: parsed.url,
       ...maybe("secret", secret),
+      ...maybe(
+        "secretCmd",
+        parsed.secret.from === "--secret-cmd" ? parsed.secret.command : undefined,
+      ),
       ...maybe("host", parsed.host),
       ...maybe("can", parsed.can),
       makeDefault: parsed.makeDefault,
@@ -139,18 +260,8 @@ export async function run(argv: string[]): Promise<number> {
   // Then the secret, which needs neither the network nor the file.
   let secret: string | undefined;
   if (parsed.secret.from === "--secret-cmd") {
-    const result = captureStdout(parsed.secret.command);
-    if (result.exitCode !== 0) {
-      bad(`the secret command exited ${result.exitCode}`);
-      // Its stderr, and never its stdout: stdout is the secret whatever the exit code was.
-      for (const line of result.stderr.split("\n")) if (line.trim()) console.log(`  ${line}`);
-      return 1;
-    }
-    if (result.stdout === "") {
-      bad("the secret command printed nothing");
-      return 1;
-    }
-    secret = result.stdout;
+    secret = secretFrom(parsed.secret.command);
+    if (secret === undefined) return 1;
   } else if (parsed.secret.from === "CAIRN_SECRET") {
     secret = parsed.secret.value;
   }

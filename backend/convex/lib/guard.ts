@@ -44,7 +44,7 @@ export function check(secret: string | undefined): void {
     throw cairnError({
       kind: "unauthorized",
       message:
-        "this deployment needs a secret it did not get: put it under the deployment's `secret` in ~/.config/cairn/config.json, or set CAIRN_SECRET",
+        "this deployment needs a secret it did not get: cn init --refresh takes its current one onto this machine, or set CAIRN_SECRET",
     });
 }
 

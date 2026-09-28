@@ -72,4 +72,38 @@ describe("cn init", () => {
   it("refuses a positional argument, which is a flag the caller forgot to name", () => {
     expect(() => parse([...base, "cairn"], {})).toThrow(UsageError);
   });
+
+  it("takes --refresh bare, or with --name and --secret-cmd", () => {
+    expect(parse(["--refresh"], {})).toEqual({ action: "refresh" });
+    expect(parse(["--refresh", "--name", "cairn"], {})).toEqual({
+      action: "refresh",
+      name: "cairn",
+    });
+    expect(parse(["--refresh", "--secret-cmd", "op read op://Personal/x/secret"], {})).toEqual({
+      action: "refresh",
+      command: "op read op://Personal/x/secret",
+    });
+    // CAIRN_SECRET plays no part: the file is what --refresh fixes.
+    expect(parse(["--refresh"], { CAIRN_SECRET: "s" })).toEqual({ action: "refresh" });
+  });
+
+  it("refuses with --refresh every flag that would change more than the secret, by name", () => {
+    for (const [flag, ...rest] of [
+      ["url", "https://a.convex.cloud"],
+      ["can", "web"],
+      ["host", "mac"],
+      ["default"],
+    ]) {
+      expect(() => parse(["--refresh", `--${flag}`, ...rest], {})).toThrow(
+        `cn init --refresh takes --name and --secret-cmd alone, not --${flag}`,
+      );
+    }
+  });
+
+  it("refuses a malformed --name with --refresh as without it", () => {
+    expect(() => parse(["--refresh", "--name", "Cairn"], {})).toThrow(
+      '--name is lowercase letters, digits and dashes, not "Cairn"',
+    );
+    expect(() => parse(["--refresh", "cairn"], {})).toThrow(UsageError);
+  });
 });

@@ -972,7 +972,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping | query |
-| `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` | `projects.list`, as the check; then it writes this machine's config | query, local |
+| `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` · `cn init --refresh [--name …] [--secret-cmd …]` | `projects.list`, as the check; then it writes this machine's config, or, with `--refresh`, rewrites one deployment's secret from its stored command | query, local |
 
 Every read verb takes `--json`. Every list line starts with the reference form.
 On a stale-write error every write verb prints the events since the caller's
@@ -1146,7 +1146,14 @@ Added when the solution was mapped, 2026-09-17:
   arguments before the handler, so nothing downstream sees it. A deployment with none set
   checks nothing, which is what keeps the anonymous local one open. `cn` sends it from the
   deployment's `secret` in the config, or `CAIRN_SECRET` in the shell, which wins. It
-  fences a deployment; it does not tell actors apart, which stays §13.
+  fences a deployment; it does not tell actors apart, which stays §13. It is set by
+  `vp run @cairn/backend#secret`, one operation each for `new`, `rotate` and `revoke`,
+  which hands the value to 1Password or to stdout and never to stderr. `revoke`
+  fences the deployment with a secret nobody holds rather than removing it, since a
+  deployment with none is open; and a shared secret cannot revoke one machine, only all
+  of them, which is identity auth's to fix (cn-11, cn-28). `cn init` keeps the command
+  that printed the secret as `secretCmd`, so `cn init --refresh` takes a rotated one onto
+  a machine by running it again.
 - **A verification record with `exitCode ≠ 0` cannot close an issue.** The
   choice is `--unverified` with a reason, or fix it.
 
@@ -1159,7 +1166,7 @@ implementation.
 
 | Open question | Current lean |
 |---|---|
-| How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`). `cn init` writes that file: checked before written, added and never replaced, mode 600 |
+| How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`). `cn init` writes that file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8, `cn-8 "a cloud deployment per company, and the secret that guards it"` |
 | Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth arrives when cairn serves more than one person, `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"`, and only then does the actor stop being an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |

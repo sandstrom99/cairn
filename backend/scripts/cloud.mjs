@@ -19,20 +19,13 @@
 // file, so it reaches the cloud whatever `.env.local` says in the meantime. The watcher
 // ships no page: `vp run dev:web` is the loop for the page, and the watcher's is the
 // functions'.
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { shipPage } from "./page.mjs";
-import { deploymentIn, envLocal, packageRoot, runConvex } from "./run-convex.mjs";
+import { deploymentIn, holdEnvLocal, packageRoot, runConvex } from "./run-convex.mjs";
 
 const ENV_CLOUD = ".env.cloud.local";
 
-/** The file's bytes, or null when there is no file to put back. */
-const saved = existsSync(envLocal) ? readFileSync(envLocal) : null;
-
-const restore = () => {
-  if (saved !== null) writeFileSync(envLocal, saved);
-  else if (existsSync(envLocal)) rmSync(envLocal);
-};
+const restore = holdEnvLocal();
 
 const args = process.argv.slice(2);
 

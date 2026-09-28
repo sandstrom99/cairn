@@ -12,7 +12,8 @@
 //   ~/.config/cairn/config.json        { "default": "invyte", "host": "wsl",
 //                                        "can": ["web", "android"],
 //                                        "deployments": { "invyte": { "url": "https://….convex.cloud",
-//                                                                     "secret": "…" } } }
+//                                                                     "secret": "…",
+//                                                                     "secretCmd": "op read …" } } }
 //
 // `host` is this machine's name in an actor (lib/actor.mts) and `can` is what it can do,
 // the fallback for `cn ready --can` (lib/can.mts); everything else about the file is
@@ -23,13 +24,16 @@
 // over the file, the same way `CAIRN_URL` does, so a hook or a one-off run can carry it.
 // A deployment with no `CAIRN_SECRET` set on it checks nothing, which is what keeps the
 // anonymous local deployment open. It fences a deployment, not an actor: identity auth is
-// still §13.
+// still §13. `secretCmd` is the command `cn init --secret-cmd` ran to get it, kept beside
+// it so `cn init --refresh` can run it again once the deployment's secret is rotated; it
+// is a command, not a secret.
 //
-// The file is written by `cn init` and by hand, and by nothing else. What `cn init`
-// guarantees is here, in `withDeployment` and `writeConfig`: it is checked before it is
-// written — the deployment answers and takes the secret, or the file is untouched — it
-// adds a deployment and never replaces one, and the file lands mode 600 in a 700
-// directory, because the secret is in it.
+// The file is written by `cn init`, by `cn init --refresh` for one deployment's secret, and
+// by hand, and by nothing else. What `cn init` guarantees is here, in `withDeployment`,
+// `withSecret` and `writeConfig`: it is checked before it is written — the deployment
+// answers and takes the secret, or the file is untouched — it adds a deployment and never
+// replaces one, `--refresh` changes that one deployment's secret and nothing else, and
+// the file lands mode 600 in a 700 directory, because the secret is in it.
 //
 // $XDG_CONFIG_HOME replaces ~/.config when set. The file is read by `readConfig`, once per
 // call, in lib/session.mts, and handed to everything that derives a fact from it.
@@ -46,7 +50,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-type DeploymentConfig = { url: string; secret?: string };
+type DeploymentConfig = { url: string; secret?: string; secretCmd?: string };
 export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
@@ -85,6 +89,8 @@ type NewDeployment = {
   name: string;
   url: string;
   secret?: string;
+  /** The command that printed `secret`, for `cn init --refresh` to run again. */
+  secretCmd?: string;
   host?: string;
   can?: string[];
   makeDefault: boolean;
@@ -92,7 +98,7 @@ type NewDeployment = {
 
 /** `existing` with the deployment added. Pure; throws Error when the name is taken. */
 export function withDeployment(existing: CairnConfig | null, input: NewDeployment): CairnConfig {
-  const { name, url, secret, host, can, makeDefault } = input;
+  const { name, url, secret, secretCmd, host, can, makeDefault } = input;
   const deployments = existing?.deployments ?? {};
   const taken = deployments[name];
   // The same refusal whether or not the url matches: which of the two the machine meant
@@ -109,7 +115,38 @@ export function withDeployment(existing: CairnConfig | null, input: NewDeploymen
     ...(makeDefault || existing?.default === undefined ? { default: name } : {}),
     ...(host === undefined ? {} : { host }),
     ...(can === undefined ? {} : { can }),
-    deployments: { ...deployments, [name]: { url, ...(secret === undefined ? {} : { secret }) } },
+    deployments: {
+      ...deployments,
+      [name]: {
+        url,
+        ...(secret === undefined ? {} : { secret }),
+        ...(secretCmd === undefined ? {} : { secretCmd }),
+      },
+    },
+  };
+}
+
+/**
+ * `existing` with one deployment's `secret` and `secretCmd` replaced and everything else as
+ * it was, for `cn init --refresh`. Pure; throws Error when the file has no such deployment.
+ */
+export function withSecret(
+  existing: CairnConfig,
+  name: string,
+  next: { secret: string; secretCmd: string },
+): CairnConfig {
+  const deployments = existing.deployments ?? {};
+  const dep = deployments[name];
+  if (!dep)
+    throw new Error(
+      `${name} is not a deployment in the config; it has ${Object.keys(deployments).join(", ")}`,
+    );
+  return {
+    ...existing,
+    deployments: {
+      ...deployments,
+      [name]: { ...dep, secret: next.secret, secretCmd: next.secretCmd },
+    },
   };
 }
 

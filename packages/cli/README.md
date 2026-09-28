@@ -34,7 +34,9 @@ cn doctor
 here, and its stdout is the secret, so the secret is never an argument and never in a
 shell history; `cn init` checks that the deployment answers and takes it before writing
 anything, and writes the file 600. It adds and never replaces: run against a name the
-file already has, it refuses and changes nothing.
+file already has, it refuses and changes nothing. The one exception is `cn init --refresh`,
+which re-runs the secret command stored beside a deployment's secret, as `secretCmd`, and
+rewrites that secret once the deployment takes it: how a machine follows a rotation.
 
 The two values to fill in are the deployment's url and its secret, and 1Password is where
 both live: the item `cairn dev deployment` in the Personal vault, fields `url`, `secret`
@@ -50,14 +52,18 @@ on every call — `op` is not on that path, because one read costs seconds:
   "default": "cairn",
   "can": ["web", "android"],
   "deployments": {
-    "cairn": { "url": "https://<deployment>.convex.cloud", "secret": "…" }
+    "cairn": {
+      "url": "https://<deployment>.convex.cloud",
+      "secret": "…",
+      "secretCmd": "op read \"op://Personal/cairn dev deployment/secret\""
+    }
   }
 }
 ```
 
-Editing it by hand is how a deployment that already exists changes. `CAIRN_SECRET` in the
-shell overrides the file, for a hook or a one-off run, and `cn init` takes it as the
-secret when `--secret-cmd` is not given.
+Editing it by hand is how a deployment that already exists changes, its secret aside,
+which is `cn init --refresh`'s. `CAIRN_SECRET` in the shell overrides the file, for a hook
+or a one-off run, and `cn init` takes it as the secret when `--secret-cmd` is not given.
 
 When it works, the last two lines of `cn doctor` are the deployment answering and
 
