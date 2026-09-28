@@ -771,7 +771,12 @@ published in one mutation, so a failed upload leaves the last page up. The page 
 the functions it calls go out in one command and cannot drift, and the upload is an
 internal function, so only `convex run` with the deployment's own credentials ships
 a page. The bundle names the deployment and never a secret: a person pastes the
-secret once, into that origin's localStorage, and a reload does not ask again. `vp
+secret once, into that origin's localStorage, and a reload does not ask again. The
+screen that asks is the page's front door and speaks the page's words: "needs its
+secret" to a browser that sent none, "refused the secret" to one that sent the wrong
+one, and "did not answer" only for a deployment that never did. It names no config
+file, variable or command, which are `cn`'s; the guard's line naming them is printed by
+`cn` alone (cn-85, 2026-09-28). `vp
 run dev:web` stays the loop for working on the page. Ruled out on 2026-09-24: one
 shared hosted page that asks for a URL and a secret, because every visitor would
 trust its host with a secret that can write, and one page would have to match every
