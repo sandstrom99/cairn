@@ -15,7 +15,7 @@ import { invalid } from "./errors";
 import { record } from "./events";
 import { issuesHeldBy } from "./graph";
 import { mint } from "./ids";
-import { type Link, type LinkInput, addLinks, linkRecord, removeLinks } from "./links";
+import { type Link, type LinkInput, editLinks } from "./links";
 import { checkPriority } from "./priority";
 import { applyRevision } from "./revision";
 import type { FollowUpKind, IssueType } from "./validators";
@@ -100,12 +100,13 @@ export async function insertIssue(
 export async function insertEpic(
   ctx: MutationCtx,
   actor: Actor,
-  fields: { id: string; title: string; description?: string },
+  fields: { id: string; title: string; description?: string; links?: Link[] },
 ): Promise<Doc<"epics">> {
   const _id = await ctx.db.insert("epics", {
     id: fields.id,
     title: fields.title,
     ...(fields.description === undefined ? {} : { description: fields.description }),
+    ...(fields.links === undefined || fields.links.length === 0 ? {} : { links: fields.links }),
     status: "open",
     revision: 0,
   });
@@ -277,17 +278,10 @@ export async function editIssue(
     changes.epic = { from: was?.id, to: edit.epic.id };
   }
   if (edit.link !== undefined || edit.unlink !== undefined) {
-    const link = edit.link ?? [];
-    const unlink = edit.unlink ?? [];
-    for (const url of unlink)
-      if (link.some((l) => l.url.trim() === url.trim()))
-        throw invalid(`${url.trim()} is both linked and unlinked`);
-    const was = doc.links ?? [];
-    const next = addLinks(removeLinks(was, unlink, doc.id), link, { by: actor, at: Date.now() });
-    if (JSON.stringify(linkRecord(was)) !== JSON.stringify(linkRecord(next))) {
-      // undefined takes the field off, so an issue with no links carries no empty array.
-      patch.links = next.length > 0 ? next : undefined;
-      changes.links = { from: linkRecord(was), to: linkRecord(next) };
+    const links = editLinks(doc.links, edit, doc.id, { by: actor, at: Date.now() });
+    if (links !== undefined) {
+      patch.links = links.next;
+      changes.links = links.change;
     } else if (Object.keys(patch).length === 0) return doc;
   }
   if (Object.keys(patch).length === 0) throw invalid("nothing to update");
@@ -343,6 +337,52 @@ export async function dropEpic(
   );
 }
 
+/** What `cn update ep-N` can change. `link` adds or relabels and `unlink` takes off, by URL. */
+export type EpicEdit = {
+  title?: string;
+  description?: string;
+  link?: LinkInput[];
+  unlink?: string[];
+};
+
+/**
+ * The one `epic.update`, shaped like `editIssue`: patches every field given and records
+ * each as `{ from, to }`. An epic has no `lastActivity`, so nothing is stamped beside the
+ * patch. Refuses an empty edit and a title with nothing in it; a link edit that changes
+ * nothing hands the epic back as it was, with no revision and no event.
+ */
+export async function editEpic(
+  ctx: MutationCtx,
+  actor: Actor,
+  doc: Doc<"epics">,
+  edit: EpicEdit,
+): Promise<Doc<"epics">> {
+  const patch: Partial<Doc<"epics">> = {};
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (edit.title !== undefined) {
+    if (edit.title.trim() === "") throw invalid("an epic needs a title");
+    changes.title = { from: doc.title, to: edit.title };
+    patch.title = edit.title;
+  }
+  if (edit.description !== undefined) {
+    changes.description = { from: doc.description, to: edit.description };
+    patch.description = edit.description;
+  }
+  if (edit.link !== undefined || edit.unlink !== undefined) {
+    const links = editLinks(doc.links, edit, doc.id, { by: actor, at: Date.now() });
+    if (links !== undefined) {
+      patch.links = links.next;
+      changes.links = links.change;
+    } else if (Object.keys(patch).length === 0) return doc;
+  }
+  if (Object.keys(patch).length === 0) throw invalid("nothing to update");
+  return await applyRevision(ctx, { table: "epics", doc }, patch, {
+    kind: "epic.update",
+    actor,
+    changes,
+  });
+}
+
 /** A person has seen the blocker: raised moves to waiting. */
 export async function ackBlocker(
   ctx: MutationCtx,
@@ -386,4 +426,54 @@ export async function resolveBlocker(
       changes: { blocker: doc.id, title: doc.title, resolution: note },
     });
   return resolved;
+}
+
+/**
+ * What `cn update bl-N` can change: its words and its links. Kind and owner stay as
+ * raised. `link` adds or relabels and `unlink` takes off, by URL.
+ */
+export type BlockerEdit = {
+  title?: string;
+  whatResolves?: string;
+  link?: LinkInput[];
+  unlink?: string[];
+};
+
+/**
+ * The one `blocker.update`, shaped like `editIssue`: patches every field given and records
+ * each as `{ from, to }`, on the blocker alone and naming no issue (blockers.ts). Refuses an
+ * empty edit, and a title or a resolves line with nothing in it, in the words a new blocker
+ * is refused in; a link edit that changes nothing hands it back as it was.
+ */
+export async function editBlocker(
+  ctx: MutationCtx,
+  actor: Actor,
+  doc: Doc<"blockers">,
+  edit: BlockerEdit,
+): Promise<Doc<"blockers">> {
+  const patch: Partial<Doc<"blockers">> = {};
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (edit.title !== undefined) {
+    if (edit.title.trim() === "") throw invalid("a blocker needs --title");
+    changes.title = { from: doc.title, to: edit.title };
+    patch.title = edit.title;
+  }
+  if (edit.whatResolves !== undefined) {
+    if (edit.whatResolves.trim() === "") throw invalid("a blocker needs --resolves");
+    changes.whatResolves = { from: doc.whatResolves, to: edit.whatResolves };
+    patch.whatResolves = edit.whatResolves;
+  }
+  if (edit.link !== undefined || edit.unlink !== undefined) {
+    const links = editLinks(doc.links, edit, doc.id, { by: actor, at: Date.now() });
+    if (links !== undefined) {
+      patch.links = links.next;
+      changes.links = links.change;
+    } else if (Object.keys(patch).length === 0) return doc;
+  }
+  if (Object.keys(patch).length === 0) throw invalid("nothing to update");
+  return await applyRevision(ctx, { table: "blockers", doc }, patch, {
+    kind: "blocker.update",
+    actor,
+    changes,
+  });
 }

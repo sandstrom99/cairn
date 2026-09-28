@@ -202,6 +202,26 @@ describe("show.get", () => {
     expect(bare.kind === "issue" ? bare.links : "not an issue").toBeUndefined();
   });
 
+  it("carries an epic's links and a blocker's", async () => {
+    const t = await withFirst();
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "a plan",
+      link: [{ url: "https://example.com/plan", label: "plan" }],
+    });
+    await raise(t, "cn-1", { link: [{ url: "https://example.com/options" }] });
+    expect(await t.query(api.show.get, { id: "ep-2" })).toMatchObject({
+      kind: "epic",
+      links: [
+        { url: "https://example.com/plan", label: "plan", by: actor, at: expect.any(Number) },
+      ],
+    });
+    expect(await t.query(api.show.get, { id: "bl-1" })).toMatchObject({
+      kind: "blocker",
+      links: [{ url: "https://example.com/options", by: actor, at: expect.any(Number) }],
+    });
+  });
+
   it("refuses an id nothing answers to", async () => {
     const t = await withFirst();
     for (const id of ["cn-9", "ep-9", "bl-9"]) {

@@ -16,15 +16,17 @@
 // history by revision, so a revision here would answer a stale write with somebody else's
 // number. A raise and an attach carry both ids, so the issue's history and the blocker's
 // each read them, the blocker's one line per issue it holds. The blocker's revision moves
-// on ack and resolve alone, through `applyRevision`, and those name no issue.
+// on ack, resolve and update, through `applyRevision`, and those name no issue.
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { actorValidator } from "./lib/actor";
 import { invalid } from "./lib/errors";
 import { mutation, query } from "./lib/guard";
-import { ackBlocker, resolveBlocker } from "./lib/lifecycle";
+import { ackBlocker, editBlocker, resolveBlocker } from "./lib/lifecycle";
+import { addLinks, linkInputValidator } from "./lib/links";
 import { blockerById, issueById } from "./lib/lookup";
 import { attachBlocker, raiseBlocker } from "./lib/raise";
+import { expectRevision } from "./lib/revision";
 import { blockerKindValidator, isLive } from "./lib/validators";
 import { blockerView, ref } from "./lib/views";
 
@@ -52,6 +54,7 @@ export const raise = mutation({
     title: v.optional(v.string()),
     whatResolves: v.optional(v.string()),
     nudgeAt: v.optional(v.number()),
+    link: v.optional(v.array(linkInputValidator)),
   },
   handler: async (ctx, args) => {
     const issue = await issueById(ctx, args.issue);
@@ -63,7 +66,8 @@ export const raise = mutation({
         args.owner !== undefined ||
         args.title !== undefined ||
         args.whatResolves !== undefined ||
-        args.nudgeAt !== undefined
+        args.nudgeAt !== undefined ||
+        args.link !== undefined
       )
         throw invalid("--on attaches an existing blocker; the other options describe a new one");
       const blocker = await blockerById(ctx, args.on);
@@ -90,9 +94,41 @@ export const raise = mutation({
       owner: args.owner!,
       title: args.title!,
       whatResolves: args.whatResolves!,
+      links: addLinks([], args.link ?? [], { by: args.actor, at: Date.now() }),
       ...(args.nudgeAt === undefined ? {} : { nudgeAt: args.nudgeAt }),
     });
     return { blocker: await blockerView(ctx, blocker), issue: ref(issue) };
+  },
+});
+
+/**
+ * A blocker's title, what resolves it and its links, against the revision the writer
+ * read. Kind and owner stay as raised. It does not refuse an agent: agents raise blockers
+ * and may put their words right, and only ending one is a person's. A resolved blocker is
+ * history and does not change.
+ */
+export const update = mutation({
+  args: {
+    actor: actorValidator,
+    id: v.string(),
+    revision: v.number(),
+    title: v.optional(v.string()),
+    whatResolves: v.optional(v.string()),
+    link: v.optional(v.array(linkInputValidator)),
+    unlink: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const doc = await blockerById(ctx, args.id);
+    await expectRevision(ctx, { table: "blockers", doc }, args.revision);
+    if (doc.status === "resolved") throw alreadyResolved(doc);
+
+    const edited = await editBlocker(ctx, args.actor, doc, {
+      title: args.title,
+      whatResolves: args.whatResolves,
+      link: args.link,
+      unlink: args.unlink,
+    });
+    return await blockerView(ctx, edited);
   },
 });
 

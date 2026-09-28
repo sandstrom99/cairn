@@ -11,6 +11,7 @@ import {
   actor,
   balder,
   closeIssue,
+  eventsOf,
   historyOf,
   raise,
   rows,
@@ -112,11 +113,112 @@ describe("blockers.raise", () => {
     );
   });
 
+  it("stores a link given with a new blocker, and the raise event carries it", async () => {
+    const t = await twoOpen();
+    const raised = await raise(t, "cn-1", {
+      link: [{ url: "https://example.com/options", label: "options" }],
+    });
+    expect(raised.blocker.links).toEqual([
+      { url: "https://example.com/options", label: "options", by: actor, at: expect.any(Number) },
+    ]);
+    const [event] = await eventsOf(t, "blocker.raise");
+    expect(event!.changes).toMatchObject({
+      links: [{ url: "https://example.com/options", label: "options" }],
+    });
+    expect((await raise(t, "cn-2")).blocker.links).toBeUndefined();
+  });
+
+  it("refuses a link beside --on, since a link describes a new blocker", async () => {
+    const t = await twoOpen();
+    await raise(t, "cn-1");
+    await expect(
+      t.mutation(api.blockers.raise, {
+        actor,
+        issue: "cn-2",
+        on: "bl-1",
+        link: [{ url: "https://example.com/x" }],
+      }),
+    ).rejects.toThrow(/--on attaches an existing blocker/);
+  });
+
   it("takes the issue out of ready and leaves it in list", async () => {
     const t = await twoOpen();
     await raise(t, "cn-2");
     expect(await readyIds(t)).toEqual(["cn-1"]);
     expect((await t.query(api.issues.list, {})).map((i) => i.id)).toEqual(["cn-1", "cn-2"]);
+  });
+});
+
+describe("blockers.update", () => {
+  it("changes the title, what resolves it and the links, on the blocker alone", async () => {
+    const t = await twoOpen();
+    await raise(t, "cn-1");
+    const updated = await t.mutation(api.blockers.update, {
+      actor,
+      id: "bl-1",
+      revision: 0,
+      title: "the new App Store agreement",
+      whatResolves: "accept it in the browser",
+      link: [{ url: "https://example.com/terms" }],
+    });
+    expect(updated).toMatchObject({
+      title: "the new App Store agreement",
+      whatResolves: "accept it in the browser",
+      links: [{ url: "https://example.com/terms", by: actor }],
+      blockerKind: "approval",
+      owner: "balder",
+      revision: 1,
+    });
+
+    const events = await eventsOf(t, "blocker.update");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ actor, revision: 1, blockerId: expect.any(String) });
+    expect(events[0]!.issueId).toBeUndefined();
+    expect(events[0]!.changes).toEqual({
+      title: { from: "the App Store agreement", to: "the new App Store agreement" },
+      whatResolves: { from: "accept it in App Store Connect", to: "accept it in the browser" },
+      links: { from: [], to: [{ url: "https://example.com/terms" }] },
+    });
+    expect((await historyOf(t, "bl-1")).map((e) => e.kind)).toEqual([
+      "blocker.raise",
+      "blocker.update",
+    ]);
+  });
+
+  it("rejects a stale revision with the blocker.update since it", async () => {
+    const t = await twoOpen();
+    await raise(t, "cn-1");
+    await t.mutation(api.blockers.update, { actor, id: "bl-1", revision: 0, title: "one" });
+    await expect(
+      t.mutation(api.blockers.update, { actor, id: "bl-1", revision: 0, title: "two" }),
+    ).rejects.toMatchObject({
+      data: {
+        kind: "stale",
+        id: "bl-1",
+        yours: 0,
+        current: 1,
+        since: [{ revision: 1, actor, kind: "blocker.update" }],
+      },
+    });
+  });
+
+  it("refuses a resolved blocker, an empty title and an empty resolves line", async () => {
+    const t = await twoOpen();
+    await raise(t, "cn-1");
+    await expect(
+      t.mutation(api.blockers.update, { actor, id: "bl-1", revision: 0, title: " " }),
+    ).rejects.toMatchObject({ data: { kind: "invalid", message: "a blocker needs --title" } });
+    await expect(
+      t.mutation(api.blockers.update, { actor, id: "bl-1", revision: 0, whatResolves: "" }),
+    ).rejects.toMatchObject({ data: { kind: "invalid", message: "a blocker needs --resolves" } });
+    await expect(
+      t.mutation(api.blockers.update, { actor, id: "bl-1", revision: 0 }),
+    ).rejects.toMatchObject({ data: { kind: "invalid", message: "nothing to update" } });
+
+    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed" });
+    await expect(
+      t.mutation(api.blockers.update, { actor: balder, id: "bl-1", revision: 1, title: "x" }),
+    ).rejects.toThrow(/bl-1 was resolved by wsl\/balder on /);
   });
 });
 

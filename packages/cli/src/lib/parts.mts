@@ -434,7 +434,7 @@ export type Fact = {
   links?: LinkParts[];
 };
 
-/** One link on an issue. */
+/** One link on an issue, an epic or a blocker: the three store the same shape. */
 type ShownLink = NonNullable<ShownIssue["links"]>[number];
 
 /** A link in pieces: its label where it has one, its URL whole, and who added it when. */
@@ -446,6 +446,18 @@ export const linkParts = (link: ShownLink, now: number = Date.now()): LinkParts 
   ...(link.label === undefined ? {} : { label: link.label }),
   by: `by ${link.by.name} ${since(link.at, now)}`,
 });
+
+/**
+ * The `links` fact, or none when there are none. Read as `?? []`: a deployment not yet
+ * pushed with the field sends none.
+ */
+export const linkFacts = (
+  links: readonly ShownLink[] | undefined,
+  now: number = Date.now(),
+): Fact[] =>
+  links === undefined || links.length === 0
+    ? []
+    : [{ label: "links", links: links.map((link) => linkParts(link, now)) }];
 
 /** The one word for where an issue stands. */
 type StateWord =
@@ -565,21 +577,21 @@ export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] 
     ["waiting on", shown.waitingOn],
   ];
   for (const [name, items] of named) if (items.length > 0) facts.push({ label: name, refs: items });
-  // Read as `?? []`: a deployment not yet pushed with the field sends none.
-  const links = shown.links ?? [];
-  if (links.length > 0)
-    facts.push({ label: "links", links: links.map((link) => linkParts(link, now)) });
+  facts.push(...linkFacts(shown.links, now));
   return facts;
 }
 
-/** A blocker's facts: its kind and owner, where it stands, what ends it, what it holds. */
+/**
+ * A blocker's facts: its kind and owner, where it stands and at which revision, what ends
+ * it, what it holds, and its links.
+ */
 export function blockerFacts(shown: ShownBlocker, now: number = Date.now()): Fact[] {
   const facts: Fact[] = [
     { label: "kind", text: `${shown.blockerKind} · owner ${shown.owner}` },
     {
       label: "status",
       // `raised raised 2m ago` says it twice, so the status word goes where it adds one.
-      text: `${shown.status === "raised" ? "" : `${shown.status} · `}raised ${since(shown.raisedAt, now)} by ${shown.raisedBy.name}`,
+      text: `${shown.status === "raised" ? "" : `${shown.status} · `}raised ${since(shown.raisedAt, now)} by ${shown.raisedBy.name} · revision ${shown.revision}`,
     },
     { label: "resolves when", text: shown.whatResolves },
   ];
@@ -590,6 +602,7 @@ export function blockerFacts(shown: ShownBlocker, now: number = Date.now()): Fac
       text: `by ${shown.resolvedBy.name} ${since(shown.resolvedAt, now)}: ${shown.resolution ?? ""}`,
     });
   if (shown.issues.length > 0) facts.push({ label: "holds", refs: shown.issues });
+  facts.push(...linkFacts(shown.links, now));
   return facts;
 }
 

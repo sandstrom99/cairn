@@ -1,11 +1,12 @@
 // cn epic — the outcomes issues belong to.
 //
-//   cn epic new <title> [--description <text>]             create an epic, mints ep-N
-//   cn epic list [--all] [--json]                          open epics, a health block each
-//   cn epic close <id> --revision N                        the outcome is reached
-//   cn epic close <id> --revision N --drop --reason <why>  it is not going to happen
+//   cn epic new <title> [--description <text>] [--link <url>…]  create an epic, mints ep-N
+//   cn epic list [--all] [--json]                               open epics, a health block each
+//   cn epic close <id> --revision N                             the outcome is reached
+//   cn epic close <id> --revision N --drop --reason <why>       it is not going to happen
 //
-// `--description` is Markdown and takes `@-` or `@path` like `cn create`'s.
+// `--description` is Markdown and takes `@-` or `@path` like `cn create`'s. `--link` is a
+// link as `cn create --help` says, and repeats; an epic's plan doc is the usual one.
 //
 // An epic is an outcome, not a place: it belongs to no project, and an issue in it may
 // come from any. ep-0 "Inbox" is where an issue goes when no epic fits, and it is created
@@ -20,8 +21,9 @@
 // it. `--drop --reason` is the other ending, and it drops every live issue in the epic
 // with that reason first, so nothing is left pointing at an epic nobody will finish.
 
+import type { LinkInput } from "@cairn/backend/convex/lib/links.js";
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { maybe, onlyFlags, onlyId, revision, text } from "../lib/flags.mts";
+import { links, maybe, onlyFlags, onlyId, revision, text } from "../lib/flags.mts";
 import { UsageError, answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { epicClosedLines, healthLines } from "../lib/lines.mts";
@@ -32,10 +34,11 @@ export const summary = "the outcomes issues belong to";
 export const spec = {
   bool: ["json", "all", "drop"],
   value: ["description", "revision", "reason"],
+  list: ["link"],
 } as const satisfies ArgSpec;
 
 type Parsed =
-  | { action: "new"; args: { title: string; description?: string } }
+  | { action: "new"; args: { title: string; description?: string; link?: LinkInput[] } }
   | { action: "list"; json: boolean; args: { all?: boolean } }
   | {
       action: "close";
@@ -73,7 +76,11 @@ export function parse(argv: string[]): Parsed {
   if (!title) throw new UsageError("cn epic new <title> [--description <text>]");
   return {
     action: "new",
-    args: { title, ...maybe("description", text(opts.description, "--description")) },
+    args: {
+      title,
+      ...maybe("description", text(opts.description, "--description")),
+      ...maybe("link", links(opts.link)),
+    },
   };
 }
 
