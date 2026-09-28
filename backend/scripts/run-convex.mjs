@@ -37,10 +37,11 @@ export function spawnConvex(
  * Runs `convex <args>` in the foreground. SIGINT and SIGTERM go to the child, so Ctrl-C
  * on a watcher reaches convex and it stops its own backend rather than leaving it holding
  * its port. The exit status is convex's, or 1 when a signal ended it. A convex that cannot
- * start at all, a missing binary say, is one line and exit 1 rather than a stack. `onExit`
- * runs first, whichever way the child ends.
+ * start at all, a missing binary say, is one line and exit 1 rather than a stack. `after`
+ * runs only once convex has exited 0, and its status becomes this process's; `onExit` runs
+ * last, whichever way the child ends.
  */
-export function runConvex(args, { env, onExit = () => {} } = {}) {
+export function runConvex(args, { env, after, onExit = () => {} } = {}) {
   const child = spawnConvex(args, { env });
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.on("error", (e) => {
@@ -48,9 +49,16 @@ export function runConvex(args, { env, onExit = () => {} } = {}) {
     onExit();
     process.exit(1);
   });
-  child.on("exit", (code, signal) => {
+  child.on("exit", async (code, signal) => {
+    let status = code ?? (signal ? 1 : 0);
+    try {
+      if (status === 0 && after) status = await after();
+    } catch (e) {
+      console.error(e.message);
+      status = 1;
+    }
     onExit();
-    process.exit(code ?? (signal ? 1 : 0));
+    process.exit(status);
   });
 }
 

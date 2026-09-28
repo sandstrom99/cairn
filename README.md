@@ -113,7 +113,7 @@ npx convex dev --once               # creates the project on first run and write
 
 Copy the `CONVEX_DEPLOYMENT` and `CONVEX_URL` lines it wrote into
 `backend/.env.cloud.local`, which is gitignored and is what binds this checkout's
-cloud commands. Then give the deployment its secret and its functions:
+cloud commands. Then give the deployment its secret, its functions and the page:
 
 ```bash
 CONVEX_DEPLOYMENT=$(sed -n 's/^CONVEX_DEPLOYMENT=//p' .env.cloud.local) \
@@ -157,7 +157,13 @@ doctor`, which says why.
 
 `apps/web` is the window for a person: every row is one of `cn`'s lines, live
 over a subscription, with the deployment's activity beside it. It is read-only
-today. Two lines in `apps/web/.env.local`, which is gitignored:
+today. The deployment serves it itself: `vp run @cairn/backend#push:cloud` pushes
+the functions and then the page, built for that deployment, so it is at
+`https://<deployment>.convex.site` on any machine, a phone included. It reads
+nothing until the secret is pasted into it, once per browser, which keeps it.
+
+To work on the page itself, run it from a dev server instead. Two lines in
+`apps/web/.env.local`, which is gitignored:
 
 ```
 VITE_CAIRN_URL=https://<deployment>.convex.cloud
