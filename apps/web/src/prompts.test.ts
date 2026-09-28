@@ -91,7 +91,7 @@ describe("an issue's lines", () => {
   it("asks for the issue in plain terms, the same sentence in every state", () => {
     for (const shown of Object.values(issues))
       expect(said(issuePrompts(shown, now), "explain")).toBe(
-        `Explain ${ref(shown)} in plain terms: what it's about and why it matters, in a few sentences.`,
+        `Explain ${ref(shown)} in plain terms: what it's about and why it matters.`,
       );
   });
 
