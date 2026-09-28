@@ -203,27 +203,39 @@ function secretRun(action, { op, env } = {}) {
 
 /**
  * The throwaway's environment with the stand-in `op` first on PATH. `items` is what its
- * `item list` prints; `exit` and `error` make every call of it fail with that line.
+ * `item list` prints and `item` what its `item get` does; `exit` and `error` make every
+ * call of it fail with that line.
  */
-const withOp = ({ items = "[]", exit, error } = {}) => ({
+const withOp = ({ items = "[]", item = "{}", exit, error } = {}) => ({
   ...deployment.env,
   PATH: `${opBin}:${deployment.env.PATH ?? ""}`,
   OP_STUB_LOG: opLog,
   OP_STUB_ITEMS: items,
+  OP_STUB_ITEM: item,
   ...(exit === undefined ? {} : { OP_STUB_EXIT: String(exit) }),
   ...(error === undefined ? {} : { OP_STUB_ERR: error }),
 });
 
-/** Every call the stand-in `op` took since the log was last emptied, as argv arrays. */
+/** Every call the stand-in `op` took since the log was last emptied: `{ args, stdin }`. */
 const opCalls = () =>
   existsSync(opLog) ? lines(readFileSync(opLog, "utf8")).map((l) => JSON.parse(l)) : [];
 
-/** The secret a stand-in `op` call stored, read off its `secret[password]=` field. */
+/** The item a stand-in `op` call was handed on stdin, parsed. */
+const itemIn = (call) => JSON.parse(call.stdin);
+
+/** The secret a stand-in `op` call stored, read off the `secret` field of the item it took. */
 const storedIn = (call) => {
-  const field = call.find((arg) => arg.startsWith("secret[password]="));
+  const field = (itemIn(call).fields ?? []).find((f) => f.label === "secret");
   assert.ok(field, "the op call stores no secret field");
-  return field.slice("secret[password]=".length);
+  return field.value;
 };
+
+/** No call of the stand-in `op` carries `secret` in its argv, where a process list shows it. */
+const offArgv = (calls, secret, what) =>
+  assert.ok(
+    calls.every(({ args }) => args.every((arg) => !arg.includes(secret))),
+    `${what} put the secret in op's argv`,
+  );
 
 /** 32 random bytes as base64: what every secret the script sets has to be. */
 const BASE64_32 = /^[A-Za-z0-9+/]{43}=$/;
@@ -1291,25 +1303,23 @@ row("backend/scripts/secret.mjs (new)", () => {
   assert.deepEqual(made.out, [], "new --op put the secret on stdout as well");
   const calls = opCalls();
   assert.equal(calls.length, 2, "op was not called exactly twice, list then create");
-  assert.deepEqual(calls[0], ["item", "list", "--vault", "Vault", "--format", "json"]);
+  assert.deepEqual(calls[0].args, ["item", "list", "--vault", "Vault", "--format", "json"]);
+  assert.deepEqual(calls[1].args, ["item", "create", "--vault", "Vault"]);
   const a = storedIn(calls[1]);
   assert.match(a, BASE64_32, "the secret is not 32 random bytes as base64");
   assert.deepEqual(
-    calls[1],
-    [
-      "item",
-      "create",
-      "--vault",
-      "Vault",
-      "--category",
-      "Secure Note",
-      "--title",
-      "cairn e2e",
-      `url[url]=${url}`,
-      `secret[password]=${a}`,
-    ],
+    itemIn(calls[1]),
+    {
+      title: "cairn e2e",
+      category: "SECURE_NOTE",
+      fields: [
+        { label: "url", type: "URL", value: url },
+        { label: "secret", type: "CONCEALED", value: a },
+      ],
+    },
     "the item is not created with the url and the secret",
   );
+  offArgv(calls, a, "new --op");
   unechoed(made.err, a, "new --op");
   assert.ok(
     made.err.some((line) => line.includes("cn init --name")),
@@ -1343,21 +1353,47 @@ row("backend/scripts/secret.mjs (rotate)", () => {
   );
   pass("ready", "the rotated-in secret is not taken", { secret: b });
 
-  // Into an item that exists: edited, never created a second time.
+  // Into an item that exists: read whole, edited, and written back with every other field
+  // as it was, since the template an edit takes replaces them all. Never created twice.
   writeFileSync(opLog, "");
+  const held = {
+    id: "i1",
+    title: "cairn e2e",
+    category: "SECURE_NOTE",
+    fields: [
+      { id: "notesPlain", label: "notesPlain", type: "STRING", purpose: "NOTES" },
+      { id: "f1", label: "url", type: "URL", value: url },
+      { id: "f2", label: "secret", type: "CONCEALED", value: "before" },
+      { id: "f3", label: "deployment", type: "STRING", value: "e2e" },
+    ],
+  };
   const edited = secretRun("rotate", {
     op: "op://Vault/cairn e2e",
-    env: withOp({ items: JSON.stringify([{ title: "cairn e2e" }]) }),
+    env: withOp({ items: JSON.stringify([{ title: "cairn e2e" }]), item: JSON.stringify(held) }),
   });
   assert.equal(edited.status, 0, `rotate --op did not pass:\n${edited.err.join("\n")}`);
   assert.deepEqual(edited.out, [], "rotate --op put the secret on stdout as well");
-  const call = opCalls().at(-1);
-  const c = storedIn(call);
+  const editCalls = opCalls();
   assert.deepEqual(
-    call,
-    ["item", "edit", "cairn e2e", "--vault", "Vault", `secret[password]=${c}`],
-    "the item that exists is not edited",
+    editCalls.map(({ args }) => args),
+    [
+      ["item", "list", "--vault", "Vault", "--format", "json"],
+      ["item", "get", "cairn e2e", "--vault", "Vault", "--format", "json"],
+      ["item", "edit", "cairn e2e", "--vault", "Vault"],
+    ],
+    "the item that exists is not read, then edited",
   );
+  const c = storedIn(editCalls[2]);
+  assert.match(c, BASE64_32, "the secret is not 32 random bytes as base64");
+  assert.deepEqual(
+    itemIn(editCalls[2]),
+    {
+      ...held,
+      fields: held.fields.map((f) => (f.label === "secret" ? { ...f, value: c } : f)),
+    },
+    "the edit does not write the item back as it was, its secret aside",
+  );
+  offArgv(editCalls, c, "rotate --op");
   unechoed(edited.err, c, "rotate --op");
   pass("ready", "the secret written to the item is not taken", { secret: c });
   assert.equal(cn("ready", { secret: b }).status, 1, "the rotated-out secret still answers");
@@ -1510,16 +1546,30 @@ async function runRows() {
 let deployment;
 let passed = false;
 
-/** The stand-in `op`, as a node script. */
+/**
+ * The stand-in `op`, as a node script. It behaves as op.exe does through WSL, where any
+ * stdin that is not a terminal is a JSON template, an empty one included: `item create`
+ * and `item edit` refuse stdin that does not parse, with op's own line.
+ */
 const OP_STUB = `#!/usr/bin/env node
 const fs = require("node:fs");
 const args = process.argv.slice(2);
-fs.appendFileSync(process.env.OP_STUB_LOG, JSON.stringify(args) + "\\n");
+const stdin = fs.readFileSync(0, "utf8");
+fs.appendFileSync(process.env.OP_STUB_LOG, JSON.stringify({ args, stdin }) + "\\n");
 if (process.env.OP_STUB_ERR) process.stderr.write(process.env.OP_STUB_ERR + "\\n");
 const exit = Number(process.env.OP_STUB_EXIT ?? 0);
-if (exit === 0 && args[0] === "item" && args[1] === "list")
-  process.stdout.write(process.env.OP_STUB_ITEMS ?? "[]");
-process.exit(exit);
+if (exit !== 0) process.exit(exit);
+if (args[0] === "item" && (args[1] === "create" || args[1] === "edit")) {
+  try {
+    JSON.parse(stdin);
+  } catch {
+    process.stderr.write("[ERROR] invalid JSON in piped input\\n");
+    process.exit(1);
+  }
+}
+if (args[0] === "item" && args[1] === "list") process.stdout.write(process.env.OP_STUB_ITEMS ?? "[]");
+if (args[0] === "item" && args[1] === "get") process.stdout.write(process.env.OP_STUB_ITEM ?? "{}");
+process.exit(0);
 `;
 
 const teardown = async () => {
@@ -1555,8 +1605,10 @@ try {
   cold = mkdtempSync(join(tmpdir(), "cairn-e2e-cold-"));
   bin = mkdtempSync(join(tmpdir(), "cairn-e2e-bin-"));
   symlinkSync(join(root, "packages", "cli", "bin", "cn"), join(bin, "cn"));
-  // The secret rows' `op`: it logs every call, prints `$OP_STUB_ITEMS` for `item list`,
-  // and fails with `$OP_STUB_ERR` when `$OP_STUB_EXIT` says to. 1Password is never reached.
+  // The secret rows' `op`: it logs every call with its stdin, prints `$OP_STUB_ITEMS` for
+  // `item list` and `$OP_STUB_ITEM` for `item get`, refuses a create or an edit whose stdin
+  // is not JSON, and fails with `$OP_STUB_ERR` when `$OP_STUB_EXIT` says to. 1Password is
+  // never reached.
   opBin = mkdtempSync(join(tmpdir(), "cairn-e2e-op-"));
   opLog = join(opBin, "log");
   writeFileSync(join(opBin, "op"), OP_STUB);

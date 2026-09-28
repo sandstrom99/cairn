@@ -25,8 +25,14 @@
 //
 // The secret goes to exactly one place. With `--op`, into the `secret` field of that
 // 1Password item, which is created with the deployment's `url` beside it when there is
-// none, and nothing else about the item is read back: `op item list` says whether it
-// exists, never `op item get`, which would print field values. Without `--op`, on stdout,
+// none. The item goes to `op` as JSON on stdin, so the secret is never in its argv either,
+// and it has to: through WSL, `op.exe` takes any stdin that is not a terminal as a JSON
+// template, `/dev/null` included, and refuses `invalid JSON in piped input` rather than
+// read an assignment argument. A template replaces every field of an item it edits, so an
+// item that exists is read whole with `op item get`, its `secret` changed, and written
+// back as it was otherwise; what it held stays in this process and is never printed. That
+// read comes before the deployment changes, so an item that cannot be read changes
+// nothing. `op item list` says whether it exists. Without `--op`, on stdout,
 // once, for a pipe into whatever keeps it. Every other line goes to stderr and none of them
 // carries the secret; a machine takes a rotated one with `cn init --refresh`. vp prints its
 // own command line on stdout before the script's, so a pipe runs the script itself,
@@ -104,6 +110,8 @@ export function changeSecret(
   }
 
   let exists = false;
+  /** The item as `op item get` printed it, when it exists: every field, values and all. */
+  let current;
   if (op !== undefined) {
     const items = spawnSync("op", ["item", "list", "--vault", vault, "--format", "json"], {
       env,
@@ -125,6 +133,23 @@ export function changeSecret(
     // A programming error rather than a refusal, so it throws, and before anything changes.
     if (!exists && url === undefined)
       throw new Error("changeSecret creates a 1Password item only with the deployment's url");
+    if (exists) {
+      const got = spawnSync("op", ["item", "get", item, "--vault", vault, "--format", "json"], {
+        env,
+        encoding: "utf8",
+      });
+      if (got.status !== 0) {
+        err("op item get failed; nothing changed");
+        indented(said(got), err);
+        return 1;
+      }
+      try {
+        current = JSON.parse(got.stdout);
+      } catch {
+        err("op item get printed no JSON; nothing changed");
+        return 1;
+      }
+    }
   }
 
   const value = randomBytes(32).toString("base64");
@@ -154,23 +179,25 @@ export function changeSecret(
     return 0;
   }
 
-  const field = `secret[password]=${value}`;
   const verb = exists ? "edit" : "create";
+  const secretField = { label: "secret", type: "CONCEALED", value };
+  const fields = exists ? (current.fields ?? []) : [];
+  const body = exists
+    ? {
+        ...current,
+        fields: fields.some((f) => f.label === "secret")
+          ? fields.map((f) => (f.label === "secret" ? { ...f, ...secretField } : f))
+          : [...fields, secretField],
+      }
+    : {
+        title: item,
+        category: "SECURE_NOTE",
+        fields: [{ label: "url", type: "URL", value: url }, secretField],
+      };
   const args = exists
-    ? ["item", "edit", item, "--vault", vault, field]
-    : [
-        "item",
-        "create",
-        "--vault",
-        vault,
-        "--category",
-        "Secure Note",
-        "--title",
-        item,
-        `url[url]=${url}`,
-        field,
-      ];
-  const stored = spawnSync("op", args, { env, encoding: "utf8" });
+    ? ["item", "edit", item, "--vault", vault]
+    : ["item", "create", "--vault", vault];
+  const stored = spawnSync("op", args, { env, encoding: "utf8", input: JSON.stringify(body) });
   if (stored.status !== 0) {
     err(
       `op item ${verb} failed: ${deployment} now holds a secret nobody has, as after revoke; rotate --op ${op} hands out a fresh one`,
