@@ -27,6 +27,7 @@ import type * as lib_ids from "../lib/ids.js";
 import type * as lib_inbox from "../lib/inbox.js";
 import type * as lib_lifecycle from "../lib/lifecycle.js";
 import type * as lib_limits from "../lib/limits.js";
+import type * as lib_links from "../lib/links.js";
 import type * as lib_lookup from "../lib/lookup.js";
 import type * as lib_order from "../lib/order.js";
 import type * as lib_priority from "../lib/priority.js";
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "lib/inbox": typeof lib_inbox;
   "lib/lifecycle": typeof lib_lifecycle;
   "lib/limits": typeof lib_limits;
+  "lib/links": typeof lib_links;
   "lib/lookup": typeof lib_lookup;
   "lib/order": typeof lib_order;
   "lib/priority": typeof lib_priority;

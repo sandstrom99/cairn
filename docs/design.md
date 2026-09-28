@@ -68,6 +68,7 @@ doing that.
 | Session start | A hook injects under 20 lines: counts plus the top of each queue. |
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
+| Code hosts | None. A pull request, a commit, an artifact or a doc is a link on the issue (§3 "Links"); cairn reads nothing from and writes nothing to a code host, GitHub Issues included. |
 | Layout | One pnpm workspace under vite-plus: `backend/` (Convex) + `packages/cli`. `apps/*` reserved. §10. |
 | Bootstrap | Schema + create / list / ready / close / journal first, then dogfood within days. |
 
@@ -115,6 +116,7 @@ issues        id                string        app-14
               followUpKind?     verify | decide | cleanup       required iff type = follow-up
               parentIssueId?    Id<issues>    the issue whose residue this is
               requires          string[]      what a session needs: ios, android, web, device, decision
+              links?            { url, label?, by, at }[]   http and https only
               status            open | in_progress | closed | dropped
               priority          number        0 is highest, 4 is backlog
               claimedBy?        actor
@@ -267,6 +269,43 @@ an append is an insert.
 `finding`, `decision`, `handoff`, `evidence`, `question`. Every entry carries an
 author and a timestamp, and every append stamps the issue's `lastActivity`. Where
 §9 says "comments", it means these: there is no second table.
+
+### Links
+
+An issue carries links to what its work left behind: a pull request, a commit, a Claude
+artifact, a doc, a screenshot, a dashboard. A link is a URL, an optional label, who added
+it and when.
+
+It is a field of the issue. `--link` on `cn create` sets it, and `--link` and `--unlink`
+on `cn update` change it, against the revision like any edit. A URL already there takes
+the new label, and a bare one leaves it as it is, so linking twice is harmless. Only
+http and https are accepted, because the page renders a link as an anchor. It prints as
+its label, then its URL, then who added it and when:
+
+    doc · https://example.com/doc · by balder/claude 2h ago
+
+Epics and blockers are to carry links the same way, through cn-82 and cn-83.
+
+cairn knows no code host. A pull request is a link like any other: nothing reads its
+state, nothing tells a merged one from an open one, and nothing counts toward readiness,
+because the issue's own state says the work landed. cairn reads nothing from and writes
+nothing to a code host, GitHub Issues included; a project that uses them does so beside
+cairn. What gets linked, and when, is for the rules a person works under, not for cairn,
+which tells nobody how to version control. The way back from a pull request is the
+reference form in its body, which those rules write.
+
+Decided 2026-09-27 on
+`cn-74 "decide how cairn and git meet: what an issue records of the code work, who writes it, and what stays out"`.
+Considered and not taken:
+
+- A plugin hook on `gh pr create` that attaches the URL by itself. It works, and it
+  builds git into the task system.
+- A CI step or a webhook turning pull request events into cairn events, which needs a
+  secret in every repository or credentials on the deployment, and favours one host.
+- A table of git work with host, repository and number, when a link is one shape and the
+  URL already says all of it.
+- Links as a journal kind, where a wrong one could never come off.
+- Printing a known host's URL short, which would be the first host knowledge in cairn.
 
 ### Statuses
 
@@ -655,9 +694,11 @@ A page for one id is `cn show` with room. An issue opens with its state,
 `waiting on bl-4 "…"`, `blocked by` the ends still live, `stuck silent 9d`,
 `deferred until 2026-10-01`, `closed 2h ago`, `dropped 2h ago`, or `open`. Then
 the brief's labelled lines as a table, `issueFacts`, the proof a close stored
-and the reason a drop gave among them, and a `blocks` edge with a finished end
-marked `done` rather than dropped (§7); then everything written into it printed
-whole where the brief keeps a first line and set as the Markdown it is (§3), the
+and the reason a drop gave among them, a `blocks` edge with a finished end
+marked `done` rather than dropped (§7), and the links fact last, each link in
+cn's words with its label, or its URL, an anchor that opens in a new tab (§3,
+"Links"); then everything written into it printed whole where the brief keeps a
+first line and set as the Markdown it is (§3), the
 output the proof carries among that, then its whole journal where the brief carries the five newest (`show.get`
 takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for
 a journal that long), with its own history in the column where the Overview has
@@ -869,12 +910,12 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn brief [--can ios web …] [--unjournaled]` | `brief.get` | query |
 | `cn ready [--can ios web …]` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine] [--silent] [--blocked]` | `issues.list`; `--silent <duration>` is what nobody has touched for that long and `--blocked` what a live `blocks` edge holds, both over live issues unless `--status` says otherwise, each row then carrying its silence or its holders | query |
-| `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description or a journal entry holds the text, case aside, each with the field it was found in | query |
+| `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description, a link's URL or label, or a journal entry holds the text, case aside, each with the field it was found in | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
-| `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios]` | `issues.create` | mutation |
+| `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios] [--link <url>…]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
-| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires]` | `issues.update` | mutation |
+| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires] [--link] [--unlink]` | `issues.update` | mutation |
 | `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
 | `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --requires ios --priority 1]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
@@ -1118,7 +1159,7 @@ Almost none of that is the idea. Where the mass sits:
 | Dolt plumbing (`dolt`, `embeddeddolt`, `dbproxy`, `uow`, `versioncontrolops`) | ~38,000 | No — exists *only* because the store is a distributed VCS |
 | `issueops` (CRUD + readiness) | 23,281 | Some of it |
 | `httpapi` | 17,045 | No |
-| Linear / ADO / GitLab / Notion / GitHub / Jira integrations | ~15,000 | No |
+| Linear / ADO / GitLab / Notion / GitHub / Jira integrations | ~15,000 | No — a pull request is a link (§3 "Links") |
 | `formula` (molecules, swarms, gates) | 5,252 | No |
 
 ### Structural findings that shaped this design

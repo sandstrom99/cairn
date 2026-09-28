@@ -86,12 +86,12 @@ an issue.
 | `cn brief` | the session-start report, under 20 lines | `brief.get` |
 | `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine`; `--silent 3d` for what nobody has touched, `--blocked` for what a live edge holds | `issues.list` |
-| `cn search <text>` | the issues whose title, description or a journal entry holds the text, across every status, each marked with the field; run before `cn create` | `search.find` |
+| `cn search <text>` | the issues whose title, description, a link's URL or label, or a journal entry holds the text, across every status, each marked with the field; run before `cn create` | `search.find` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
-| `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line | `issues.create` |
+| `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line; `--link <url>` or `--link '[label](url)'` puts a link on it, and repeats | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
-| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer, requires | `issues.update` |
+| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer, requires; `--link` adds a link or relabels one, `--unlink <url>` takes one off | `issues.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
 | `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line; each open issue the close was the last thing holding is printed under it as a `ready` line, the next thing to pick without another `cn ready` | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
@@ -117,6 +117,8 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
 - **During.** `cn journal <id> --kind finding` or `--kind decision` the moment something
   would be lost to compaction. `cn wait <id>` the moment the work needs a person.
   `cn dep add <id> --blocked-by <other>` when one thing turns out to block another.
+  When the work leaves something behind that someone will want to find again, put it on
+  the issue as a link: `cn update <id> --revision N --link '[label](url)'`.
   `cn search <text>` before `cn create`: what you are about to file may already be there,
   open or closed, and then the answer is that issue, not a second one.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and

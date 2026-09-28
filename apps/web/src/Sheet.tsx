@@ -5,7 +5,7 @@
 //
 // The facts are `issueFacts` and `blockerFacts` from @cairn/cli, the ones `cn show` prints,
 // so the table says what the brief says, in its words and its order (sheet.test.tsx).
-import type { Fact } from "@cairn/cli/parts";
+import type { Fact, LinkParts } from "@cairn/cli/parts";
 import { type Referable, ref } from "@cairn/cli/ref";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
@@ -73,18 +73,60 @@ export function Sheet({ facts, children }: { facts: Fact[]; children?: ReactNode
   return (
     <div className="paper mt-6 divide-y divide-hair">
       <dl className="divide-y divide-hair">
-        {facts.map(({ label, code, text, refs }) => (
+        {facts.map(({ label, code, text, refs, links }) => (
           <div key={label} className={LINE}>
             <dt className="text-small text-slate">{label}</dt>{" "}
             <dd className="text-row">
               {code && <code className="font-mono">{code} </code>}
-              {refs ? <Refs items={refs} /> : <Run text={text ?? ""} />}
+              {links ? (
+                <LinkList items={links} />
+              ) : refs ? (
+                <Refs items={refs} />
+              ) : (
+                <Run text={text ?? ""} />
+              )}
             </dd>
           </div>
         ))}
       </dl>
       {children}
     </div>
+  );
+}
+
+/** Only http and https become an anchor: the deployment refuses the rest; this checks again. */
+const OPENABLE = /^https?:\/\//i;
+
+/**
+ * An issue's links, one item each, each item the text of cn's `linkLine`: the label as the
+ * anchor and the URL after it in slate, or the URL as the anchor, then who added it. Items
+ * and not spans, because the page's plain text breaks a line at `</li>`.
+ */
+function LinkList({ items }: { items: LinkParts[] }) {
+  return (
+    <ul>
+      {items.map(({ url, label, by }) => {
+        const text = label ?? url;
+        return (
+          <li key={url}>
+            {OPENABLE.test(url) ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-mark underline-offset-[3px] transition-colors hover:decoration-ink"
+              >
+                {text}
+              </a>
+            ) : (
+              text
+            )}
+            {label && <span className="text-slate"> · {url}</span>}
+            <span className="text-slate"> · {by}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

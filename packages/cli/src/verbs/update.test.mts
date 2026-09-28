@@ -65,6 +65,40 @@ describe("cn update", () => {
     });
   });
 
+  it("adds links and takes them off, each flag on its own being a change", () => {
+    expect(
+      parse([
+        "cn-2",
+        "--revision",
+        "1",
+        "--link",
+        "[the doc](https://example.com/d)",
+        "--link",
+        "https://example.com/b",
+        "--unlink",
+        "https://example.com/old",
+      ]),
+    ).toEqual({
+      action: "update",
+      args: {
+        id: "cn-2",
+        revision: 1,
+        link: [
+          { url: "https://example.com/d", label: "the doc" },
+          { url: "https://example.com/b" },
+        ],
+        unlink: ["https://example.com/old"],
+      },
+    });
+    expect(parse(["cn-2", "--revision", "1", "--unlink", " https://example.com/b "])).toEqual({
+      action: "update",
+      args: { id: "cn-2", revision: 1, unlink: ["https://example.com/b"] },
+    });
+    expect(() => parse(["cn-2", "--revision", "1", "--unlink", ""])).toThrow(
+      /^--unlink needs a URL$/,
+    );
+  });
+
   it("needs an integer revision and at least one field to change", () => {
     expect(() => parse(["cn-2", "--priority", "1"])).toThrow(UsageError);
     expect(() => parse(["cn-2", "--revision", "later", "--priority", "1"])).toThrow(UsageError);

@@ -9,6 +9,7 @@ import {
   date,
   duration,
   integer,
+  links,
   maybe,
   need,
   oneOf,
@@ -16,6 +17,7 @@ import {
   priority,
   revision,
   text,
+  urls,
 } from "./flags.mts";
 import { tempHome } from "./testing.mts";
 
@@ -90,6 +92,46 @@ describe("date", () => {
     expect(() => date("next tuesday", "nudge")).toThrow(
       /^--nudge is a date, as YYYY-MM-DD, not "next tuesday"$/,
     );
+  });
+});
+
+describe("links", () => {
+  it("reads a bare URL, or a Markdown link as its label and URL, or nothing when not given", () => {
+    expect(links(undefined)).toBeUndefined();
+    expect(links([" https://example.com/d "])).toEqual([{ url: "https://example.com/d" }]);
+    expect(links(["[the doc](https://example.com/d)"])).toEqual([
+      { url: "https://example.com/d", label: "the doc" },
+    ]);
+  });
+
+  it("keeps a ] in the label, an empty label for the deployment to drop, and parentheses in the URL", () => {
+    expect(links(["[a ] b](https://example.com/d)"])).toEqual([
+      { url: "https://example.com/d", label: "a ] b" },
+    ]);
+    expect(links(["[](https://example.com/d)"])).toEqual([
+      { url: "https://example.com/d", label: "" },
+    ]);
+    expect(links(["[wiki](https://example.com/Foo_(bar))"])).toEqual([
+      { url: "https://example.com/Foo_(bar)", label: "wiki" },
+    ]);
+    expect(links(["https://example.com/Foo_(bar)"])).toEqual([
+      { url: "https://example.com/Foo_(bar)" },
+    ]);
+  });
+
+  it("leaves the scheme to the deployment, and refuses an empty value", () => {
+    expect(links(["ftp://example.com/x"])).toEqual([{ url: "ftp://example.com/x" }]);
+    expect(() => links(["  "])).toThrow(UsageError);
+    expect(() => links([])).toThrow(/^--link needs a URL, or \[label\]\(url\)$/);
+  });
+});
+
+describe("urls", () => {
+  it("is each URL trimmed, or nothing when not given, and refuses an empty one naming the flag", () => {
+    expect(urls(undefined, "--unlink")).toBeUndefined();
+    expect(urls([" https://example.com/b "], "--unlink")).toEqual(["https://example.com/b"]);
+    expect(() => urls([""], "--unlink")).toThrow(/^--unlink needs a URL$/);
+    expect(() => urls([], "--unlink")).toThrow(UsageError);
   });
 });
 

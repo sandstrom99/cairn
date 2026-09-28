@@ -3,6 +3,7 @@
 //   cn update <id> --revision N [--title <text>] [--description <text>] [--design <how>]
 //                  [--acceptance <what>] [--priority 0-4] [--epic <ep-id>]
 //                  [--defer-until <date>|none] [--requires <cap>… | --requires none]
+//                  [--link <url>…] [--unlink <url>…]
 //
 // --revision is the number the issue was at when you read it, and every line cn prints
 // for an issue ends with it. A write against a revision that has moved is refused with
@@ -14,9 +15,15 @@
 // --design is HOW and may change; --acceptance is WHAT and should not. All three text
 // fields are Markdown, and take `@-` for stdin or `@path` for a file, as `cn create --help`
 // says.
+//
+// --link adds a link, a bare URL or '[label](url)', http or https only. A URL the issue
+// already carries takes the new label, and given bare it is left as it is, so linking
+// twice is harmless. --unlink <url> takes one off and refuses a URL the issue does not
+// carry. Both repeat.
 
+import type { LinkInput } from "@cairn/backend/convex/lib/links.js";
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { date, maybe, onlyId, priority, revision, text } from "../lib/flags.mts";
+import { date, links, maybe, onlyId, priority, revision, text, urls } from "../lib/flags.mts";
 import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { issueLine } from "../lib/lines.mts";
@@ -34,7 +41,7 @@ export const spec = {
     "epic",
     "defer-until",
   ],
-  list: ["requires"],
+  list: ["requires", "link", "unlink"],
 } as const satisfies ArgSpec;
 
 type UpdateArgs = {
@@ -48,6 +55,8 @@ type UpdateArgs = {
   epic?: string;
   deferUntil?: number | null;
   requires?: string[];
+  link?: LinkInput[];
+  unlink?: string[];
 };
 
 type Parsed = { action: "update"; args: UpdateArgs };
@@ -77,6 +86,8 @@ export function parse(argv: string[]): Parsed {
     ...maybe("epic", opts.epic),
     ...maybe("deferUntil", deferUntil(opts["defer-until"])),
     ...maybe("requires", requires),
+    ...maybe("link", links(opts.link)),
+    ...maybe("unlink", urls(opts.unlink, "--unlink")),
   };
   if (Object.keys(args).length === 2)
     throw new UsageError("cn update <id> --revision N needs a field to change");

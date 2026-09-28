@@ -5,6 +5,8 @@ import {
   changePieces,
   firstLine,
   healthParts,
+  issueFacts,
+  linkParts,
   logParts,
   proofParts,
   stateLine,
@@ -85,6 +87,31 @@ describe("proofParts", () => {
   });
 });
 
+describe("linkParts", () => {
+  const by = { name: "wsl/claude", kind: "agent" as const };
+
+  it("keeps the label where there is one, the URL whole, and who added it in a proof's words", () => {
+    expect(
+      linkParts({ url: "https://example.com/d", label: "doc", by, at: ago(HOUR) }, now),
+    ).toEqual({ url: "https://example.com/d", label: "doc", by: "by wsl/claude 1h ago" });
+    expect(linkParts({ url: "https://example.com/b", by, at: now }, now)).toEqual({
+      url: "https://example.com/b",
+      by: "by wsl/claude just now",
+    });
+  });
+
+  it("is an issue's last fact where it has links, and no fact where it has none", () => {
+    const links = [{ url: "https://example.com/d", label: "doc", by, at: ago(HOUR) }];
+    const facts = issueFacts(issue({ links, requires: ["ios"] }), now);
+    expect(facts.at(-1)).toEqual({
+      label: "links",
+      links: [{ url: "https://example.com/d", label: "doc", by: "by wsl/claude 1h ago" }],
+    });
+    expect(issueFacts(issue(), now).map((f) => f.label)).not.toContain("links");
+    expect(issueFacts(issue({ links: [] }), now).map((f) => f.label)).not.toContain("links");
+  });
+});
+
 // The `…Parts` are what apps/web sets as rows. The lines are defined over them, so what
 // is held here is the seam itself: the pieces a surface with columns gets, and that joined
 // the way the line joins them they are the line.
@@ -141,6 +168,28 @@ describe("the parts a line is joined from", () => {
     ).toEqual(["status open → closed", "priority 2 → 1"]);
     expect(changePieces(undefined)).toEqual([]);
     expect(changePieces(["not", "a", "field", "map"])).toEqual(['["not","a","field","map"]']);
+  });
+
+  it("reads a links change as what was linked, unlinked and relabelled, never as JSON", () => {
+    const d = "https://example.com/d";
+    const b = "https://example.com/b";
+    expect(
+      changePieces({ links: { from: [], to: [{ url: d, label: "doc" }, { url: b }] } }),
+    ).toEqual([`linked doc · ${d}`, `linked ${b}`]);
+    expect(
+      changePieces({ links: { from: [{ url: d, label: "doc" }, { url: b }], to: [{ url: d }] } }),
+    ).toEqual([`unlinked ${b}`, `relabelled doc → — · ${d}`]);
+    expect(
+      changePieces({
+        links: { from: [{ url: d, label: "doc" }], to: [{ url: d, label: "the doc" }] },
+      }),
+    ).toEqual([`relabelled doc → the doc · ${d}`]);
+    expect(
+      changePieces({
+        links: { from: [{ url: d, label: "doc" }], to: [] },
+        priority: { from: 2, to: 1 },
+      }),
+    ).toEqual([`unlinked doc · ${d}`, "priority 2 → 1"]);
   });
 
   it("cuts inside the change the limit lands in, and drops the ones after it", () => {

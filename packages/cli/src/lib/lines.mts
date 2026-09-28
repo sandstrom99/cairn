@@ -9,6 +9,7 @@ import { type Referable, ref } from "./ref.mts";
 import { age, day, silence, since } from "./time.mts";
 import {
   type Fact,
+  type LinkParts,
   blockerFacts,
   blockerParts,
   countsRun,
@@ -290,9 +291,21 @@ export function logLine(e: LogEvent, now: number = Date.now()): string {
   return [target ? ref(target) : "—", kind, actor, when, changes.join(", ")].join("  ").trimEnd();
 }
 
-/** One labelled line of `cn show`, its label padded to the column. */
-const factLine = ({ label: name, code, text, refs: items }: Fact): string =>
-  `${label(name)}${code ? `${code} ` : ""}${items ? refs(items) : (text ?? "")}`;
+/**
+ * One link as `cn show` prints it: `doc · https://example.com/doc · by balder/claude 2h
+ * ago`. The URL is always whole, scheme and all, so a terminal can open it.
+ */
+export const linkLine = ({ label, url, by }: LinkParts): string =>
+  [label, url, by].filter(Boolean).join(" · ");
+
+/**
+ * One labelled line of `cn show`, its label padded to the column. A fact with links is a
+ * line per link, the label on the first and the column held on the rest.
+ */
+const factLine = ({ label: name, code, text, refs: items, links }: Fact): string =>
+  links
+    ? links.map((link, i) => `${label(i === 0 ? name : "")}${linkLine(link)}`).join("\n")
+    : `${label(name)}${code ? `${code} ` : ""}${items ? refs(items) : (text ?? "")}`;
 
 /** One journal entry as `cn show` prints it: `  2h wsl/claude finding: what turned out true`. */
 const journalLine = (e: JournalEntry, now: number = Date.now()): string => {

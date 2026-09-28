@@ -2,8 +2,8 @@
 // what `cn show` prints for the same view, in its words and its order. The page goes
 // further than the brief in one place only, by design: text the brief cuts to a first line,
 // and the output a proof stored, is printed whole.
-import { brief } from "@cairn/cli/lines";
-import { stateLine, stateParts } from "@cairn/cli/parts";
+import { brief, linkLine } from "@cairn/cli/lines";
+import { linkParts, stateLine, stateParts } from "@cairn/cli/parts";
 import { JOURNAL_HEAD, JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
 import { DAY, HOUR, agent, blocker, issue, now } from "@cairn/cli/testing";
 import type { ShownIssue } from "@cairn/cli/views";
@@ -35,14 +35,18 @@ const held = issue({
   ],
 });
 
-/** The brief's lines from the first labelled one down to where the long text begins. */
+/**
+ * The brief's lines from the first labelled one down to where the long text begins. A
+ * journal or history entry is indented two and then written; a fact's second link is
+ * indented the whole label column, so only the first kind is dropped.
+ */
 const factsOf = (text: string): string =>
   text
     .split("\n")
     .slice(1)
     .filter(
       (line) =>
-        !/^(description|design|acceptance|journal|history)\b/.test(line) && !line.startsWith("  "),
+        !/^(description|design|acceptance|journal|history)\b/.test(line) && !/^ {2}\S/.test(line),
     )
     .map(squeeze)
     .join(" ");
@@ -171,6 +175,27 @@ describe("an issue's page", () => {
     };
     expect(brief(dropped, now)).toContain("reason          superseded by cn-30");
     expect(page(dropped)).toContain("reason superseded by cn-30");
+  });
+
+  it("sets the links fact as cn's lines, each link an anchor opening in a new tab", () => {
+    const linked: ShownIssue = {
+      ...held,
+      links: [
+        { url: "https://example.com/doc", label: "doc", by: agent, at: now - 2 * HOUR },
+        { url: "https://example.com/pr/7", by: agent, at: now - HOUR },
+      ],
+    };
+    const text = brief(linked, now);
+    expect(text).toContain(
+      `links           doc · https://example.com/doc · by ${agent.name} 2h ago\n                https://example.com/pr/7 · by ${agent.name} 1h ago`,
+    );
+    const markup = renderToStaticMarkup(<IssuePage issue={linked} siblings={[]} now={now} />);
+    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
+    expect(plain(table)).toBe(factsOf(text));
+    const items = table.match(/<li>.*?<\/li>/g) ?? [];
+    expect(items.map(plain)).toEqual(linked.links!.map((link) => linkLine(linkParts(link, now))));
+    for (const url of ["https://example.com/doc", "https://example.com/pr/7"])
+      expect(table).toContain(`href="${url}" target="_blank" rel="noreferrer"`);
   });
 
   it("prints the description in full, where the brief keeps its first line", () => {

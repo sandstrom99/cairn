@@ -142,6 +142,7 @@ describe("lifecycle", () => {
         title: "two",
         type: "task",
         requires: [],
+        links: [],
         priority: 2,
       }),
     );
