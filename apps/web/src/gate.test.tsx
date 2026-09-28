@@ -5,12 +5,12 @@ import { ConvexError } from "convex/values";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Unanswered } from "./Connect.tsx";
-import { Fallback, errorData } from "./Gate.tsx";
+import { Fallback, errorData, scrubbed } from "./Gate.tsx";
 import { plain } from "./plain.ts";
 
-const render = (error: Error, what?: string, sent = false): string =>
+const render = (error: Error, what?: string, secret?: string): string =>
   renderToStaticMarkup(
-    <Fallback error={error} host="h" sent={sent} what={what} onSecret={() => {}} />,
+    <Fallback error={error} host="h" secret={secret} what={what} onSecret={() => {}} />,
   );
 
 // The guard's own line, word for word (backend/convex/lib/guard.ts): cn's, never the page's.
@@ -19,6 +19,20 @@ const guard = new ConvexError({
   message:
     "this deployment needs a secret it did not get: put it under the deployment's `secret` in ~/.config/cairn/config.json, or set CAIRN_SECRET",
 });
+
+// Word for word what a throwaway answered on 2026-09-28 when show.get was called over the
+// WebSocket client with an argument its validator does not know and a secret beside it.
+const SECRET = "S3CRET-MARKER-xyz";
+const validator = [
+  "[CONVEX Q(show:get)] [Request ID: 0c8c24b33b2c0a56] Server Error",
+  "ArgumentValidationError: Object contains extra field `bogus` that is not in the validator.",
+  "",
+  `Object: {bogus: 1.0, history: true, id: "cn-1", secret: "${SECRET}"}`,
+  "Validator: v.object({history: v.optional(v.boolean()), id: v.string(), journal: v.optional(v.float64()), now: v.optional(v.float64()), secret: v.optional(v.string())})",
+  "",
+  "",
+  "  Called by client",
+].join("\n");
 
 /** What a person in a browser must never be told to touch. */
 const cnsOwn = ["config.json", "CAIRN_SECRET", "cn doctor", "did not get"];
@@ -48,7 +62,7 @@ describe("Fallback", () => {
   });
 
   it("says a secret it sent was refused, and keeps the field", () => {
-    const markup = render(guard, undefined, true);
+    const markup = render(guard, undefined, "wrong");
     const text = plain(markup);
     expect(text).toContain("This deployment refused the secret");
     expect(text).not.toContain("did not answer");
@@ -71,10 +85,40 @@ describe("Fallback", () => {
     expect(markup).not.toContain('name="secret"');
   });
 
+  it("prints a refused call's error without the request it echoes", () => {
+    const markup = render(new Error(validator), undefined, SECRET);
+    const text = plain(markup);
+    expect(text).toContain("Something broke");
+    expect(text).toContain("[CONVEX Q(show:get)] [Request ID: 0c8c24b33b2c0a56]");
+    expect(text).toContain("Object contains extra field `bogus` that is not in the validator.");
+    expect(text).toContain("Validator: v.object(");
+    expect(text).not.toContain(SECRET);
+    expect(text).not.toContain("Object: {");
+    expect(markup).not.toContain(SECRET);
+  });
+
   it("prints anything else plainly, with no form", () => {
     const markup = render(new Error("boom"));
     expect(plain(markup)).toContain("Something broke");
     expect(plain(markup)).toContain("boom");
     expect(markup).not.toContain('name="secret"');
+  });
+});
+
+describe("scrubbed", () => {
+  it("cuts the echoed request and keeps the rest", () => {
+    const lines = scrubbed(validator, SECRET).split("\n");
+    expect(lines.some((line) => line.startsWith("Object: "))).toBe(false);
+    expect(lines[0]).toBe("[CONVEX Q(show:get)] [Request ID: 0c8c24b33b2c0a56] Server Error");
+    expect(lines).toContain("  Called by client");
+  });
+
+  it("blanks the secret wherever else it appears", () => {
+    expect(scrubbed(`Path: .secret\nValue: "${SECRET}"`, SECRET)).toBe('Path: .secret\nValue: "…"');
+  });
+
+  it("leaves a message alone when there is no secret to hide", () => {
+    expect(scrubbed("boom", undefined)).toBe("boom");
+    expect(scrubbed("boom", "")).toBe("boom");
   });
 });
