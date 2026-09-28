@@ -7,7 +7,8 @@ description: >
   off", "what is app-14", "close this", "log a finding". Also trigger, unprompted, on a sentence that
   names an issue, epic or blocker in the reference form and asks what it is about, where
   it stands, why it is quiet, what it is waiting on, whether it is still worth doing, what should happen
-  next, or for help deciding: read it with `cn show` or `cn review` before answering.
+  next, or for help deciding: load this skill before answering, since it says what to read
+  and the shape the answer takes.
   Everything goes through the `cn` CLI.
 allowed-tools: "Bash(cn:*)"
 version: "0.1.0"
@@ -159,25 +160,48 @@ EOF
 ## When the person speaks plainly
 
 The web page offers the person lines to say, never commands to run: "Explain cn-14 "…"
-in plain terms: what it's about and why it matters, in a few sentences", "Catch me up on
-cn-14 "…": where it stands, what's been tried, what's left", "cn-14 "…" has been quiet
-for 9 days. Find out why and tell me what it needs to move", "ep-3 "…" has gotten
-messy. Help me sort it out". A message that names an issue, epic or blocker in the
-reference form and asks about it is one of these, whether or not it came from the page.
-Read before answering, every time: `cn show <id>` for an issue or a blocker, with
-`--history` when the question is what happened or what was tried; `cn show <ep>` and
-`cn review <ep>` for an epic. Then answer in the person's terms — where it stands, what
-has been tried, what it needs, what the options cost — and take the verb that follows
-yourself: `cn claim <id>` for "pick it up", `cn wait <id>` for what needs them, `cn dep
-add` for a duplicate found. Never hand back a `cn` line or a slash command for the person
-to paste. Steering agents is not their job.
+in plain terms: what it's about and why it matters", "Catch me up on cn-14 "…": where it
+stands, what's been tried, what's left", "cn-14 "…" has been quiet for 9 days. Find out
+why and tell me what it needs to move", "ep-3 "…" has gotten messy. Help me sort it out".
+A message that names an issue, epic or blocker in the reference form and asks about it is
+one of these, whether or not it came from the page. Read before answering, every time:
+`cn show <id>` for an issue or a blocker, with `--history` when the question is what
+happened or what was tried; `cn show <ep>` and `cn review <ep>` for an epic. Then answer
+in the person's terms — where it stands, what has been tried, what it needs, what the
+options cost — and take the verb that follows yourself: `cn claim <id>` for "pick it up",
+`cn wait <id>` for what needs them, `cn dep add` for a duplicate found. Never hand back a
+`cn` line or a slash command for the person to paste. Steering agents is not their job.
 
 "Explain" asks for meaning, not status, and quickly. Where the issue has no description,
 a follow-up often has only a title in cairn's own terms, with its context on the parent:
-read the parent, and the epic, before answering. Then three to five plain sentences: what
-the problem is and who meets it, why the issue exists, and in one line how big it is and
-where it stands. No file, function or event names, no ids past the first reference, no
-list of cases; the person asks "catch me up" for the rest.
+read the parent, and the epic, before answering. Then the reference form on its own line,
+and under it three short lines, each opened by a bold lead and each its own paragraph,
+since a reply is set as Markdown and lines that touch run together:
+
+```
+app-14 "fix connection retry"
+
+**What it is.** The app gives up after one dropped connection, so a tunnel signs you out.
+
+**Why it matters.** People on the move lose what they typed and have to sign in again.
+
+**Where it stands.** A fix works on Android. Left: a check on an iPhone.
+```
+
+About 50 words after the reference, as in the example, and never past 80: each line is
+one idea in one or two short sentences, about 15 words after its lead, and no sentence runs
+past 20. Cut the example, the aside, the second clause. **Where it stands.** is the state and what is left,
+never why what is left is waiting or what finishing it unlocks. Plain words: no file, function or event names, no ids past the first reference,
+no list of cases; the person asks "catch me up" for the rest.
+
+**Every answer to one of these has a shape.** Lead with the answer in one line. Give the
+rest as short lines opened by a bold lead, or as a `- ` list: never a paragraph of more
+than three sentences, and never a sentence past 20 words. Stop once the question is
+answered; the person asks for more when they want it.
+
+- **Catch me up**: **Where it stands.**, **Tried.** and **Left.**
+- **Quiet**: **Why it's quiet.** and **What it needs.**, the second naming the verb you took.
+- **Still worth doing**: **For.**, **Against.** and **My call.**
 
 ## Three boundaries
 

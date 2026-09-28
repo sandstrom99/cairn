@@ -46,11 +46,7 @@ export function issuePrompts(issue: ShownIssue, now: number): Prompt[] {
   const prompts: (Prompt | false)[] = [
     {
       key: "explain",
-      parts: [
-        "Explain ",
-        r,
-        " in plain terms: what it's about and why it matters, in a few sentences.",
-      ],
+      parts: ["Explain ", r, " in plain terms: what it's about and why it matters."],
     },
     {
       key: "catch-up",
