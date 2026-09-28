@@ -36,7 +36,7 @@ An epic is an outcome, not a place. `project` is a field on the issue.
 | Ids | `app-14`, `web-22`, minted server-side in a transaction |
 | Readiness | `blocks`, `blocked-by`, `defer-until`. Computed live: no denormalised flag, no recompute command |
 | Statuses | `open`, `in_progress`, `closed`, `dropped`. Blocked is derived, never stored |
-| Human waits | A first-class `blockers` table. Agents raise them and may never resolve them |
+| Human waits | A first-class `blockers` table. Agents raise them, and end them only on the person's word, which the record quotes |
 | Hygiene | `epicId` is non-null, closing takes a verification record, the facts are checked where they are made (`cn close` spawns the follow-up an unverified close owes and offers the epic close; `cn create` hands back near-identical titles), and `cn review <epic>` lists what a person and an agent look at together. Nothing runs on its own |
 | Scope | Tasks only. Not a wiki, not a knowledge base, not an orchestrator |
 

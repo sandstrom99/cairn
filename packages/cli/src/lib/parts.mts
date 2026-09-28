@@ -333,6 +333,10 @@ const attachPiece = (
       ? `waits on ${blocker}`
       : `${issue} waits on ${blocker}`;
 
+/** The person's words an ack or a resolve rested on, as the last piece of its line. */
+const saidPiece = (said: unknown): string[] =>
+  typeof said === "string" ? [clip(`on their word "${firstLine(said)}"`)] : [];
+
 /**
  * One event's payload in pieces, by its kind. A journal append is `finding: <its first
  * line>`, the way `cn show` lists the entry; an edge is `edgePiece` relative to `self`,
@@ -341,7 +345,8 @@ const attachPiece = (
  * `bl-3 "…": done`; a reconcile run is `runPiece`. A create has no payload, because the reference
  * at the start of its line already names what was created, except a project, which has no
  * reference to lead with and so is its slug and name here. A field map is `changePieces`
- * of it `asRecorded`, and anything else `changePieces` as it is.
+ * of it `asRecorded`, and anything else `changePieces` as it is; an ack or a resolve that
+ * rested on the person's words ends with them, `on their word "…"`, on either side.
  */
 const eventPieces = (kind: string, changes: unknown, self: string | undefined): string[] => {
   if (kind === "project.create" && hasStrings(changes, "slug", "name"))
@@ -362,9 +367,18 @@ const eventPieces = (kind: string, changes: unknown, self: string | undefined): 
       clip(
         `${ref({ id: changes.blocker, title: changes.title })}: ${firstLine(changes.resolution)}`,
       ),
+      ...saidPiece("said" in changes ? changes.said : undefined),
     ];
   if (kind === "reconcile.run" && hasStrings(changes, "by") && hasArrays(changes, "did", "raised"))
     return [runPiece(changes)];
+  if (
+    (kind === "blocker.ack" || kind === "blocker.resolve") &&
+    isFieldMap(changes) &&
+    changes.said !== undefined
+  ) {
+    const { said, ...rest } = changes;
+    return [...changePieces(asRecorded(kind, rest)), ...saidPiece(said.to)];
+  }
   return changePieces(isFieldMap(changes) ? asRecorded(kind, changes) : changes);
 };
 
@@ -601,6 +615,7 @@ export function blockerFacts(shown: ShownBlocker, now: number = Date.now()): Fac
       label: "resolved",
       text: `by ${shown.resolvedBy.name} ${since(shown.resolvedAt, now)}: ${shown.resolution ?? ""}`,
     });
+  if (shown.said !== undefined) facts.push({ label: "on their word", text: `"${shown.said}"` });
   if (shown.issues.length > 0) facts.push({ label: "holds", refs: shown.issues });
   facts.push(...linkFacts(shown.links, now));
   return facts;

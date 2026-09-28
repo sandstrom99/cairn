@@ -1,8 +1,8 @@
 // The two halves of a blocker: an agent raises it and an issue leaves `ready` with no
-// recompute, and a person — only a person — ends it and every issue it held comes back,
-// also with no recompute. The refusals are the interesting half: an agent that could
-// resolve its own blocker would resolve nothing, and the guardrail is the whole point
-// of the table existing (docs/design.md §6).
+// recompute, and the person, or an agent on the person's word, ends it and every issue it
+// held comes back, also with no recompute. The refusals are the interesting half: an agent
+// that could resolve its own blocker unprompted would resolve nothing, and the guardrail is
+// the whole point of the table existing (docs/design.md §6).
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import {
@@ -223,12 +223,29 @@ describe("blockers.update", () => {
 });
 
 describe("blockers.ack", () => {
-  it("refuses an agent by naming who is waited on", async () => {
+  it("refuses an agent without the person's word by naming who is waited on", async () => {
     const t = await twoOpen();
     await raise(t, "cn-1");
     await expect(t.mutation(api.blockers.ack, { actor, id: "bl-1" })).rejects.toThrow(
-      /only a person can acknowledge bl-1; it waits on balder/,
+      /only on the person's word, given with --said; it waits on balder/,
     );
+    await expect(t.mutation(api.blockers.ack, { actor, id: "bl-1", said: "   " })).rejects.toThrow(
+      /only on the person's word, given with --said; it waits on balder/,
+    );
+  });
+
+  it("lets an agent ack on the person's word, and the event keeps the words trimmed", async () => {
+    const t = await twoOpen();
+    await raise(t, "cn-1");
+    const acked = await t.mutation(api.blockers.ack, { actor, id: "bl-1", said: "  seen it  " });
+    expect(acked).toMatchObject({ status: "waiting", revision: 1 });
+
+    const event = (await historyOf(t, "bl-1")).at(-1);
+    expect(event).toMatchObject({ kind: "blocker.ack", actor, revision: 1 });
+    expect(event?.changes).toEqual({
+      status: { from: "raised", to: "waiting" },
+      said: { to: "seen it" },
+    });
   });
 
   it("moves raised to waiting once, and records the person who did it", async () => {
@@ -242,11 +259,9 @@ describe("blockers.ack", () => {
 
     const events = await historyOf(t, "bl-1");
     expect(events.map((e) => e.kind)).toEqual(["blocker.raise", "blocker.ack"]);
-    expect(events.at(-1)).toMatchObject({
-      actor: balder,
-      revision: 1,
-      changes: { status: { from: "raised", to: "waiting" } },
-    });
+    expect(events.at(-1)).toMatchObject({ actor: balder, revision: 1 });
+    // A person needs no word, and an ack without one records none.
+    expect(events.at(-1)?.changes).toEqual({ status: { from: "raised", to: "waiting" } });
   });
 
   it("refuses an ack after the blocker is resolved", async () => {
@@ -298,22 +313,58 @@ describe("blockers.resolve", () => {
       "blocker.attach",
       "blocker.resolve",
     ]);
-    expect(events.at(-1)).toMatchObject({
-      revision: 1,
-      // Explicit changes: the computed map would carry the timestamp and the whole actor.
+    expect(events.at(-1)).toMatchObject({ revision: 1 });
+    // Explicit changes: the computed map would carry the timestamp and the whole actor. A
+    // person needs no word, so neither side records one.
+    expect(events.at(-1)?.changes).toEqual({
+      status: { from: "raised", to: "resolved" },
+      resolution: { to: "accepted in App Store Connect" },
+    });
+    expect(resolved.said).toBeUndefined();
+    for (const id of ["cn-1", "cn-2"])
+      expect((await historyOf(t, id)).at(-1)?.changes).not.toHaveProperty("said");
+  });
+
+  it("lets an agent resolve on the person's word, and quotes it on both sides", async () => {
+    const t = await twoOpen();
+    await raise(t, "cn-1");
+    const resolved = await t.mutation(api.blockers.resolve, {
+      actor,
+      id: "bl-1",
+      note: "signed",
+      said: "  it is signed, go ahead  ",
+    });
+    expect(resolved).toMatchObject({
+      status: "resolved",
+      resolvedBy: actor,
+      resolution: "signed",
+      said: "it is signed, go ahead",
+    });
+    expect(await readyIds(t)).toEqual(["cn-1", "cn-2"]);
+
+    expect((await historyOf(t, "bl-1")).at(-1)).toMatchObject({
+      kind: "blocker.resolve",
       changes: {
         status: { from: "raised", to: "resolved" },
-        resolution: { to: "accepted in App Store Connect" },
+        resolution: { to: "signed" },
+        said: { to: "it is signed, go ahead" },
       },
+    });
+    expect((await historyOf(t, "cn-1")).at(-1)).toMatchObject({
+      kind: "blocker.resolve",
+      changes: { blocker: "bl-1", resolution: "signed", said: "it is signed, go ahead" },
     });
   });
 
-  it("refuses an agent, an empty note, and a second resolution", async () => {
+  it("refuses an agent without the word, an empty note, and a second resolution", async () => {
     const t = await twoOpen();
     await raise(t, "cn-1");
     await expect(
       t.mutation(api.blockers.resolve, { actor, id: "bl-1", note: "signed" }),
-    ).rejects.toThrow(/only a person can resolve bl-1; it waits on balder/);
+    ).rejects.toThrow(/only on the person's word, given with --said; it waits on balder/);
+    await expect(
+      t.mutation(api.blockers.resolve, { actor, id: "bl-1", note: "signed", said: " " }),
+    ).rejects.toThrow(/only on the person's word, given with --said; it waits on balder/);
     await expect(
       t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "   " }),
     ).rejects.toThrow(/a resolution says what happened/);

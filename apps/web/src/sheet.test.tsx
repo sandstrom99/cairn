@@ -3,7 +3,7 @@
 // further than the brief in one place only, by design: text the brief cuts to a first line,
 // and the output a proof stored, is printed whole.
 import { brief, linkLine } from "@cairn/cli/lines";
-import { linkParts, stateLine, stateParts } from "@cairn/cli/parts";
+import { blockerFacts, linkParts, stateLine, stateParts } from "@cairn/cli/parts";
 import { JOURNAL_HEAD, JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
 import { DAY, HOUR, agent, blocker, epic, issue, now } from "@cairn/cli/testing";
 import type { ShownIssue } from "@cairn/cli/views";
@@ -266,6 +266,23 @@ describe("a blocker's page", () => {
     const items = table.match(/<li>.*?<\/li>/g) ?? [];
     expect(items.map(plain)).toEqual(linked.links.map((link) => linkLine(linkParts(link, now))));
     expect(table).toContain(`href="https://example.com/options" target="_blank" rel="noreferrer"`);
+  });
+
+  it("quotes the person's words under the resolve an agent made on them, as cn does", () => {
+    const resolved = {
+      ...raised,
+      status: "resolved" as const,
+      resolvedBy: agent,
+      resolvedAt: now - HOUR,
+      resolution: "done",
+      said: "the round trip is done, go ahead",
+    };
+    const fact = blockerFacts(resolved, now).find((f) => f.label === "on their word");
+    expect(fact).toEqual({ label: "on their word", text: '"the round trip is done, go ahead"' });
+    const markup = renderToStaticMarkup(<BlockerPage blocker={resolved} now={now} />);
+    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
+    expect(plain(table)).toBe(factsOf(brief(resolved, now)));
+    expect(plain(table)).toContain(`${fact!.label} ${fact!.text}`);
   });
 
   it("offers the ask menu while it is raised, and not once it is resolved", () => {

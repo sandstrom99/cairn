@@ -546,9 +546,22 @@ row("verbs/waiting.mts", () => {
 });
 
 row("verbs/ack.mts, verbs/resolve.mts", () => {
-  assert.equal(cn("ack bl-1").status, 1, "an agent was allowed to ack a blocker");
+  const ack = cn("ack bl-1");
+  assert.equal(ack.status, 1, "an agent without the person's word was allowed to ack");
+  assert.match(ack.stderr, /--said/, "the refused ack does not name --said");
   pass("ack bl-1", "a person's ack was refused", { as: "human" });
-  pass("resolve bl-1 --note done", "a person's resolve was refused", { as: "human" });
+  const resolve = cn("resolve bl-1 --note done");
+  assert.equal(resolve.status, 1, "an agent without the person's word was allowed to resolve");
+  assert.match(resolve.stderr, /--said/, "the refused resolve does not name --said");
+  pass(
+    'resolve bl-1 --note done --said "the round trip is done, go ahead"',
+    "an agent's resolve on the person's word was refused",
+  );
+  assert.match(
+    cn("show bl-1").out,
+    /^resolved {8}by e2e\/claude just now: done\non their word {3}"the round trip is done, go ahead"$/m,
+    "cn show bl-1 does not quote the person's words under resolved",
+  );
   assert.ok(ids(json("ready")).includes("cn-4"), "the freed issue did not come back to ready");
   assert.equal(cn("waiting").stdout, "", "cn waiting prints something with nothing waiting");
 });
@@ -649,17 +662,20 @@ row("verbs/log.mts", () => {
     "the raise on cn-4 does not read as the blocker's line",
   );
   assert.ok(
-    whole.some((l) => /^cn-4 ".*  blocker\.resolve  .*  just now  bl-1 "scratch": done$/.test(l)),
-    "the resolve that freed cn-4 does not read as the blocker and the note",
-  );
-  assert.ok(
-    // The person's actor is the runner's own user, so it is not pinned here.
     whole.some((l) =>
-      /^bl-1 "scratch"  blocker\.resolve  \S+  just now  resolution — → done, status waiting → resolved$/.test(
+      /^cn-4 ".*  blocker\.resolve  e2e\/claude  just now  bl-1 "scratch": done, on their word "the round trip is done, go ahead"$/.test(
         l,
       ),
     ),
-    "the blocker's own resolve does not read as a field map",
+    "the resolve that freed cn-4 does not read as the blocker, the note and the person's words",
+  );
+  assert.ok(
+    whole.some((l) =>
+      /^bl-1 "scratch"  blocker\.resolve  e2e\/claude  just now  resolution — → done, status waiting → resolved, on their word "the round trip is done, go ahead"$/.test(
+        l,
+      ),
+    ),
+    "the blocker's own resolve does not read as a field map ending with the person's words",
   );
   for (const pieces of [
     "linked doc · https://example.com/d, linked https://example.com/b",

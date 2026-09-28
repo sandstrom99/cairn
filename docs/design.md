@@ -62,8 +62,8 @@ doing that.
 | Residue | A `follow-up` issue with `requires[]`, linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
 | Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5, 2026-09-22). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released by a person; nothing releases one alone (§7, revised 2026-09-22). |
-| Blockers | Own table, own lifecycle. Agents raise them and may never resolve them. |
-| Blocker channel | Pull-only: on request, and in-session when an agent hits one. The UI becomes the channel later. |
+| Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (cn-87). |
+| Blocker channel | Pull-only: on request, and in-session when an agent hits one. The person answers in the session, and the agent ends it on their word. |
 | Reconcile | Revised 2026-09-22: no automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
 | Session start | A hook injects under 20 lines: counts plus the top of each queue. |
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
@@ -481,17 +481,21 @@ blockers    kind          approval | external-wait | decision | credential | pur
 - A blocker's title, what resolves it and its links are edited with
   `cn update bl-N` against its revision, while kind and owner stay as raised:
   changing who a blocker waits on is multi-user ground, parked with cn-28 (§13).
-- **Agents raise them. Agents may never resolve them.** `blockers.resolve` and
-  `blockers.ack` reject an actor of kind `agent`. Until auth exists that is a
-  guardrail against an honest agent, not a lock against a lying one, and that is
-  enough for the throwaway window.
+- **Agents raise them, and end them only on the person's word.** `blockers.ack` and
+  `blockers.resolve` refuse an actor of kind `agent` that does not carry `said`, the
+  person's words verbatim, and the events, `cn show` and `cn log` quote them. The person
+  speaks plain language to their agent and never runs a command (§8), so an agent is how
+  a wait on them ends, and the quote is what keeps that honest. Until auth exists it is a
+  guardrail against an honest agent, not a lock against a lying one, and that is enough.
+  Changed 2026-09-28 (cn-87), when cn-11, the page acking and resolving behind identity
+  auth, was dropped.
 - They do not appear in any agent work queue, and they are not counted in epic
   progress — otherwise "7 of 10" starts counting work no agent can do.
 
 **Channel: pull-only.** On request (`cn waiting`), and in-session when an agent
-hits one. No push, no email, no GitHub mirror. The UI becomes the real channel
-later, and that is the accepted cost: a blocker raised Friday is not seen until
-the next session.
+hits one. No push, no email, no GitHub mirror. The session is the channel: the
+person answers there, and that is the accepted cost: a blocker raised Friday is not
+seen until the next session.
 
 ---
 
@@ -806,8 +810,7 @@ The look, and what each choice rules out:
   means state. react-markdown builds React elements, so raw HTML shows as text and a
   `javascript:` link goes nowhere.
 - **A jump bar where a chat page has its composer.** Type an id or part of a
-  title and go. It reads, like everything else on the page, and it is where
-  `cn-11`'s answers will be typed.
+  title and go. It reads, like everything else on the page.
 - **One motion nobody asked for**: an event arriving over the subscription lands
   in the feed with a sheen. It is the proof that no reload brought it.
 - **One motion the reader asks for**: a control in the column's head collapses
@@ -869,7 +872,7 @@ the CLI, and the reasons it went are below.
 |---|---|
 | **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function, and `cn update` runs its kind's own function, by the id. |
 | **Claude Code plugin** | Skill, SessionStart and Stop hooks, slash commands, and the evals that hold the skill's rules in a real session. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
-| **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
+| **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. The second step, acking and resolving from the page behind identity auth, was cn-11, dropped on 2026-09-28: the person ends a wait by telling their agent, which resolves on their word (§6). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
 
 ### Why not an MCP server
 
@@ -964,7 +967,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
 | `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
 | `cn waiting` | `blockers.list` | query |
-| `cn ack <bl>` · `cn resolve <bl> --note …` | `blockers.ack` · `blockers.resolve` | mutation, human only |
+| `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | `blockers.ack` · `blockers.resolve` | mutation; an agent's carries `--said` |
 | `cn epic new <title> [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
 | `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
@@ -1159,13 +1162,13 @@ implementation.
 | How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`). `cn init` writes that file: checked before written, added and never replaced, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8, `cn-8 "a cloud deployment per company, and the secret that guards it"` |
-| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth, Convex Auth or Clerk, arrives with the page's first write, `cn-11 "apps/web, the human channel: ack and resolve behind identity auth"`, and only then does the actor stop being an argument. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
+| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth arrives when cairn serves more than one person, `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"`, and only then does the actor stop being an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
 | Who counts as the actor on a journal entry or a claim | Lean: the argument `cn` sends (§12) until identity auth exists, then the token's identity, with `kind` from whether the token belongs to a person |
 | Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |
 | The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |
-| A push channel for human blockers | None. The UI becomes the channel |
+| A push channel for human blockers | None. The session is the channel (§6) |
 | Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at `https://<name>.convex.site`, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. Which deployments one browser knows about waits on running cairn for more than one person, the next row |
-| Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself is `cn-11` |
+| Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself goes with it, since cn-11, which carried it, was dropped on 2026-09-28 |
 
 ---
 

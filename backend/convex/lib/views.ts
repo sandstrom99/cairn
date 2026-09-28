@@ -96,6 +96,7 @@ export async function blockerView(ctx: QueryCtx, doc: Doc<"blockers">) {
     resolvedBy: doc.resolvedBy,
     resolvedAt: doc.resolvedAt,
     resolution: doc.resolution,
+    said: doc.said,
     revision: doc.revision,
     issues: (await issuesHeldBy(ctx, doc._id)).map(ref),
   };

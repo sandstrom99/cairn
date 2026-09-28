@@ -10,6 +10,17 @@ describe("cn resolve", () => {
     });
   });
 
+  it("passes the person's words trimmed, and leaves them out when there are none", () => {
+    expect(parse(["bl-1", "--note", "signed", "--said", "  it is signed, go ahead  "])).toEqual({
+      action: "resolve",
+      args: { id: "bl-1", note: "signed", said: "it is signed, go ahead" },
+    });
+    expect(parse(["bl-1", "--note", "signed", "--said", " "])).toEqual({
+      action: "resolve",
+      args: { id: "bl-1", note: "signed" },
+    });
+  });
+
   it("refuses a note that says nothing", () => {
     expect(() => parse(["bl-1"])).toThrow(UsageError);
     expect(() => parse(["bl-1", "--note", "   "])).toThrow(UsageError);
