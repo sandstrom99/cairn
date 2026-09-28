@@ -3,6 +3,7 @@
 //   cn wait <id> --kind approval|external-wait|decision|credential|purchase
 //                --owner <who must act> --title <what is waited on>
 //                --resolves <what would end it> [--nudge <YYYY-MM-DD>]
+//                [--link <url>…]
 //   cn wait <id> --on bl-3
 //
 // Agents raise blockers and people resolve them: `cn ack` and `cn resolve` refuse an
@@ -16,9 +17,12 @@
 //
 // --owner is who must act, and is required. --resolves is what would end the wait,
 // written so the person can act on it without asking. --nudge is the day to look again.
+// --link attaches a link as `cn create --help` says, and repeats: a decision blocker's is
+// where the artifact laying out its options goes.
 
+import type { LinkInput } from "@cairn/backend/convex/lib/links.js";
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { BLOCKER_KINDS, date, maybe, need, oneOf, onlyId } from "../lib/flags.mts";
+import { BLOCKER_KINDS, date, links, maybe, need, oneOf, onlyId } from "../lib/flags.mts";
 import { UsageError } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { blockerLine, holdsLine } from "../lib/lines.mts";
@@ -28,7 +32,7 @@ export const summary = "raise a human blocker on an issue, or attach one that ex
 
 /** The options that describe a new blocker; none of them goes with `--on`. */
 const DESCRIBING = ["kind", "owner", "title", "resolves", "nudge"] as const;
-export const spec = { value: ["on", ...DESCRIBING] } as const satisfies ArgSpec;
+export const spec = { value: ["on", ...DESCRIBING], list: ["link"] } as const satisfies ArgSpec;
 
 type WaitArgs = {
   issue: string;
@@ -38,6 +42,7 @@ type WaitArgs = {
   title?: string;
   whatResolves?: string;
   nudgeAt?: number;
+  link?: LinkInput[];
 };
 
 type Parsed = { action: "wait"; args: WaitArgs };
@@ -51,7 +56,8 @@ export function parse(argv: string[]): Parsed {
   const issue = onlyId(pos, USAGE);
 
   if (opts.on !== undefined) {
-    const also = DESCRIBING.filter((o) => opts[o] !== undefined);
+    const also: string[] = DESCRIBING.filter((o) => opts[o] !== undefined);
+    if (opts.link !== undefined) also.push("link");
     if (also.length > 0)
       throw new UsageError(
         `--on attaches an existing blocker; ${also.map((o) => `--${o}`).join(" and ")} describes a new one`,
@@ -81,6 +87,7 @@ export function parse(argv: string[]): Parsed {
       title,
       whatResolves,
       ...maybe("nudgeAt", date(opts.nudge, "nudge")),
+      ...maybe("link", links(opts.link)),
     },
   };
 }

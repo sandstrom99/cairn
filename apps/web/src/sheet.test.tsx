@@ -5,12 +5,12 @@
 import { brief, linkLine } from "@cairn/cli/lines";
 import { linkParts, stateLine, stateParts } from "@cairn/cli/parts";
 import { JOURNAL_HEAD, JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
-import { DAY, HOUR, agent, blocker, issue, now } from "@cairn/cli/testing";
+import { DAY, HOUR, agent, blocker, epic, issue, now } from "@cairn/cli/testing";
 import type { ShownIssue } from "@cairn/cli/views";
 import { ref } from "@cairn/cli/ref";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BlockerPage, IssuePage } from "./ItemPages.tsx";
+import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
 
 /** The issue the page is opened on: held by this session, with an edge each way. */
@@ -251,6 +251,23 @@ describe("a blocker's page", () => {
     expect(plain(markup)).toContain(ref(raised.issues[0]!));
   });
 
+  it("sets its links as cn's lines, each an anchor, after what it holds", () => {
+    const linked = {
+      ...raised,
+      links: [{ url: "https://example.com/options", label: "options", by: agent, at: now - HOUR }],
+    };
+    const text = brief(linked, now);
+    expect(text).toContain(
+      `links           options · https://example.com/options · by ${agent.name} 1h ago`,
+    );
+    const markup = renderToStaticMarkup(<BlockerPage blocker={linked} now={now} />);
+    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
+    expect(plain(table)).toBe(factsOf(text));
+    const items = table.match(/<li>.*?<\/li>/g) ?? [];
+    expect(items.map(plain)).toEqual(linked.links.map((link) => linkLine(linkParts(link, now))));
+    expect(table).toContain(`href="https://example.com/options" target="_blank" rel="noreferrer"`);
+  });
+
   it("offers the ask menu while it is raised, and not once it is resolved", () => {
     const resolved = {
       ...raised,
@@ -261,5 +278,26 @@ describe("a blocker's page", () => {
     const ask = 'aria-label="Say to your agent"';
     expect(renderToStaticMarkup(<BlockerPage blocker={raised} now={now} />)).toContain(ask);
     expect(renderToStaticMarkup(<BlockerPage blocker={resolved} now={now} />)).not.toContain(ask);
+  });
+});
+
+describe("an epic's page", () => {
+  it("sets its links as cn's lines, each an anchor, and none where it has none", () => {
+    const planned = epic({
+      id: "ep-12",
+      title: "links on everything",
+      links: [{ url: "https://example.com/plan", label: "plan", by: agent, at: now - 2 * HOUR }],
+    });
+    const line = `plan · https://example.com/plan · by ${agent.name} 2h ago`;
+    expect(brief(planned, now)).toContain(`links           ${line}`);
+    const markup = renderToStaticMarkup(<EpicPage epic={planned} issues={[]} now={now} />);
+    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
+    expect(plain(table)).toBe(`links ${line}`);
+    const items = table.match(/<li>.*?<\/li>/g) ?? [];
+    expect(items.map(plain)).toEqual(planned.links!.map((link) => linkLine(linkParts(link, now))));
+    expect(table).toContain(`href="https://example.com/plan" target="_blank" rel="noreferrer"`);
+    expect(renderToStaticMarkup(<EpicPage epic={epic()} issues={[]} now={now} />)).not.toContain(
+      "<dl",
+    );
   });
 });

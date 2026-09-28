@@ -7,12 +7,14 @@ import type { Actor } from "./actor";
 import { record } from "./events";
 import { linkBetween } from "./graph";
 import { mint } from "./ids";
+import { type Link, linkRecord } from "./links";
 
 type BlockerFields = {
   kind: Doc<"blockers">["kind"];
   owner: string;
   title: string;
   whatResolves: string;
+  links?: Link[];
   nudgeAt?: number;
 };
 
@@ -33,6 +35,7 @@ export async function raiseBlocker(
     owner: fields.owner,
     title: fields.title,
     whatResolves: fields.whatResolves,
+    ...(fields.links === undefined || fields.links.length === 0 ? {} : { links: fields.links }),
     ...(fields.nudgeAt === undefined ? {} : { nudgeAt: fields.nudgeAt }),
     status: "raised",
     raisedBy: actor,
@@ -50,6 +53,9 @@ export async function raiseBlocker(
       owner: fields.owner,
       title: fields.title,
       whatResolves: fields.whatResolves,
+      ...(fields.links === undefined || fields.links.length === 0
+        ? {}
+        : { links: linkRecord(fields.links) }),
       ...(fields.nudgeAt === undefined ? {} : { nudgeAt: fields.nudgeAt }),
       issue: issue.id,
     },

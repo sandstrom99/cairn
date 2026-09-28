@@ -14,6 +14,7 @@ import {
   closeIssue,
   eventsOf,
   fresh,
+  other,
   raise,
   rawIssue,
   seed,
@@ -195,6 +196,129 @@ describe("epic health", () => {
     expect(listed.find((e) => e.id === "ep-2")!.lastActivity).toBe(
       Date.parse("2026-09-22T10:00:00Z"),
     );
+  });
+});
+
+describe("epics.update", () => {
+  it("stores a link given at create, stamped with who gave it", async () => {
+    at("2026-09-28T09:00:00Z");
+    const t = fresh();
+    const created = await t.mutation(api.epics.create, {
+      actor,
+      title: "a plan",
+      link: [{ url: " https://example.com/plan ", label: "plan" }],
+    });
+    expect(created.links).toEqual([
+      { url: "https://example.com/plan", label: "plan", by: actor, at: Date.now() },
+    ]);
+    expect((await t.mutation(api.epics.create, { actor, title: "bare" })).links).toBeUndefined();
+  });
+
+  it("changes the title, the description and the links in one revision and one event", async () => {
+    at("2026-09-28T09:00:00Z");
+    const t = await work(1);
+    const updated = await t.mutation(api.epics.update, {
+      actor,
+      id: "ep-1",
+      revision: 0,
+      title: "Create, then close",
+      description: "the lifecycle",
+      link: [{ url: "https://example.com/plan", label: "plan" }],
+    });
+    expect(updated).toMatchObject({
+      id: "ep-1",
+      title: "Create, then close",
+      description: "the lifecycle",
+      links: [{ url: "https://example.com/plan", label: "plan", by: actor, at: Date.now() }],
+      revision: 1,
+      counts: { open: 1 },
+    });
+    const events = await eventsOf(t, "epic.update");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ actor, revision: 1 });
+    expect(events[0]!.changes).toEqual({
+      title: { from: "Create to close", to: "Create, then close" },
+      description: { from: undefined, to: "the lifecycle" },
+      links: { from: [], to: [{ url: "https://example.com/plan", label: "plan" }] },
+    });
+  });
+
+  it("rejects a stale revision with the epic.update since it", async () => {
+    const t = await work(0);
+    await t.mutation(api.epics.update, { actor, id: "ep-1", revision: 0, title: "one" });
+    await expect(
+      t.mutation(api.epics.update, { actor: other, id: "ep-1", revision: 0, title: "two" }),
+    ).rejects.toMatchObject({
+      data: {
+        kind: "stale",
+        id: "ep-1",
+        yours: 0,
+        current: 1,
+        since: [{ revision: 1, actor, kind: "epic.update" }],
+      },
+    });
+  });
+
+  it("hands the epic back as it was on a bare re-link, and unlinks what it carries", async () => {
+    const t = await work(0);
+    await t.mutation(api.epics.update, {
+      actor,
+      id: "ep-1",
+      revision: 0,
+      link: [{ url: "https://example.com/plan", label: "plan" }],
+    });
+    const again = await t.mutation(api.epics.update, {
+      actor,
+      id: "ep-1",
+      revision: 1,
+      link: [{ url: "https://example.com/plan" }],
+    });
+    expect(again).toMatchObject({ revision: 1, links: [{ label: "plan" }] });
+    expect(await eventsOf(t, "epic.update")).toHaveLength(1);
+
+    const unlinked = await t.mutation(api.epics.update, {
+      actor,
+      id: "ep-1",
+      revision: 1,
+      unlink: ["https://example.com/plan"],
+    });
+    expect(unlinked).toMatchObject({ revision: 2 });
+    expect(unlinked.links).toBeUndefined();
+  });
+
+  it("refuses a missing link, a bad URL, an empty title and an empty edit", async () => {
+    const t = await work(0);
+    const update = (fields: Record<string, unknown>) =>
+      t.mutation(api.epics.update, { actor, id: "ep-1", revision: 0, ...fields });
+    await expect(update({ unlink: ["https://example.com/missing"] })).rejects.toMatchObject({
+      data: { kind: "invalid", message: "ep-1 has no link https://example.com/missing" },
+    });
+    await expect(update({ link: [{ url: "javascript:alert(1)" }] })).rejects.toMatchObject({
+      data: { kind: "invalid", message: "javascript:alert(1) is not an http or https URL" },
+    });
+    await expect(update({ title: "  " })).rejects.toMatchObject({
+      data: { kind: "invalid", message: "an epic needs a title" },
+    });
+    await expect(update({})).rejects.toMatchObject({
+      data: { kind: "invalid", message: "nothing to update" },
+    });
+    expect(await eventsOf(t, "epic.update")).toEqual([]);
+  });
+
+  it("refuses the inbox and an epic that is no longer open", async () => {
+    const t = await work(0);
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
+    await expect(
+      t.mutation(api.epics.update, { actor, id: "ep-0", revision: 0, title: "not the inbox" }),
+    ).rejects.toMatchObject({
+      data: { kind: "invalid", message: "ep-0 is the inbox; it does not change" },
+    });
+    await t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 });
+    await expect(
+      t.mutation(api.epics.update, { actor, id: "ep-1", revision: 1, title: "reopened" }),
+    ).rejects.toMatchObject({
+      data: { kind: "invalid", message: "ep-1 is closed; nothing about it changes now" },
+    });
   });
 });
 

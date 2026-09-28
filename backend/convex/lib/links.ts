@@ -74,6 +74,32 @@ export function removeLinks(current: Link[], remove: string[], id: string): Link
   return current.filter((link) => !urls.includes(link.url));
 }
 
+/**
+ * An edit's links: `current` with `unlink` taken off, then `link` put on with the stamp. A
+ * URL given to both is refused. Undefined when the edit changes nothing a reader sees, so
+ * the caller writes nothing for it and moves no revision; `next` is undefined when no link
+ * is left, which takes the field off.
+ */
+export function editLinks(
+  current: Link[] | undefined,
+  edit: { link?: LinkInput[]; unlink?: string[] },
+  id: string,
+  stamp: { by: Actor; at: number },
+): { next: Link[] | undefined; change: { from: LinkInput[]; to: LinkInput[] } } | undefined {
+  const link = edit.link ?? [];
+  const unlink = edit.unlink ?? [];
+  for (const url of unlink)
+    if (link.some((l) => l.url.trim() === url.trim()))
+      throw invalid(`${url.trim()} is both linked and unlinked`);
+  const was = current ?? [];
+  const next = addLinks(removeLinks(was, unlink, id), link, stamp);
+  if (JSON.stringify(linkRecord(was)) === JSON.stringify(linkRecord(next))) return undefined;
+  return {
+    next: next.length > 0 ? next : undefined,
+    change: { from: linkRecord(was), to: linkRecord(next) },
+  };
+}
+
 /** What an event records of the links: each URL and its label, never who or when. */
 export const linkRecord = (links: Link[]): LinkInput[] =>
   links.map(({ url, label }) => (label === undefined ? { url } : { url, label }));

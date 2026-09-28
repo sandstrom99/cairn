@@ -37,6 +37,15 @@ describe("cn wait", () => {
     expect(() => parse(["cn-2", "--on", "bl-3", "--nudge", "2026-10-01"])).toThrow(UsageError);
   });
 
+  it("carries a link for a new blocker, and refuses one beside --on", () => {
+    expect(parse([...NEW, "--link", "[options](https://example.com/o)"])).toMatchObject({
+      args: { link: [{ url: "https://example.com/o", label: "options" }] },
+    });
+    expect(() => parse(["cn-2", "--on", "bl-3", "--link", "https://example.com/x"])).toThrow(
+      /^--on attaches an existing blocker; --link describes a new one$/,
+    );
+  });
+
   it("turns --nudge into a number, and refuses what is not a date", () => {
     expect(parse([...NEW, "--nudge", "2026-10-01"])).toMatchObject({
       args: { nudgeAt: Date.parse("2026-10-01") },

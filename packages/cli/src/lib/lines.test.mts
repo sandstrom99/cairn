@@ -670,10 +670,34 @@ describe("brief", () => {
       issues: [{ id: "cn-1", title: "schema, ids", status: "open", priority: 0 }],
     });
     expect(brief(shown, now).split("\n")).toEqual([
-      'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups',
+      'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups · revision 0',
       '  waiting  bl-3 "confirm the invite copy" · owner balder',
       "an agent creates, claims, journals and closes work",
       '  cn-1 "schema, ids" P0 open',
+    ]);
+  });
+
+  it("prints an epic's links under its head, before its description", () => {
+    const shown = epic({
+      description: "the plan",
+      revision: 3,
+      links: [{ url: "https://example.com/plan", label: "plan", by: agent, at: ago(2 * HOUR) }],
+    });
+    expect(brief(shown, now).split("\n")).toEqual([
+      'ep-1 "Create to close"  0 done · 0 open · 0 follow-ups · revision 3',
+      `links           plan · https://example.com/plan · by ${agent.name} 2h ago`,
+      "the plan",
+    ]);
+  });
+
+  it("prints a blocker's links after what it holds", () => {
+    const shown = blocker({
+      issues: [{ id: "cn-1", title: "schema, ids" }],
+      links: [{ url: "https://example.com/options", by: agent, at: now }],
+    });
+    expect(brief(shown, now).split("\n").slice(-2)).toEqual([
+      'holds           cn-1 "schema, ids"',
+      `links           https://example.com/options · by ${agent.name} just now`,
     ]);
   });
 
@@ -685,7 +709,7 @@ describe("brief", () => {
     expect(brief(shown, now).split("\n")).toEqual([
       'bl-1 "the App Store agreement"',
       "kind            approval · owner balder",
-      "status          raised 2h ago by wsl/claude",
+      "status          raised 2h ago by wsl/claude · revision 0",
       "resolves when   accept it in App Store Connect",
       "nudge           2026-10-01",
       'holds           cn-1 "schema, ids"',
@@ -703,7 +727,7 @@ describe("brief", () => {
       events: [changed],
     });
     const lines = brief(shown, now).split("\n");
-    expect(lines).toContain("status          resolved · raised 1d ago by wsl/claude");
+    expect(lines).toContain("status          resolved · raised 1d ago by wsl/claude · revision 1");
     expect(lines).toContain("resolved        by wsl/balder 1h ago: accepted");
     expect(lines.at(-2)).toBe("history");
   });

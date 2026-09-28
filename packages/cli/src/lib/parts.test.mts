@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { blockerLine, healthLines } from "./lines.mts";
 import {
+  blockerFacts,
   blockerParts,
   changePieces,
   firstLine,
   healthParts,
   issueFacts,
+  linkFacts,
   linkParts,
   logParts,
   proofParts,
   stateLine,
   stateParts,
 } from "./parts.mts";
-import { DAY, HOUR, MINUTE, ago, issue, now } from "./testing.mts";
+import { DAY, HOUR, MINUTE, ago, blocker, issue, now } from "./testing.mts";
 
 describe("stateParts", () => {
   it("is one word and what it rests on, in the order the words matter", () => {
@@ -109,6 +111,33 @@ describe("linkParts", () => {
     });
     expect(issueFacts(issue(), now).map((f) => f.label)).not.toContain("links");
     expect(issueFacts(issue({ links: [] }), now).map((f) => f.label)).not.toContain("links");
+  });
+
+  it("is one fact or none, whatever carries the links", () => {
+    const links = [{ url: "https://example.com/b", by, at: now }];
+    expect(linkFacts(links, now)).toEqual([
+      { label: "links", links: [{ url: "https://example.com/b", by: "by wsl/claude just now" }] },
+    ]);
+    expect(linkFacts(undefined, now)).toEqual([]);
+    expect(linkFacts([], now)).toEqual([]);
+  });
+
+  it("is a blocker's last fact where it has links, after its status and what it holds", () => {
+    const links = [{ url: "https://example.com/options", label: "options", by, at: ago(HOUR) }];
+    const facts = blockerFacts(
+      blocker({ links, revision: 2, issues: [{ id: "cn-1", title: "schema, ids" }] }),
+      now,
+    );
+    expect(facts.find((f) => f.label === "status")).toEqual({
+      label: "status",
+      text: "raised 2h ago by wsl/claude · revision 2",
+    });
+    expect(facts.map((f) => f.label).slice(-2)).toEqual(["holds", "links"]);
+    expect(facts.at(-1)).toEqual({
+      label: "links",
+      links: [{ url: "https://example.com/options", label: "options", by: "by wsl/claude 1h ago" }],
+    });
+    expect(blockerFacts(blocker(), now).map((f) => f.label)).not.toContain("links");
   });
 });
 

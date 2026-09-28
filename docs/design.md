@@ -99,6 +99,7 @@ counters      key               string        "ep", "bl", or a project slug
 epics         id                string        ep-7. ep-0 is the one inbox
               title             string
               description?      string
+              links?            { url, label?, by, at }[]   http and https only
               status            open | closed | dropped
               droppedReason?    string        the epic view returns it, like an issue's
               revision          number
@@ -141,6 +142,7 @@ blockers      id                string        bl-3
               owner             string        who must act
               title             string
               whatResolves      string
+              links?            { url, label?, by, at }[]   http and https only
               nudgeAt?          number
               status            raised | waiting | resolved
               raisedBy          actor
@@ -272,19 +274,21 @@ author and a timestamp, and every append stamps the issue's `lastActivity`. Wher
 
 ### Links
 
-An issue carries links to what its work left behind: a pull request, a commit, a Claude
-artifact, a doc, a screenshot, a dashboard. A link is a URL, an optional label, who added
-it and when.
+Issues, epics and blockers carry links. On an issue they point at what its work left
+behind: a pull request, a commit, a Claude artifact, a doc, a screenshot, a dashboard. A
+link is a URL, an optional label, who added it and when.
 
-It is a field of the issue. `--link` on `cn create` sets it, and `--link` and `--unlink`
-on `cn update` change it, against the revision like any edit. A URL already there takes
-the new label, and a bare one leaves it as it is, so linking twice is harmless. Only
-http and https are accepted, because the page renders a link as an anchor. It prints as
-its label, then its URL, then who added it and when:
+It is a field of the thing, the same on all three. `--link` on `cn create`, `cn epic new`
+and `cn wait` sets it, and `--link` and `--unlink` on `cn update` change it, against the
+revision like any edit. A URL already there takes the new label, and a bare one leaves it
+as it is, so linking twice is harmless. Only http and https are accepted, because the page
+renders a link as an anchor. It prints as its label, then its URL, then who added it and
+when:
 
     doc · https://example.com/doc · by balder/claude 2h ago
 
-Epics and blockers are to carry links the same way, through cn-82 and cn-83.
+An epic's links are where its plan doc goes. A decision blocker's are where the artifact
+laying out its options goes, since the blocker is what a person is asked to resolve.
 
 cairn knows no code host. A pull request is a link like any other: nothing reads its
 state, nothing tells a merged one from an open one, and nothing counts toward readiness,
@@ -396,6 +400,10 @@ this close was the last thing holding, each as a ready row, and `cn close` print
 them under the closed issue so an agent's loop continues without a second
 `cn ready`. Nothing is stored for it: the edge stays, and reads `done` (§7).
 
+**Edit an epic.** An epic's title, description and links are edited with
+`cn update ep-N` against its revision, as an issue's are, while it is open; ep-0,
+the inbox, is not.
+
 ### Follow-ups: residue that must not hang
 
 The problem, in Balder's own two cases:
@@ -461,6 +469,7 @@ blockers    kind          approval | external-wait | decision | credential | pur
             owner         who must act
             title         what is being waited on
             whatResolves  what would end it
+            links         optional; where a decision's options are laid out (§3, "Links")
             nudgeAt       optional date
             status        raised → waiting → resolved
             raisedBy      which agent raised it
@@ -469,6 +478,9 @@ blockers    kind          approval | external-wait | decision | credential | pur
 - One blocker can block **many** issues, through `blockerLinks`. `cn wait <issue>`
   raises a new one, `bl-3 "App Store review"`, or attaches an existing one with
   `--on bl-3`; both are `blockers.raise`.
+- A blocker's title, what resolves it and its links are edited with
+  `cn update bl-N` against its revision, while kind and owner stay as raised:
+  changing who a blocker waits on is multi-user ground, parked with cn-28 (§13).
 - **Agents raise them. Agents may never resolve them.** `blockers.resolve` and
   `blockers.ack` reject an actor of kind `agent`. Until auth exists that is a
   guardrail against an honest agent, not a lock against a lying one, and that is
@@ -825,7 +837,7 @@ the CLI, and the reasons it went are below.
 
 | Surface | For |
 |---|---|
-| **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function. |
+| **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function, and `cn update` runs its kind's own function, by the id. |
 | **Claude Code plugin** | Skill, SessionStart and Stop hooks, slash commands, and the evals that hold the skill's rules in a real session. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
 | **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. Then the human channel, acking and resolving blockers from the page, which is where identity auth arrives (§13). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
 
@@ -915,15 +927,15 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
 | `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios] [--link <url>…]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
-| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires] [--link] [--unlink]` | `issues.update` | mutation |
+| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires] [--resolves] [--link] [--unlink]` | `issues.update`, `epics.update` or `blockers.update`, by the id: an epic takes its title, description and links, a blocker its title, `--resolves` and links | mutation |
 | `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
 | `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --requires ios --priority 1]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
 | `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
-| `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
+| `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
 | `cn waiting` | `blockers.list` | query |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | `blockers.ack` · `blockers.resolve` | mutation, human only |
-| `cn epic new <title> [--description …]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
+| `cn epic new <title> [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
 | `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping | query |

@@ -10,7 +10,8 @@ import { mint } from "./lib/ids";
 import { INBOX_ID } from "./lib/inbox";
 import { nowArg } from "./lib/clock";
 import { epicHealth } from "./lib/health";
-import { closeEpic, dropEpic, dropIssue, insertEpic } from "./lib/lifecycle";
+import { closeEpic, dropEpic, dropIssue, editEpic, insertEpic } from "./lib/lifecycle";
+import { addLinks, linkInputValidator } from "./lib/links";
 import { epicById } from "./lib/lookup";
 import { idOrder } from "./lib/order";
 import { expectRevision } from "./lib/revision";
@@ -18,10 +19,16 @@ import { isLive } from "./lib/validators";
 import { epicView, ref } from "./lib/views";
 
 export const create = mutation({
-  args: { actor: actorValidator, title: v.string(), description: v.optional(v.string()) },
-  handler: async (ctx, { actor, title, description }) => {
+  args: {
+    actor: actorValidator,
+    title: v.string(),
+    description: v.optional(v.string()),
+    link: v.optional(v.array(linkInputValidator)),
+  },
+  handler: async (ctx, { actor, title, description, link }) => {
+    const links = addLinks([], link ?? [], { by: actor, at: Date.now() });
     const n = await mint(ctx, "ep");
-    const doc = await insertEpic(ctx, actor, { id: `ep-${n}`, title, description });
+    const doc = await insertEpic(ctx, actor, { id: `ep-${n}`, title, description, links });
     return epicView(doc, []);
   },
 });
@@ -39,6 +46,39 @@ export const list = query({
     return await Promise.all(
       rows.map(async (doc) => epicHealth(ctx, doc, await issuesIn(ctx, doc._id), now)),
     );
+  },
+});
+
+/**
+ * An epic's title, description and links, against the revision the writer read, as
+ * `issues.update` edits an issue's. Only an open epic changes: a closed or dropped one is
+ * history. ep-0 never does, since the inbox is where work lands when nothing says where it
+ * belongs, and its name says so.
+ */
+export const update = mutation({
+  args: {
+    actor: actorValidator,
+    id: v.string(),
+    revision: v.number(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    link: v.optional(v.array(linkInputValidator)),
+    unlink: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const doc = await epicById(ctx, args.id);
+    if (doc.id === INBOX_ID) throw invalid("ep-0 is the inbox; it does not change");
+    await expectRevision(ctx, { table: "epics", doc }, args.revision);
+    if (doc.status !== "open")
+      throw invalid(`${doc.id} is ${doc.status}; nothing about it changes now`);
+
+    const edited = await editEpic(ctx, args.actor, doc, {
+      title: args.title,
+      description: args.description,
+      link: args.link,
+      unlink: args.unlink,
+    });
+    return epicView(edited, await issuesIn(ctx, edited._id));
   },
 });
 

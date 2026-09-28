@@ -40,6 +40,8 @@ export default defineSchema({
     id: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
+    // Absent means none: an epic with no links carries no empty array (lib/links.ts).
+    links: v.optional(v.array(linkValidator)),
     status: epicStatusValidator,
     droppedReason: v.optional(v.string()),
     revision: v.number(),
@@ -94,6 +96,8 @@ export default defineSchema({
     owner: v.string(),
     title: v.string(),
     whatResolves: v.string(),
+    // Absent means none: a blocker with no links carries no empty array (lib/links.ts).
+    links: v.optional(v.array(linkValidator)),
     nudgeAt: v.optional(v.number()),
     status: blockerStatusValidator,
     raisedBy: actorValidator,

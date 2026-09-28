@@ -829,6 +829,161 @@ row("verbs/close.mts (offer)", () => {
   assert.equal(json("review ep-2").canClose, false, "a closed epic still says canClose");
 });
 
+row("verbs/update.mts (epic)", () => {
+  const made = pass(
+    `epic new 'scratch: plan' --link '[plan](https://example.com/plan)'`,
+    "cn epic new --link was refused",
+  );
+  assert.match(made.out, /ep-3/, "the third epic did not mint ep-3");
+
+  const shown = lines(pass("show ep-3", "cn show ep-3 exited non-zero").stdout);
+  assert.equal(
+    shown[0],
+    'ep-3 "scratch: plan"  0 done · 0 open · 0 follow-ups · revision 0',
+    "cn show ep-3 does not open with the epic's head and its revision",
+  );
+  assert.ok(
+    shown.includes("links           plan · https://example.com/plan · by e2e/claude just now"),
+    "cn show ep-3 does not print the link given at cn epic new",
+  );
+  assert.deepEqual(
+    json("show ep-3").links.map((l) => [l.url, l.label, l.by.name]),
+    [["https://example.com/plan", "plan", "e2e/claude"]],
+    "cn show ep-3 --json does not carry the link with who added it",
+  );
+
+  const line = `update ep-3 --revision 0 --title 'scratch: the plan' --description 'scratch: why'`;
+  const updated = pass(line, "cn update ep-3 against the revision cn printed was refused");
+  assert.equal(
+    updated.stdout.trim(),
+    'ep-3 "scratch: the plan" r1',
+    "cn update ep-3 does not print the epic and its new revision",
+  );
+  const stale = cn(line);
+  assert.equal(stale.status, 1, "a write to an epic against a moved revision was not refused");
+  assert.match(
+    stale.out,
+    /^✗ ep-3 is at revision 1, you read 0$/m,
+    "the refusal does not name the revision the epic is at and the one read",
+  );
+  assert.match(
+    stale.out,
+    /^ {2}r1 {2}e2e\/claude {2}just now {2}epic\.update {2}/m,
+    "the refusal does not list the epic.update that moved it",
+  );
+  assert.equal(
+    lines(stale.out).at(-1),
+    "  re-read with cn show ep-3 and retry with --revision 1",
+    "the refusal does not end with the real cn show and --revision to retry with",
+  );
+
+  pass(
+    "update ep-3 --revision 1 --link https://example.com/b",
+    "cn update ep-3 --link was refused",
+  );
+  assert.match(
+    pass("log --limit 1", "cn log --limit 1 exited non-zero").stdout,
+    /^ep-3 "scratch: the plan" {2}epic\.update .*linked https:\/\/example\.com\/b/,
+    "cn log does not read the epic's link edit as linked",
+  );
+
+  const priority = cn("update ep-3 --revision 2 --priority 1");
+  assert.equal(priority.status, 2, "a flag an epic has no field for was not a usage error");
+  assert.match(
+    priority.out,
+    /an epic has no --priority; cn update ep-3 takes --title, --description, --link and --unlink/,
+    "the refusal does not name the flag and what an epic takes",
+  );
+
+  const closed = cn(`update ep-2 --revision ${revisionOf("ep-2")} --title scratch`);
+  assert.equal(closed.status, 1, "a closed epic was allowed to change");
+  assert.match(closed.out, /ep-2 is closed; nothing about it changes now/);
+  const inbox = cn(`update ep-0 --revision ${revisionOf("ep-0")} --title scratch`);
+  assert.equal(inbox.status, 1, "the inbox was allowed to change");
+  assert.match(inbox.out, /ep-0 is the inbox; it does not change/);
+});
+
+row("verbs/update.mts (blocker)", () => {
+  const made = pass(
+    `create --project cn --epic ep-3 --title 'scratch: a decision'`,
+    "cn create in ep-3 was refused",
+  );
+  const issue = made.stdout.match(/^(cn-\d+) /)?.[1];
+  assert.ok(issue, "cn create did not print the new issue's id first");
+
+  const raised = pass(
+    `wait ${issue} --kind decision --owner balder --title 'scratch: options' --resolves 'scratch: one is picked' --link '[options](https://example.com/options)'`,
+    "cn wait --link was refused",
+  );
+  assert.match(raised.out, /bl-2/, "the second blocker did not mint bl-2");
+
+  const shown = lines(pass("show bl-2", "cn show bl-2 exited non-zero").stdout);
+  assert.ok(
+    shown.some((l) => /^status {10}.* · revision 0$/.test(l)),
+    "cn show bl-2 does not end its status line with the revision",
+  );
+  assert.ok(
+    shown.includes(
+      "links           options · https://example.com/options · by e2e/claude just now",
+    ),
+    "cn show bl-2 does not print the link given at cn wait",
+  );
+  assert.deepEqual(
+    json("show bl-2").links.map((l) => [l.url, l.label, l.by.name]),
+    [["https://example.com/options", "options", "e2e/claude"]],
+    "cn show bl-2 --json does not carry the link with who added it",
+  );
+
+  const line = `update bl-2 --revision 0 --title 'scratch: the options' --resolves 'scratch: one is chosen'`;
+  const updated = pass(line, "cn update bl-2 against the revision cn printed was refused");
+  assert.match(
+    updated.stdout.trim(),
+    /^bl-2 "scratch: the options" .* r1$/,
+    "cn update bl-2 does not print the blocker's line and its new revision",
+  );
+  const stale = cn(line);
+  assert.equal(stale.status, 1, "a write to a blocker against a moved revision was not refused");
+  assert.match(stale.out, /^✗ bl-2 is at revision 1, you read 0$/m);
+  assert.match(
+    stale.out,
+    /^ {2}r1 {2}e2e\/claude {2}just now {2}blocker\.update {2}/m,
+    "the refusal does not list the blocker.update that moved it",
+  );
+  assert.equal(
+    lines(stale.out).at(-1),
+    "  re-read with cn show bl-2 and retry with --revision 1",
+    "the refusal does not end with the real cn show and --revision to retry with",
+  );
+
+  pass(
+    "update bl-2 --revision 1 --unlink https://example.com/options --link https://example.com/choice",
+    "cn update bl-2 --unlink --link was refused",
+  );
+  const after = json("show bl-2");
+  assert.deepEqual(
+    after.links.map((l) => l.url),
+    ["https://example.com/choice"],
+    "the unlink and the link on bl-2 did not land",
+  );
+  assert.equal(after.whatResolves, "scratch: one is chosen", "--resolves did not land");
+
+  const description = cn("update bl-2 --revision 2 --description x");
+  assert.equal(description.status, 2, "a flag a blocker has no field for was not a usage error");
+  assert.match(
+    description.out,
+    /a blocker has no --description; cn update bl-2 takes --title, --resolves, --link and --unlink/,
+  );
+  const owner = cn("update bl-2 --revision 2 --owner someone");
+  assert.equal(owner.status, 2, "--owner on cn update was not a usage error");
+  assert.match(owner.out, /--owner/, "the refusal does not name --owner");
+  const attach = cn(`wait ${issue} --on bl-2 --link https://example.com/x`);
+  assert.equal(attach.status, 2, "--link beside --on was not a usage error");
+  assert.match(attach.out, /--link/, "the refusal does not name --link");
+  const resolved = cn(`update bl-1 --revision ${revisionOf("bl-1")} --title scratch`);
+  assert.equal(resolved.status, 1, "a resolved blocker was allowed to change");
+  assert.match(resolved.out, /bl-1 was resolved by/);
+});
+
 row("plugins/cairn/hooks/stop.sh", () => {
   const stop = (session, extra = {}, opts = {}) =>
     stopHook(JSON.stringify({ session_id: session, hook_event_name: "Stop", ...extra }), opts);

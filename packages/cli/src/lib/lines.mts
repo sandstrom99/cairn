@@ -20,6 +20,7 @@ import {
   issueFacts,
   issueParts,
   journalParts,
+  linkFacts,
   logParts,
   named,
   refs,
@@ -316,7 +317,11 @@ const journalLine = (e: JournalEntry, now: number = Date.now()): string => {
 /** The ten-line brief of `cn show`, one shape per kind. */
 export function brief(shown: Shown, now: number = Date.now()): string {
   if (shown.kind === "epic") {
-    const lines = healthLines(shown, now);
+    // The head gains the revision here alone, for `cn update ep-N`: a health block in
+    // `cn epic list` or `cn review` is read, not written against.
+    const [head, ...health] = healthLines(shown, now);
+    const lines = [`${head} · revision ${shown.revision}`, ...health];
+    lines.push(...linkFacts(shown.links, now).map(factLine));
     if (shown.description) lines.push(shown.description);
     lines.push(...shown.issues.map((i) => `  ${issueLine(i)}`));
     return lines.join("\n");

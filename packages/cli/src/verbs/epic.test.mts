@@ -13,6 +13,13 @@ describe("cn epic", () => {
     });
   });
 
+  it("parses new with a link, as cn create takes one", () => {
+    expect(parse(["new", "t", "--link", "[plan](https://example.com/p)"])).toEqual({
+      action: "new",
+      args: { title: "t", link: [{ url: "https://example.com/p", label: "plan" }] },
+    });
+  });
+
   it("takes an unquoted title as one title", () => {
     expect(parse(["new", "Create", "to", "close"])).toEqual({
       action: "new",

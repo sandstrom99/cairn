@@ -91,15 +91,15 @@ an issue.
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line; `--link <url>` or `--link '[label](url)'` puts a link on it, and repeats | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
-| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer, requires; `--link` adds a link or relabels one, `--unlink <url>` takes one off | `issues.update` |
+| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer, requires; `--link` adds a link or relabels one, `--unlink <url>` takes one off. The id says what changes: an epic takes its title, description and links, a blocker its title, `--resolves` and links, and a flag the thing has no field for is refused | `issues.update` · `epics.update` · `blockers.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
 | `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line; each open issue the close was the last thing holding is printed under it as a `ready` line, the next thing to pick without another `cn ready` | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
 | `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
-| `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists | `blockers.raise` |
+| `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists; `--link` puts a link on a new one | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl>` · `cn resolve <bl> --note …` | humans only | `blockers.ack` · `blockers.resolve` |
-| `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
+| `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic new --link` puts a link on the new epic, `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges into finished issues, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret | `projects.list`, as the check |
@@ -118,7 +118,8 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
   would be lost to compaction. `cn wait <id>` the moment the work needs a person.
   `cn dep add <id> --blocked-by <other>` when one thing turns out to block another.
   When the work leaves something behind that someone will want to find again, put it on
-  the issue as a link: `cn update <id> --revision N --link '[label](url)'`.
+  the issue as a link: `cn update <id> --revision N --link '[label](url)'`. An epic's plan
+  doc and a decision blocker's options go on the epic and the blocker the same way.
   `cn search <text>` before `cn create`: what you are about to file may already be there,
   open or closed, and then the answer is that issue, not a second one.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and

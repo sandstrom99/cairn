@@ -13,6 +13,7 @@ import {
   healthParts,
   issueFacts,
   journalParts,
+  linkFacts,
   proofParts,
   stateParts,
 } from "@cairn/cli/parts";
@@ -141,6 +142,7 @@ export function EpicPage({
   now: number;
 }) {
   const { counts, rows } = healthParts(epic, now);
+  const links = linkFacts(epic.links, now);
   return (
     <article>
       <Crumbs />
@@ -152,6 +154,11 @@ export function EpicPage({
       {rows.length > 0 && (
         <div className="mt-6">
           <HealthRows rows={rows} />
+        </div>
+      )}
+      {links.length > 0 && (
+        <div className="mt-6">
+          <Sheet facts={links} />
         </div>
       )}
       {epic.description && (
