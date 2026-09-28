@@ -4,8 +4,9 @@
 // the guard wanting the secret and gets the Connect form, which asks for one when this
 // browser sent none and says it was refused when it sent one; not-found is the deployment
 // answering that nothing has that id and gets Lost; anything else is broken and gets its
-// message, plainly. convex/react throws out of useQuery, which is how a query's refusal
-// reaches a boundary above it.
+// message, plainly, less anything that would put the secret on screen (`scrubbed`).
+// convex/react throws out of useQuery, which is how a query's refusal reaches a boundary
+// above it.
 import type { CairnError } from "@cairn/backend/convex/lib/errors.js";
 import { ConvexError } from "convex/values";
 import { Component, type ReactNode } from "react";
@@ -22,33 +23,51 @@ export function errorData(error: unknown): CairnError | undefined {
     : undefined;
 }
 
+/**
+ * An error's message as the page prints it. Convex answers a call its validator refuses with
+ * the whole request echoed on one line, `Object: {…, secret: "…"}`, between the error and the
+ * validator; that line is cut, and the secret itself becomes `…` anywhere else it appears, so
+ * no screenshot of a broken page carries it (cn-73). The function, the request id and the
+ * validator's own words stay.
+ */
+export function scrubbed(message: string, secret: string | undefined): string {
+  const cut = message
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("Object: "))
+    .join("\n");
+  return secret ? cut.split(secret).join("…") : cut;
+}
+
 /** What the gate shows for an error, by its kind. */
 export function Fallback({
   error,
   host,
-  sent,
+  secret,
   what,
   onSecret,
 }: {
   error: Error;
   host: string;
-  /** Whether the calls carried a secret, which is what makes an `unauthorized` a refusal. */
-  sent: boolean;
+  /**
+   * The secret the calls carried, if any: an `unauthorized` with one is a refusal, and no
+   * error's text prints it.
+   */
+  secret: string | undefined;
   what?: string;
   onSecret: (secret: string) => void;
 }): ReactNode {
   const data = errorData(error);
   if (data?.kind === "unauthorized")
-    return <Connect host={host} refused={sent} onSecret={onSecret} />;
+    return <Connect host={host} refused={secret !== undefined} onSecret={onSecret} />;
   if (data?.kind === "not-found") return <Lost what={what ?? data.message} />;
-  return <Broken message={data?.message ?? error.message} />;
+  return <Broken message={data?.message ?? error.message} secret={secret} />;
 }
 
 /** The boundary: its children until one of them throws, then the fallback for that error. */
 export class Gate extends Component<
   {
     host: string;
-    sent: boolean;
+    secret: string | undefined;
     what?: string;
     onSecret: (secret: string) => void;
     children: ReactNode;
@@ -64,8 +83,8 @@ export class Gate extends Component<
   render(): ReactNode {
     const { error } = this.state;
     if (error === undefined) return this.props.children;
-    const { host, sent, what, onSecret } = this.props;
-    return <Fallback error={error} host={host} sent={sent} what={what} onSecret={onSecret} />;
+    const { host, secret, what, onSecret } = this.props;
+    return <Fallback error={error} host={host} secret={secret} what={what} onSecret={onSecret} />;
   }
 }
 
@@ -85,13 +104,16 @@ export function Lost({ what }: { what: string }) {
   );
 }
 
-/** An error that is neither a refused secret nor a missing id: its message, and the way back. */
-export function Broken({ message }: { message: string }) {
+/**
+ * An error that is neither a refused secret nor a missing id: its message, scrubbed of the
+ * secret the calls carried, and the way back.
+ */
+export function Broken({ message, secret }: { message: string; secret: string | undefined }) {
   return (
     <div>
       <Title>Something broke</Title>
       <p className="mt-3 text-slate">
-        <span className="font-mono text-row">{message}</span>{" "}
+        <span className="font-mono text-row">{scrubbed(message, secret)}</span>{" "}
         <a href="/" className="text-ink underline decoration-faint underline-offset-[3px]">
           Back to the overview
         </a>
