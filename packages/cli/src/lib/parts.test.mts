@@ -125,7 +125,11 @@ describe("linkParts", () => {
   it("is a blocker's last fact where it has links, after its status and what it holds", () => {
     const links = [{ url: "https://example.com/options", label: "options", by, at: ago(HOUR) }];
     const facts = blockerFacts(
-      blocker({ links, revision: 2, issues: [{ id: "cn-1", title: "schema, ids" }] }),
+      blocker({
+        links,
+        revision: 2,
+        issues: [{ id: "cn-1", title: "schema, ids", status: "open" }],
+      }),
       now,
     );
     expect(facts.find((f) => f.label === "status")).toEqual({

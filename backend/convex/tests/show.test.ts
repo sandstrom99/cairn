@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { DAY } from "../lib/thresholds";
-import { actor, at, closeIssue, raise, seed } from "./test.fixtures";
+import { actor, at, closeIssue, raise, rawIssue, seed } from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
 
@@ -43,7 +43,7 @@ describe("show.get", () => {
       duplicates: [],
       supersedes: [],
       waitingOn: [],
-      followUps: [{ id: "cn-2", title: "check it on a device" }],
+      followUps: [{ id: "cn-2", title: "check it on a device", status: "open" }],
       journal: [
         {
           author: actor,
@@ -69,13 +69,79 @@ describe("show.get", () => {
 
     const shown = await t.query(api.show.get, { id: "cn-1" });
     if (shown.kind !== "issue") throw new Error("cn-1 is an issue");
-    const idsOf = (refs: { id: string }[]) => refs.map((r) => r.id);
-    expect(idsOf(shown.blocks)).toEqual(["cn-3"]);
-    expect(idsOf(shown.blockedBy)).toEqual(["cn-2"]);
-    expect(idsOf(shown.related)).toEqual(["cn-4"]);
-    expect(idsOf(shown.discoveredFrom)).toEqual(["cn-2"]);
-    expect(idsOf(shown.duplicates)).toEqual(["cn-5"]);
-    expect(idsOf(shown.supersedes)).toEqual(["cn-4"]);
+    expect(shown.blocks).toEqual([{ id: "cn-3", title: "the graph", status: "open" }]);
+    expect(shown.blockedBy).toEqual([{ id: "cn-2", title: "the lifecycle", status: "open" }]);
+    expect(shown.related).toEqual([{ id: "cn-4", title: "the brief", status: "open" }]);
+    expect(shown.discoveredFrom).toEqual([{ id: "cn-2", title: "the lifecycle", status: "open" }]);
+    expect(shown.duplicates).toEqual([{ id: "cn-5", title: "a duplicate", status: "open" }]);
+    expect(shown.supersedes).toEqual([{ id: "cn-4", title: "the brief", status: "open" }]);
+  });
+
+  it("names every issue in the neighbourhood with its status, a dropped follow-up as dropped", async () => {
+    const t = await withFirst();
+    for (const title of ["check it on a device", "check it on a phone"])
+      await t.mutation(api.issues.create, {
+        actor,
+        project: "cn",
+        epic: "ep-1",
+        title,
+        type: "follow-up",
+        followUpKind: "verify",
+        parent: "cn-1",
+      });
+    for (const title of ["the lifecycle", "the graph", "the brief", "the feed"])
+      await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-4", type: "related" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-5", type: "discovered-from" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-6", type: "duplicates" });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-7", type: "supersedes" });
+    const revision = async (id: string) => (await rawIssue(t, id)).revision;
+    const drop = async (id: string) =>
+      t.mutation(api.issues.drop, {
+        actor,
+        id,
+        revision: await revision(id),
+        reason: "not wanted",
+      });
+    await drop("cn-2");
+    await closeIssue(t, "cn-3", await revision("cn-3"));
+    await closeIssue(t, "cn-4", await revision("cn-4"));
+    await drop("cn-5");
+    await closeIssue(t, "cn-6", await revision("cn-6"));
+    await closeIssue(t, "cn-7", await revision("cn-7"));
+
+    const shown = await t.query(api.show.get, { id: "cn-1" });
+    if (shown.kind !== "issue") throw new Error("cn-1 is an issue");
+    expect(shown.followUps).toEqual([
+      { id: "cn-2", title: "check it on a device", status: "dropped" },
+      { id: "cn-3", title: "check it on a phone", status: "closed" },
+    ]);
+    expect(shown.related).toEqual([{ id: "cn-4", title: "the lifecycle", status: "closed" }]);
+    expect(shown.discoveredFrom).toEqual([{ id: "cn-5", title: "the graph", status: "dropped" }]);
+    expect(shown.duplicates).toEqual([{ id: "cn-6", title: "the brief", status: "closed" }]);
+    expect(shown.supersedes).toEqual([{ id: "cn-7", title: "the feed", status: "closed" }]);
+
+    // A follow-up names its parent with the parent's status, open until it closes.
+    expect(await t.query(api.show.get, { id: "cn-3" })).toMatchObject({
+      parent: { id: "cn-1", status: "open" },
+    });
+    await closeIssue(t, "cn-1", await revision("cn-1"));
+    expect(await t.query(api.show.get, { id: "cn-3" })).toMatchObject({
+      parent: { id: "cn-1", status: "closed" },
+    });
+
+    // A blocker names each issue it holds with its status, a dropped one among them.
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "the page" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "the hook" });
+    await raise(t, "cn-8");
+    await t.mutation(api.blockers.raise, { actor, issue: "cn-9", on: "bl-1" });
+    await drop("cn-8");
+    expect(await t.query(api.show.get, { id: "bl-1" })).toMatchObject({
+      issues: [
+        { id: "cn-8", title: "the page", status: "dropped" },
+        { id: "cn-9", title: "the hook", status: "open" },
+      ],
+    });
   });
 
   it("returns an epic with its open issues in list order", async () => {

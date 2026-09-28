@@ -13,6 +13,14 @@ export type Ref = { id: string; title: string };
 /** Id and title, the two fields the reference form needs. */
 export const ref = (doc: { id: string; title: string }): Ref => ({ id: doc.id, title: doc.title });
 
+/**
+ * An issue with its status, the way every issue cairn names is read: a finished one reads as
+ * finished, not as live.
+ */
+export type End = Ref & { status: IssueStatus };
+
+export const end = (doc: Doc<"issues">): End => ({ ...ref(doc), status: doc.status });
+
 export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
   const project = await ctx.db.get(doc.projectId);
   const epic = await ctx.db.get(doc.epicId);
@@ -28,7 +36,7 @@ export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
     acceptance: doc.acceptance,
     type: doc.type,
     followUpKind: doc.followUpKind,
-    parent: parent ? ref(parent) : undefined,
+    parent: parent ? end(parent) : undefined,
     requires: doc.requires,
     links: doc.links,
     status: doc.status,
@@ -98,6 +106,6 @@ export async function blockerView(ctx: QueryCtx, doc: Doc<"blockers">) {
     resolution: doc.resolution,
     said: doc.said,
     revision: doc.revision,
-    issues: (await issuesHeldBy(ctx, doc._id)).map(ref),
+    issues: (await issuesHeldBy(ctx, doc._id)).map(end),
   };
 }

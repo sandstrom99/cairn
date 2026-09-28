@@ -684,8 +684,14 @@ row("verbs/close.mts", () => {
   assert.equal(shown.verification.exitCode, 0, "the record is not the real exit code");
   assert.match(shown.verification.output, /proof/, "the record does not carry what it wrote");
   assert.equal(shown.followUps.length, 1, "the follow-up does not exist beside the closed parent");
+  assert.equal(shown.followUps[0].status, "open", "the new follow-up does not carry its status");
   const printed = cn("show cn-2");
   assert.match(printed.out, /^status {10}closed just now · /m, "cn show does not read the close");
+  assert.match(
+    printed.out,
+    /^follow-ups {6}cn-\d+ "scratch: follow-up"$/m,
+    "cn show does not print the open follow-up as live, with no word after it",
+  );
   assert.match(
     printed.out,
     /^proof {11}echo proof \(exit 0\) by \S+ just now$/m,
@@ -899,6 +905,21 @@ row("verbs/close.mts (offer)", () => {
   assert.equal(followUps.length, 1, "the spawned follow-up does not sit beside the closed parent");
   const spawned = followUps[0].id;
 
+  // An edge from the closed twin into the open follow-up: one end finished and one live, so
+  // the review lists it.
+  pass(
+    `dep add ${spawned} --blocked-by ${twin}`,
+    `cn dep add ${spawned} --blocked-by ${twin} refused`,
+  );
+  assert.deepEqual(
+    lines(cn("review ep-2").stdout),
+    [
+      'ep-2 "scratch: review"  2 done · 0 open · 1 follow-up',
+      `  edge        ${twin} "scratch: the same title" done blocks ${spawned} "verify: scratch: the same title."`,
+    ],
+    "cn review does not list a blocks edge with one end finished and one live",
+  );
+
   const finishing = pass(
     `close ${spawned} --revision ${revisionOf(spawned)} --run 'echo proof'`,
     `cn close ${spawned} --run 'echo proof' was refused`,
@@ -908,6 +929,28 @@ row("verbs/close.mts (offer)", () => {
   assert.ok(
     lines(finishing.stdout).includes(`  epic       ep-2 "scratch: review" can close · ${offer}`),
     "the close of the epic's last issue does not print the cn epic close line",
+  );
+  // Every issue cn show names that is finished reads so: the follow-up from its parent, and
+  // the parent and the edge's far end from the follow-up.
+  assert.ok(
+    lines(cn(`show ${other}`).stdout).includes(
+      `follow-ups      ${spawned} "verify: scratch: the same title." done`,
+    ),
+    "cn show does not read a closed follow-up as done",
+  );
+  const shownSpawned = lines(cn(`show ${spawned}`).stdout);
+  assert.ok(
+    shownSpawned.includes(`parent          ${other} "scratch: the same title." done`),
+    "cn show does not read a closed parent as done",
+  );
+  assert.ok(
+    shownSpawned.includes(`blocked by      ${twin} "scratch: the same title" done`),
+    "cn show does not read the finished end of a blocks edge as done",
+  );
+  assert.equal(
+    json(`show ${other}`).followUps[0].status,
+    "closed",
+    "cn show --json does not carry a closed follow-up's status",
   );
 
   assert.deepEqual(

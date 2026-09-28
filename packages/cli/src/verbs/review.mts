@@ -11,7 +11,8 @@
 //   nudge       a blocker past the day it said to look again
 //   silent      a claim with no activity for 24 hours; nothing releases it
 //   unverified  a close marked --unverified with no follow-up beside it
-//   edge        a blocks edge with a finished end; it holds nothing and stays as history
+//   edge        a blocks edge with one end finished and one live; it holds nothing
+//               and stays as history
 //   can close   every issue is finished, so the cn epic close line to run
 //
 // With nothing to look at it prints the epic and `nothing to look at`.

@@ -13,7 +13,10 @@ import { describe, expect, it } from "vitest";
 import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
 
-/** The issue the page is opened on: held by this session, with an edge each way. */
+/**
+ * The issue the page is opened on: held by this session, with an edge each way, a closed
+ * parent and a dropped follow-up.
+ */
 const held = issue({
   id: "cn-26",
   epic: { id: "ep-4", title: "Humans in the loop" },
@@ -28,6 +31,8 @@ const held = issue({
   revision: 1,
   createdAt: now - DAY,
   journal: [{ author: agent, kind: "decision", body: "rows, not lines", at: now - 3 * HOUR }],
+  parent: { id: "cn-20", title: "the web window", status: "closed" },
+  followUps: [{ id: "cn-27", title: "verify: the read-only window", status: "dropped" }],
   blocks: [{ id: "cn-11", title: "the human channel", status: "open" }],
   blockedBy: [
     { id: "cn-23", title: "the skeleton", status: "closed" },
@@ -67,8 +72,11 @@ describe("an issue's page", () => {
   it("sets cn show's labelled lines as its table, in cn's words and order", () => {
     const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
     expect(plain(table)).toBe(factsOf(brief(held, now)));
-    // A finished end of a blocking edge carries cn's word after its reference.
+    // Every finished issue it names carries cn's word after its reference: a blocking
+    // edge's finished end, the parent and a follow-up alike.
     expect(plain(table)).toContain('blocked by cn-23 "the skeleton" done, cn-24 "the feed"');
+    expect(plain(table)).toContain('parent cn-20 "the web window" done');
+    expect(plain(table)).toContain('follow-ups cn-27 "verify: the read-only window" dropped');
   });
 
   it("opens with the state line cn's status line opens with, for every state", () => {
@@ -241,7 +249,7 @@ describe("a blocker's page", () => {
     title: "name the day the page goes live",
     blockerKind: "decision",
     whatResolves: "a date on or after 2026-09-24",
-    issues: [{ id: "cn-21", title: "put the page on a public URL" }],
+    issues: [{ id: "cn-21", title: "put the page on a public URL", status: "open" }],
   });
 
   it("sets cn show's lines for it as its table", () => {

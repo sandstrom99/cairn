@@ -9,9 +9,10 @@
 // five journal entries — because that is what a session needs before it starts and what
 // it leaves behind when it stops. The status line opens with the state: `moving`, and
 // who, `waiting`, `stuck`, `blocked`, `deferred until` a date, `closed`, `dropped`, or
-// `open`. A `blocks` edge whose far end is finished reads `done`: it holds nothing back
-// and stays as history. --history adds every event on it: what changed, who changed it
-// and when, oldest first.
+// `open`. Every issue the brief names that is finished, a follow-up, the parent or either
+// end of an edge, reads `done` or `dropped` after its reference, so finished work never
+// reads as live; a `blocks` edge into one holds nothing back and stays as history.
+// --history adds every event on it: what changed, who changed it and when, oldest first.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";

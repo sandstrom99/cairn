@@ -197,7 +197,9 @@ No epic-to-epic edges, no edge to an epic, no edge between blockers. `cn dep add
 refuses an edge that would make an issue block itself, walking `blocks` from the
 target, because a cycle makes both ends unready forever and is a fact checkable
 at write time. `cn show` prints the neighbourhood: what this blocks, what blocks
-it, what it waits on, its parent and its follow-ups.
+it, what it waits on, its parent and its follow-ups. Every issue it names that is
+finished carries `done` or `dropped` after its reference, so a finished follow-up,
+parent or edge end never reads as live work (§7).
 
 ### Revision and events
 
@@ -542,9 +544,11 @@ mechanisms, and neither runs on its own:
 form, with what to do about it left to the two reading it: near-identical
 titles, inbox items past 7 days, blockers past their nudge date, claims silent
 past 24 hours, closes marked unverified with no follow-up beside them, `blocks`
-edges into finished issues, and whether every issue is finished so the epic can
-close. Running it twice reads the same; nothing it prints is consumed by
-printing it. The thresholds are the constants of §12.
+edges with one end finished and the other still live (an edge whose two ends are
+both finished is history with nothing left to decide, so it is no line), and
+whether every issue is finished so the epic can close. Running it twice reads
+the same; nothing it prints is consumed by printing it. The thresholds are the
+constants of §12.
 
 ### What this rules out
 
@@ -710,10 +714,11 @@ A page for one id is `cn show` with room. An issue opens with its state,
 `waiting on bl-4 "…"`, `blocked by` the ends still live, `stuck silent 9d`,
 `deferred until 2026-10-01`, `closed 2h ago`, `dropped 2h ago`, or `open`. Then
 the brief's labelled lines as a table, `issueFacts`, the proof a close stored
-and the reason a drop gave among them, a `blocks` edge with a finished end
-marked `done` rather than dropped (§7), and the links fact last, each link in
-cn's words with its label, or its URL, an anchor that opens in a new tab (§3,
-"Links"); then everything written into it printed whole where the brief keeps a
+and the reason a drop gave among them, every finished issue it names marked
+`done` or `dropped`, a `blocks` edge's finished end among them rather than the
+edge dropped (§7), and the links fact last, each link in cn's words with its
+label, or its URL, an anchor that opens in a new tab (§3, "Links"); then
+everything written into it printed whole where the brief keeps a
 first line and set as the Markdown it is (§3), the
 output the proof carries among that, then its whole journal where the brief carries the five newest (`show.get`
 takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for

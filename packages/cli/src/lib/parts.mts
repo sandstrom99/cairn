@@ -497,9 +497,19 @@ type StateParts = { word: StateWord; tail?: string; refs?: Referable[] };
 const isLive = ({ status }: { status: string }): boolean =>
   status !== "closed" && status !== "dropped";
 
-/** Only the end of a blocking edge that is still live holds anything (§4); a finished one is history. */
+/**
+ * cn's word for a finished issue wherever it is named, `done` or `dropped`; a live one has
+ * none. Only the live end of a blocking edge holds anything (§4).
+ */
 export const finished = ({ status }: { status: string }): string | undefined =>
   status === "closed" ? "done" : status === "dropped" ? "dropped" : undefined;
+
+/**
+ * Issues as `cn show` names them: each finished one carries cn's word after its reference,
+ * `done` or `dropped`, and a live one none.
+ */
+const ends = (items: (Referable & { status: string })[]): Named[] =>
+  items.map(({ id, title, status }) => ({ id, title, tail: finished({ status }) }));
 
 /**
  * Where an issue stands, from its own fields and its neighbourhood, in the order the
@@ -574,20 +584,19 @@ export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] 
   }
   if (shown.droppedReason !== undefined) facts.push({ label: "reason", text: shown.droppedReason });
   if (shown.requires.length > 0) facts.push({ label: "requires", text: shown.requires.join(", ") });
-  if (shown.parent) facts.push({ label: "parent", refs: [shown.parent] });
+  if (shown.parent) facts.push({ label: "parent", refs: ends([shown.parent]) });
   // The blocking edges, then the context ones: those say where an issue came from and what
-  // it sits beside, and none of them touches readiness (design §3). A blocking edge with a
-  // finished end reads as done, not as live: it holds nothing back and stays as history (§7).
-  const ends = (items: (Referable & { status: string })[]): Named[] =>
-    items.map(({ id, title, status }) => ({ id, title, tail: finished({ status }) }));
+  // it sits beside, and none of them touches readiness (design §3). Every issue named here
+  // that is finished reads as done or dropped, not as live: a blocking edge's finished end
+  // holds nothing back and stays as history (§7), and a finished follow-up is no work left.
   const named: [string, Named[]][] = [
-    ["follow-ups", shown.followUps],
+    ["follow-ups", ends(shown.followUps)],
     ["blocks", ends(shown.blocks)],
     ["blocked by", ends(shown.blockedBy)],
-    ["related", shown.related],
-    ["discovered from", shown.discoveredFrom],
-    ["duplicates", shown.duplicates],
-    ["supersedes", shown.supersedes],
+    ["related", ends(shown.related)],
+    ["discovered from", ends(shown.discoveredFrom)],
+    ["duplicates", ends(shown.duplicates)],
+    ["supersedes", ends(shown.supersedes)],
     ["waiting on", shown.waitingOn],
   ];
   for (const [name, items] of named) if (items.length > 0) facts.push({ label: name, refs: items });
@@ -616,7 +625,7 @@ export function blockerFacts(shown: ShownBlocker, now: number = Date.now()): Fac
       text: `by ${shown.resolvedBy.name} ${since(shown.resolvedAt, now)}: ${shown.resolution ?? ""}`,
     });
   if (shown.said !== undefined) facts.push({ label: "on their word", text: `"${shown.said}"` });
-  if (shown.issues.length > 0) facts.push({ label: "holds", refs: shown.issues });
+  if (shown.issues.length > 0) facts.push({ label: "holds", refs: ends(shown.issues) });
   facts.push(...linkFacts(shown.links, now));
   return facts;
 }
