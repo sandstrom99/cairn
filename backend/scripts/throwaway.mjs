@@ -14,19 +14,25 @@
 // `.convex/` all land inside the temp directory: `backend/.env.local` and
 // `backend/.convex` are never read and never written here.
 //
+// The functions are the one thing not linked. convex bundles `convex.config.ts` with esbuild,
+// which names its output by the file's real path, and then looks for the app's bundle at the
+// path it was handed; through a `convex` symlink the two differ and the push fails with
+// "found wrong number of app bundles". So the mirror's `convex.json` points convex at the
+// real `backend/convex` by a relative path, which convex joins onto the mirror.
+//
 // convex spawns `convex-local-backend` as a child of its own and handles SIGINT alone,
 // so a SIGTERM to the node process leaves that backend orphaned on both ports. The child
 // is therefore started detached, as its own process group leader, and teardown goes to
 // the group rather than to the pid.
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { packageRoot, spawnConvex } from "./run-convex.mjs";
 
 /** What the mirror directory links back to, so convex resolves as it would in backend/. */
-const MIRRORED = ["convex", "node_modules", "package.json", "tsconfig.json"];
+const MIRRORED = ["node_modules", "package.json", "tsconfig.json"];
 
 /** The environment convex must not inherit: each of these would name another deployment. */
 const UNSET = [
@@ -86,14 +92,18 @@ function refused(port) {
 }
 
 /**
- * Starts an empty anonymous deployment and waits until its functions are pushed.
+ * Starts an empty anonymous deployment and waits until its functions are pushed. `dir` and
+ * `env` are where and with what a further `convex` command reaches it, the page's upload
+ * among them (scripts/page.mjs).
  *
- * @returns {Promise<{ url: string, siteUrl: string, dir: string, stop: () => Promise<void> }>}
+ * @returns {Promise<{ url: string, siteUrl: string, dir: string, env: NodeJS.ProcessEnv, stop: () => Promise<void> }>}
  */
 export async function startThrowaway() {
   const [cloudPort, sitePort] = await freePorts();
   const dir = mkdtempSync(join(tmpdir(), "cairn-throwaway-"));
   for (const entry of MIRRORED) symlinkSync(join(packageRoot, entry), join(dir, entry));
+  const functions = relative(realpathSync(dir), realpathSync(join(packageRoot, "convex")));
+  writeFileSync(join(dir, "convex.json"), `${JSON.stringify({ functions })}\n`);
 
   const env = { ...process.env, CONVEX_AGENT_MODE: "anonymous" };
   for (const key of UNSET) delete env[key];
@@ -197,6 +207,7 @@ export async function startThrowaway() {
     url: `http://127.0.0.1:${cloudPort}`,
     siteUrl: `http://127.0.0.1:${sitePort}`,
     dir,
+    env,
     stop,
   };
 }

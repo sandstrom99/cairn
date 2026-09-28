@@ -756,6 +756,28 @@ with no router around them, and keep the live subscriptions when clicked
 (`apps/web/src/location.ts`). Whatever hosts the built page has to answer every
 path with `index.html`.
 
+**The page is hosted by the deployment it reads.** `@convex-dev/static-hosting`,
+installed in `backend/convex/convex.config.ts`, keeps the built page in the
+deployment's own storage and serves it at `https://<name>.convex.site`, answering
+every path without an extension with `index.html`. cairn has no HTTP routes of its
+own, so the component owns the site root, and anything cairn ever routes over HTTP
+goes under `/api`. `#push:cloud` pushes the functions and then ships the page
+(`backend/scripts/page.mjs`): the component reports the client URL the deployment
+answers on, the page is built with `VITE_CAIRN_URL` set to it, and the files are
+published in one mutation, so a failed upload leaves the last page up. The page and
+the functions it calls go out in one command and cannot drift, and the upload is an
+internal function, so only `convex run` with the deployment's own credentials ships
+a page. The bundle names the deployment and never a secret: a person pastes the
+secret once, into that origin's localStorage, and a reload does not ask again. `vp
+run dev:web` stays the loop for working on the page. Ruled out on 2026-09-24: one
+shared hosted page that asks for a URL and a secret, because every visitor would
+trust its host with a secret that can write, and one page would have to match every
+deployment's version of the functions (identity auth does not fix the first, since
+the code served acts as whoever signed in); a static host per person, which is a
+second account and a second deploy to keep in step; and serving from the machine,
+through a `cn web` or a login service, which leaves nothing on a phone. Added
+2026-09-28, cn-70.
+
 The look, and what each choice rules out:
 
 - **Glass only on what floats**: the rail, the feed, the jump bar, the ask menu, a dialog.
@@ -1134,6 +1156,7 @@ implementation.
 | Which project a session is in | Lean, from the global-config decision above: `--project` on `cn create`, and the repo's `CLAUDE.md` names its project so the skill can tell the agent. No `.cairn` file in a repo |
 | The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The UI becomes the channel |
+| Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at `https://<name>.convex.site`, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. Which deployments one browser knows about waits on running cairn for more than one person, the next row |
 | Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself is `cn-11` |
 
 ---

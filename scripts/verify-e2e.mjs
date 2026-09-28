@@ -34,6 +34,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { shipPage } from "../backend/scripts/page.mjs";
 import { startThrowaway } from "../backend/scripts/throwaway.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -1147,13 +1148,47 @@ row("verbs/init.mts", () => {
   assert.equal(readFileSync(envFile, "utf8").split("\n").length, 3, "empty stdin wrote a line");
 });
 
+row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
+  last = undefined;
+  const shipped = await shipPage({ cwd: deployment.dir, env: deployment.env, quiet: true });
+  assert.equal(shipped.status, 0, `the page did not ship to the throwaway:\n${shipped.output}`);
+
+  /** A GET against the deployment's site, the way a browser opening the page makes it. */
+  const get = async (path) => {
+    const response = await fetch(new URL(path, deployment.siteUrl));
+    const type = response.headers.get("content-type") ?? "";
+    return { status: response.status, type, body: await response.text() };
+  };
+
+  const index = await get("/");
+  assert.equal(index.status, 200, "the site root does not serve the page");
+  assert.match(index.type, /^text\/html/, "the site root is not HTML");
+  assert.match(index.body, /<div id="root">/, "the site root is not the page's index.html");
+  // Every path the page routes itself is the same index.html, reloaded or opened cold.
+  for (const path of ["/cn-1", "/ep-1", "/bl-1"]) {
+    const routed = await get(path);
+    assert.equal(routed.status, 200, `${path} does not serve the page`);
+    assert.equal(routed.body, index.body, `${path} is not the page's index.html`);
+  }
+  // The script it loads is there, and talks to the deployment that served it.
+  const src = index.body.match(/<script[^>]* src="([^"]+)"/)?.[1];
+  assert.ok(src, "the page's index.html loads no script");
+  const script = await get(src);
+  assert.equal(script.status, 200, `${src} is not served`);
+  assert.match(script.type, /javascript/, `${src} is not served as JavaScript`);
+  assert.ok(script.body.includes(url), "the bundle does not name the deployment that serves it");
+  // A file the build did not make is a 404, never the page standing in for it.
+  const missing = await get("/assets/missing.js");
+  assert.equal(missing.status, 404, "a missing asset is answered with something other than 404");
+});
+
 // ---------------------------------------------------------------------------
 
 /** Runs the rows in order, stopping at the first failure: each one reads the last's state. */
-function runRows() {
+async function runRows() {
   for (const { name, fn } of rows) {
     try {
-      fn();
+      await fn();
     } catch (e) {
       console.log(`✗ ${name}`);
       console.error(e.message);
@@ -1204,7 +1239,7 @@ try {
   cold = mkdtempSync(join(tmpdir(), "cairn-e2e-cold-"));
   bin = mkdtempSync(join(tmpdir(), "cairn-e2e-bin-"));
   symlinkSync(join(root, "packages", "cli", "bin", "cn"), join(bin, "cn"));
-  passed = runRows();
+  passed = await runRows();
   if (passed) console.log(`e2e: ${rows.length} rows passed against an empty throwaway deployment`);
 } catch (e) {
   console.error(`✗ ${e.message}`);
