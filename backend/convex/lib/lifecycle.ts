@@ -383,37 +383,62 @@ export async function editEpic(
   });
 }
 
-/** A person has seen the blocker: raised moves to waiting. */
+/**
+ * A blocker has been seen, by the person or by an agent on their word: raised moves to
+ * waiting, and the event keeps the words when there are any.
+ */
 export async function ackBlocker(
   ctx: MutationCtx,
   actor: Actor,
   doc: Doc<"blockers">,
+  said?: string,
 ): Promise<Doc<"blockers">> {
   return await applyRevision(
     ctx,
     { table: "blockers", doc },
     { status: "waiting" },
-    { kind: "blocker.ack", actor, changes: { status: { from: doc.status, to: "waiting" } } },
+    {
+      kind: "blocker.ack",
+      actor,
+      changes: {
+        status: { from: doc.status, to: "waiting" },
+        ...(said === undefined ? {} : { said: { to: said } }),
+      },
+    },
   );
 }
 
-/** Resolves a blocker with its note, and records on every issue it held what freed it. */
+/**
+ * Resolves a blocker with its note, and the person's words when an agent resolves on them,
+ * and records on every issue it held what freed it, the words included.
+ */
 export async function resolveBlocker(
   ctx: MutationCtx,
   actor: Actor,
   doc: Doc<"blockers">,
   note: string,
+  said?: string,
 ): Promise<Doc<"blockers">> {
   const resolved = await applyRevision(
     ctx,
     { table: "blockers", doc },
-    { status: "resolved", resolvedBy: actor, resolvedAt: Date.now(), resolution: note },
+    {
+      status: "resolved",
+      resolvedBy: actor,
+      resolvedAt: Date.now(),
+      resolution: note,
+      ...(said === undefined ? {} : { said }),
+    },
     {
       kind: "blocker.resolve",
       actor,
-      // The patch as a map would print the timestamp and the whole actor object; the two
-      // fields a reader wants are what it moved to and what was said.
-      changes: { status: { from: doc.status, to: "resolved" }, resolution: { to: note } },
+      // The patch as a map would print the timestamp and the whole actor object; the
+      // fields a reader wants are what it moved to, what was decided and the words it rests on.
+      changes: {
+        status: { from: doc.status, to: "resolved" },
+        resolution: { to: note },
+        ...(said === undefined ? {} : { said: { to: said } }),
+      },
     },
   );
 
@@ -423,7 +448,12 @@ export async function resolveBlocker(
       kind: "blocker.resolve",
       actor,
       issueId: issue._id,
-      changes: { blocker: doc.id, title: doc.title, resolution: note },
+      changes: {
+        blocker: doc.id,
+        title: doc.title,
+        resolution: note,
+        ...(said === undefined ? {} : { said }),
+      },
     });
   return resolved;
 }

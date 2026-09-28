@@ -731,6 +731,21 @@ describe("brief", () => {
     expect(lines).toContain("resolved        by wsl/balder 1h ago: accepted");
     expect(lines.at(-2)).toBe("history");
   });
+
+  it("quotes the person's words under the resolve an agent made on them", () => {
+    const shown = blocker({
+      status: "resolved",
+      resolvedBy: agent,
+      resolvedAt: ago(HOUR),
+      resolution: "done",
+      said: "the round trip is done, go ahead",
+      revision: 1,
+    });
+    const lines = brief(shown, now).split("\n");
+    const at = lines.indexOf("resolved        by wsl/claude 1h ago: done");
+    expect(at).toBeGreaterThan(0);
+    expect(lines[at + 1]).toBe('on their word   "the round trip is done, go ahead"');
+  });
 });
 
 describe("issueLine with a revision", () => {
@@ -1060,6 +1075,31 @@ describe("historyLines", () => {
       "  r2  wsl/balder  1h ago  blocker.resolve  resolution — → done, status waiting → resolved",
     ]);
   });
+
+  it("ends a blocker's ack and resolve with the person's words they rested on", () => {
+    const ack = {
+      revision: 1,
+      actor: agent,
+      at: ago(HOUR),
+      kind: "blocker.ack",
+      changes: { status: { from: "raised", to: "waiting" }, said: { to: "seen it" } },
+    };
+    const resolve = {
+      revision: 2,
+      actor: agent,
+      at: ago(HOUR),
+      kind: "blocker.resolve",
+      changes: {
+        resolution: { to: "done" },
+        said: { to: "go ahead" },
+        status: { from: "waiting", to: "resolved" },
+      },
+    };
+    expect(historyLines([ack, resolve], now, "bl-1")).toEqual([
+      '  r1  wsl/claude  1h ago  blocker.ack  status raised → waiting, on their word "seen it"',
+      '  r2  wsl/claude  1h ago  blocker.resolve  resolution — → done, status waiting → resolved, on their word "go ahead"',
+    ]);
+  });
 });
 
 describe("logLine", () => {
@@ -1181,6 +1221,27 @@ describe("logLine", () => {
     const [piece] = logParts(long, now).changes;
     expect(piece).toMatch(/^bl-1 "confirm the invite copy": a+…$/);
     expect(piece).toHaveLength(80);
+  });
+
+  it("ends the resolve an issue was freed by with the person's words, when it rested on them", () => {
+    const freed = {
+      at: ago(MINUTE),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "blocker.resolve",
+      revision: undefined,
+      changes: {
+        blocker: "bl-1",
+        title: "confirm the invite copy",
+        resolution: "the short one",
+        said: "go ahead",
+      },
+      issue: { id: "cn-2", title: "scratch: second" },
+      blocker: undefined,
+      epic: undefined,
+    };
+    expect(logLine(freed, now)).toBe(
+      'cn-2 "scratch: second"  blocker.resolve  wsl/claude  1m ago  bl-1 "confirm the invite copy": the short one, on their word "go ahead"',
+    );
   });
 
   it("leads with the blocker when a row names no issue, its own resolve a field map", () => {

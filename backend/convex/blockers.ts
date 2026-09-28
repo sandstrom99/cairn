@@ -2,8 +2,9 @@
 // external wait, a decision, a credential or a purchase — its own table with its own
 // lifecycle, raised → waiting → resolved, never a status on an issue.
 //
-// **Agents raise them. Agents may never resolve them.** `ack` and `resolve` refuse an
-// actor of kind `agent`, which until auth exists is a guardrail against an honest agent
+// **Agents raise them, and end them only on the person's word.** `ack` and `resolve` refuse
+// an actor of kind `agent` that carries no `said`, the person's words verbatim, and the
+// events keep them (cn-87). Until auth exists that is a guardrail against an honest agent
 // rather than a lock against a lying one, and that is enough.
 //
 // One blocker holds many issues, through `blockerLinks`: `raise` with `--on bl-3` attaches
@@ -38,10 +39,22 @@ const alreadyResolved = (doc: Doc<"blockers">) =>
     ).toISOString()}`,
   );
 
-/** Only a person ends a wait on a person. The refusal names who is actually waited on. */
-function refuseAgent(doc: Doc<"blockers">, actor: { kind: string }, verb: string): void {
-  if (actor.kind === "agent")
-    throw invalid(`only a person can ${verb} ${doc.id}; it waits on ${doc.owner}`);
+/**
+ * The person's words an ack or a resolve rests on, trimmed: an agent must carry them, a
+ * person may. The refusal names who is waited on.
+ */
+function theirWord(
+  doc: Doc<"blockers">,
+  actor: { kind: string },
+  said: string | undefined,
+  verb: string,
+): string | undefined {
+  const words = said?.trim() || undefined;
+  if (actor.kind === "agent" && words === undefined)
+    throw invalid(
+      `an agent can ${verb} ${doc.id} only on the person's word, given with --said; it waits on ${doc.owner}`,
+    );
+  return words;
 }
 
 export const raise = mutation({
@@ -151,26 +164,26 @@ export const list = query({
 });
 
 export const ack = mutation({
-  args: { actor: actorValidator, id: v.string() },
+  args: { actor: actorValidator, id: v.string(), said: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const doc = await blockerById(ctx, args.id);
-    refuseAgent(doc, args.actor, "acknowledge");
+    const said = theirWord(doc, args.actor, args.said, "acknowledge");
     if (doc.status === "resolved") throw alreadyResolved(doc);
     // Idempotent: a person who says "seen" twice has seen it once.
     if (doc.status === "waiting") return await blockerView(ctx, doc);
 
-    return await blockerView(ctx, await ackBlocker(ctx, args.actor, doc));
+    return await blockerView(ctx, await ackBlocker(ctx, args.actor, doc, said));
   },
 });
 
 export const resolve = mutation({
-  args: { actor: actorValidator, id: v.string(), note: v.string() },
+  args: { actor: actorValidator, id: v.string(), note: v.string(), said: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const doc = await blockerById(ctx, args.id);
-    refuseAgent(doc, args.actor, "resolve");
+    const said = theirWord(doc, args.actor, args.said, "resolve");
     if (args.note.trim() === "") throw invalid("a resolution says what happened");
     if (doc.status === "resolved") throw alreadyResolved(doc);
 
-    return await blockerView(ctx, await resolveBlocker(ctx, args.actor, doc, args.note));
+    return await blockerView(ctx, await resolveBlocker(ctx, args.actor, doc, args.note, said));
   },
 });

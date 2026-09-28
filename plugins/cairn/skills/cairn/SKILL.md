@@ -99,7 +99,7 @@ an issue.
 | `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
 | `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists; `--link` puts a link on a new one | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
-| `cn ack <bl>` · `cn resolve <bl> --note …` | humans only | `blockers.ack` · `blockers.resolve` |
+| `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | the person's own, or an agent's on their word | `blockers.ack` · `blockers.resolve` |
 | `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic new --link` puts a link on the new epic, `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges into finished issues, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
@@ -169,8 +169,9 @@ one of these, whether or not it came from the page. Read before answering, every
 happened or what was tried; `cn show <ep>` and `cn review <ep>` for an epic. Then answer
 in the person's terms — where it stands, what has been tried, what it needs, what the
 options cost — and take the verb that follows yourself: `cn claim <id>` for "pick it up",
-`cn wait <id>` for what needs them, `cn dep add` for a duplicate found. Never hand back a
-`cn` line or a slash command for the person to paste. Steering agents is not their job.
+`cn wait <id>` for what needs them, `cn resolve <bl> --said` with their words for a
+blocker they settle, `cn dep add` for a duplicate found. Never hand back a `cn` line or a
+slash command for the person to paste. Steering agents is not their job.
 
 "Explain" asks for meaning, not status, and quickly. Where the issue has no description,
 a follow-up often has only a title in cairn's own terms, with its context on the parent:
@@ -205,7 +206,10 @@ answered; the person asks for more when they want it.
 
 ## Three boundaries
 
-- **Agents raise human blockers. Agents never resolve them.**
+- **Agents raise human blockers, and end one only on the person's word.** When they say
+  what settles it, `cn resolve <bl> --note "<what was decided>" --said "<their words,
+  verbatim>"`; `cn ack <bl> --said "…"` when they have only seen it. Never on your own
+  judgment, a guess at what they meant, or words that answer something else.
 - **Closing takes evidence.** A command and its output, or `unverified` with a reason.
   Prose is what an agent fabricates.
 - **Residue becomes a follow-up, not a hanging parent.** Verified on Android and web but

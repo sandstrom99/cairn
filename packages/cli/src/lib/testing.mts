@@ -105,6 +105,7 @@ export function blocker(over: Partial<ShownBlocker> = {}): ShownBlocker {
     resolvedBy: undefined,
     resolvedAt: undefined,
     resolution: undefined,
+    said: undefined,
     revision: 0,
     issues: [],
     events: undefined,

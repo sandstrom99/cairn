@@ -1,6 +1,6 @@
 // Trimmed to what JumpBar uses. CommandDialog and CommandInput, and the dialog, input-group
 // and textarea files they reached, were removed on cn-53; `vp dlx shadcn@latest add dialog`
-// brings a dialog back when cn-11 needs one.
+// brings a dialog back when something needs one.
 import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { cn } from "@/lib/utils";

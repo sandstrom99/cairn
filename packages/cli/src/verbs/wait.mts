@@ -6,10 +6,11 @@
 //                [--link <url>…]
 //   cn wait <id> --on bl-3
 //
-// Agents raise blockers and people resolve them: `cn ack` and `cn resolve` refuse an
-// agent, so what is raised here is genuinely handed over. One blocker can hold many
-// issues — `--on bl-3` attaches the one that already exists rather than minting a second
-// row for the same wait, and resolving it frees all of them at once.
+// Agents raise blockers, and end them only on the person's word: `cn ack` and
+// `cn resolve` refuse an agent without `--said`, so what is raised here is genuinely
+// handed over. One blocker can hold many issues — `--on bl-3` attaches the one that
+// already exists rather than minting a second row for the same wait, and resolving it
+// frees all of them at once.
 //
 // The issue leaves `cn ready` the moment a blocker is raised on it and comes back the
 // moment that blocker resolves, with nothing recomputed in between. It stays in

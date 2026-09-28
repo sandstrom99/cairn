@@ -15,9 +15,9 @@ they say so.
   `cn drop <id> --revision N --reason "…"` drops one; or both are wanted and nothing changes.
 - `inbox`: an item nobody placed. Ask which epic. `cn update <id> --revision N --epic ep-N`,
   or `cn drop` it with a reason.
-- `nudge`: a blocker past the day it said to look again. Ask whether it is done. Only a
-  person resolves it, `cn resolve <bl> --note "…"`; if it is still waited on, say so and
-  leave it.
+- `nudge`: a blocker past the day it said to look again. Ask whether it is done. When the
+  person says it is done, resolve it on their word, `cn resolve <bl> --note "…" --said
+  "<their words>"`; if it is still waited on, say so and leave it.
 - `silent`: a claim with nothing for 24 hours. Ask whether that session is still on it. A
   person releases it, `cn release <id>`; nothing releases it on its own.
 - `unverified`: a close with no follow-up beside it, from before closes spawned their own.

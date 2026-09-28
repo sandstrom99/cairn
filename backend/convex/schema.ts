@@ -104,6 +104,8 @@ export default defineSchema({
     resolvedBy: v.optional(actorValidator),
     resolvedAt: v.optional(v.number()),
     resolution: v.optional(v.string()),
+    // The person's words a resolve rests on, verbatim: required of an agent (blockers.ts).
+    said: v.optional(v.string()),
     revision: v.number(),
   })
     .index("by_public_id", ["id"])
