@@ -67,13 +67,30 @@ describe("cn doctor", () => {
     ).toEqual([{ check: "ping", ok: true, line: "deployment answered: 0 project(s)" }]);
   });
 
-  it("names the field to put the secret in when the deployment refuses, and the error otherwise", () => {
-    const refused = pingChecks(cloud, { answered: false, refused: true, message: "wrong secret" });
+  it("names the fix for a refused secret by where the secret came from, and the error otherwise", () => {
+    const no = { answered: false, refused: true, message: "wrong secret" } as const;
+    const refused = pingChecks(cloud, no);
     expect(refused).toHaveLength(1);
     expect(refused[0]).toMatchObject({ check: "ping", ok: false });
-    expect(refused[0]!.line).toMatch(
-      /^cairn needs a secret: put it under deployments\.cairn\.secret in .*config\.json, or set CAIRN_SECRET$/,
+    // The file's secret, refused: the stored command takes the current one.
+    expect(refused[0]!.line).toBe(
+      "cairn refused the secret this machine holds: cn init --refresh --name cairn takes the current one",
     );
+    // The file holds none: a command has to be given once.
+    const { secret: _s, secretSource: _src, ...bare } = cloud;
+    expect(pingChecks(bare, no)[0]!.line).toBe(
+      "cairn needs a secret: cn init --refresh --name cairn --secret-cmd '<command>' stores one",
+    );
+    // The shell's: the file is not what is wrong, so the shell is what gets fixed.
+    expect(pingChecks({ ...cloud, secretSource: "env" }, no)[0]!.line).toBe(
+      "cairn refused CAIRN_SECRET: set CAIRN_SECRET to the deployment's current one",
+    );
+    expect(
+      pingChecks(
+        { name: "CAIRN_URL", url: "https://tidy-otter-1.convex.cloud", source: "env" },
+        no,
+      )[0]!.line,
+    ).toBe("CAIRN_URL needs a secret: set CAIRN_SECRET to the deployment's current one");
     expect(pingChecks(null, { answered: false, refused: false, message: "fetch failed" })).toEqual([
       { check: "ping", ok: false, line: "deployment did not answer: fetch failed" },
     ]);

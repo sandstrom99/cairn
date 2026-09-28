@@ -1,16 +1,19 @@
-// run-convex.mjs: the one way this package starts `convex`. `local.mjs`, `cloud.mjs` and
-// `throwaway.mjs` each decide which deployment and which environment; this is the spawn
-// they share, the signals it forwards and the exit status it maps.
+// run-convex.mjs: the one way this package starts `convex`. `local.mjs`, `cloud.mjs`,
+// `throwaway.mjs` and `secret.mjs` each decide which deployment and which environment;
+// this is the spawn they share, the signals it forwards and the exit status it maps.
 //
 //   spawnConvex(args, options)   the child, for a caller that owns its lifetime
 //   runConvex(args, options)     the child in the foreground, this process's exit status
+//   convexSync(args, options)    the child run to its end, its output captured
+//   holdEnvLocal()               `.env.local`'s bytes now, and the function that puts them back
+//   valueIn(file, name)          the value an env file gives a name
 //   deploymentIn(file)           the CONVEX_DEPLOYMENT an env file names
 //
 // It runs the package's own `node_modules/convex/bin/main.js` under this node rather than
 // `npx convex`, so every wrapper starts the same binary the same way, whatever is on PATH
 // and whichever directory it runs from: the throwaway runs it from a mirror directory.
-import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +34,29 @@ export function spawnConvex(
   { cwd = packageRoot, env = process.env, detached = false, stdio = "inherit" } = {},
 ) {
   return spawn(process.execPath, [CONVEX_BIN, ...args], { cwd, env, detached, stdio });
+}
+
+/**
+ * Runs `convex <args>` to its end and returns what `spawnSync` did, both streams piped and
+ * read as UTF-8, for a caller that needs convex's output rather than its terminal. `input`
+ * is what convex reads on stdin; with it, convex sees no terminal there.
+ */
+export function convexSync(args, { cwd = packageRoot, env = process.env, input } = {}) {
+  return spawnSync(process.execPath, [CONVEX_BIN, ...args], { cwd, env, input, encoding: "utf8" });
+}
+
+/**
+ * Reads `.env.local`'s bytes now, or notes that there is no file, and returns the function
+ * that writes them back exactly, or removes the file when there was none. convex 1.46
+ * writes the deployment it talked to into `.env.local` whatever `--env-file` says;
+ * `cloud.mjs` says why that binding has to survive.
+ */
+export function holdEnvLocal() {
+  const saved = existsSync(envLocal) ? readFileSync(envLocal) : null;
+  return () => {
+    if (saved !== null) writeFileSync(envLocal, saved);
+    else if (existsSync(envLocal)) rmSync(envLocal);
+  };
 }
 
 /**
@@ -63,14 +89,19 @@ export function runConvex(args, { env, after, onExit = () => {} } = {}) {
 }
 
 /**
- * The `CONVEX_DEPLOYMENT` an env file names, or undefined with no file or no such line.
- * The line is the binding; the header convex writes above it changes from release to
- * release and means nothing.
+ * The value an env file gives `name`, or undefined with no file, no such line or an empty
+ * value. The line is what counts; the header convex writes above it changes from release
+ * to release and means nothing.
  */
-export function deploymentIn(file) {
+export function valueIn(file, name) {
   if (!existsSync(file)) return undefined;
   const match = readFileSync(file, "utf8").match(
-    /^\s*CONVEX_DEPLOYMENT\s*=\s*["']?([^"'\r\n]*?)["']?\s*$/m,
+    new RegExp(`^\\s*${name}\\s*=\\s*["']?([^"'\\r\\n]*?)["']?\\s*$`, "m"),
   );
   return match?.[1] || undefined;
+}
+
+/** The `CONVEX_DEPLOYMENT` an env file names, or undefined with no file or no such line. */
+export function deploymentIn(file) {
+  return valueIn(file, "CONVEX_DEPLOYMENT");
 }

@@ -116,16 +116,24 @@ Copy the `CONVEX_DEPLOYMENT` and `CONVEX_URL` lines it wrote into
 cloud commands. Then give the deployment its secret, its functions and the page:
 
 ```bash
-CONVEX_DEPLOYMENT=$(sed -n 's/^CONVEX_DEPLOYMENT=//p' .env.cloud.local) \
-  npx convex env set CAIRN_SECRET "$(openssl rand -base64 32)"
-cd .. && vp run @cairn/backend#push:cloud
+cd ..
+vp run @cairn/backend#secret -- new --op "op://<vault>/cairn <company> deployment"
+vp run @cairn/backend#push:cloud
 ```
 
-Put the url and that secret in the company's password manager as one item, say
-`cairn acme deployment` with fields `url` and `secret`, and every other machine
-is the `cn init` above. A bare `npx convex` in `backend/` rebinds `.env.local`
-to whatever it last talked to; the next `vp run @cairn/backend#…` puts it back
-and says so.
+The script creates that 1Password item with the fields `url` and `secret`, and the
+secret is never on the terminal. Every other machine is the `cn init` above, with
+the `--secret-cmd` line the script prints. A bare `npx convex` in `backend/`
+rebinds `.env.local` to whatever it last talked to; the next
+`vp run @cairn/backend#…` puts it back and says so.
+
+Rotating is `vp run @cairn/backend#secret -- rotate --op …`, and then
+`cn init --refresh` on each machine, which runs the command it stored at setup
+again. Revoking is `vp run @cairn/backend#secret -- revoke`, which fences the
+deployment with a secret nobody holds until the next rotate.
+`convex env remove CAIRN_SECRET` would open it to anyone with the URL, so never
+that. One shared secret cannot shut out one machine: a rotate shuts out all of
+them, and each that should be back runs `cn init --refresh`.
 
 ### 3. Enable the plugin
 

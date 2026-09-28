@@ -7,6 +7,7 @@ import {
   readConfig,
   resolveDeployment,
   withDeployment,
+  withSecret,
   writeConfig,
 } from "./config.mts";
 import { tempConfig, tempHome } from "./testing.mts";
@@ -186,6 +187,51 @@ describe("withDeployment", () => {
     expect(withDeployment({ default: "gone" } as CairnConfig, input).deployments).toEqual({
       cairn: { url: "https://b" },
     });
+  });
+
+  it("keeps the secret command beside the secret when there is one, and no key when not", () => {
+    const made = withDeployment(null, { ...input, secret: "s", secretCmd: "op read x" });
+    expect(made.deployments.cairn).toEqual({
+      url: "https://b",
+      secret: "s",
+      secretCmd: "op read x",
+    });
+    expect(Object.keys(made.deployments.cairn!)).toEqual(["url", "secret", "secretCmd"]);
+    expect(withDeployment(null, { ...input, secret: "s" }).deployments.cairn).not.toHaveProperty(
+      "secretCmd",
+    );
+  });
+});
+
+describe("withSecret", () => {
+  const existing: CairnConfig = {
+    default: "invyte",
+    host: "wsl",
+    can: ["web", "android"],
+    deployments: {
+      invyte: { url: "https://a", secret: "old" },
+      cairn: { url: "https://b", secret: "s", secretCmd: "op read b" },
+    },
+  };
+
+  it("replaces one deployment's secret and command, and nothing else", () => {
+    expect(withSecret(existing, "invyte", { secret: "new", secretCmd: "op read a" })).toEqual({
+      default: "invyte",
+      host: "wsl",
+      can: ["web", "android"],
+      deployments: {
+        invyte: { url: "https://a", secret: "new", secretCmd: "op read a" },
+        cairn: { url: "https://b", secret: "s", secretCmd: "op read b" },
+      },
+    });
+    // Pure: what it was handed is as it was.
+    expect(existing.deployments.invyte).toEqual({ url: "https://a", secret: "old" });
+  });
+
+  it("names the deployment the file does not have, and the ones it does", () => {
+    expect(() => withSecret(existing, "nope", { secret: "s", secretCmd: "c" })).toThrow(
+      "nope is not a deployment in the config; it has invyte, cairn",
+    );
   });
 });
 

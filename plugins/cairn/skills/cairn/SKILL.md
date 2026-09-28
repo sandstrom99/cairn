@@ -23,8 +23,11 @@ holds it. That is state — everything below is how to act on it. On a machine w
 session opened instead with "not set up on this machine", run `/cairn:init` before
 anything else: no verb below can work until the config exists. Where it opened with
 "cairn: <name> did not answer; cn doctor says why", a deployment is configured and the
-call to it failed: run `cn doctor` and read its last line before any verb, and hand the
-person what it names if it is the URL or the secret, since neither is yours to change.
+call to it failed: run `cn doctor` and read its last line before any verb. When it names
+`cn init --refresh`, run that yourself: it re-runs the command this machine already
+stores, prints no secret and asks nothing of the person. If that command fails because
+the password manager is locked, unlocking it is the one thing to hand the person. Anything
+else about the URL or the secret is theirs, since neither is yours to change.
 
 ## How work is named in a reply
 
@@ -103,7 +106,7 @@ an issue.
 | `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic new --link` puts a link on the new epic, `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges into finished issues, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
-| `cn init --name … --url … [--secret-cmd …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret | `projects.list`, as the check |
+| `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right
