@@ -77,7 +77,7 @@ export function App({ url }: { url: string }) {
     setAttempt((n) => n + 1);
   };
   return (
-    <Gate key={attempt} host={host} onSecret={connect}>
+    <Gate key={attempt} host={host} sent={secret !== undefined} onSecret={connect}>
       <Window
         host={host}
         secret={secret}
@@ -185,7 +185,13 @@ function Window({
       ) : route.page === "log" ? (
         <LogPage events={events} now={now} />
       ) : (
-        <Gate key={route.id} host={host} what={route.id} onSecret={onSecret}>
+        <Gate
+          key={route.id}
+          host={host}
+          sent={secret !== undefined}
+          what={route.id}
+          onSecret={onSecret}
+        >
           {error !== undefined ? (
             errorData(error)?.kind === "not-found" ? (
               <Lost what={route.id} />

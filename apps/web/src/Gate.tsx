@@ -1,7 +1,8 @@
 // Gate.tsx: the one error boundary, and what it shows for each kind of failure. Every error
 // the deployment throws is a ConvexError whose data is a member of the backend's CairnError
 // union (backend/convex/lib/errors.ts), so the kind is read, not guessed: unauthorized is
-// the guard refusing the secret and gets the Connect form; not-found is the deployment
+// the guard wanting the secret and gets the Connect form, which asks for one when this
+// browser sent none and says it was refused when it sent one; not-found is the deployment
 // answering that nothing has that id and gets Lost; anything else is broken and gets its
 // message, plainly. convex/react throws out of useQuery, which is how a query's refusal
 // reaches a boundary above it.
@@ -25,24 +26,33 @@ export function errorData(error: unknown): CairnError | undefined {
 export function Fallback({
   error,
   host,
+  sent,
   what,
   onSecret,
 }: {
   error: Error;
   host: string;
+  /** Whether the calls carried a secret, which is what makes an `unauthorized` a refusal. */
+  sent: boolean;
   what?: string;
   onSecret: (secret: string) => void;
 }): ReactNode {
   const data = errorData(error);
   if (data?.kind === "unauthorized")
-    return <Connect host={host} message={data.message} onSecret={onSecret} />;
+    return <Connect host={host} refused={sent} onSecret={onSecret} />;
   if (data?.kind === "not-found") return <Lost what={what ?? data.message} />;
   return <Broken message={data?.message ?? error.message} />;
 }
 
 /** The boundary: its children until one of them throws, then the fallback for that error. */
 export class Gate extends Component<
-  { host: string; what?: string; onSecret: (secret: string) => void; children: ReactNode },
+  {
+    host: string;
+    sent: boolean;
+    what?: string;
+    onSecret: (secret: string) => void;
+    children: ReactNode;
+  },
   { error?: Error }
 > {
   state: { error?: Error } = {};
@@ -54,8 +64,8 @@ export class Gate extends Component<
   render(): ReactNode {
     const { error } = this.state;
     if (error === undefined) return this.props.children;
-    const { host, what, onSecret } = this.props;
-    return <Fallback error={error} host={host} what={what} onSecret={onSecret} />;
+    const { host, sent, what, onSecret } = this.props;
+    return <Fallback error={error} host={host} sent={sent} what={what} onSecret={onSecret} />;
   }
 }
 

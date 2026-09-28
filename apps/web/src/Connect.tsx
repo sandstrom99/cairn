@@ -1,23 +1,23 @@
-// Connect.tsx: what the page shows when the deployment will not answer it. The line is the
-// deployment's own (lib/guard.ts names the fix), and under it is the one thing a reader can
-// do about it from here: paste the secret, which stays in this browser (secret.ts). A
-// deployment that never answers at all gets the same panel with no form, since no secret
-// would help.
+// Connect.tsx: what the page shows when the deployment will not answer it, in the page's own
+// words. The guard's line names cn's config file and environment variable (lib/guard.ts),
+// which a person in a browser, on a phone say, has no use for, so it is never printed here
+// (cn-85). A browser that sent no secret is asked for one; one whose secret was refused is
+// told so; both get the one thing a reader can do from here, paste the secret, which stays
+// in this browser (secret.ts). A deployment that never answers at all gets the same panel
+// with no form, since no secret would help.
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Ground } from "./Ground.tsx";
 
-/** The frame both panels share: the ground, and the glass that says which deployment it is. */
-function Panel({ host, children }: { host: string; children: ReactNode }) {
+/** The frame every panel shares: the ground, and the glass that says which deployment it is. */
+function Panel({ title, host, children }: { title: string; host: string; children: ReactNode }) {
   return (
     <>
       <Ground waiting={false} />
       <main className="relative z-10 grid min-h-screen place-items-center p-4">
         <section className="glass relative w-[min(440px,100%)] rounded-3xl p-7">
-          <h1 className="text-title font-[650] tracking-[-0.012em]">
-            This deployment did not answer
-          </h1>
+          <h1 className="text-title font-[650] tracking-[-0.012em]">{title}</h1>
           <p className="mt-1 font-mono text-meta text-slate">{host}</p>
           {children}
         </section>
@@ -26,21 +26,33 @@ function Panel({ host, children }: { host: string; children: ReactNode }) {
   );
 }
 
-/** The deployment refused the secret: its line, and the form to paste the right one. */
+/**
+ * The deployment wants its secret: asked for when this browser sent none, and said to be
+ * refused when it sent one the deployment did not take. The form is the same either way.
+ */
 export function Connect({
   host,
-  message,
+  refused,
   onSecret,
 }: {
   host: string;
-  message: string;
+  refused: boolean;
   onSecret: (secret: string) => void;
 }) {
   return (
-    <Panel host={host}>
-      <p role="alert" className="mt-4 text-row">
-        {message}
-      </p>
+    <Panel
+      title={refused ? "This deployment refused the secret" : "This deployment needs its secret"}
+      host={host}
+    >
+      {refused ? (
+        <p role="alert" className="mt-4 text-row">
+          The secret this browser sent is not the one it expects. Paste the right one.
+        </p>
+      ) : (
+        <p className="mt-4 text-row">
+          Paste its secret to read the worklist. This browser keeps it, so you are asked once.
+        </p>
+      )}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -64,10 +76,9 @@ export function Connect({
 /** The deployment never opened its socket: said once the page has waited `seconds` for it. */
 export function Unanswered({ host, seconds }: { host: string; seconds: number }) {
   return (
-    <Panel host={host}>
+    <Panel title="This deployment did not answer" host={host}>
       <p role="alert" className="mt-4 text-row">
-        No answer in {seconds} seconds. It may be down, or this may not be its address:{" "}
-        <code className="font-mono">cn doctor</code> says why.
+        No answer in {seconds} seconds. It may be down, or this may not be its address.
       </p>
     </Panel>
   );
