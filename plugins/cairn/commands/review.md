@@ -22,8 +22,9 @@ they say so.
   person releases it, `cn release <id>`; nothing releases it on its own.
 - `unverified`: a close with no follow-up beside it, from before closes spawned their own.
   `cn create --project <slug> --epic <its epic> --type follow-up --kind verify --parent <id> --title "verify: …"`.
-- `edge`: a blocks edge with a finished end. It holds nothing back. Leave it as history, or
-  `cn dep rm <id> --blocked-by <other>` if the person wants it gone.
+- `edge`: a blocks edge with one end finished and the other still live. It holds nothing
+  back. Leave it as history, or `cn dep rm <id> --blocked-by <other>` if the person wants
+  it gone.
 - `can close`: every issue is finished. Run the printed `cn epic close` line when the
   person says to.
 

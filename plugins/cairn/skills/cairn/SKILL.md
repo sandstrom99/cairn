@@ -104,7 +104,7 @@ an issue.
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | the person's own, or an agent's on their word | `blockers.ack` · `blockers.resolve` |
 | `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic new --link` puts a link on the new epic, `epic list` prints a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
-| `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges into finished issues, and whether it can close. Writes nothing | `review.get` |
+| `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |
 

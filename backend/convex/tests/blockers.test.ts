@@ -396,7 +396,9 @@ describe("blockers.list", () => {
       ["bl-2", "raised"],
       ["bl-1", "waiting"],
     ]);
-    expect(waiting[1]?.issues).toEqual([{ id: "cn-1", title: "schema and the first verbs" }]);
+    expect(waiting[1]?.issues).toEqual([
+      { id: "cn-1", title: "schema and the first verbs", status: "open" },
+    ]);
   });
 });
 

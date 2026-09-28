@@ -5,10 +5,10 @@
 //
 // Every line is a fact — two titles that read as the same work, an inbox item past its
 // age, a blocker past its nudge, a claim gone silent, an unverified close with nothing
-// beside it, a `blocks` edge with a finished end, an epic whose every issue is finished —
-// and the judgement is left to the two reading it, through the verbs that exist, each in
-// the log under its own name. The thresholds are lib/thresholds.ts and lib/titles.ts, the
-// numbers the brief, epic health and `issues.create` read too.
+// beside it, a `blocks` edge with one end finished and one live, an epic whose every
+// issue is finished — and the judgement is left to the two reading it, through the verbs
+// that exist, each in the log under its own name. The thresholds are lib/thresholds.ts
+// and lib/titles.ts, the numbers the brief, epic health and `issues.create` read too.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { nowArg } from "./lib/clock";
@@ -26,13 +26,8 @@ import { epicById } from "./lib/lookup";
 import { idOrder } from "./lib/order";
 import { CLAIM_SILENT_MS, INBOX_STALE_MS } from "./lib/thresholds";
 import { nearIdentical } from "./lib/titles";
-import { type IssueStatus, epicFinished, isLive } from "./lib/validators";
-import { type Ref, epicView, ref } from "./lib/views";
-
-/** An issue with its status, the way an edge's two ends are read. */
-type End = Ref & { status: IssueStatus };
-
-const end = (doc: Doc<"issues">): End => ({ ...ref(doc), status: doc.status });
+import { epicFinished, isLive } from "./lib/validators";
+import { type End, type Ref, end, epicView, ref } from "./lib/views";
 
 export const get = query({
   args: { id: v.string(), ...nowArg },
@@ -110,8 +105,10 @@ export const get = query({
       });
     }
 
-    // A `blocks` edge with a finished end. It holds nothing (§4) and stays as history;
-    // the line says it is there.
+    // A `blocks` edge with one end finished and the other live. It holds nothing (§4) and
+    // stays as history; the line says it is there. An edge whose two ends are both finished
+    // is history with nothing left to decide, so it is no line, and a finished epic can read
+    // nothing to look at.
     const seen = new Set<Id<"edges">>();
     const edges: { from: End; to: End }[] = [];
     for (const doc of issues)
@@ -123,7 +120,7 @@ export const get = query({
         seen.add(edge._id);
         const from = byId.get(edge.from) ?? (await ctx.db.get(edge.from));
         const to = byId.get(edge.to) ?? (await ctx.db.get(edge.to));
-        if (!from || !to || (isLive(from) && isLive(to))) continue;
+        if (!from || !to || isLive(from) === isLive(to)) continue;
         edges.push({ from: end(from), to: end(to) });
       }
     edges.sort((x, y) => idOrder(x.from, y.from) || idOrder(x.to, y.to));

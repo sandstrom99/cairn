@@ -519,7 +519,7 @@ describe("brief", () => {
       claimedAt: ago(5 * MINUTE),
       requires: ["ios", "device"],
       waitingOn: [{ id: "bl-1", title: "the App Store agreement" }],
-      followUps: [{ id: "cn-2", title: "check it on a device" }],
+      followUps: [{ id: "cn-2", title: "check it on a device", status: "open" }],
       journal: [
         {
           author: { name: "wsl/claude", kind: "agent" },
@@ -629,14 +629,50 @@ describe("brief", () => {
     );
   });
 
+  it("marks every finished issue the brief names, a dropped follow-up and a closed parent among them", () => {
+    const shown = issue({
+      parent: { id: "cn-1", title: "the web window", status: "closed" },
+      followUps: [
+        { id: "cn-5", title: "verify: on a device", status: "dropped" },
+        { id: "cn-6", title: "verify: in a browser", status: "closed" },
+        { id: "cn-7", title: "verify: on a phone", status: "open" },
+      ],
+      related: [
+        { id: "cn-8", title: "the brief", status: "closed" },
+        { id: "cn-9", title: "the feed", status: "open" },
+      ],
+      discoveredFrom: [
+        { id: "cn-10", title: "the lifecycle", status: "dropped" },
+        { id: "cn-11", title: "the graph", status: "in_progress" },
+      ],
+      duplicates: [
+        { id: "cn-12", title: "a duplicate", status: "closed" },
+        { id: "cn-13", title: "another", status: "open" },
+      ],
+      supersedes: [
+        { id: "cn-14", title: "the old plan", status: "dropped" },
+        { id: "cn-15", title: "the older plan", status: "open" },
+      ],
+    });
+    const lines = brief(shown, now).split("\n");
+    expect(lines.slice(4, 10)).toEqual([
+      'parent          cn-1 "the web window" done',
+      'follow-ups      cn-5 "verify: on a device" dropped, cn-6 "verify: in a browser" done, cn-7 "verify: on a phone"',
+      'related         cn-8 "the brief" done, cn-9 "the feed"',
+      'discovered from cn-10 "the lifecycle" dropped, cn-11 "the graph"',
+      'duplicates      cn-12 "a duplicate" done, cn-13 "another"',
+      'supersedes      cn-14 "the old plan" dropped, cn-15 "the older plan"',
+    ]);
+  });
+
   it("prints each edge type on its own line, blocking ones first", () => {
     const shown = issue({
       blocks: [{ id: "cn-3", title: "the graph", status: "open" }],
       blockedBy: [{ id: "cn-2", title: "the lifecycle", status: "open" }],
-      related: [{ id: "cn-4", title: "the brief" }],
-      discoveredFrom: [{ id: "cn-2", title: "the lifecycle" }],
-      duplicates: [{ id: "cn-5", title: "a duplicate" }],
-      supersedes: [{ id: "cn-6", title: "the old plan" }],
+      related: [{ id: "cn-4", title: "the brief", status: "open" }],
+      discoveredFrom: [{ id: "cn-2", title: "the lifecycle", status: "open" }],
+      duplicates: [{ id: "cn-5", title: "a duplicate", status: "open" }],
+      supersedes: [{ id: "cn-6", title: "the old plan", status: "open" }],
     });
     const lines = brief(shown, now).split("\n");
     expect(lines.slice(4, 10)).toEqual([
@@ -692,7 +728,7 @@ describe("brief", () => {
 
   it("prints a blocker's links after what it holds", () => {
     const shown = blocker({
-      issues: [{ id: "cn-1", title: "schema, ids" }],
+      issues: [{ id: "cn-1", title: "schema, ids", status: "open" }],
       links: [{ url: "https://example.com/options", by: agent, at: now }],
     });
     expect(brief(shown, now).split("\n").slice(-2)).toEqual([
@@ -701,10 +737,22 @@ describe("brief", () => {
     ]);
   });
 
+  it("marks a finished issue a blocker holds as done, and a live one with no word", () => {
+    const shown = blocker({
+      issues: [
+        { id: "cn-1", title: "schema, ids", status: "closed" },
+        { id: "cn-2", title: "the lifecycle", status: "open" },
+      ],
+    });
+    expect(brief(shown, now).split("\n").at(-1)).toBe(
+      'holds           cn-1 "schema, ids" done, cn-2 "the lifecycle"',
+    );
+  });
+
   it("prints a blocker as who must act, what would end it and what it holds", () => {
     const shown = blocker({
       nudgeAt: Date.UTC(2026, 9, 1),
-      issues: [{ id: "cn-1", title: "schema, ids" }],
+      issues: [{ id: "cn-1", title: "schema, ids", status: "open" }],
     });
     expect(brief(shown, now).split("\n")).toEqual([
       'bl-1 "the App Store agreement"',

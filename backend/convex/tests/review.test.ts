@@ -1,9 +1,9 @@
 // The sitting of docs/design.md §7: `review.get` reads one epic and lists what a person
 // and an agent should look at together, one line per finding — near-identical titles, an
 // inbox item past its age, a blocker past its nudge, a silent claim, an unverified close
-// with nothing beside it, a `blocks` edge with a finished end, and whether the epic can
-// close. The two facts it is held to are that it writes nothing and that it reads the
-// same twice; every other test here pins one finding at its threshold.
+// with nothing beside it, a `blocks` edge with one end finished and one live, and whether
+// the epic can close. The two facts it is held to are that it writes nothing and that it
+// reads the same twice; every other test here pins one finding at its threshold.
 //
 // Ages are what most findings measure, so the clock is faked with `at`, which fakes `Date`
 // alone: convex-test's own async stays real, and `_creationTime` follows the faked clock.
@@ -160,6 +160,33 @@ describe("review.get", () => {
     const t = await everything();
     await t.mutation(api.edges.add, { actor, from: "cn-4", to: "cn-3", type: "duplicates" });
     expect((await review(t, "ep-1")).near).toEqual([]);
+  });
+
+  it("lists a blocks edge while one end is live, and not once both ends are finished", async () => {
+    const t = await seed({ issues: ["the lifecycle", "the graph"] });
+    await t.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
+    await closeIssue(t, "cn-1");
+    expect((await review(t, "ep-1")).edges).toEqual([
+      {
+        from: { id: "cn-1", title: "the lifecycle", status: "closed" },
+        to: { id: "cn-2", title: "the graph", status: "open" },
+      },
+    ]);
+    // Both ends finished: history with nothing left to decide, so the epic reads clean.
+    await closeIssue(t, "cn-2", (await rawIssue(t, "cn-2")).revision);
+    expect(await review(t, "ep-1")).toMatchObject({ edges: [], canClose: true });
+
+    // A dropped end is as finished as a closed one.
+    const dropped = await seed({ issues: ["the lifecycle", "the graph"] });
+    await dropped.mutation(api.edges.add, { actor, from: "cn-1", to: "cn-2", type: "blocks" });
+    await closeIssue(dropped, "cn-1");
+    await dropped.mutation(api.issues.drop, {
+      actor,
+      id: "cn-2",
+      revision: (await rawIssue(dropped, "cn-2")).revision,
+      reason: "not wanted",
+    });
+    expect((await review(dropped, "ep-1")).edges).toEqual([]);
   });
 
   it("says the epic can close when every issue is finished, and not the inbox", async () => {
