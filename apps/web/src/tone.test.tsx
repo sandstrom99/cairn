@@ -21,11 +21,11 @@ describe("toneOf", () => {
 
 describe("epicWord", () => {
   const moving = [{ id: "cn-26", title: "apps/web", claimedBy: agent, claimedAt: now }];
-  const stuck = { id: "cn-10", title: "Northwind runs on cairn", lastActivity: now };
+  const stuck = [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now }];
 
   it("puts a person needed first", () => {
     const waiting = [{ id: "bl-4", title: "name the day", owner: "balder" }];
-    expect(epicWord(epic({ health: { moving: [], stuck: undefined, waiting } }))).toBe("waiting");
+    expect(epicWord(epic({ health: { moving: [], stuck: [], waiting } }))).toBe("waiting");
     expect(epicWord(epic({ health: { moving, stuck, waiting } }))).toBe("waiting");
   });
 
@@ -35,7 +35,7 @@ describe("epicWord", () => {
   });
 
   it("says moving when something is and nothing more pressing is true", () => {
-    expect(epicWord(epic({ health: { moving, stuck: undefined, waiting: [] } }))).toBe("moving");
+    expect(epicWord(epic({ health: { moving, stuck: [], waiting: [] } }))).toBe("moving");
   });
 
   it("reads a line view, which carries no status, as an open epic", () => {
@@ -44,7 +44,7 @@ describe("epicWord", () => {
       title: "Inbox",
       lastActivity: now - DAY,
       counts: { open: 0, inProgress: 0, closed: 0, followUps: 0 },
-      health: { moving: [], waiting: [] },
+      health: { moving: [], stuck: [], waiting: [] },
     };
     expect(epicWord(line)).toBe("nothing moving");
     expect(epicWord(epic())).toBe("nothing moving");

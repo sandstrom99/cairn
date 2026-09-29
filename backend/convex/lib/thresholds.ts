@@ -1,6 +1,6 @@
 // thresholds.ts: the numbers `review.get`, the brief and epic health measure against
 // (docs/design.md §7, §12). They live here rather than beside any one reader because
-// lib/health.ts reads them for the stuck line, brief.ts for a silent claim and review.ts
+// lib/health.ts reads them for what is stuck, brief.ts for a silent claim and review.ts
 // for its lines: one constants module they all import, rather than any reading another.
 
 export const HOUR = 60 * 60 * 1000;
@@ -9,8 +9,16 @@ export const DAY = 24 * HOUR;
 export const CLAIM_SILENT_MS = 24 * HOUR;
 /** An inbox item created longer ago than this is listed by cn review (§7, §12). */
 export const INBOX_STALE_MS = 7 * DAY;
-/** An epic's stuck line shows its open, unclaimed issue silent longer than this (§8, §12). */
-export const STUCK_AFTER_MS = 3 * DAY;
+/**
+ * How long an open, unclaimed issue may sit silent before its epic's health names it stuck,
+ * by priority: P0 a day, P1 3 days, P2 a week. P3 and P4 have no limit and are never stuck,
+ * since a backlog is always quiet somewhere (§8, §12).
+ */
+export const STUCK_AFTER_MS: { readonly [priority: number]: number | undefined } = {
+  0: DAY,
+  1: 3 * DAY,
+  2: 7 * DAY,
+};
 /**
  * A claim with nothing journaled this long, counted from the later of the claim and its
  * newest entry, is what the Stop hook hands back as one state line (§8).

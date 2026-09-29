@@ -25,7 +25,7 @@ export const toneOf = (word: string): Tone =>
  */
 export function epicWord(epic: EpicLineView & { status?: string }): string {
   if (epic.health.waiting.length > 0) return "waiting";
-  if (epic.health.stuck) return "stuck";
+  if (epic.health.stuck.length > 0) return "stuck";
   if (epic.health.moving.length > 0) return "moving";
   return epic.status === undefined || epic.status === "open" ? "nothing moving" : epic.status;
 }
