@@ -116,7 +116,6 @@ issues        id                string        app-14
               type              task | follow-up
               followUpKind?     verify | decide | cleanup       required iff type = follow-up
               parentIssueId?    Id<issues>    the issue whose residue this is
-              requires?         string[]      unread since 2026-09-29 (§5); declared until patch.ts has run everywhere, cn-120
               links?            { url, label?, by, at }[]   http and https only
               status            open | in_progress | closed | dropped
               priority          number        0 is highest, 4 is backlog
@@ -462,10 +461,12 @@ agnostic, so a machine fence is text on the issue.
 > `bd ready` on every backend**, so a worker fencing itself to one lane claims
 > from another and believes it is fenced. With no fence, nothing can fail open.
 
-`requires[]` went from issues on the same day, in cn-119: nothing writes it and nothing
-reads it. It stays declared in the schema, optional, only because issues written before
-then carry it; `patch.ts` strips it from a deployment, and cn-120 drops the field once
-every deployment has run that.
+`requires[]` went from issues the same day: cn-119 stopped writing and reading it, a
+one-off stripped it from `cairn` and `invyte`, and cn-120 dropped it from the schema, for
+every deployment and not only those two (Balder, "nuke the field for strangers too"). A
+deployment that ran cairn from before `b673ae2` still stores it, and Convex refuses a
+schema without the field over rows that have it; the README's "Updating" says the one
+push through `b673ae2` that clears it.
 
 ---
 

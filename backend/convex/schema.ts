@@ -60,11 +60,6 @@ export default defineSchema({
     type: issueTypeValidator,
     followUpKind: v.optional(followUpKindValidator),
     parentIssueId: v.optional(v.id("issues")),
-    // Unread and unwritten since cn-119 (docs/design.md §5): capabilities went on
-    // 2026-09-29. It stays declared because every issue written before then carries it,
-    // `[]` on most, and a schema that forbids it will not push over them. `patch.ts`
-    // strips it, and cn-120 drops it once every deployment has run that.
-    requires: v.optional(v.array(v.string())),
     // Absent means none: an issue with no links carries no empty array (lib/links.ts).
     links: v.optional(v.array(linkValidator)),
     status: issueStatusValidator,
