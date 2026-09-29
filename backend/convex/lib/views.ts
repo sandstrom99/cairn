@@ -55,15 +55,28 @@ export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
 export type IssueView = Awaited<ReturnType<typeof issueView>>;
 
 /**
- * An epic with its counts. The four status counts are over `task` issues only and
- * `followUps` is the open follow-up work beside them: a follow-up sits outside the
- * denominator, so an epic's progress cannot be diluted by its own residue (§5). It takes
- * the epic's issues rather than reading them, so one read serves the view, the health line
- * and whatever else the caller does with them.
+ * The counts of a set of issues, an epic's or a project's. The four status counts are over
+ * `task` issues only and `followUps` is the open follow-up work beside them: a follow-up
+ * sits outside the denominator, so progress cannot be diluted by its own residue (§5).
  */
-export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
+export function countsOf(issues: Doc<"issues">[]) {
   const tasks = issues.filter((i) => i.type === "task");
   const count = (status: IssueStatus) => tasks.filter((i) => i.status === status).length;
+  return {
+    open: count("open"),
+    inProgress: count("in_progress"),
+    closed: count("closed"),
+    dropped: count("dropped"),
+    followUps: issues.filter((i) => i.type === "follow-up" && isLive(i)).length,
+  };
+}
+
+/**
+ * An epic with its counts, as `countsOf` reads them. It takes the epic's issues rather
+ * than reading them, so one read serves the view, the health line and whatever else the
+ * caller does with them.
+ */
+export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
   return {
     id: doc.id,
     title: doc.title,
@@ -73,13 +86,7 @@ export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
     droppedReason: doc.droppedReason,
     revision: doc.revision,
     createdAt: doc._creationTime,
-    counts: {
-      open: count("open"),
-      inProgress: count("in_progress"),
-      closed: count("closed"),
-      dropped: count("dropped"),
-      followUps: issues.filter((i) => i.type === "follow-up" && isLive(i)).length,
-    },
+    counts: countsOf(issues),
   };
 }
 

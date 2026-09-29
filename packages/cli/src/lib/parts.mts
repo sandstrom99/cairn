@@ -11,6 +11,7 @@ import type {
   BlockerLineView,
   BriefView,
   EpicLineView,
+  HealthView,
   HistoryEvent,
   IssueLineView,
   JournalEntry,
@@ -90,7 +91,7 @@ export const countsRun = (counts: EpicLineView["counts"]): string => {
  * priority's limit, the first three by name and the rest counted, and what waits on a
  * person. A row with nothing behind it is not there at all.
  */
-export function healthParts(view: EpicLineView, now: number = Date.now()): HealthParts {
+export function healthParts(view: HealthView, now: number = Date.now()): HealthParts {
   const rows: HealthRow[] = [];
   for (const issue of view.health.moving)
     rows.push({

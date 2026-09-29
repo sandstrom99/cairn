@@ -33,12 +33,13 @@ import type {
   ClosedView,
   EdgeView,
   EpicClosedView,
-  EpicLineView,
+  HealthView,
   HistoryEvent,
   IssueLineView,
   JournalEntry,
   ListLineView,
   LogEvent,
+  ProjectView,
   ReviewView,
   SearchLineView,
   Shown,
@@ -119,7 +120,7 @@ export const freedLine = (issues: Referable[]): string => `  freed  ${refs(issue
  * is one line and the three that follow are only there when they say something. Stuck
  * issues are named most urgent first, three at most, and the rest counted.
  */
-export function healthLines(view: EpicLineView, now: number = Date.now()): string[] {
+export function healthLines(view: HealthView, now: number = Date.now()): string[] {
   const { epic, counts, rows } = healthParts(view, now);
   return [
     `${ref(epic)}  ${counts}`,
@@ -129,6 +130,18 @@ export function healthLines(view: EpicLineView, now: number = Date.now()): strin
         : `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`,
     ),
   ];
+}
+
+/**
+ * A project's health block, as `cn project list` prints it (docs/design.md §8): its
+ * head in the reference form with its counts, then what is moving, stuck and waiting,
+ * exactly as an epic's. A project nothing has been filed under is its head alone:
+ * `admin "Invyte admin, the admin app"  nothing filed`.
+ */
+export function projectLines(project: ProjectView, now: number = Date.now()): string[] {
+  const head = { id: project.slug, title: project.name };
+  if (project.filed === 0) return [`${ref(head)}  nothing filed`];
+  return healthLines({ ...head, counts: project.counts, health: project.health }, now);
 }
 
 /**

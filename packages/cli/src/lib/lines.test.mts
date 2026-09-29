@@ -17,6 +17,7 @@ import {
   nearLine,
   placedLine,
   projectLine,
+  projectLines,
   reviewLines,
   searchLine,
   staleLines,
@@ -35,6 +36,7 @@ import {
   human,
   issue,
   now,
+  project,
 } from "./testing.mts";
 import type { BriefView, ReviewView } from "./views.mts";
 
@@ -141,6 +143,43 @@ describe("healthLines", () => {
       '  stuck    cn-1 "stuck 1" silent 9d',
       '  stuck    cn-2 "stuck 2" silent 4d',
       '  stuck    cn-3 "stuck 3" silent 8d',
+    ]);
+  });
+});
+
+describe("projectLines", () => {
+  it("is the head alone for a project nothing is filed under", () => {
+    expect(projectLines(project(), now)).toEqual(['app "the app"  nothing filed']);
+  });
+
+  it("prints the block an epic with the same counts and health prints", () => {
+    const counts = { open: 2, inProgress: 1, closed: 3, dropped: 0, followUps: 1 };
+    const health = {
+      moving: [
+        {
+          id: "app-4",
+          title: "the invite flow",
+          claimedBy: agent,
+          claimedAt: ago(2 * HOUR),
+        },
+      ],
+      stuck: [{ id: "app-2", title: "the settings page", lastActivity: ago(9 * DAY) }],
+      waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+    };
+    const lines = projectLines(project({ filed: 7, counts, health }), now);
+    expect(lines).toEqual(healthLines({ id: "app", title: "the app", counts, health }, now));
+    expect(lines).toEqual([
+      'app "the app"  3 done · 3 open · 1 follow-up',
+      '  moving   app-4 "the invite flow" wsl/claude 2h',
+      '  stuck    app-2 "the settings page" silent 9d',
+      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+    ]);
+  });
+
+  it("is the head with its counts and no rows when nothing filed is live", () => {
+    const counts = { open: 0, inProgress: 0, closed: 2, dropped: 1, followUps: 0 };
+    expect(projectLines(project({ filed: 3, counts }), now)).toEqual([
+      'app "the app"  2 done · 0 open · 0 follow-ups',
     ]);
   });
 });

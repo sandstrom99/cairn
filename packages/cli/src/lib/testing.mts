@@ -12,7 +12,14 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
-import type { BriefView, LogEvent, ShownBlocker, ShownEpic, ShownIssue } from "./views.mts";
+import type {
+  BriefView,
+  LogEvent,
+  ProjectView,
+  ShownBlocker,
+  ShownEpic,
+  ShownIssue,
+} from "./views.mts";
 import { DAY, HOUR, MINUTE } from "./time.mts";
 
 /** Noon UTC on 2026-09-21, the day the web window was settled. Every age is read against it. */
@@ -83,6 +90,19 @@ export function epic(over: Partial<ShownEpic> = {}): ShownEpic {
     counts: { open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
     health: { moving: [], stuck: [], waiting: [] },
     issues: [],
+    ...over,
+  };
+}
+
+/** What `cn project list` answers for one project: nothing filed under it, 28 quiet days. */
+export function project(over: Partial<ProjectView> = {}): ProjectView {
+  return {
+    slug: "app",
+    name: "the app",
+    filed: 0,
+    counts: { open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
+    health: { moving: [], stuck: [], waiting: [] },
+    pulse: Array.from({ length: 28 }, () => ({ events: 0, closes: 0 })),
     ...over,
   };
 }

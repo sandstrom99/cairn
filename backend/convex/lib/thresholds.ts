@@ -19,6 +19,8 @@ export const STUCK_AFTER_MS: { readonly [priority: number]: number | undefined }
   1: 3 * DAY,
   2: 7 * DAY,
 };
+/** How many days a project's pulse covers, one bucket each, counted back from now (§8). */
+export const PULSE_DAYS = 28;
 /**
  * A claim with nothing journaled this long, counted from the later of the claim and its
  * newest entry, is what the Stop hook hands back as one state line (§8).

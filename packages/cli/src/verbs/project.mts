@@ -1,7 +1,14 @@
 // cn project — the id prefixes work is minted under.
 //
 //   cn project new <slug> --name <name>     create a project
-//   cn project list [--json]                one line per project
+//   cn project list [--json]                a health block per project
+//
+// `list` prints a block per project as `cn epic list` does per epic (docs/design.md §8):
+// the counts, then what is moving, what is stuck past its priority's limit, and what
+// waits on a person, since epics cut across projects and cannot say whether anything in
+// one has stopped. A project nothing is filed under reads `nothing filed`. `--json` also
+// carries each project's pulse: the events on its issues and the closes among them for
+// each of the last 28 days, oldest first.
 //
 // A slug is the prefix of every issue id in it: `--project app` mints app-14. One to
 // sixteen lowercase letters and digits, starting with a letter; `ep` and `bl` are
@@ -12,7 +19,7 @@ import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
 import { UsageError, answer } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
-import { projectLine } from "../lib/lines.mts";
+import { projectLine, projectLines } from "../lib/lines.mts";
 
 export const name = "project";
 export const summary = "the id prefixes work is minted under";
@@ -44,6 +51,9 @@ export async function run(argv: string[]): Promise<number> {
     return 0;
   }
   const projects = await client.query(api.projects.list, {});
-  answer(parsed.json, projects, (all) => all.map((p) => projectLine(p)));
+  // A health block per project, a blank line between them.
+  answer(parsed.json, projects, (all) =>
+    all.flatMap((p, i) => (i === 0 ? [] : [""]).concat(projectLines(p))),
+  );
   return 0;
 }

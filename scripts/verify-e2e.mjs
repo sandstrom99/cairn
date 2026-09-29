@@ -304,9 +304,28 @@ row("verbs/doctor.mts", () => {
 
 row("verbs/project.mts", () => {
   pass(`project new cn --name 'cairn: backend, cli, plugin'`, "cn project new cn was refused");
+  const listed = json("project list");
   assert.ok(
-    json("project list").some((p) => p.slug === "cn"),
+    listed.some((p) => p.slug === "cn"),
     "cn project list does not read the project back",
+  );
+  assert.ok(
+    lines(pass("project list", "cn project list exited non-zero").stdout).includes(
+      'cn "cairn: backend, cli, plugin"  nothing filed',
+    ),
+    "cn project list does not print the empty project's head as nothing filed",
+  );
+  const project = listed.find((p) => p.slug === "cn");
+  assert.equal(project.filed, 0, "cn project list --json counts an issue under an empty project");
+  assert.deepEqual(
+    project.health,
+    { moving: [], stuck: [], waiting: [] },
+    "an empty project's health is not three empty lines",
+  );
+  assert.equal(project.pulse.length, 28, "the pulse does not cover 28 days");
+  assert.ok(
+    project.pulse.every((day) => day.events === 0 && day.closes === 0),
+    `an empty project's pulse is not 28 quiet days: ${JSON.stringify(project.pulse)}`,
   );
 });
 
