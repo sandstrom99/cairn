@@ -32,7 +32,8 @@ Where it opened with "cairn: <name> did not answer; cn doctor says why", a deplo
 call to it failed: run `cn doctor` and read its last line before any verb. When it names
 `cn init --refresh`, run that yourself: it re-runs the command this machine already
 stores, prints no secret and asks nothing of the person. If that command fails because
-the password manager is locked, unlocking it is the one thing to hand the person. Anything
+the password manager is locked, which 1Password says as `account is not signed in` or as
+`authorization timeout`, unlocking it is the one thing to hand the person. Anything
 else about the URL or the secret is theirs, since neither is yours to change.
 
 ## How work is named in a reply
