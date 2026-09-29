@@ -5,10 +5,11 @@
 ## Claude-specific
 
 - **`vp run verify` before you report anything as working.** It is one second.
-- `.claude/settings.json` runs two hooks: `vp fmt --write` on every file Claude
+- `.claude/settings.json` runs three hooks: `vp fmt --write` on every file Claude
   writes, and on Stop, `vp check` over the files this session changed. A failing
   check hands its output back and the turn continues; that is the gate in
-  **Verify a change** above, enforced.
+  **Verify a change** above, enforced. On SessionStart, `worktree-ready.sh` runs
+  `vp install` and `vp config` in a worktree that lacks them, and says so in a line.
 - `.mcp.json` registers Convex's own MCP server against `backend/`, for reading
   tables and logs and running functions while developing. It is a dev tool; the
   agent surface for cairn itself is `cn`.

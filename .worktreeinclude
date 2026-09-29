@@ -1,0 +1,6 @@
+# Gitignored files Claude Code copies into every worktree it creates, `claude -w` and the
+# desktop app alike. Only what developing cairn needs: the page's dev server config.
+# Each company's backend/.env.cloud.<name>.local belongs to the install, never here, so
+# a worktree cannot push a branch to a company's deployment by accident (AGENTS.md,
+# "Where work happens").
+apps/web/.env.local

@@ -6,24 +6,30 @@ behind it.
 
 ## Install on a machine
 
+From a clone of its own, kept at main and never worked in, since every repository's
+sessions run the `cn` it holds (the root README's "Install `cn`"):
+
 ```bash
-vp install                                         # once per checkout, at the repo root
-ln -s ~/code/cairn/packages/cli/bin/cn ~/.local/bin/cn
+git clone https://github.com/sandstrom99/cairn ~/.local/share/cairn
+cd ~/.local/share/cairn && vp install
+ln -s ~/.local/share/cairn/packages/cli/bin/cn ~/.local/bin/cn
 cn doctor
 ```
 
 Nothing is built. `bin/cn` runs `src/main.mts` under Node 24, which strips the types
 itself. That is also why every import carries its `.mts` extension and why there are no
-enums: the compiler only ever checks, it never emits.
+enums: the compiler only ever checks, it never emits. A development checkout's own `cn`
+is its `packages/cli/bin/cn`, run by path.
 
 ## A second machine
 
-The same two steps, plus `cn init`, because nothing about the deployment is in the
-checkout:
+The same install, plus `cn init`, because nothing about the deployment is in the
+clone:
 
 ```bash
-vp install                                         # once per checkout, at the repo root
-ln -s ~/code/cairn/packages/cli/bin/cn ~/.local/bin/cn
+git clone https://github.com/sandstrom99/cairn ~/.local/share/cairn
+cd ~/.local/share/cairn && vp install
+ln -s ~/.local/share/cairn/packages/cli/bin/cn ~/.local/bin/cn
 cn init --name cairn --url "$(op read 'op://Personal/cairn dev deployment/url')" \
   --secret-cmd 'op read "op://Personal/cairn dev deployment/secret"' \
   --can web android

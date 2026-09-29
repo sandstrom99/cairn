@@ -1073,7 +1073,7 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 
 | | |
 |---|---|
-| Runtime | Node 24, pinned by `.node-version`. `cn` runs its `.mts` source directly: Node strips the types, so there is no build step and the checkout is the install. |
+| Runtime | Node 24, pinned by `.node-version`. `cn` runs its `.mts` source directly: Node strips the types, so there is no build step and a clone is the install: one of its own, kept at main and never worked in, because `cn` and the plugin every repository's sessions load both run from it, and a branch checked out there would reach all of them. The files that use a company's deployment, `backend/.env.cloud.<name>.local`, live beside it, so a push from it is main; a development clone holds only what developing needs. |
 | Types | TypeScript 5.9 installed, for `convex dev`'s own check and vite-plus's peer range. `vp check`'s type check is the native compiler regardless. Erasable syntax only in `packages/cli`: no enums, namespaces or parameter properties. |
 | Packages | pnpm, driven by `vp install`. `workspace:*` between packages; `@cairn/cli` imports the generated `api` from `@cairn/backend` by name. |
 | Check | `vp check`: oxfmt, oxlint, and a type-aware check across every tsconfig. Markdown and yaml are left as written. |
