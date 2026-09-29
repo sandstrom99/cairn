@@ -121,13 +121,18 @@ company's worklist; and a deployment in the project, the running database `cn` t
 A project has a development deployment and a production one. cairn uses the development
 one, which your login alone can push to. The production one would need `convex deploy`
 and a deploy key, and gives a worklist nothing more. A worklist sits well inside
-Convex's free plan; https://www.convex.dev/pricing has the limits.
+Convex's free plan: it is one of the 40 deployments a team on that plan has room for,
+and every deployment already in the team counts against the same 40, preview and
+sandbox ones included. https://www.convex.dev/pricing has the limits.
 
 Log in once per machine, in your own terminal, since it finishes in the browser:
 
 ```bash
-cd backend && npx convex login
+cd backend && CONVEX_ALLOW_ANONYMOUS=false npx convex login
 ```
+
+The variable stops convex offering, after the login, to link the local deployment
+`backend/` runs on into your account, which would rebind `backend/.env.local` to it.
 
 Then, from the checkout's root, make the deployment. `acme` is the name `cn init` will
 give it, lowercase letters, digits and dashes:

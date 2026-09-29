@@ -39,11 +39,16 @@ Otherwise offer to stand one up, and do it with them.
    deployment in the project, the running database `cn` talks to. cairn uses the project's
    development deployment, which the login alone can push to. A production one would need
    a deploy key and gives a worklist nothing more. A worklist sits well inside Convex's
-   free plan, and https://www.convex.dev/pricing has the limits.
+   free plan: it is one of the 40 deployments a team on that plan has room for, and every
+   deployment already in the team counts against the same 40, preview and sandbox ones
+   included. https://www.convex.dev/pricing has the limits.
 2. **Log in.** From `<checkout>/backend`, run `npx convex login status`. When it says
    `Not logged in`, run
-   `npx convex login --device-name <this machine's hostname> --no-open --login-flow poll --accept-opt-ins`
-   in the background, since it waits for the browser, and read the link and the code it
+   `CONVEX_ALLOW_ANONYMOUS=false npx convex login --device-name <this machine's hostname> --no-open --login-flow poll --accept-opt-ins`
+   in the background, since it waits for the browser. The variable stops convex offering,
+   after the login, to link the local deployment `backend/` runs on into the account: with
+   no terminal that offer fails the command although the login landed, and a yes to it
+   would rebind `backend/.env.local`. Read the link and the code it
    prints from its output. Hand both to the person: open the link, check the code matches,
    finish the login. That creates the account when there is none, and accepts Convex's
    terms. Wait for it to exit 0, then run `npx convex login status` again: it lists the
