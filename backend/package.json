@@ -2,6 +2,12 @@
   "name": "@cairn/backend",
   "private": true,
   "description": "The Convex deployment: schema, queries, mutations. One per company.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sandstrom99/cairn.git",
+    "directory": "backend"
+  },
   "type": "module",
   "exports": {
     "./convex/*": "./convex/*"
