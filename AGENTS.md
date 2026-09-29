@@ -196,9 +196,9 @@ Three things enforce the gate, so a session cannot skip it by forgetting:
 | `vp dlx shadcn@latest add <component>` from `apps/web`, then point the new file's `cn` import at `@/lib/utils` | the npm package `cn` the generated import names: it installs a binary called `cn`, and here `cn` is the CLI |
 | `vp config` once per clone, for the pre-commit hook | |
 
-Node 24 comes from `.node-version`. vite-plus is pinned to the global binary's
-version in `pnpm-workspace.yaml`; the reason is in `docs/design.md` §11, and the
-two move together.
+Node 24 comes from `.node-version`. vite-plus is pinned in `pnpm-workspace.yaml`'s
+catalog, and the global `vp` may be newer, since it runs the checkout's copy; the
+reason is in `docs/design.md` §11.
 
 ## Rules that hold from the first line
 
