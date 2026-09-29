@@ -191,6 +191,11 @@ the repository named it.
    under its name in the same settings file as cairn's, which leaves its data where it is.
    Turn off only what the person says to. Moving its issues into cairn is a piece of work
    of its own. GitHub Issues stay as they are, since cairn never reads or mirrors them.
+
+   When one stays on, ask which of the two gets new work: otherwise the repository tells
+   every session to use both, and each tracker's own instructions say it is the only one.
+   Write the answer as the last line of the cairn section, in the person's terms, such as
+   `New work goes to cairn; beads keeps only what has not moved yet.`
 6. **The check.** Start a session in the repository and show the person the brief it
    opened with. From the repository's root, run
    `claude -p "Reply with the word ok." --output-format stream-json --verbose --include-hook-events --max-turns 1`.
@@ -202,5 +207,6 @@ the repository named it.
 The last reply names every file written, each marked tracked or machine-local: the
 settings file, the cairn section, `info/exclude` when it changed, and this machine's own,
 meaning the marketplace in `~/.claude` and the config `cn init` wrote. It also names the
-projects created, and any tracker found, left on or turned off. Sessions already open in
+projects created, and any tracker found, left on or turned off, and for one left on, which
+gets new work. Sessions already open in
 the repository keep what they started with until they restart.
