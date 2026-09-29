@@ -293,6 +293,10 @@ export async function run(argv: string[]): Promise<number> {
     say(
       `${parsed.name} is not the default; ${next.default} still is. Pass --default to change that.`,
     );
-  say("the next session on this machine starts with cn brief");
+  say(
+    next.default === parsed.name
+      ? "the next session on this machine starts with cn brief"
+      : `a session starts with its brief where the repository's settings set CAIRN_DEPLOYMENT=${parsed.name}`,
+  );
   return 0;
 }
