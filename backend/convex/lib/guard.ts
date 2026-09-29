@@ -8,8 +8,8 @@
 // no event and no `createdChanges` ever sees it.
 //
 // It fences a deployment, not an actor: it says this caller may talk to this deployment
-// at all, and nothing about who is calling. Telling actors apart is identity auth, which
-// arrives with `apps/web` (§13); until then the actor is still an argument `cn` sends.
+// at all, and nothing about who is calling. The actor is an argument `cn` sends, taken on
+// trust (§13), and no identity auth is planned.
 //
 // **No `CAIRN_SECRET` on the deployment means nothing is checked.** The anonymous local
 // deployment has no environment to set one in, and every test runs against a bare

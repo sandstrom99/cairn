@@ -51,7 +51,7 @@ doing that.
 | Hierarchy | `epic` floats above projects. `project` is a field on the **issue**. One epic spans app, web and admin. |
 | Project | Coarse and arbitrary. `app` + `backend` are **one** project. A project may be a repo, or a prototyping effort. Not repo-shaped. |
 | Ids | Project-prefixed: `app-14`, `web-22`. Epics `ep-7`, blockers `bl-3`, from one global counter each. All minted server-side inside a transaction from a `counters` table, never reused. `ep` and `bl` are reserved project slugs. |
-| Actor | `{ name, kind: human \| agent }`, stored inline on every claim, journal entry, edge, blocker and event. Until auth exists `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller (§13). |
+| Actor | `{ name, kind: human \| agent }`, stored inline on every claim, journal entry, edge, blocker and event. `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller, and nothing checks it: cairn runs on trust, and the host in the name carries the person's (§12, §13, 2026-09-29). |
 | Surface | One `cn` CLI over typed Convex calls. **No MCP server.** Revised 2026-09-17; the reasoning is in §10. |
 | References | Every mention of an issue or epic carries id **and** title: `app-14 "fix connection retry"`. A bare id is a bug. §10. |
 | Concurrency | Document revision on mutable fields. Journal entries and comments are inserts and never conflict. |
@@ -502,13 +502,14 @@ blockers    kind          approval | external-wait | decision | credential | pur
   `--on bl-3`; both are `blockers.raise`.
 - A blocker's title, what resolves it and its links are edited with
   `cn update bl-N` against its revision, while kind and owner stay as raised:
-  changing who a blocker waits on is multi-user ground, parked with cn-28 (§13).
+  changing who a blocker waits on was left out when running cairn for more than one
+  person was settled on trust (§13).
 - **Agents raise them, and end them only on the person's word.** `blockers.ack` and
   `blockers.resolve` refuse an actor of kind `agent` that does not carry `said`, the
   person's words verbatim, and the events, `cn show` and `cn log` quote them. The person
   speaks plain language to their agent and never runs a command (§8), so an agent is how
-  a wait on them ends, and the quote is what keeps that honest. Until auth exists it is a
-  guardrail against an honest agent, not a lock against a lying one, and that is enough.
+  a wait on them ends, and the quote is what keeps that honest. It is a guardrail against
+  an honest agent, not a lock against a lying one, and on trust that is enough (§13).
   Changed 2026-09-28 (cn-87), when cn-11, the page acking and resolving behind identity
   auth, was dropped.
 - They do not appear in any agent work queue, and they are not counted in epic
@@ -716,7 +717,8 @@ The screens are the Overview at `/`, Issues, one page per id (`/app-14`,
 deployment will not answer, the page shows its line and a field for the secret.
 A picker for switching deployments in the page was planned here and taken out
 on 2026-09-21: which deployments a browser knows about is part of running cairn
-for more than one person, and that is deferred whole (§13). The Overview's headline is the brief
+for more than one person. Settling that on 2026-09-29 needed no picker, since each
+deployment serves its own page at its own URL (§13). The Overview's headline is the brief
 said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
@@ -954,8 +956,8 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
   client: one request, no socket, so a hook or a cron costs one process and one
   round trip. The web app uses the React client and subscribes to the same
   functions; nothing is written twice.
-- **Every mutation takes `actor`**, and on a mutable field `revision`. Until auth
-  exists the actor is an argument `cn` fills in (§13).
+- **Every mutation takes `actor`**, and on a mutable field `revision`. The actor is an
+  argument `cn` fills in, taken on trust (§13).
 - **A subscriber sends its own clock.** Convex re-runs a subscribed query when data it
   read changes, never because time passed, so the stuck line and a `deferUntil` would go
   stale on a page left open. Every public query that reads the clock takes an optional
@@ -1156,11 +1158,13 @@ Added when the solution was mapped, 2026-09-17:
 
 - **The actor `cn` sends** is `CAIRN_ACTOR` when set, else `<host>/<user>`, with
   `kind: agent` when `CLAUDECODE` is in the environment (Claude Code sets it for
-  every shell it runs) and `human` otherwise. So a session on this machine is
-  `wsl/claude` and Balder at a terminal is `wsl/balder`. `<host>` is `CAIRN_HOST`,
+  every shell it runs) and `human` otherwise. So a session on Balder's WSL box is
+  `balder-wsl/claude` and Balder at a terminal there is `balder-wsl/balder`. `<host>` is `CAIRN_HOST`,
   then the config's `host`, which `cn init --host` writes, then the OS hostname up to
   its first dot and lowercased (since 2026-09-29, so a Mac's `Balders-Mac-mini.local`
-  reads `balders-mac-mini`). Since 2026-09-22 it
+  reads `balders-mac-mini`). The host tells people apart as well as machines, so
+  `/cairn:init` proposes one that carries the person's first name, `<person>-<machine>`,
+  and nothing checks what is chosen (2026-09-29, cn-121). Since 2026-09-22 it
   carries `session` beside the name when `CAIRN_SESSION` is set, which the
   SessionStart hook exports from the `session_id` Claude Code hands it. The
   name does not change with it, so the log and `--mine` keep one stable actor;
@@ -1195,7 +1199,7 @@ Added when the solution was mapped, 2026-09-17:
   which hands the value to 1Password or to stdout and never to stderr. `revoke`
   fences the deployment with a secret nobody holds rather than removing it, since a
   deployment with none is open; and a shared secret cannot revoke one machine, only all
-  of them, which is identity auth's to fix (cn-11, cn-28). `cn init` keeps the command
+  of them, which is the price of running on trust (§13). `cn init` keeps the command
   that printed the secret as `secretCmd`, so `cn init --refresh` takes a rotated one onto
   a machine by running it again.
 - **A verification record with `exitCode ≠ 0` cannot close an issue.** The
@@ -1213,13 +1217,13 @@ implementation.
 | How a session resolves repo → project → deployment | Settled 2026-09-29 (cn-89): `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL and secret from there. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Settled 2026-09-29 (cn-92): a company's worklist is the development deployment of a Convex project of its own, `cairn-<name>` unless named otherwise. `#new:cloud` makes it with `convex dev --configure new --skip-push`, so no function runs there before `#secret -- new` has fenced it, and `#push:cloud` pushes to it with the login alone. A production deployment would need `convex deploy` and a deploy key, and buys a worklist nothing yet. The anonymous local deployment stays the development copy, and the throwaway stays the tests' (§11) |
-| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth arrives when cairn serves more than one person, `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"`, and only then does the actor stop being an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
-| Who counts as the actor on a journal entry or a claim | Lean: the argument `cn` sends (§12) until identity auth exists, then the token's identity, with `kind` from whether the token belongs to a person |
+| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Settled 2026-09-29 (bl-4): that secret stays the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
+| Who counts as the actor on a journal entry or a claim | Settled 2026-09-29 (bl-4): the argument `cn` sends (§12), taken on trust. There is no token to take it from instead |
 | Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo |
 | The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The session is the channel (§6) |
-| Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. Which deployments one browser knows about waits on running cairn for more than one person, the next row |
-| Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself goes with it, since cn-11, which carried it, was dropped on 2026-09-28 |
+| Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. With a page per deployment, no browser needs to know about more than one, so there is no picker (the next row) |
+| Running cairn for more than one person | Settled 2026-09-29 (bl-4, cn-28): on trust. Nothing is enforced, and there is no member list, no key per person and no identity auth. **Agents** are told apart by `session` beside the actor's name (2026-09-22, §5, §12), which is the part of identity a claim depends on. **Machines and people** are told apart by the host in the name, `<host>/claude`, which carries the person's name as well as the machine's, `balder-mac-mini/claude` beside a colleague's `maya-mac/claude`; `/cairn:init` proposes such a name and takes whatever is chosen (cn-121). **Handing it over** is the README's "Joining a worklist that exists" for a colleague (cn-111), and "Get started" for someone standing up a worklist of their own. **The page's deployment picker** is not needed: each deployment serves its own page (cn-70). What trust costs: anyone holding a deployment's secret writes under any name they give, and one person cannot be shut out without rotating the secret for everyone |
 
 ---
 

@@ -113,10 +113,15 @@ is left where it is.
 
 On a machine's first deployment, ask in the same round what the machine is called: the
 host in the actor name every claim, journal entry and `in progress` line carries, as
-`<host>/claude`. Offer the default, the host from `cn doctor`'s actor line, which is the
-OS hostname up to its first dot, lowercased. A short name the person will recognise
-beside a colleague's, such as `studio-mac`, reads best. It is the machine's, so a second
-deployment leaves it where it is.
+`<host>/claude`. cairn runs on trust, so that name is the only thing telling this
+person's agents from a colleague's, and it carries the person's name as well as the
+machine's. Propose `<first name>-<machine>`, lowercased, such as `balder-mac-mini` or
+`maya-wsl`. The first name is `whoami` when that reads as one, else `git config user.name`
+when that does, which often holds a handle instead; otherwise ask who they are in the same
+round. The machine part is a word or two they will recognise. When the default, the host
+from `cn doctor`'s actor line, already carries their name, as a Mac's `mayas-macbook-pro`
+does, offer it beside the proposal. Take whatever they choose: nothing checks the name. It
+is the machine's, so a second deployment leaves it where it is.
 
 Then `cn init --name <name> --url <url> --secret-cmd '<command>' --host <host>`,
 with `--host` only when they chose a name other than the default, then `cn doctor`. The first deployment on a machine becomes its default. A second leaves the

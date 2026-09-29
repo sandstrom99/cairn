@@ -22,7 +22,7 @@
 // The guard (convex/lib/guard.ts) checks nothing on a deployment with no secret, so
 // removing it would open the deployment to anyone holding its URL, the opposite of what
 // revoking means. One shared secret cannot shut out one machine either: whoever holds it
-// is in, and telling machines apart is identity auth (cn-11, cn-28).
+// is in, which is the price of running on trust (docs/design.md §13).
 //
 // The secret goes to exactly one place. With `--op`, into the `secret` field of that
 // 1Password item, which is created with the deployment's `url` beside it when there is

@@ -1,5 +1,5 @@
-// actor.mts: who cn says is acting. Until identity auth exists the actor is an argument
-// the CLI fills in (docs/design.md §12, §13), so it is derived once here and nowhere else.
+// actor.mts: who cn says is acting. The actor is an argument the CLI fills in, taken on
+// trust (docs/design.md §12, §13), so it is derived once here and nowhere else.
 //
 //   CAIRN_ACTOR        wins outright
 //   otherwise          <host>/claude with CLAUDECODE set, <host>/<user> without it
@@ -11,8 +11,9 @@
 // here, so deriving the actor never opens the file itself.
 //
 // Claude Code sets CLAUDECODE in every shell it runs, which is the whole test for `kind`:
-// a session on this machine is wsl/claude as an agent, Balder at a terminal is
-// wsl/balder as a human. Nothing else distinguishes them until a token does.
+// a session on Balder's WSL box is balder-wsl/claude as an agent, Balder at a terminal
+// there is balder-wsl/balder as a human. Nothing else distinguishes them, and no token is
+// planned: the host carries the person's name, which is how a colleague's agents differ.
 //
 // Every session on a machine is the same wsl/claude, so the name cannot tell two parallel
 // sessions apart. The session id sits beside it: the hook writes `export CAIRN_SESSION=…`
