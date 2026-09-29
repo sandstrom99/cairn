@@ -27,8 +27,8 @@
 // `lib/guard.ts` in the deployment (docs/design.md §12). `CAIRN_SECRET` in the shell wins
 // over the file, the same way `CAIRN_URL` does, so a hook or a one-off run can carry it.
 // A deployment with no `CAIRN_SECRET` set on it checks nothing, which is what keeps the
-// anonymous local deployment open. It fences a deployment, not an actor: identity auth is
-// still §13. `secretCmd` is the command `cn init --secret-cmd` ran to get it, kept beside
+// anonymous local deployment open. It fences a deployment, not an actor: actors are taken
+// on trust (§13). `secretCmd` is the command `cn init --secret-cmd` ran to get it, kept beside
 // it so `cn init --refresh` can run it again once the deployment's secret is rotated; it
 // is a command, not a secret.
 //

@@ -4,8 +4,8 @@
 //
 // **Agents raise them, and end them only on the person's word.** `ack` and `resolve` refuse
 // an actor of kind `agent` that carries no `said`, the person's words verbatim, and the
-// events keep them (cn-87). Until auth exists that is a guardrail against an honest agent
-// rather than a lock against a lying one, and that is enough.
+// events keep them (cn-87). That is a guardrail against an honest agent rather than a
+// lock against a lying one, and on trust that is enough (docs/design.md §13).
 //
 // One blocker holds many issues, through `blockerLinks`: `raise` with `--on bl-3` attaches
 // the one that already exists rather than minting a second row for the same wait, and

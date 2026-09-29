@@ -60,13 +60,13 @@ _A demo worklist, for a fictional team building a tide-and-weather app._
 
 When a session starts in a repository wired to cairn, the plugin runs `cn brief` and
 puts its answer in front of the agent: how much is ready and the top of it, what is in
-progress and who holds it, the follow-ups this machine can finish, and how many waits
+progress and who holds it, the follow-ups still open, and how many waits
 are on a person. The agent starts from there without being briefed.
 
 What a session opens with:
 
 ```text
-cairn · driftwood · harbor-mac/claude can ios web
+cairn · driftwood · harbor-mac/claude
 ready 3         web-1 "beta signup page with a waitlist" P1 · app-5 "alert settings: a wind threshold per boat" P2 · app-3 "offline banner overlaps the chart in landscape" P3
 in progress     app-1 "cache seven days of tide tables on the device" harbor-mac/claude just now · yours · api-3 "rate-limit the alert fan-out per sea area" ci-linux/claude just now
 follow-ups      app-9 "verify: vibrate pattern for gale alerts" [verify]
@@ -129,7 +129,9 @@ Join an existing cairn worklist from this machine: clone https://github.com/sand
 ```
 
 A joining machine installs `cn`, runs `cn init`, and registers the plugin: steps 1, 3
-and 4 below, and never step 2. A repository someone already wired for the worklist then
+and 4 below, and never step 2. Setup asks what to call the machine and proposes a name
+that carries yours, such as `harbor-mac` on Harbor's Mac: nothing else tells your agents
+apart from a colleague's on the same worklist. A repository someone already wired for the worklist then
 opens on it, since its settings name the deployment. `cn doctor` prints where the
 worklist's page is, as its `✓ page …` line.
 
@@ -355,8 +357,10 @@ stdout is the secret. `cn init` runs it once, here, and never prints what it pri
 the secret is not an argument, not in a shell history and not in an agent's transcript.
 `--host` is
 what this machine is called on every claim and journal entry, `harbor-mac/claude` for an
-agent here. Without it, cn takes the OS hostname up to its first dot, lowercased, so a Mac
-called `Harbors-MacBook-Pro.local` is `harbors-macbook-pro`. The command
+agent on Harbor's Mac. cairn runs on trust, so that name is also what tells your agents from
+a colleague's: give it your name as well as the machine's. Nothing checks it. Without it,
+cn takes the OS hostname up to its first dot, lowercased, so a Mac called
+`Harbors-MacBook-Pro.local` is `harbors-macbook-pro`, which already carries it. The command
 checks before it writes: the deployment has to answer and accept the secret, or nothing
 is written and the line says what to fix. What it writes is
 `~/.config/cairn/config.json`, mode 600, with the secret and the command beside it.
