@@ -133,7 +133,7 @@ export function briefView(over: Partial<BriefView> = {}): BriefView {
   return {
     ready: { count: 0, top: [] },
     inProgress: [],
-    followUps: { count: 0, covered: [] },
+    followUps: [],
     waiting: 0,
     ...over,
   };

@@ -1,7 +1,6 @@
 // cn init — set this machine up: write the config for a deployment.
 //
-//   cn init --name <name> --url <url> [--secret-cmd '<command>']
-//           [--can ios android web device] [--host <name>] [--default]
+//   cn init --name <name> --url <url> [--secret-cmd '<command>'] [--host <name>] [--default]
 //   cn init --refresh [--name <name>] [--secret-cmd '<command>']
 //
 // For a machine with no config at all, and for adding a second deployment to one that
@@ -21,8 +20,6 @@
 // other way in; with neither, the deployment is taken to be open, which is what the
 // anonymous local one is.
 //
-// --can is what this machine can do: ios, android, web, device. It is the fallback for
-// `cn ready --can`, and it is a machine's capability, so `decision` is not one of them.
 // --host is what this machine calls itself in an actor name, `<host>/claude` on every
 // claim. When absent it is the OS hostname up to its first dot, lowercased.
 // --default makes this deployment the one every verb resolves to, for a file that already
@@ -59,7 +56,6 @@ export const summary = "set this machine up: write the config for a deployment";
 export const spec = {
   bool: ["default", "refresh"],
   value: ["name", "url", "secret-cmd", "host"],
-  list: ["can"],
 } as const satisfies ArgSpec;
 
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -77,7 +73,6 @@ type Parsed =
       url: string;
       secret: SecretFrom;
       host?: string;
-      can?: string[];
       makeDefault: boolean;
     }
   | { action: "refresh"; name?: string; command?: string };
@@ -109,7 +104,6 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
     const other = (
       [
         ["url", opts.url !== undefined],
-        ["can", opts.can !== undefined],
         ["host", opts.host !== undefined],
         ["default", opts.default],
       ] as const
@@ -142,15 +136,12 @@ export function parse(argv: string[], env: NodeJS.ProcessEnv = process.env): Par
       ? { from: "CAIRN_SECRET", value: env.CAIRN_SECRET }
       : { from: "none" };
 
-  // An empty list is not an answer about what the machine can do.
-  const can = opts.can && opts.can.length > 0 ? opts.can : undefined;
   return {
     action: "init",
     name: deployment,
     url: checkUrl(given),
     secret,
     ...maybe("host", opts.host),
-    ...maybe("can", can),
     makeDefault: opts.default,
   };
 }
@@ -252,7 +243,6 @@ export async function run(argv: string[]): Promise<number> {
         parsed.secret.from === "--secret-cmd" ? parsed.secret.command : undefined,
       ),
       ...maybe("host", parsed.host),
-      ...maybe("can", parsed.can),
       makeDefault: parsed.makeDefault,
     });
   try {

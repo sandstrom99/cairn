@@ -108,11 +108,8 @@ export function connectTo(target: {
 type Connected = Session & { deployment: Deployment; client: CairnClient };
 
 /** This call's session and the client for its deployment, or the one sentence saying there is none. */
-export function connect(
-  flag: { can?: string[] } = {},
-  env: NodeJS.ProcessEnv = process.env,
-): Connected {
-  const s = session(flag, env);
+export function connect(env: NodeJS.ProcessEnv = process.env): Connected {
+  const s = session(env);
   if (!s.deployment) throw new Error(noDeploymentMessage());
   return { ...s, deployment: s.deployment, client: connectTo(s.deployment) };
 }

@@ -31,8 +31,7 @@ git clone https://github.com/sandstrom99/cairn ~/.local/share/cairn
 cd ~/.local/share/cairn && vp install
 ln -s ~/.local/share/cairn/packages/cli/bin/cn ~/.local/bin/cn
 cn init --name cairn --url "$(op read 'op://Personal/cairn dev deployment/url')" \
-  --secret-cmd 'op read "op://Personal/cairn dev deployment/secret"' \
-  --can web android
+  --secret-cmd 'op read "op://Personal/cairn dev deployment/secret"'
 cn doctor
 ```
 
@@ -41,12 +40,11 @@ command reads it:
 
 ```bash
 cn init --name cairn --url https://<deployment>.convex.cloud \
-  --secret-cmd 'cat ~/.config/cairn/cairn.secret' \
-  --can web android
+  --secret-cmd 'cat ~/.config/cairn/cairn.secret'
 cn doctor
 ```
 
-`--can` is what this machine can do, not what it must be. `--secret-cmd` is run once,
+`--secret-cmd` is run once,
 here, and its stdout is the secret, so the secret is never an argument and never in a
 shell history; `cn init` checks that the deployment answers and takes it before writing
 anything, and writes the file 600. It adds and never replaces: run against a name the
@@ -69,7 +67,6 @@ on every call — `op` is not on that path, because one read costs seconds:
 ```json
 {
   "default": "cairn",
-  "can": ["web", "android"],
   "deployments": {
     "cairn": {
       "url": "https://<deployment>.convex.cloud",
@@ -114,9 +111,8 @@ src/lib/
   args.mts       the one argument parser, typed by the spec a verb hands it
   flags.mts      what a flag's value has to be: revision, priority, date, a link, one of a set of words, once;
                  and which positionals a verb takes, onlyId and onlyFlags
-  session.mts    what one call is: the config read once, and the deployment, actor and can from it
+  session.mts    what one call is: the config read once, and the deployment and actor from it
   config.mts     which deployment: CAIRN_URL, then CAIRN_DEPLOYMENT, then ~/.config/cairn/config.json's default
-  can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`; connect() is the session with its client
   actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>, with CAIRN_SESSION beside it
   ping.mts       one projects.list as the proof a deployment answers and takes the secret, for doctor and init
@@ -136,5 +132,5 @@ file's own header: the contract of the Convex function behind it. The table in
 docs/design.md §10 maps each verb, and each action word of `epic`, `project` and `dep`,
 to its function. Every read verb takes `--json`, every line naming an issue or epic
 starts with the reference form, and a verb takes flags only unless its header names a
-positional: `cn ready ios` is refused, since it means `--can ios`. Every verb in that
+positional: `cn ready ios` is refused, since nothing filters the list. Every verb in that
 table exists; what to build next is cairn's own worklist, `cn ready`.

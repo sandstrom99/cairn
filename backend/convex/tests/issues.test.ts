@@ -939,57 +939,41 @@ describe("issues.close", () => {
   const blocks = (t: Harness, from: string, to: string) =>
     t.mutation(api.edges.add, { actor, from, to, type: "blocks" });
 
-  /** `issues.close` with `ran` and the session's `can`, the way `cn close` sends it. */
-  const closeWith = (t: Harness, id: string, can: string[]) =>
-    t.mutation(api.issues.close, { actor, id, revision: 0, verification: ran, can });
+  /** `issues.close` with `ran`, the way `cn close` sends it. */
+  const closeWith = (t: Harness, id: string) =>
+    t.mutation(api.issues.close, { actor, id, revision: 0, verification: ran });
 
-  it("answers the issue it alone held, as a ready row marked with what can cannot satisfy", async () => {
-    const held = async () => {
-      const t = await seed({ issues: ["the lifecycle"] });
-      await t.mutation(api.issues.create, {
-        actor,
-        project: "cn",
-        epic: "ep-1",
-        title: "confirm on a device",
-        requires: ["ios"],
-      });
-      await blocks(t, "cn-1", "cn-2");
-      return t;
-    };
+  it("answers the issue it alone held, as the ready row", async () => {
+    const t = await seed({ issues: ["the lifecycle", "confirm on a device"] });
+    await blocks(t, "cn-1", "cn-2");
 
-    const t = await held();
-    const { madeReady } = await closeWith(t, "cn-1", []);
+    const { madeReady } = await closeWith(t, "cn-1");
     expect(madeReady).toHaveLength(1);
-    expect(madeReady[0]).toMatchObject({ id: "cn-2", status: "open", cannot: ["ios"] });
+    expect(madeReady[0]).toMatchObject({ id: "cn-2", status: "open" });
     // The row is what the list says, not a second opinion of it.
-    expect(await t.query(api.ready.list, { can: [] })).toEqual(madeReady);
-
-    const able = await held();
-    expect((await closeWith(able, "cn-1", ["ios"])).madeReady).toMatchObject([
-      { id: "cn-2", cannot: [] },
-    ]);
+    expect(await t.query(api.ready.list, {})).toEqual(madeReady);
   });
 
   it("answers nothing while another live issue still holds it, and answers it when that one closes", async () => {
     const t = await seed({ issues: ["the lifecycle", "the graph", "the page"] });
     await blocks(t, "cn-1", "cn-3");
     await blocks(t, "cn-2", "cn-3");
-    expect((await closeWith(t, "cn-2", [])).madeReady).toEqual([]);
-    expect((await closeWith(t, "cn-1", [])).madeReady.map((r) => r.id)).toEqual(["cn-3"]);
+    expect((await closeWith(t, "cn-2")).madeReady).toEqual([]);
+    expect((await closeWith(t, "cn-1")).madeReady.map((r) => r.id)).toEqual(["cn-3"]);
   });
 
   it("answers nothing while a human blocker still holds it", async () => {
     const t = await seed({ issues: ["the lifecycle", "the graph"] });
     await blocks(t, "cn-1", "cn-2");
     await raise(t, "cn-2");
-    expect((await closeWith(t, "cn-1", [])).madeReady).toEqual([]);
+    expect((await closeWith(t, "cn-1")).madeReady).toEqual([]);
   });
 
   it("leaves a claimed issue out, since ready does", async () => {
     const t = await seed({ issues: ["the lifecycle", "the graph"] });
     await blocks(t, "cn-1", "cn-2");
     await t.mutation(api.issues.claim, { actor: other, id: "cn-2" });
-    expect((await closeWith(t, "cn-1", [])).madeReady).toEqual([]);
+    expect((await closeWith(t, "cn-1")).madeReady).toEqual([]);
   });
 });
 

@@ -1,8 +1,6 @@
 // The brief is the one query a session starts with (design §8), so every number in it is
 // a number somebody acts on: a ready count that includes blocked work sends an agent at
-// something it cannot move, and a follow-ups line that hides what it left out reads as
-// "there is nothing". Follow-ups are the one place `can[]` filters rather than marks, and
-// the last test here is the other half of that rule — `ready.list` still shows the row.
+// something it cannot move.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { DAY, HOUR } from "../lib/thresholds";
@@ -12,9 +10,8 @@ afterEach(() => vi.useRealTimers());
 
 /**
  * Three tasks at P1, P0 and P2 (cn-1 to cn-3), a fourth claimed by another machine
- * (cn-4), two follow-ups under it — one needing `ios` (cn-5), one needing nothing (cn-6)
- * — and two blockers: bl-1 on the P2 task, bl-2 on the P1 task. So one task alone is
- * ready, and one follow-up alone is coverable.
+ * (cn-4), two follow-ups under it (cn-5, cn-6), and two blockers: bl-1 on the P2 task,
+ * bl-2 on the P1 task. So one task alone is ready, and both follow-ups are.
  */
 async function worklist() {
   const t = await seed({
@@ -26,16 +23,15 @@ async function worklist() {
     ],
   });
   await t.mutation(api.issues.claim, { actor: other, id: "cn-4" });
-  for (const requires of [["ios"], []])
+  for (const title of ["confirm on a phone", "confirm it"])
     await t.mutation(api.issues.create, {
       actor,
       project: "cn",
       epic: "ep-1",
-      title: `confirm ${requires.join(",") || "it"}`,
+      title,
       type: "follow-up",
       followUpKind: "verify",
       parent: "cn-4",
-      requires,
     });
   await raise(t, "cn-3", {
     kind: "decision",
@@ -56,26 +52,19 @@ describe("brief.get", () => {
 
     // cn-1 and cn-3 are held by blockers; cn-4 is claimed; the follow-ups are not tasks.
     expect(brief.ready.count).toBe(1);
-    expect(brief.ready.top).toEqual([{ id: "cn-2", title: "b", priority: 0, cannot: [] }]);
+    expect(brief.ready.top).toEqual([{ id: "cn-2", title: "b", priority: 0 }]);
 
     expect(brief.inProgress).toEqual([
       { id: "cn-4", title: "d", claimedBy: other, claimedAt: expect.any(Number), mine: false },
     ]);
 
-    // Two are ready; one needs `ios`, which a session that declared nothing does not have.
-    expect(brief.followUps.count).toBe(2);
-    expect(brief.followUps.covered).toEqual([
-      { id: "cn-6", title: "confirm it", followUpKind: "verify", requires: [] },
+    // Both are ready, and a follow-up that says it needs a phone is listed like any other.
+    expect(brief.followUps).toEqual([
+      { id: "cn-5", title: "confirm on a phone", followUpKind: "verify" },
+      { id: "cn-6", title: "confirm it", followUpKind: "verify" },
     ]);
 
     expect(brief.waiting).toBe(2);
-  });
-
-  it("covers a follow-up the moment the session says it can do it", async () => {
-    const t = await worklist();
-    const brief = await t.query(api.brief.get, { can: ["ios"] });
-    expect(brief.followUps.covered.map((f) => f.id)).toEqual(["cn-5", "cn-6"]);
-    expect(brief.followUps.count).toBe(2);
   });
 
   it("frees what a resolved blocker held", async () => {
@@ -210,12 +199,5 @@ describe("brief.get", () => {
       lastJournal: entry.at,
       unjournaledSince: claimedAt,
     });
-  });
-
-  it("leaves the row the brief filtered in ready, marked", async () => {
-    const t = await worklist();
-    const rows = await t.query(api.ready.list, {});
-    const ios = rows.find((i) => i.id === "cn-5");
-    expect(ios?.cannot).toEqual(["ios"]);
   });
 });

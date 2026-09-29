@@ -66,7 +66,7 @@ export function onlyId(pos: string[], usage: string): string {
 
 /**
  * A verb that takes flags only: a positional is a flag the caller forgot to name, and
- * it is refused by name rather than run past. `cn ready ios` means `cn ready --can ios`.
+ * it is refused by name rather than run past. `cn show cn-1 cn-2` is two ids, not one.
  */
 export function onlyFlags(pos: string[], usage: string): void {
   if (pos.length > 0) throw new UsageError(`${usage}: takes flags only, and got "${pos[0]}"`);

@@ -9,8 +9,7 @@ import { type Harness, actor, balder, closeIssue, raise, seed } from "./test.fix
 /** A deployment with one epic and two open issues, cn-1 and cn-2. */
 const twoOpen = () => seed({ issues: ["a", "b"] });
 
-const ids = async (t: Harness, can?: string[]) =>
-  (await t.query(api.ready.list, can === undefined ? {} : { can })).map((i) => i.id);
+const ids = async (t: Harness) => (await t.query(api.ready.list, {})).map((i) => i.id);
 
 describe("ready.list", () => {
   it("drops an issue with an open blocks edge into it, and takes it back the moment the blocker closes", async () => {
@@ -84,18 +83,6 @@ describe("ready.list", () => {
     const t = await twoOpen();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     expect(await ids(t)).toEqual(["cn-2"]);
-  });
-
-  it("marks what this session cannot do and hides none of it", async () => {
-    const t = await twoOpen();
-    await t.mutation(api.issues.update, { actor, id: "cn-1", revision: 0, requires: ["ios"] });
-    const cannot = async (can?: string[]) =>
-      (await t.query(api.ready.list, can === undefined ? {} : { can })).map((i) => i.cannot);
-
-    expect(await cannot(["web"])).toEqual([["ios"], []]);
-    expect(await cannot(["ios", "web"])).toEqual([[], []]);
-    expect(await cannot()).toEqual([["ios"], []]);
-    expect(await ids(t, ["web"])).toEqual(["cn-1", "cn-2"]);
   });
 
   it("is ordered by priority, then age", async () => {

@@ -1,14 +1,10 @@
 // brief.ts: the situation report a session opens with (docs/design.md §8), in one query.
 // Counts and the head of each queue: what is ready, what is in progress and by whom, the
-// follow-ups this session could actually finish, and how much waits on a person.
+// open follow-ups, and how much waits on a person.
 //
 // **It carries state and never doctrine.** The rules live in the skill, which loads on
 // demand; a hook always loads, and beads' `bd prime` grew until it contradicted the skill
 // shipped beside it. Nothing here tells an agent what to do.
-//
-// Follow-ups are the one place in cairn where `can[]` filters rather than marks, and the
-// count says how many were left out. The brief is a glance, so a row this session cannot
-// finish is noise in it; `cn ready` is the list, and it shows every row, marked (§5).
 //
 // The in-progress rows carry the facts the deployment alone can state: `mine`, that the
 // claim belongs to the asking session — the same test `issues.claim` is idempotent on, so
@@ -67,9 +63,9 @@ async function journalFacts(
 }
 
 export const get = query({
-  args: { can: v.optional(v.array(v.string())), actor: v.optional(actorValidator), ...nowArg },
-  handler: async (ctx, { can, actor, now = Date.now() }) => {
-    const ready = await readyIssues(ctx, can ?? [], now);
+  args: { actor: v.optional(actorValidator), ...nowArg },
+  handler: async (ctx, { actor, now = Date.now() }) => {
+    const ready = await readyIssues(ctx, now);
     const tasks = ready.filter((i) => i.type === "task");
     const followUps = ready.filter((i) => i.type === "follow-up");
 
@@ -90,7 +86,6 @@ export const get = query({
           id: i.id,
           title: i.title,
           priority: i.priority,
-          cannot: i.cannot,
         })),
       },
       inProgress: await Promise.all(
@@ -109,18 +104,11 @@ export const get = query({
             ...(await journalFacts(ctx, doc, now)),
           })),
       ),
-      followUps: {
-        count: followUps.length,
-        covered: followUps
-          // `cannot` is already what `can` does not cover, so an empty one is coverage.
-          .filter((i) => i.cannot.length === 0)
-          .map((i) => ({
-            id: i.id,
-            title: i.title,
-            followUpKind: i.followUpKind,
-            requires: i.requires,
-          })),
-      },
+      followUps: followUps.map((i) => ({
+        id: i.id,
+        title: i.title,
+        followUpKind: i.followUpKind,
+      })),
       waiting: waiting.length,
     };
   },

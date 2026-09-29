@@ -31,11 +31,11 @@ describe("underline", () => {
     expect(underline(view())).toBeUndefined();
   });
 
-  it("counts follow-ups, and the ones that ask something of a session", () => {
-    const covered = [{ id: "cn-20", title: "t", followUpKind: undefined, requires: [] }];
-    expect(underline(view({ followUps: { count: 3, covered } }))).toBe(
-      "3 follow-ups, 2 with requirements.",
-    );
-    expect(underline(view({ followUps: { count: 1, covered } }))).toBe("1 follow-up.");
+  it("counts the open follow-ups", () => {
+    const one = { id: "cn-20", title: "t", followUpKind: "verify" as const };
+    expect(
+      underline(view({ followUps: [one, { ...one, id: "cn-21" }, { ...one, id: "cn-22" }] })),
+    ).toBe("3 follow-ups.");
+    expect(underline(view({ followUps: [one] }))).toBe("1 follow-up.");
   });
 });
