@@ -205,7 +205,8 @@ them. The installer gives you the
 latest `vp`, which is fine: the repository pins its own vite-plus, and `vp` runs that
 copy inside it. `vp --version` lists both.
 
-To take what has merged since, from inside it: `git pull --ff-only && vp install`.
+To take what has merged since, from inside it: `git pull --ff-only && vp install`, and
+then the deployment's push, as [Updating](#updating) says.
 Work on cairn itself happens in another clone and its worktrees, as `AGENTS.md` says.
 
 ### 2. A deployment of your own
@@ -462,6 +463,35 @@ The dev server alone reads `CAIRN_SECRET`. A build, `vp run @cairn/web#build`,
 never carries it: the built page asks for it once and keeps it in that browser's
 storage. With no `VITE_CAIRN_URL` the page talks to the anonymous local
 deployment on port 3210.
+
+## Updating
+
+From inside the install, `git pull --ff-only && vp install` takes what has merged, and
+`vp run @cairn/backend#push:cloud` takes it to every deployment the install keeps. Do both
+together: a `cn` and the functions it calls move as one, and `cn doctor` says when a
+deployment runs functions older or newer than the `cn` asking.
+
+**Once, for a deployment that ran cairn from before `b673ae2`** (2026-09-29). Issues then
+stored `requires`, what a machine had to be able to do, and that went with machine
+capabilities: main's schema has no such field, so Convex refuses the push over issues that
+still carry it.
+
+```
+✖ Schema validation failed.
+Document with ID "…" in table "issues" does not match the schema: Object contains extra field `requires` that is not in the validator.
+```
+
+Push `b673ae2`, the last commit that declares the field and carries the one-off that
+strips it, run the one-off, and push main:
+
+```bash
+git checkout b673ae2 && vp install && vp run @cairn/backend#push:cloud -- acme
+(cd backend && npx convex run --env-file .env.cloud.acme.local patch:dropRequires)
+git checkout main && vp install && vp run @cairn/backend#push:cloud -- acme
+```
+
+The one-off answers `{ "issues": N, "stripped": N }`, and run again, `"stripped": 0`. It
+changes nothing anyone reads, and it writes no event.
 
 ## Trying it with no account
 
