@@ -64,10 +64,6 @@ const heldBy = (doc: Doc<"issues">, asker?: Actor) =>
     asker !== undefined && asker.name === doc.claimedBy!.name,
   );
 
-/** True when `actor` may not touch a claim it does not hold: a human may, an agent may not. */
-const fencedOut = (doc: Doc<"issues">, actor: Actor): boolean =>
-  doc.claimedBy !== undefined && doc.claimedBy.name !== actor.name && actor.kind === "agent";
-
 export const create = mutation({
   args: {
     actor: actorValidator,
@@ -219,8 +215,10 @@ export const release = mutation({
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
     if (!doc.claimedBy) return await issueView(ctx, doc);
-    // A human may release anybody's claim; that is how a silent agent gets unstuck.
-    if (fencedOut(doc, args.actor)) throw heldBy(doc);
+    // Anybody may release anybody's claim, a person or an agent, and the event names whose
+    // it was. Leaving another's claim alone is the skill's guidance, not a refusal here:
+    // cairn runs on trust (docs/design.md §5, §13), and a refusal only stranded a session
+    // whose host was renamed under it, or an agent a person had asked to free one.
 
     return await issueView(ctx, await releaseIssue(ctx, args.actor, doc));
   },
@@ -296,7 +294,6 @@ export const close = mutation({
     const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!isLive(doc)) throw invalid(`${doc.id} is already ${doc.status}`);
-    if (fencedOut(doc, args.actor)) throw heldBy(doc);
 
     const proof = args.verification;
     if ("exitCode" in proof && proof.exitCode !== 0)
@@ -342,7 +339,6 @@ export const drop = mutation({
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!isLive(doc)) throw invalid(`${doc.id} is already ${doc.status}`);
     if (args.reason.trim() === "") throw invalid("dropping needs a reason");
-    if (fencedOut(doc, args.actor)) throw heldBy(doc);
 
     return await issueView(ctx, await dropIssue(ctx, args.actor, doc, args.reason));
   },

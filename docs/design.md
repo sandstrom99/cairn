@@ -61,7 +61,7 @@ doing that.
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
 | Residue | A `follow-up` issue linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
-| Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5, 2026-09-22). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released by a person; nothing releases one alone (§7, revised 2026-09-22). |
+| Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5, 2026-09-22). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released on a person's word, by them or by an agent; nothing releases one alone (§7, revised 2026-09-22). Anybody may release, close or drop a claim another holds; leaving it alone is guidance, not a refusal (§5, 2026-09-29). |
 | Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (cn-87). |
 | Blocker channel | Pull-only: on request, and in-session when an agent hits one. The person answers in the session, and the agent ends it on their word. |
 | Reconcile | Revised 2026-09-22: no automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
@@ -377,16 +377,27 @@ choosing is cheaper than dumping into `inbox`.
 forecloses the cooperative behaviour that is the whole point. `lastActivity` is
 stamped by every journal append, so heartbeat costs the agent nothing. A claim
 silent past the threshold in §12 is shown as silent in the brief and in
-`cn review`, and a person releases it: nothing releases a claim on its own (§7).
+`cn review`, and it is released on a person's word, by them or by an agent they ask:
+nothing releases a claim on its own (§7).
 
 "The same session" is the actor's name and its `session` together (§12). Every
 Claude session on a machine is the same `wsl/claude`, so on the name alone two
 parallel sessions both won one claim and, after compaction, nothing could say
 which claim was this session's. A second session of the same name is refused
 like any other claimant, told it is held `in another session`; a shell with no
-session is not the session that holds it either. Release and the human override
-stay on the name: another session of the same name may hand a claim back, and
-a person may release anybody's (2026-09-22).
+session is not the session that holds it either.
+
+**Release, close and drop refuse nobody.** Anybody may release, close or drop an
+issue another name has claimed, a person or an agent; the event records whose claim
+it was and who ended it. Until 2026-09-29 an agent was refused on a claim held under
+another name, and that fence protected nothing on a deployment run on trust (§13).
+It stranded a session whose machine was renamed under it, which then acted under the
+new name and could not close its own work, and it refused an agent a person had asked
+to free a silent claim, when the person never runs a command themselves (cn-122).
+Leaving another's claim alone is now the skill's guidance: touch it only when the
+person asks, or when it is plainly this work's own claim under an old name, and
+journal why first. Claim itself still refuses a held issue, since two agents racing
+for one need one winner; a deliberate takeover is a release, then a claim.
 
 **Close.** Takes a verification record. In beads, close is a free-text
 `close_reason` that nothing checks, which is exactly how work gets marked done
@@ -542,7 +553,7 @@ mechanisms, and neither runs on its own:
 | Epic with every child closed and no open follow-ups: close it | `cn close` on the last open issue answers that the epic can close and prints the `cn epic close` line. An offer, never a close |
 | Closed `unverified` with no follow-up: spawn one | Inside `issues.close`, in the same mutation |
 | Issue in the inbox, exactly one epic matches: reparent it | At `cn create`: an issue bound for the inbox with a `--parent` in an open epic goes beside the parent, and the answer says so. A `discovered-from` edge is added after the create, so it does not place; `cn review ep-0` lists what sits there past 7 days |
-| Claim with no activity past 24 hours: release it | The brief and `cn review` show it as silent. A person releases it. **Nothing releases a claim on its own** |
+| Claim with no activity past 24 hours: release it | The brief and `cn review` show it as silent. It is released on a person's word. **Nothing releases a claim on its own** |
 | Two open issues, same epic, near-identical title: raise | `cn create` hands the matches back before the duplicate exists, and `cn review` lists any that got through |
 | Inbox item older than 7 days: raise | A `cn review` line |
 | Blocker past its `nudgeAt`: raise | A `cn review` line |

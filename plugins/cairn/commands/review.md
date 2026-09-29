@@ -18,8 +18,9 @@ they say so.
 - `nudge`: a blocker past the day it said to look again. Ask whether it is done. When the
   person says it is done, resolve it on their word, `cn resolve <bl> --note "…" --said
   "<their words>"`; if it is still waited on, say so and leave it.
-- `silent`: a claim with nothing for 24 hours. Ask whether that session is still on it. A
-  person releases it, `cn release <id>`; nothing releases it on its own.
+- `silent`: a claim with nothing for 24 hours. Ask whether that session is still on it.
+  When the person says to free it, journal their words on it and `cn release <id>`;
+  nothing releases it on its own.
 - `unverified`: a close with no follow-up beside it, from before closes spawned their own.
   `cn create --project <slug> --epic <its epic> --type follow-up --kind verify --parent <id> --title "verify: …"`.
 - `edge`: a blocks edge with one end finished and the other still live. It holds nothing
