@@ -283,7 +283,7 @@ row("verbs/doctor.mts", () => {
     "cn doctor's last line is not the functions line",
   );
   assert.match(seen.out, /^✓ actor e2e\/claude \(agent\), no session$/m, "no actor line");
-  assert.match(seen.out, /^✓ can nothing declared$/m, "no can line with nothing declared");
+  assert.doesNotMatch(seen.out, /^✓ can\b/m, "cn doctor still prints a can line");
   assert.match(
     cn("doctor", { session: "s-doc" }).out,
     /^✓ actor e2e\/claude \(agent\), session s-doc$/m,
@@ -293,7 +293,7 @@ row("verbs/doctor.mts", () => {
   const checks = json("doctor");
   assert.deepEqual(
     checks.map((c) => c.check),
-    ["node", "api", "deployment", "actor", "can", "ping", "functions"],
+    ["node", "api", "deployment", "actor", "ping", "functions"],
     "cn doctor --json is not the checks as rows",
   );
   assert.ok(
@@ -382,21 +382,22 @@ row("verbs/list.mts", () => {
 });
 
 row("verbs/ready.mts", () => {
+  // Work only a phone can do says so in its title, and lists like any other (cn-116).
   const made = pass(
-    `create --project cn --epic ep-1 --title 'scratch: needs ios' --requires ios`,
-    "cn create --requires ios was refused",
+    `create --project cn --epic ep-1 --title 'scratch: on a phone'`,
+    "cn create of the third issue was refused",
   );
   assert.match(made.out, /cn-3/, "the third issue did not mint cn-3");
 
   const all = pass("ready", "cn ready exited non-zero");
   for (const id of ["cn-1", "cn-2", "cn-3"]) assert.match(all.out, new RegExp(id));
+  assert.doesNotMatch(all.out, /· needs /, "cn ready still marks a row with what it needs");
 
-  const web = pass("ready --can web", "cn ready --can web exited non-zero");
-  const marked = lines(web.stdout).find((l) => l.includes("cn-3"));
-  assert.ok(marked, "cn ready --can web hides the row it cannot do instead of marking it");
-  assert.match(marked, /needs ios/, "the row is not marked with what it needs");
+  const can = cn("ready --can web");
+  assert.equal(can.status, 2, "cn ready --can web was not refused");
+  assert.match(can.stderr, /unknown option --can/, "the refusal does not name --can");
 
-  // A positional is a --can the caller forgot to name, and it is refused, not run past.
+  // A positional is a flag the caller forgot to name, and it is refused, not run past.
   const stray = cn("ready ios");
   assert.equal(stray.status, 2, "cn ready ios ran past a positional instead of refusing it");
   assert.match(stray.stderr, /got "ios"/, "the refusal does not name the positional");
@@ -406,7 +407,8 @@ row("verbs/ready.mts", () => {
 row("verbs/brief.mts", () => {
   const brief = pass("brief", "cn brief exited non-zero");
   assert.ok(lines(brief.stdout).length < 20, "cn brief is 20 lines or more");
-  pass("brief --can decision", "cn brief --can exited non-zero");
+  assert.match(lines(brief.stdout)[0], /^cairn · \S+ · \S+$/, "the brief's head carries more");
+  assert.equal(cn("brief --can web").status, 2, "cn brief --can web was not refused");
 });
 
 row("verbs/show.mts", () => {
@@ -716,17 +718,14 @@ row("verbs/close.mts", () => {
     "cn show does not print the proof as its line",
   );
 
-  // The last thing holding cn-3 closes, and the answer says so the way cn ready would. The
-  // e2e session has no can, so the row is marked with what cn-3 requires.
+  // The last thing holding cn-3 closes, and the answer says so the way cn ready would.
   const freed = pass(
     `close cn-1 --revision ${revisionOf("cn-1")} --run 'echo proof'`,
     "the second cn close cn-1 was refused",
   );
   assert.ok(
     lines(freed.stdout).some((l) =>
-      /^ {2}ready {6}cn-3 "scratch: needs ios" P2 open {2}ep-1 "Create to close" r\d+ · needs ios$/.test(
-        l,
-      ),
+      /^ {2}ready {6}cn-3 "scratch: on a phone" P2 open {2}ep-1 "Create to close" r\d+$/.test(l),
     ),
     "closing the last issue holding cn-3 did not print it as a ready line",
   );
@@ -1209,16 +1208,11 @@ row("verbs/init.mts", () => {
 
   // The whole setup, as a person would run it, with the secret coming from a command.
   const setup = `init --name e2e --url ${url} --secret-cmd 'echo s3cret'`;
-  const made = pass(
-    `${setup} --can web android`,
-    "cn init was refused against a deployment that answers",
-    viaFile,
-  );
+  const made = pass(setup, "cn init was refused against a deployment that answers", viaFile);
   assert.ok(!made.out.includes("s3cret"), "cn init printed the secret it was given");
   assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
   assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), {
     default: "e2e",
-    can: ["web", "android"],
     deployments: { e2e: { url, secret: "s3cret", secretCmd: "echo s3cret" } },
   });
 
@@ -1226,7 +1220,6 @@ row("verbs/init.mts", () => {
   const doctored = pass("doctor", "cn doctor failed on the config cn init just wrote", viaFile);
   assert.match(doctored.out, /e2e/, "cn doctor does not name the deployment it resolved");
   assert.match(doctored.out, /from default/, "cn doctor does not name the default as the source");
-  assert.match(doctored.out, /^✓ can web android$/m, "cn doctor does not read can from the file");
   assert.match(
     doctored.out,
     /^✓ secret accepted by e2e$/m,
@@ -1234,7 +1227,7 @@ row("verbs/init.mts", () => {
   );
 
   const written = readFileSync(config, "utf8");
-  const again = cn(`${setup} --can web android`, viaFile);
+  const again = cn(setup, viaFile);
   assert.equal(again.status, 1, "cn init replaced a deployment that was already there");
   assert.match(again.out, /already a deployment/, "the refusal does not say the name is taken");
   assert.equal(readFileSync(config, "utf8"), written, "the refused cn init wrote anyway");
@@ -1243,7 +1236,6 @@ row("verbs/init.mts", () => {
   const both = JSON.parse(readFileSync(config, "utf8"));
   assert.deepEqual(sorted(Object.keys(both.deployments)), ["e2e", "other"], "both are not there");
   assert.equal(both.default, "e2e", "a second deployment took the default without --default");
-  assert.deepEqual(both.can, ["web", "android"], "a second deployment rewrote can");
   assert.ok(!("secret" in both.deployments.other), "a deployment with no secret got a secret key");
   assert.ok(
     !("secretCmd" in both.deployments.other),
@@ -1288,7 +1280,6 @@ row("verbs/init.mts", () => {
   assert.equal(warm.status, 0, "the hook exited non-zero with a deployment configured");
   assert.ok(!warm.stdout.includes("/cairn:init"), "the hook still asks for setup after cn init");
   assert.match(warm.stdout, /e2e/, "the brief does not name the deployment");
-  assert.match(warm.stdout, /can web android/, "the brief does not carry what the config said");
 
   // Run as Claude Code runs it, the hook hands the session on to every later Bash command.
   const envFile = join(cold, "claude-env");
@@ -1790,7 +1781,8 @@ row("verbs/init.mts (refresh)", () => {
     const d = rotated.out[0];
     writeFileSync(heldFile, d);
 
-    // A machine set up before commands were stored: a secret, and no command beside it.
+    // A machine set up before commands were stored, and before capabilities went (cn-118):
+    // a secret, no command beside it, and a `can` that loads and that nothing reads.
     const before = { default: "e2e", can: ["web"], deployments: { e2e: { url, secret: "stale" } } };
     mkdirSync(join(warm, "cairn"), { recursive: true });
     writeFileSync(config, `${JSON.stringify(before, null, 2)}\n`, { mode: 0o600 });

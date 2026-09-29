@@ -6,20 +6,18 @@ import { parse } from "./init.mts";
 const base = ["--name", "cairn", "--url", "https://tidy-otter-1.convex.cloud"];
 
 describe("cn init", () => {
-  it("takes the name, the url, what the machine can do and the secret command", () => {
-    expect(
-      parse(
-        [...base, "--secret-cmd", "op read op://Personal/x/secret", "--can", "web", "android"],
-        {},
-      ),
-    ).toEqual({
+  it("takes the name, the url and the secret command", () => {
+    expect(parse([...base, "--secret-cmd", "op read op://Personal/x/secret"], {})).toEqual({
       action: "init",
       name: "cairn",
       url: "https://tidy-otter-1.convex.cloud",
       secret: { from: "--secret-cmd", command: "op read op://Personal/x/secret" },
-      can: ["web", "android"],
       makeDefault: false,
     });
+  });
+
+  it("asks nothing about what the machine can do", () => {
+    expect(() => parse([...base, "--can", "web"], {})).toThrow("unknown option --can");
   });
 
   it("falls back to CAIRN_SECRET, and to an open deployment with neither", () => {
@@ -49,9 +47,6 @@ describe("cn init", () => {
   it("leaves out the keys that were not given", () => {
     const parsed = parse(base, {});
     expect(parsed).not.toHaveProperty("host");
-    expect(parsed).not.toHaveProperty("can");
-    // An empty list is not an answer about what the machine can do.
-    expect(parse([...base, "--can"], {})).not.toHaveProperty("can");
   });
 
   it("refuses a missing or malformed name", () => {
@@ -90,7 +85,6 @@ describe("cn init", () => {
   it("refuses with --refresh every flag that would change more than the secret, by name", () => {
     for (const [flag, ...rest] of [
       ["url", "https://a.convex.cloud"],
-      ["can", "web"],
       ["host", "mac"],
       ["default"],
     ]) {

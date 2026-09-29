@@ -17,7 +17,6 @@ import {
   nearLine,
   placedLine,
   projectLine,
-  readyLine,
   reviewLines,
   searchLine,
   staleLines,
@@ -286,15 +285,15 @@ describe("closedLines", () => {
         issue: closed,
         followUp: { ...open, id: "cn-8", title: "verify: the same title" },
         madeReady: [
-          { ...open, id: "cn-9", title: "confirm on a device", cannot: ["ios"] },
-          { ...open, id: "cn-10", title: "the page", priority: 3, cannot: [] },
+          { ...open, id: "cn-9", title: "confirm on a device" },
+          { ...open, id: "cn-10", title: "the page", priority: 3 },
         ],
         epicDone: { id: "ep-2", title: "scratch: review", revision: 0 },
       }),
     ).toEqual([
       'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
       '  follow-up  cn-8 "verify: the same title" P2 open  ep-2 "scratch: review" r0',
-      '  ready      cn-9 "confirm on a device" P2 open  ep-2 "scratch: review" r0 · needs ios',
+      '  ready      cn-9 "confirm on a device" P2 open  ep-2 "scratch: review" r0',
       '  ready      cn-10 "the page" P3 open  ep-2 "scratch: review" r0',
       '  epic       ep-2 "scratch: review" can close · cn epic close ep-2 --revision 0',
     ]);
@@ -384,26 +383,6 @@ describe("blockerLine", () => {
       ),
     ).toBe(
       'bl-1 "the App Store agreement" approval · owner balder · resolved 2h ago by wsl/balder',
-    );
-  });
-});
-
-describe("readyLine", () => {
-  const row = {
-    id: "cn-4",
-    title: "confirm the retry path on a device",
-    status: "open",
-    priority: 1,
-    epic: { id: "ep-1", title: "Create to close" },
-  };
-
-  it("is the issue line while this session can do it", () => {
-    expect(readyLine({ ...row, cannot: [] })).toBe(issueLine(row));
-  });
-
-  it("marks what this session cannot do, rather than hiding the row", () => {
-    expect(readyLine({ ...row, cannot: ["ios", "device"] })).toBe(
-      `${issueLine(row)} · needs ios, device`,
     );
   });
 });
@@ -1386,7 +1365,7 @@ describe("logLine", () => {
 
 describe("briefLines", () => {
   const claude = { name: "balder/claude", kind: "agent" } as const;
-  const where = { deployment: "local", actor: "balder/claude", can: ["web"] };
+  const where = { deployment: "local", actor: "balder/claude" };
   const empty = briefView();
 
   it("is the five lines of design §8", () => {
@@ -1395,9 +1374,9 @@ describe("briefLines", () => {
         ready: {
           count: 4,
           top: [
-            { id: "cn-7", title: "the web window's first page", priority: 1, cannot: [] },
-            { id: "cn-8", title: "the deployment story", priority: 2, cannot: [] },
-            { id: "cn-9", title: "the web view", priority: 2, cannot: ["decision"] },
+            { id: "cn-7", title: "the web window's first page", priority: 1 },
+            { id: "cn-8", title: "the deployment story", priority: 2 },
+            { id: "cn-9", title: "the web view", priority: 2 },
           ],
         },
         inProgress: [
@@ -1409,27 +1388,20 @@ describe("briefLines", () => {
             mine: false,
           },
         ],
-        followUps: {
-          count: 2,
-          covered: [
-            {
-              id: "cn-12",
-              title: "record explicit changes on close",
-              followUpKind: "cleanup",
-              requires: [],
-            },
-          ],
-        },
+        followUps: [
+          { id: "cn-12", title: "record explicit changes on close", followUpKind: "cleanup" },
+          { id: "cn-13", title: "confirm on a phone", followUpKind: "verify" },
+        ],
         waiting: 0,
       },
       where,
       now,
     );
     expect(lines).toEqual([
-      "cairn · local · balder/claude can web",
-      'ready 4         cn-7 "the web window\'s first page" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2 · needs decision',
+      "cairn · local · balder/claude",
+      'ready 4         cn-7 "the web window\'s first page" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2',
       'in progress     cn-6 "the brief and the plugin" balder/claude 2h',
-      'follow-ups      cn-12 "record explicit changes on close" [cleanup] · 1 more needs what you lack',
+      'follow-ups      cn-12 "record explicit changes on close" [cleanup] · cn-13 "confirm on a phone" [verify]',
       "waiting on you  0",
     ]);
     expect(lines.length).toBeLessThan(20);
@@ -1438,7 +1410,7 @@ describe("briefLines", () => {
   it("says none rather than nothing", () => {
     const lines = briefLines(empty, where, now);
     expect(lines).toEqual([
-      "cairn · local · balder/claude can web",
+      "cairn · local · balder/claude",
       "ready 0         none",
       "in progress     none",
       "follow-ups      none",
@@ -1458,15 +1430,11 @@ describe("briefLines", () => {
           claimedAt: ago(HOUR),
           mine: false,
         })),
-        followUps: {
-          count: 7,
-          covered: Array.from({ length: 5 }, (_, i) => ({
-            id: `cn-${i + 20}`,
-            title: "confirm it",
-            followUpKind: "verify" as const,
-            requires: [],
-          })),
-        },
+        followUps: Array.from({ length: 5 }, (_, i) => ({
+          id: `cn-${i + 20}`,
+          title: "confirm it",
+          followUpKind: "verify" as const,
+        })),
       },
       where,
       now,
@@ -1474,7 +1442,7 @@ describe("briefLines", () => {
     expect(lines[2]).toContain("· +2 more");
     expect(lines[2]?.split(" · ")).toHaveLength(6);
     expect(lines[3]).toBe(
-      'follow-ups      cn-20 "confirm it" [verify] · cn-21 "confirm it" [verify] · cn-22 "confirm it" [verify] · +2 more · 2 more need what you lack',
+      'follow-ups      cn-20 "confirm it" [verify] · cn-21 "confirm it" [verify] · cn-22 "confirm it" [verify] · +2 more',
     );
     expect(lines.length).toBeLessThan(20);
   });
@@ -1516,11 +1484,6 @@ describe("briefLines", () => {
     expect(lines[2]).toBe(
       'in progress     cn-37 "a session beside the actor" balder/claude 5m · yours · cn-6 "the brief and the plugin" balder/claude 3d · silent 26h · cn-9 "forgotten in this very session" balder/claude 9d · silent 9d · yours',
     );
-  });
-
-  it("names no capabilities when the session declared none", () => {
-    const [head] = briefLines(empty, { ...where, can: [] }, now);
-    expect(head).toBe("cairn · local · balder/claude");
   });
 });
 

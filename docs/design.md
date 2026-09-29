@@ -333,13 +333,12 @@ Considered and not taken:
 The one genuinely hard query. In full:
 
 ```
-ready(capabilities) =
+ready =
     status = 'open'
     AND no open `blocks` edge into it
     AND no unresolved blocker attached
     AND (deferUntil is null OR deferUntil <= now)
   ordered by priority, then age
-  each row marked with any requires[] this session cannot satisfy
 ```
 
 Computed live. **No `isReady` column, no `recompute` command.** beads spends
@@ -442,24 +441,28 @@ epic:  12 done · 3 follow-ups open
   close and an epic closes over open follow-ups, so the open-epic rule is for the epic
   an argument names, not for routing.
 
-### Capability fencing, and the bug not to repeat
+### No capability fencing
 
-A session declares what it has; `ready` marks what it cannot do.
+Nothing in cairn knows what a machine or a session can do. Work only a phone, a
+device or one particular host can finish says so in its own title or description,
+and the session reading `cn ready` decides whether it is one of those. A decision
+only a person can make is a human blocker (§6), which counts in "waiting on you".
 
-**Advisory in `ready`, filtered in the situation report.** Everything is
-returned and marked, so a config mistake can never hide work. The 20-line
-session-start report leads only with follow-ups this session can actually
-finish.
+Until 2026-09-29 a machine declared `can[]` in its config, from `ios`, `android`,
+`web`, `device` and `decision`, and `ready` marked a row it could not satisfy
+`· needs ios`. It went on Balder's word, in cn-116: the vocabulary was one company's,
+an app shop's, and a tracker meant for anyone's work has no business with it. Of 117
+issues on cairn's own worklist, one had ever required a device. `decision` had put
+decisions in ready, marked, while the brief read `waiting on you 0` with two waiting
+on him. The same day, cn-101 had settled the host case: cairn stays host
+agnostic, so a machine fence is text on the issue.
 
-> beads has this and it is broken: **`--label-any` is silently dropped by
+> beads fences work, and it is broken: **`--label-any` is silently dropped by
 > `bd ready` on every backend**, so a worker fencing itself to one lane claims
-> from another and believes it is fenced. It fails *open*, quietly. Advisory
-> marking sidesteps the failure mode rather than reimplementing it.
+> from another and believes it is fenced. With no fence, nothing can fail open.
 
-Vocabulary starts tiny — `ios`, `android`, `web`, `device`, `decision` — and
-grows only when something is actually fenced. One host is not a capability:
-cairn stays host agnostic, so work only one machine can do says which in its
-own text (Balder, 2026-09-29, cn-101).
+`requires[]` is still written, and `cn show` still prints it, until cn-119 takes it
+off issues; nothing reads it.
 
 ---
 
@@ -590,7 +593,7 @@ A hook injects **under 20 lines**:
 
 - ready count, and the top 3 by priority
 - in progress, with actor and age, marked `yours` where the claim is this session's
-- follow-ups this session's capabilities can finish
+- the open follow-ups
 - waiting-on-you as a **count only**
 - a claim silent past the threshold, marked `silent 26h`
 
@@ -606,14 +609,14 @@ doctor` does, and the line names it. With a config that does not resolve at all,
 such as a `CAIRN_DEPLOYMENT` this machine has not set up, it prints `cairn: <cn's
 one line>`, the line `cn` itself fails with, since no deployment was reached to
 not answer (2026-09-29). The hook's 5 s timeout in the manifest is
-what bounds a URL that never answers at all. One query, `brief.get(can)`,
+what bounds a URL that never answers at all. One query, `brief.get`,
 returns the numbers and the heads; `cn brief` lays them out:
 
 ```
-cairn · acme · wsl/claude can web android
+cairn · acme · wsl/claude
 ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
 in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
-follow-ups     app-22 "[verify] confirm retry path on a device" (web)
+follow-ups     app-22 "confirm retry path on a device" [verify]
 waiting on you 3
 ```
 
@@ -924,7 +927,7 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
  │ the agent          ──  cn <verb>   │  one typed   │ show.ts  brief.ts  review.ts       │
  └────────────────────────────────────┘  call per    │ projects.ts  events.ts  search.ts  │
        cn  (Node 24, .mts, no build)     verb        │ lib/  ids · revision · actor ·     │
-       session.mts → deployment, actor, can[]        │       events · guard · verification│
+       session.mts → deployment, actor               │       events · guard · verification│
                      from config.json, read once     └────────────────────────────────────┘
        client.mts → ConvexHttpClient                                 ▲
        verbs/*    → api.<module>.<fn> → ref()                        │
@@ -936,9 +939,8 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
   client: one request, no socket, so a hook or a cron costs one process and one
   round trip. The web app uses the React client and subscribes to the same
   functions; nothing is written twice.
-- **Every mutation takes `actor`**, and on a mutable field `revision`. Every
-  query that can be fenced takes `can[]`. Until auth exists the actor is an
-  argument `cn` fills in (§13).
+- **Every mutation takes `actor`**, and on a mutable field `revision`. Until auth
+  exists the actor is an argument `cn` fills in (§13).
 - **A subscriber sends its own clock.** Convex re-runs a subscribed query when data it
   read changes, never because time passed, so the stuck line and a `deferUntil` would go
   stale on a page left open. Every public query that reads the clock takes an optional
@@ -968,8 +970,8 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 
 | Verb | Function | |
 |---|---|---|
-| `cn brief [--can ios web …] [--unjournaled]` | `brief.get` | query |
-| `cn ready [--can ios web …]` | `ready.list` | query |
+| `cn brief [--unjournaled]` | `brief.get` | query |
+| `cn ready` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine] [--silent] [--blocked]` | `issues.list`; `--silent <duration>` is what nobody has touched for that long and `--blocked` what a live `blocks` edge holds, both over live issues unless `--status` says otherwise, each row then carrying its silence or its holders | query |
 | `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description, a link's URL or label, or a journal entry holds the text, case aside, each with the field it was found in | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
@@ -988,7 +990,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping; `deployment.pushedFrom`, as the functions line | query |
-| `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` · `cn init --refresh [--name …] [--secret-cmd …]` | `projects.list`, as the check; then it writes this machine's config, or, with `--refresh`, rewrites one deployment's secret from its stored command | query, local |
+| `cn init --name … --url … [--secret-cmd …] [--host …] [--default]` · `cn init --refresh [--name …] [--secret-cmd …]` | `projects.list`, as the check; then it writes this machine's config, or, with `--refresh`, rewrites one deployment's secret from its stored command | query, local |
 
 Every read verb takes `--json`. Every list line starts with the reference form.
 On a stale-write error every write verb prints the events since the caller's
@@ -1131,9 +1133,8 @@ Called by the design session rather than chosen by Balder. Cheap to overrule:
   `{ unverified: reason }`. A command and its output, not prose — prose is what
   an agent fabricates.
 - **Follow-up kinds**: `verify`, `decide`, `cleanup`.
-- **Capability vocabulary** starts at `ios`, `android`, `web`, `device`,
-  `decision`. A machine declares what it has as `can[]` in
-  `~/.config/cairn/config.json`, overridden per call by `--can` or `CAIRN_CAN`.
+- **No capabilities.** A machine declares nothing about what it can do, and `ready`
+  filters and marks nothing by it (§5, cn-116, 2026-09-29).
 - **No epic-to-epic edges.** Epics relate through their issues or not at all.
 
 Added when the solution was mapped, 2026-09-17:
@@ -1167,7 +1168,7 @@ Added when the solution was mapped, 2026-09-17:
   through; a `duplicates` edge between them is the answer given (§7).
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
-  `{ "default": "acme", "can": ["web", "android"], "deployments": { "acme": { "url": …, "secret": … } } }`.
+  `{ "default": "acme", "deployments": { "acme": { "url": …, "secret": … } } }`.
   A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the

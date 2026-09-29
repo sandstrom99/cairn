@@ -58,7 +58,7 @@ type Mention = { invokes?: string; verb?: string; flags: string[]; where: string
 /**
  * What a document says, one mention per code span or fenced line. Code that starts
  * `cn <word>` invokes that word and speaks about that verb; `cn <verb>` with no verb's
- * name, or a flag on its own (`--json`, `[--can …]`), speaks about some verb; any other
+ * name, or a flag on its own (`--json`, `[--link …]`), speaks about some verb; any other
  * code is another program's line (`npx convex … --deployment`) and says nothing. Prose
  * outside code speaks about some verb. A fenced line continued with `\` is one line.
  */

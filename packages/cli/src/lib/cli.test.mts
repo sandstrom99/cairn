@@ -120,7 +120,7 @@ describe("errorData", () => {
 describe("redacted", () => {
   it("strikes the secret from a message that echoes the arguments, and nothing else", () => {
     const echoed =
-      'ArgumentValidationError: Object contains extra field `actor` that is not in the validator.\n\nObject: {actor: {kind: "agent", name: "wsl/claude"}, can: ["web"], secret: "s3cret/+="}\nValidator: v.object({secret: v.optional(v.string())})';
+      'ArgumentValidationError: Object contains extra field `actor` that is not in the validator.\n\nObject: {actor: {kind: "agent", name: "wsl/claude"}, secret: "s3cret/+="}\nValidator: v.object({secret: v.optional(v.string())})';
     const out = redacted(echoed);
     expect(out).not.toContain("s3cret");
     expect(out).toContain('secret: "…"');

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
 import {
   actorCheck,
-  canCheck,
   checkLines,
   deploymentCheck,
   functionsFailed,
@@ -140,15 +139,6 @@ describe("cn doctor", () => {
     expect(actorCheck({ name: "wsl/balder", kind: "human" }).line).toBe(
       "actor wsl/balder (human), no session",
     );
-  });
-
-  it("names what this session can do, and says so when it declared nothing", () => {
-    expect(canCheck(["web", "android"])).toEqual({
-      check: "can",
-      ok: true,
-      line: "can web android",
-    });
-    expect(canCheck([]).line).toBe("can nothing declared");
   });
 
   it("reads a deployment without deployment.pushedFrom as running older functions", () => {

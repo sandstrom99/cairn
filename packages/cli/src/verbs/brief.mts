@@ -1,20 +1,14 @@
 // cn brief — the situation report a session opens with.
 //
-//   cn brief [--can ios android web device decision] [--json]
+//   cn brief [--json]
 //   cn brief --unjournaled [--json]
 //
 // Under 20 lines: the counts and the head of each queue — what is ready, what is in
-// progress and who holds it, the follow-ups this session could finish, how much waits on
-// a person. State, and never rules: the rules are in the skill,
+// progress and who holds it, the open follow-ups, how much waits on a person. State, and never rules: the rules are in the skill,
 // which loads on demand, and a hook always loads.
 //
 // With no deployment configured it prints nothing and exits 0, so the SessionStart hook
 // costs a session nothing on a machine that has never heard of cairn.
-//
-// --can says what this session has; without it, CAIRN_CAN, then `can` in
-// ~/.config/cairn/config.json. The follow-ups line is the one place a capability list
-// subtracts rather than marks, and it says how many it left out; `cn ready` is the list,
-// and every row is there, marked.
 //
 // --unjournaled is the other end of a session: only what this session holds with nothing
 // journaled for longer than the threshold, as one line, or nothing at all:
@@ -37,31 +31,26 @@ import { session } from "../lib/session.mts";
 export const name = "brief";
 export const summary =
   "the situation report a session opens with: counts and the head of each queue";
-export const spec = { bool: ["json", "unjournaled"], list: ["can"] } as const satisfies ArgSpec;
+export const spec = { bool: ["json", "unjournaled"] } as const satisfies ArgSpec;
 
-type Parsed = {
-  action: "brief";
-  json: boolean;
-  can: string[] | undefined;
-  unjournaled: boolean;
-};
+type Parsed = { action: "brief"; json: boolean; unjournaled: boolean };
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);
-  onlyFlags(pos, "cn brief [--can ios android web device decision] [--unjournaled] [--json]");
-  return { action: "brief", json: opts.json, can: opts.can, unjournaled: opts.unjournaled };
+  onlyFlags(pos, "cn brief [--unjournaled] [--json]");
+  return { action: "brief", json: opts.json, unjournaled: opts.unjournaled };
 }
 
 export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
   // Nothing configured is not an error here: a hook on a machine without cairn is silent.
   // A deployment that is configured and does not answer throws, like every other verb.
-  const { deployment, actor: me, can } = session({ can: parsed.can });
+  const { deployment, actor: me } = session();
   if (!deployment) return 0;
 
   const client = connectTo(deployment);
   // The actor goes along so the deployment can mark which claims are this session's.
-  const view = await client.query(api.brief.get, { can, actor: me });
+  const view = await client.query(api.brief.get, { actor: me });
   if (parsed.unjournaled) {
     // The rows are the deployment's marks on what it says is this session's; the line is
     // one or none, and a silent exit 0 is the answer "nothing held quiet".
@@ -71,8 +60,6 @@ export async function run(argv: string[]): Promise<number> {
     });
     return 0;
   }
-  answer(parsed.json, view, (v) =>
-    briefLines(v, { deployment: deployment.name, actor: me.name, can }),
-  );
+  answer(parsed.json, view, (v) => briefLines(v, { deployment: deployment.name, actor: me.name }));
   return 0;
 }

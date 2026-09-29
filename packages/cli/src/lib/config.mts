@@ -11,7 +11,6 @@
 //                                      its url and secret; a repository sets it in the
 //                                      env of its Claude settings
 //   ~/.config/cairn/config.json        { "default": "acme", "host": "wsl",
-//                                        "can": ["web", "android"],
 //                                        "deployments": { "acme": { "url": "https://….convex.cloud",
 //                                                                   "secret": "…",
 //                                                                   "secretCmd": "op read …" } } }
@@ -20,9 +19,9 @@
 // fall back to the default: the repository asked for one worklist, and writing to another
 // is worse than failing.
 //
-// `host` is this machine's name in an actor (lib/actor.mts) and `can` is what it can do,
-// the fallback for `cn ready --can` (lib/can.mts); everything else about the file is
-// which deployment to talk to.
+// `host` is this machine's name in an actor (lib/actor.mts); everything else about the
+// file is which deployment to talk to. A file written before capabilities went (cn-118)
+// may still hold `can`; it loads, and nothing reads it.
 //
 // `secret` is the deployment's one shared secret, sent on every call and checked by
 // `lib/guard.ts` in the deployment (docs/design.md §12). `CAIRN_SECRET` in the shell wins
@@ -60,8 +59,6 @@ export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
   host?: string;
-  /** What this machine can do: ios, android, web, device, decision. Advisory (§5). */
-  can?: string[];
   deployments: Record<string, DeploymentConfig>;
 };
 
@@ -98,13 +95,12 @@ type NewDeployment = {
   /** The command that printed `secret`, for `cn init --refresh` to run again. */
   secretCmd?: string;
   host?: string;
-  can?: string[];
   makeDefault: boolean;
 };
 
 /** `existing` with the deployment added. Pure; throws Error when the name is taken. */
 export function withDeployment(existing: CairnConfig | null, input: NewDeployment): CairnConfig {
-  const { name, url, secret, secretCmd, host, can, makeDefault } = input;
+  const { name, url, secret, secretCmd, host, makeDefault } = input;
   const deployments = existing?.deployments ?? {};
   const taken = deployments[name];
   // The same refusal whether or not the url matches: which of the two the machine meant
@@ -120,7 +116,6 @@ export function withDeployment(existing: CairnConfig | null, input: NewDeploymen
     // default whether or not --default was passed.
     ...(makeDefault || existing?.default === undefined ? { default: name } : {}),
     ...(host === undefined ? {} : { host }),
-    ...(can === undefined ? {} : { can }),
     deployments: {
       ...deployments,
       [name]: {

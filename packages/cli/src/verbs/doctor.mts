@@ -23,13 +23,12 @@
 // joined a deployment holds only the `.convex.cloud` URL it was given, so this line is
 // how it learns where the page is. A deployment on any other host has no such line.
 //
-// The actor and the capabilities are facts, never failures: the name a claim will carry
-// and the session beside it (lib/actor.mts), and the list `cn ready` marks rows against
-// (lib/can.mts), so a `--mine` that finds nothing or a row marked `needs ios` can be read
-// back to where the name or the list came from.
+// The actor is a fact, never a failure: the name a claim will carry and the session beside
+// it (lib/actor.mts), so a `--mine` that finds nothing can be read back to where the name
+// came from.
 //
 // --json is the same checks as rows, `{ check, ok, line }`, named node, api, deployment,
-// page where the deployment is a cloud one, actor and can, then ping where a deployment
+// page where the deployment is a cloud one, actor, then ping where a deployment
 // resolved, secret where one was held and taken, and functions where the ping answered.
 //
 // The `deployment <name> → <url> (…)` line is read by the SessionStart hook
@@ -126,15 +125,6 @@ export function actorCheck(me: Actor): Check {
   };
 }
 
-/** What this session declares it can do; nothing declared marks every fenced row. */
-export function canCheck(can: string[]): Check {
-  return {
-    check: "can",
-    ok: true,
-    line: can.length > 0 ? `can ${can.join(" ")}` : "can nothing declared",
-  };
-}
-
 /** The ping read as checks: answered, and the secret taken where one was held; or why not. */
 export function pingChecks(dep: Deployment | null, ping: Ping): Check[] {
   if (ping.answered) {
@@ -196,13 +186,8 @@ export async function run(argv: string[]): Promise<number> {
     });
   }
 
-  const { deployment, actor, can } = session();
-  checks.push(
-    deploymentCheck(deployment),
-    ...pageCheck(deployment),
-    actorCheck(actor),
-    canCheck(can),
-  );
+  const { deployment, actor } = session();
+  checks.push(deploymentCheck(deployment), ...pageCheck(deployment), actorCheck(actor));
 
   // The ping needs the generated api, so it loads the way the api check did: a machine
   // where codegen has not run gets that line, not a crash before any line.

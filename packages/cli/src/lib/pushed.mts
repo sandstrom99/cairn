@@ -30,7 +30,7 @@ import type { Deployment } from "./config.mts";
 
 /** One of `cn doctor`'s checks, here so that lib/ never imports from verbs/. */
 export type Check = {
-  check: "node" | "api" | "deployment" | "page" | "actor" | "can" | "ping" | "secret" | "functions";
+  check: "node" | "api" | "deployment" | "page" | "actor" | "ping" | "secret" | "functions";
   ok: boolean;
   line: string;
 };

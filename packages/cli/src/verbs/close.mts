@@ -115,7 +115,7 @@ export async function run(argv: string[]): Promise<number> {
   if ("run" in proof) say(`running ${proof.run}`);
   const verification = "run" in proof ? runCommand(proof.run) : proof;
 
-  const { client, actor, can } = connect();
+  const { client, actor } = connect();
   try {
     const closed = await client.mutation(api.issues.close, {
       actor,
@@ -123,7 +123,6 @@ export async function run(argv: string[]): Promise<number> {
       revision: parsed.revision,
       verification,
       ...maybe("followUp", followUp),
-      can,
     });
     console.log(closedLines(closed).join("\n"));
     return 0;

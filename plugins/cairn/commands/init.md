@@ -111,19 +111,14 @@ what it printed. When `CAIRN_DEPLOYMENT` is set, the repository has already name
 deployment: that is the name, and it stays out of `--default`, so the machine's default
 is left where it is.
 
-Ask in the same round what this machine can do, offering what you can see: `xcodebuild`
-is `ios`, an Android SDK or `adb` is `android`, a browser or a node toolchain is `web`, an
-attached phone is `device`. `decision` is a person's capability and never a machine's, so
-it is not one of the answers.
-
-On a machine's first deployment, ask in that round too what the machine is called: the
+On a machine's first deployment, ask in the same round what the machine is called: the
 host in the actor name every claim, journal entry and `in progress` line carries, as
 `<host>/claude`. Offer the default, the host from `cn doctor`'s actor line, which is the
 OS hostname up to its first dot, lowercased. A short name the person will recognise
 beside a colleague's, such as `studio-mac`, reads best. It is the machine's, so a second
 deployment leaves it where it is.
 
-Then `cn init --name <name> --url <url> --secret-cmd '<command>' --can <cap>… --host <host>`,
+Then `cn init --name <name> --url <url> --secret-cmd '<command>' --host <host>`,
 with `--host` only when they chose a name other than the default, then `cn doctor`. The first deployment on a machine becomes its default. A second leaves the
 default where it is, and the repository names it instead (part 3).
 

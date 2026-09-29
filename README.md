@@ -336,7 +336,7 @@ checkout, so each machine is told once. With the secret in 1Password:
 ```bash
 cn init --name acme --url https://<deployment>.convex.cloud \
   --secret-cmd 'op read "op://<vault>/cairn acme deployment/secret"' \
-  --can web android --host harbor-mac
+  --host harbor-mac
 cn doctor
 ```
 
@@ -345,15 +345,14 @@ With the secret in a file:
 ```bash
 cn init --name acme --url https://<deployment>.convex.cloud \
   --secret-cmd 'cat ~/.config/cairn/acme.secret' \
-  --can web android --host harbor-mac
+  --host harbor-mac
 cn doctor
 ```
 
 The URL is the one the line from step 2 printed. `--secret-cmd` is any command whose
 stdout is the secret. `cn init` runs it once, here, and never prints what it printed, so
 the secret is not an argument, not in a shell history and not in an agent's transcript.
-`--can` is what this machine can build and run, from `ios`, `android`, `web` and
-`device`; it is what `cn ready` marks work with, never a reason to hide it. `--host` is
+`--host` is
 what this machine is called on every claim and journal entry, `harbor-mac/claude` for an
 agent here. Without it, cn takes the OS hostname up to its first dot, lowercased, so a Mac
 called `Harbors-MacBook-Pro.local` is `harbors-macbook-pro`. The command
@@ -477,7 +476,7 @@ to it. In another terminal, point this machine at it, with no secret, since a lo
 deployment has none, and open the page:
 
 ```bash
-cn init --name local --url http://127.0.0.1:3210 --can web
+cn init --name local --url http://127.0.0.1:3210
 cd ~/.local/share/cairn && vp run dev:web
 ```
 

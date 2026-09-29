@@ -28,7 +28,7 @@ export type LogEvent = FunctionReturnType<typeof api.events.recent>[number];
 export type BriefView = FunctionReturnType<typeof api.brief.get>;
 
 /** Where this session is, for the brief's first line. */
-export type BriefWhere = { deployment: string; actor: string; can: string[] };
+export type BriefWhere = { deployment: string; actor: string };
 
 /** Enough of an issue to print one line of a list. */
 export type IssueLineView = Referable & {
@@ -38,9 +38,6 @@ export type IssueLineView = Referable & {
   claimedBy?: { name: string };
   revision?: number;
 };
-
-/** A ready row: an issue line, plus what this session cannot satisfy. */
-export type ReadyLineView = IssueLineView & { cannot: string[] };
 
 /** A list row under `--silent` or `--blocked`: the issue line, plus its silence or what holds it. */
 export type ListLineView = IssueLineView & { silentSince?: number; blockedBy?: Referable[] };
@@ -98,7 +95,7 @@ export type ClosedView = {
   issue: IssueLineView;
   followUp?: IssueLineView;
   epicDone?: Referable & { revision: number };
-  madeReady: ReadyLineView[];
+  madeReady: IssueLineView[];
 };
 
 /** What `cn epic close` answers: the epic as it now stands, and what a drop took with it. */

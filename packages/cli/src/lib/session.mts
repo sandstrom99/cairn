@@ -1,13 +1,12 @@
 // session.mts: what one cn call is, read once.
 //
 //   import { session } from "../lib/session.mts";
-//   const { deployment, actor, can } = session({ can: parsed.can });
+//   const { deployment, actor } = session();
 //
-// A verb used to read ~/.config/cairn/config.json up to four times on its way to one
-// call: once to resolve the deployment, once for the actor's host, once for what the
-// machine can do, and once more inside connect(). The file is read here, once, and the
-// three facts are derived from that one read: which deployment (lib/config.mts), who is
-// acting (lib/actor.mts) and what this session can do (lib/can.mts). Each keeps its own
+// A verb used to read ~/.config/cairn/config.json up to three times on its way to one
+// call: once to resolve the deployment, once for the actor's host, and once more inside
+// connect(). The file is read here, once, and both facts are derived from that one read:
+// which deployment (lib/config.mts) and who is acting (lib/actor.mts). Each keeps its own
 // rule and its own test; this is where they meet. `cn init` reads the file itself, since
 // it is about to write it, and it is the one verb that does.
 //
@@ -17,7 +16,6 @@
 // and the one no-deployment sentence.
 
 import { type Actor, actor as actorOf } from "./actor.mts";
-import { can as canOf } from "./can.mts";
 import { type CairnConfig, type Deployment, readConfig, resolveDeployment } from "./config.mts";
 
 export type Session = {
@@ -25,20 +23,14 @@ export type Session = {
   config: CairnConfig | null;
   deployment: Deployment | null;
   actor: Actor;
-  /** What this session can do: the flag, then CAIRN_CAN, then the file. */
-  can: string[];
 };
 
-/** The session this call runs as. `can` is the verb's --can, when it takes one. */
-export function session(
-  { can }: { can?: string[] } = {},
-  env: NodeJS.ProcessEnv = process.env,
-): Session {
+/** The session this call runs as. */
+export function session(env: NodeJS.ProcessEnv = process.env): Session {
   const config = readConfig(env);
   return {
     config,
     deployment: resolveDeployment(env, config),
     actor: actorOf(env, config),
-    can: canOf(can, env, config),
   };
 }

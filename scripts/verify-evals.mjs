@@ -122,7 +122,6 @@ function cn(line, { as, tolerate = false } = {}) {
   const env = clean();
   env.CAIRN_URL = url;
   env.CAIRN_HOST = "eval";
-  env.CAIRN_CAN = "web";
   env.XDG_CONFIG_HOME = xdg;
   env.CLAUDECODE = "1";
   if (as === "other") env.CAIRN_ACTOR = "mac/claude";
@@ -150,7 +149,7 @@ function seed() {
     'create --project app --epic ep-1 --title "retry on reconnect" --priority 1 --description "The app drops its socket on a network change and never reconnects, so the person sees a spinner until they restart it."',
   );
   cn(
-    'create --project app --epic ep-1 --title "offline banner on the login screen" --requires ios --description "The login screen gives no sign the device is offline, so a person on a train taps sign in and waits. The banner needs a phone to verify."',
+    'create --project app --epic ep-1 --title "offline banner on the login screen" --description "The login screen gives no sign the device is offline, so a person on a train taps sign in and waits. The banner needs a phone to verify."',
   );
   cn(
     'create --project app --epic ep-1 --title "invite landing copy" --description "The invite landing page still reads as a placeholder: lorem ipsum under the logo and a button that says Button."',
@@ -164,9 +163,6 @@ function seed() {
   const ids = ready.map((issue) => issue.id);
   if (JSON.stringify(ids) !== JSON.stringify(["app-1", "app-2", "app-3"]))
     throw new Error(`the seed is not the worklist the cases expect: cn ready is ${ids}`);
-  const needsIos = ready.find((issue) => issue.id === "app-2");
-  if (JSON.stringify(needsIos.cannot) !== JSON.stringify(["ios"]))
-    throw new Error(`app-2 should need ios here, and cannot is ${JSON.stringify(needsIos.cannot)}`);
 }
 
 /**

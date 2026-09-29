@@ -39,7 +39,6 @@ import type {
   JournalEntry,
   ListLineView,
   LogEvent,
-  ReadyLineView,
   ReviewView,
   SearchLineView,
   Shown,
@@ -59,19 +58,6 @@ export function issueLine(view: IssueLineView): string {
   if (claimedBy) parts.push(`· ${claimedBy}`);
   if (revision) parts.push(revision);
   return parts.join(" ");
-}
-
-/**
- * A line, plus `· needs ios` where this session lacks what the issue requires. Marked,
- * never hidden: a wrong `can[]` must not be able to make work disappear (§5). The ready
- * list and the brief's ready line mark a row the same way.
- */
-const needs = (line: string, cannot: string[]): string =>
-  cannot.length > 0 ? `${line} · needs ${cannot.join(", ")}` : line;
-
-/** The issue line, marked with what this session cannot do. */
-export function readyLine(view: ReadyLineView): string {
-  return needs(issueLine(view), view.cannot);
 }
 
 /**
@@ -200,9 +186,9 @@ export const epicDoneLine = (epic: Referable & { revision: number }): string =>
 
 /**
  * Under `cn close`, an issue this close was the last thing holding, as `cn ready` would
- * print it: `  ready      cn-3 "…" P2 open  ep-1 "…" r0 · needs ios`.
+ * print it: `  ready      cn-3 "…" P2 open  ep-1 "…" r0`.
  */
-const madeReadyLine = (view: ReadyLineView): string => `  ${answer("ready")}${readyLine(view)}`;
+const madeReadyLine = (view: IssueLineView): string => `  ${answer("ready")}${issueLine(view)}`;
 
 /** Under `cn create`, one live issue in the epic whose title is near-identical to the new one. */
 export const nearLine = (match: Referable): string => `  ${answer("near")}${ref(match)}`;
@@ -363,27 +349,24 @@ const FOLLOW_UP_CAP = 3;
  * The situation report, at most five lines (docs/design.md §8):
  *
  * ```
- * cairn · acme · wsl/claude can web
+ * cairn · acme · wsl/claude
  * ready 4         app-31 "retry on reconnect" P1 · app-40 "…" P2
  * in progress     app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
- * follow-ups      app-22 "confirm the retry path" [verify] · 1 more needs what you lack
+ * follow-ups      app-22 "confirm the retry path" [verify] · app-23 "…" [decide]
  * waiting on you  3
  * ```
  *
  * State, never doctrine: the rules are in the skill, which loads on demand, and a hook
- * always loads. The follow-ups line is the one place a capability list subtracts rather
- * than marks, and it says how many it left out, because `cn ready` is where every row
- * lives and none of them is ever hidden there.
+ * always loads.
  *
  * An in-progress row is marked `yours` when the deployment says the claim is this
  * session's, and `silent 26h` when it has been silent past the threshold (design §7,
  * §8): both are facts the deployment states, and the line only prints them.
  */
 export function briefLines(view: BriefView, where: BriefWhere, now: number = Date.now()): string[] {
-  const head = `cairn · ${where.deployment} · ${where.actor}`;
-  const lines = [where.can.length > 0 ? `${head} can ${where.can.join(" ")}` : head];
+  const lines = [`cairn · ${where.deployment} · ${where.actor}`];
 
-  const ready = view.ready.top.map((i) => needs(`${ref(i)} P${i.priority}`, i.cannot));
+  const ready = view.ready.top.map((i) => `${ref(i)} P${i.priority}`);
   lines.push(
     // The head is three at the deployment, so there is nothing left to cap here.
     `${label(`ready ${view.ready.count}`)}${view.ready.count === 0 ? "none" : ready.join(" · ")}`,
@@ -407,22 +390,12 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
     `${label("in progress")}${holding.length === 0 ? "none" : capped(holding, IN_PROGRESS_CAP)}`,
   );
 
-  const covered = view.followUps.covered.map(
+  const followUps = view.followUps.map(
     (f) => `${ref(f)}${f.followUpKind === undefined ? "" : ` [${f.followUpKind}]`}`,
   );
-  const hidden = view.followUps.count - view.followUps.covered.length;
-  const followUps =
-    view.followUps.count === 0
-      ? "none"
-      : [
-          capped(covered, FOLLOW_UP_CAP),
-          hidden > 0
-            ? `${hidden} more ${hidden === 1 ? "needs" : "need"} what you lack`
-            : undefined,
-        ]
-          .filter((part): part is string => part !== undefined && part !== "")
-          .join(" · ");
-  lines.push(`${label("follow-ups")}${followUps}`);
+  lines.push(
+    `${label("follow-ups")}${followUps.length === 0 ? "none" : capped(followUps, FOLLOW_UP_CAP)}`,
+  );
 
   lines.push(`${label("waiting on you")}${view.waiting}`);
   return lines;

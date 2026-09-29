@@ -18,17 +18,9 @@ export function headline(view: BriefView): Clause[] {
   ];
 }
 
-/**
- * The line under it: follow-ups, and how many of them ask for something particular of the
- * session that picks them up. Nothing to say is no line at all.
- */
+/** The line under it: how many follow-ups are open. Nothing to say is no line at all. */
 export function underline(view: BriefView): string | undefined {
-  const said: string[] = [];
-  const { count, covered } = view.followUps;
-  if (count > 0) {
-    const asking = count - covered.length;
-    const noun = count === 1 ? "follow-up" : "follow-ups";
-    said.push(asking > 0 ? `${count} ${noun}, ${asking} with requirements.` : `${count} ${noun}.`);
-  }
-  return said.length > 0 ? said.join(" ") : undefined;
+  const count = view.followUps.length;
+  if (count === 0) return undefined;
+  return `${count} ${count === 1 ? "follow-up" : "follow-ups"}.`;
 }

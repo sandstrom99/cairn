@@ -47,24 +47,15 @@ export const isReady = (blocked: Blocked): boolean =>
   blocked.blockers.length === 0 &&
   blocked.deferredUntil === undefined;
 
-/** One ready row: the issue, marked with what `can` cannot satisfy. */
-async function readyRow(ctx: QueryCtx, doc: Doc<"issues">, have: Set<string>) {
-  return { ...(await issueView(ctx, doc)), cannot: doc.requires.filter((r) => !have.has(r)) };
-}
-
 /**
- * The ready rows themselves, in ready order, each marked with what `can` cannot satisfy.
- * `ready.list` is this function and nothing else, and `brief.get` counts the same rows,
- * so the head of the brief can never disagree with the list it is the head of.
+ * The ready rows themselves, in ready order. `ready.list` is this function and nothing
+ * else, and `brief.get` counts the same rows, so the head of the brief can never disagree
+ * with the list it is the head of.
  *
  * `now` is the caller's clock when a subscriber sends one, because a subscription re-runs
  * on data and never on time.
  */
-export async function readyIssues(
-  ctx: QueryCtx,
-  can: string[] | undefined,
-  now: number = Date.now(),
-) {
+export async function readyIssues(ctx: QueryCtx, now: number = Date.now()) {
   const open = await ctx.db
     .query("issues")
     .withIndex("by_status", (q) => q.eq("status", "open"))
@@ -74,8 +65,7 @@ export async function readyIssues(
   for (const doc of open) if (isReady(await blockedBy(ctx, doc, now))) ready.push(doc);
   ready.sort(priorityOrder);
 
-  const have = new Set(can ?? []);
-  return await Promise.all(ready.map((doc) => readyRow(ctx, doc, have)));
+  return await Promise.all(ready.map((doc) => issueView(ctx, doc)));
 }
 
 /**
@@ -87,12 +77,7 @@ export async function readyIssues(
  * issue, so an agent's loop continues without a second call. Nothing is stored for it:
  * the edge stays, and reads `done` (docs/design.md §7).
  */
-export async function madeReadyBy(
-  ctx: QueryCtx,
-  closed: Doc<"issues">,
-  can: string[] | undefined,
-  now: number = Date.now(),
-) {
+export async function madeReadyBy(ctx: QueryCtx, closed: Doc<"issues">, now: number = Date.now()) {
   const outgoing = await edgesFrom(ctx, closed._id, "blocks");
   const targets = await Promise.all(outgoing.map((e) => ctx.db.get(e.to)));
 
@@ -104,6 +89,5 @@ export async function madeReadyBy(
       ready.push(doc);
   ready.sort(priorityOrder);
 
-  const have = new Set(can ?? []);
-  return await Promise.all(ready.map((doc) => readyRow(ctx, doc, have)));
+  return await Promise.all(ready.map((doc) => issueView(ctx, doc)));
 }

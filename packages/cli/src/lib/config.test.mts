@@ -188,32 +188,29 @@ const input = { name: "cairn", url: "https://b", makeDefault: false };
 
 describe("withDeployment", () => {
   it("makes the first deployment the whole file, and the default", () => {
-    expect(withDeployment(null, { ...input, secret: "s", can: ["web"], host: "wsl" })).toEqual({
+    expect(withDeployment(null, { ...input, secret: "s", host: "wsl" })).toEqual({
       default: "cairn",
       host: "wsl",
-      can: ["web"],
       deployments: { cairn: { url: "https://b", secret: "s" } },
     });
   });
 
-  it("writes no secret key when there is no secret, and no host or can when not given", () => {
+  it("writes no secret key when there is no secret, and no host when not given", () => {
     expect(withDeployment(null, input)).toEqual({
       default: "cairn",
       deployments: { cairn: { url: "https://b" } },
     });
   });
 
-  it("adds beside what is there, leaving the default, host and can alone", () => {
+  it("adds beside what is there, leaving the default and the host alone", () => {
     const existing: CairnConfig = {
       default: "northwind",
       host: "wsl",
-      can: ["web", "android"],
       deployments: { northwind: { url: "https://a", secret: "s" } },
     };
     expect(withDeployment(existing, input)).toEqual({
       default: "northwind",
       host: "wsl",
-      can: ["web", "android"],
       deployments: { northwind: { url: "https://a", secret: "s" }, cairn: { url: "https://b" } },
     });
     expect(existing.deployments.cairn).toBeUndefined();
@@ -229,17 +226,22 @@ describe("withDeployment", () => {
     expect(withDeployment(undecided, input).default).toBe("cairn");
   });
 
-  it("replaces host and can only when they are given", () => {
+  it("replaces the host only when it is given", () => {
     const existing: CairnConfig = {
       default: "northwind",
       host: "wsl",
-      can: ["web"],
       deployments: { northwind: { url: "https://a" } },
     };
-    expect(withDeployment(existing, { ...input, host: "mac", can: ["ios"] })).toMatchObject({
-      host: "mac",
-      can: ["ios"],
-    });
+    expect(withDeployment(existing, { ...input, host: "mac" })).toMatchObject({ host: "mac" });
+  });
+
+  it("leaves a can written before capabilities went (cn-118) where it was, unread", () => {
+    const existing = {
+      default: "northwind",
+      can: ["web", "android"],
+      deployments: { northwind: { url: "https://a" } },
+    } as CairnConfig;
+    expect(withDeployment(existing, input)).toMatchObject({ can: ["web", "android"] });
   });
 
   it("refuses a name the file already carries, whether or not the url matches", () => {
@@ -274,7 +276,6 @@ describe("withSecret", () => {
   const existing: CairnConfig = {
     default: "northwind",
     host: "wsl",
-    can: ["web", "android"],
     deployments: {
       northwind: { url: "https://a", secret: "old" },
       cairn: { url: "https://b", secret: "s", secretCmd: "op read b" },
@@ -285,7 +286,6 @@ describe("withSecret", () => {
     expect(withSecret(existing, "northwind", { secret: "new", secretCmd: "op read a" })).toEqual({
       default: "northwind",
       host: "wsl",
-      can: ["web", "android"],
       deployments: {
         northwind: { url: "https://a", secret: "new", secretCmd: "op read a" },
         cairn: { url: "https://b", secret: "s", secretCmd: "op read b" },

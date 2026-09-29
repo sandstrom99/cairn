@@ -98,7 +98,7 @@ an issue.
 | Verb | Does | Backed by |
 |---|---|---|
 | `cn brief` | the session-start report, under 20 lines | `brief.get` |
-| `cn ready [--can …]` | what can be started, by priority, with what this session cannot do marked | `ready.list` |
+| `cn ready` | what can be started, by priority | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine`; `--silent 3d` for what nobody has touched, `--blocked` for what a live edge holds | `issues.list` |
 | `cn search <text>` | the issues whose title, description, a link's URL or label, or a journal entry holds the text, across every status, each marked with the field; run before `cn create` | `search.find` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
@@ -122,7 +122,7 @@ Every read verb takes `--json`. Every write to a mutable field carries the revis
 was read; a stale write comes back with what changed and who changed it, and the right
 move is to re-read and decide, never to force. `cn <verb> --help` is that verb's
 contract, in full. A verb takes flags only unless its contract names a positional, and
-refuses one it does not: `cn ready ios` is a usage error, since it means `--can ios`.
+refuses one it does not: `cn ready ios` is a usage error, since nothing filters the list.
 
 ## A session's shape
 
