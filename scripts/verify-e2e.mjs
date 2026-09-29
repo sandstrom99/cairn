@@ -440,7 +440,10 @@ row("verbs/claim.mts, verbs/release.mts", () => {
   const theirs = cn("claim cn-2", { as: "other" });
   assert.equal(theirs.status, 1, "a second actor's claim was not refused");
   assert.match(theirs.out, /e2e\/claude/, "the refusal does not name who holds it");
-  pass("release cn-2", "cn release cn-2 was refused");
+  // Another agent may release a claim it does not hold: guidance keeps it off, not a refusal.
+  const freed = cn("release cn-2", { as: "other" });
+  assert.equal(freed.status, 0, "another agent's release of e2e/claude's claim was refused");
+  assert.match(freed.out, /\bopen\b/, "another agent's release did not hand the issue back");
   pass("claim cn-2", "cn claim after a release was refused");
 
   // Two shells of one name in two sessions are two claimants; the same session claims once.

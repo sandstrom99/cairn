@@ -2,9 +2,11 @@
 //
 //   cn release <id>
 //
-// Clears the claim and puts it back to open. An agent may only release what it holds; a
-// person may release anything, which is how a session that died mid-claim gets unstuck:
-// nothing else releases it. Releasing what nobody holds changes nothing.
+// Clears the claim and puts it back to open, whoever holds it: nothing refuses releasing
+// another's claim, and the event names whose it was. Leaving it alone is guidance. An
+// agent releases another's claim only when the person asks, or when it is plainly this
+// work's own under an old name, and journals why first. Nothing releases a claim on its
+// own. Releasing what nobody holds changes nothing.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";

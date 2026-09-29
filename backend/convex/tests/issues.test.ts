@@ -521,12 +521,9 @@ describe("issues.claim", () => {
 });
 
 describe("issues.release", () => {
-  it("gives it back, and an agent cannot take another's claim away", async () => {
+  it("gives it back", async () => {
     const t = await withIssue();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
-    await expect(
-      t.mutation(api.issues.release, { actor: other, id: "cn-1" }),
-    ).rejects.toMatchObject({ data: { kind: "claimed", by: actor } });
 
     const released = await t.mutation(api.issues.release, { actor, id: "cn-1" });
     expect(released).toMatchObject({ status: "open", revision: 2 });
@@ -537,6 +534,29 @@ describe("issues.release", () => {
     expect(event!.changes).toEqual({
       status: { from: "in_progress", to: "open" },
       claimedBy: { from: actor.name },
+    });
+  });
+
+  it("lets another agent release it, and the event names whose claim it was", async () => {
+    const t = await withIssue();
+    await t.mutation(api.issues.claim, { actor, id: "cn-1" });
+
+    const released = await t.mutation(api.issues.release, { actor: other, id: "cn-1" });
+    expect(released).toMatchObject({ status: "open", revision: 2 });
+    expect(released.claimedBy).toBeUndefined();
+
+    const [event] = await eventsOf(t, "issue.release");
+    expect(event!.actor).toEqual(other);
+    expect(event!.changes).toMatchObject({ claimedBy: { from: actor.name } });
+
+    // Releasing is not claiming: the issue is open for anybody, the releaser included.
+    await expect(
+      t.mutation(api.issues.claim, { actor: balder, id: "cn-1" }),
+    ).resolves.toMatchObject({
+      claimedBy: balder,
+    });
+    await expect(t.mutation(api.issues.claim, { actor: other, id: "cn-1" })).rejects.toMatchObject({
+      data: { kind: "claimed", by: balder },
     });
   });
 
@@ -810,14 +830,12 @@ describe("issues.close", () => {
     });
   });
 
-  it("refuses an agent closing another's claim, and lets a human do it", async () => {
+  it("lets an agent close another's claim, the proof recorded as the closer's", async () => {
     const t = await withIssue();
     await t.mutation(api.issues.claim, { actor: other, id: "cn-1" });
-    await expect(closeIssue(t, "cn-1", 1)).rejects.toMatchObject({
-      data: { kind: "claimed", by: other },
-    });
-    const { issue } = await closeIssue(t, "cn-1", 1, { actor: balder });
-    expect(issue).toMatchObject({ status: "closed", verification: { by: balder } });
+    const { issue } = await closeIssue(t, "cn-1", 1);
+    expect(issue).toMatchObject({ status: "closed", verification: { by: actor } });
+    expect(issue.claimedBy).toBeUndefined();
   });
 
   it("creates the follow-up in the same mutation, linked and in the same epic", async () => {
@@ -1000,5 +1018,20 @@ describe("issues.drop", () => {
       status: { from: "open", to: "dropped" },
       droppedReason: { to: "the approach it describes is gone" },
     });
+  });
+
+  it("lets an agent drop another's claim, still only with a reason", async () => {
+    const t = await withIssue();
+    await t.mutation(api.issues.claim, { actor: other, id: "cn-1" });
+    await expect(
+      t.mutation(api.issues.drop, { actor, id: "cn-1", revision: 1, reason: " " }),
+    ).rejects.toMatchObject({ data: { kind: "invalid", message: "dropping needs a reason" } });
+    const dropped = await t.mutation(api.issues.drop, {
+      actor,
+      id: "cn-1",
+      revision: 1,
+      reason: "superseded while its session was away",
+    });
+    expect(dropped).toMatchObject({ status: "dropped", revision: 2 });
   });
 });
