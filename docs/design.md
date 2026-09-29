@@ -457,7 +457,9 @@ finish.
 > marking sidesteps the failure mode rather than reimplementing it.
 
 Vocabulary starts tiny — `ios`, `android`, `web`, `device`, `decision` — and
-grows only when something is actually fenced.
+grows only when something is actually fenced. One host is not a capability:
+cairn stays host agnostic, so work only one machine can do says which in its
+own text (Balder, 2026-09-29, cn-101).
 
 ---
 

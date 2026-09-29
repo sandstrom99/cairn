@@ -2,8 +2,11 @@
 //
 //   cn create --project <slug> --epic <ep-id> --title <title>
 //             [--priority 0-4] [--description <text>] [--design <how>] [--acceptance <what>]
-//             [--type task|follow-up] [--kind verify|decide|cleanup] [--parent <id>]
+//             [--type follow-up --kind verify|decide|cleanup] [--parent <id>]
 //             [--requires <cap>…] [--link <url>…]
+//
+// --type is task unless it says follow-up, and --kind belongs to a follow-up alone: a
+// follow-up needs one, and a task given one is refused, `only a follow-up has a kind`.
 //
 // An epic is required and there is no orphan state: a create with no --epic exits 1 and
 // prints the open epics, so choosing one is cheaper than dumping into the inbox. `ep-0`
@@ -13,7 +16,8 @@
 // WHAT success is, verifiable yes or no, and stays still across sessions: if rewriting
 // the solution a different way would change it, it is a design note in a criterion's
 // clothes. --requires is what a session needs to do it at all: ios, android, web, device,
-// decision. --priority is 0 highest to 4 backlog, and defaults to 2.
+// decision. One machine is not a capability, so work only one machine can do says which
+// in its title or description. --priority is 0 highest to 4 backlog, and defaults to 2.
 //
 // --description, --design and --acceptance are Markdown, which the web page sets and cn
 // prints as written. Open each with a plain sentence, since cn prints the first line
