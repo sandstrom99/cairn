@@ -454,9 +454,9 @@ It lives on this machine only, and answers only while that first terminal runs.
 
 ## Contributing
 
-Report problems and propose changes on GitHub: an issue for a problem, a pull request
-for a change. [CONTRIBUTING.md](CONTRIBUTING.md) says what a good report and a good pull
-request carry, and [`AGENTS.md`](AGENTS.md) carries the rest: the per-change
+Report problems and propose changes as GitHub issues. Pull requests are open to
+collaborators only while cairn is this early. [CONTRIBUTING.md](CONTRIBUTING.md) says
+what a good report carries and how a proposal is taken on, and [`AGENTS.md`](AGENTS.md) carries the rest: the per-change
 verification table, the toolchain rules, and the maintainer's own loop, `cn ready`
 against cairn's own worklist, which a contributor does not need. `vp run verify` is the gate,
 and nothing is reported as working until it is green.
