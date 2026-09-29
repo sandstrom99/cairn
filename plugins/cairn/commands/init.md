@@ -59,36 +59,51 @@ Otherwise offer to stand one up, and do it with them.
      a repository's `CAIRN_DEPLOYMENT`;
    - the team, only when `npx convex login status` listed more than one;
    - the Convex project, `cairn-<name>` unless they want another;
-   - the 1Password vault the secret goes in: their own for a worklist only they use, a
-     shared one when colleagues will join. The secret passes through 1Password and never
-     through this conversation. With no `op` on PATH, stop here and point the person at
-     the README's "A deployment for a company", which they walk in their own terminal.
+   - where the secret is kept. With `op` on PATH, offer two choices: a 1Password vault,
+     their own for a worklist only they use, a shared one when colleagues will join; or a
+     file on this machine, `~/.config/cairn/<name>.secret`, which only this machine reads.
+     With no `op` on PATH it is the file, and say so. Either way the secret never passes
+     through this conversation. With a file, colleagues who join get it from the person
+     through whatever they already share secrets with.
 4. From the checkout's root, run `vp run @cairn/backend#new:cloud -- <name> --project <project>`,
    or `vp run @cairn/backend#new:cloud -- <name> --project <project> --team <team>` when a
    team was named. It creates the project and its development deployment with nothing
    running on it yet, writes `backend/.env.cloud.<name>.local`, which binds this checkout's
    cloud commands to it, and leaves `backend/.env.local` as it was.
-5. `vp run @cairn/backend#secret -- new <name> --op "op://<vault>/cairn <name> deployment"`.
-   It sets the deployment's secret before any function exists there, stores it in a
-   1Password item with the URL beside it, and prints the `cn init --name …` line every
-   machine sets up with. The secret itself is never printed. When `op` fails with
-   `account is not signed in` or `authorization timeout`, 1Password is locked: ask the
-   person to unlock it, and run the same command again.
+5. The secret, in the place they chose. It is set on the deployment before any function
+   exists there.
+   - In 1Password: `vp run @cairn/backend#secret -- new <name> --op "op://<vault>/cairn <name> deployment"`.
+     It stores the secret in a 1Password item with the URL beside it, and prints the
+     `cn init --name …` line every machine sets up with. The secret itself is never
+     printed. When `op` fails with `account is not signed in` or `authorization timeout`,
+     1Password is locked: ask the person to unlock it, and run the same command again.
+   - In a file, from the checkout's root:
+     `mkdir -p ~/.config/cairn && (umask 077 && node backend/scripts/secret.mjs new <name> > ~/.config/cairn/<name>.secret.new) && mv ~/.config/cairn/<name>.secret.new ~/.config/cairn/<name>.secret`.
+     The file moves into place only when the script succeeded, so a refused `new` never
+     empties one that holds the secret.
+     It runs the script with `node`, not `vp run`, because vp prints its own command line
+     on stdout, which would land in the file beside the secret. Never read, `cat` or print
+     that file: the secret would then be in this transcript. The `cn init --name …` line
+     the script prints on stderr carries a placeholder for the secret command; the command
+     is `cat ~/.config/cairn/<name>.secret`.
 6. `vp run @cairn/backend#push:cloud -- <name>`: the functions, then the page, which is
    then at `https://<deployment>.convex.site`.
 
 ## 2. This machine
 
-Done when `cn doctor` ends `✓ secret accepted by <name>`, with `CAIRN_DEPLOYMENT=<name>`
+Done when `cn doctor` prints `✓ secret accepted by <name>`, with `CAIRN_DEPLOYMENT=<name>`
 in front of it when the machine holds more than one deployment.
 
-A deployment part 1 just stood up printed its line, `cn init --name <name> --url <url> --secret-cmd '<command>'`.
+A deployment part 1 just stood up printed its line, `cn init --name <name> --url <url> --secret-cmd '<command>'`,
+with `cat ~/.config/cairn/<name>.secret` as the command when the secret went to a file.
 For one that already existed, the secret is the person's to point at: ask for the command
-that prints it (`op read "op://<vault>/<item>/secret"` is the usual shape), or whether the
-deployment has none. Ask for the command, never for the secret itself, and do not run it:
-`cn init` runs it once and never prints what it printed. When `CAIRN_DEPLOYMENT` is set,
-the repository has already named the deployment: that is the name, and it stays out of
-`--default`, so the machine's default is left where it is.
+that prints it, or whether the deployment has none. The usual shapes are
+`op read "op://<vault>/<item>/secret"`, and `cat ~/.config/cairn/<name>.secret` for a
+file they saved it in, or any command whose stdout is the secret. Ask for the command,
+never for the secret itself, and do not run it: `cn init` runs it once and never prints
+what it printed. When `CAIRN_DEPLOYMENT` is set, the repository has already named the
+deployment: that is the name, and it stays out of `--default`, so the machine's default
+is left where it is.
 
 Ask in the same round what this machine can do, offering what you can see: `xcodebuild`
 is `ios`, an Android SDK or `adb` is `android`, a browser or a node toolchain is `web`, an
