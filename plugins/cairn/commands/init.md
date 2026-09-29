@@ -92,7 +92,8 @@ Otherwise offer to stand one up, and do it with them.
      the script prints on stderr carries a placeholder for the secret command; the command
      is `cat ~/.config/cairn/<name>.secret`.
 6. `vp run @cairn/backend#push:cloud -- <name>`: the functions, then the page, which is
-   then at `https://<deployment>.convex.site`.
+   then at the deployment's URL with `.convex.cloud` changed to `.convex.site`, the region
+   kept. `cn doctor` prints it as its `✓ page …` line.
 
 ## 2. This machine
 

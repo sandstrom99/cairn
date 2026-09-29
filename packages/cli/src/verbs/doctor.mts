@@ -18,14 +18,19 @@
 // (lib/pushed.mts). A deployment with no record passes, since only `#push:cloud` records
 // one; a deployment without `deployment.pushedFrom` at all runs functions older than it.
 //
+// The page is a fact too: the deployment's URL with `.convex.cloud` changed to
+// `.convex.site`, region and all, which is where `#push:cloud` ships it. A machine that
+// joined a deployment holds only the `.convex.cloud` URL it was given, so this line is
+// how it learns where the page is. A deployment on any other host has no such line.
+//
 // The actor and the capabilities are facts, never failures: the name a claim will carry
 // and the session beside it (lib/actor.mts), and the list `cn ready` marks rows against
 // (lib/can.mts), so a `--mine` that finds nothing or a row marked `needs ios` can be read
 // back to where the name or the list came from.
 //
 // --json is the same checks as rows, `{ check, ok, line }`, named node, api, deployment,
-// actor and can, then ping where a deployment resolved, secret where one was held and
-// taken, and functions where the ping answered.
+// page where the deployment is a cloud one, actor and can, then ping where a deployment
+// resolved, secret where one was held and taken, and functions where the ping answered.
 //
 // The `deployment <name> → <url> (…)` line is read by the SessionStart hook
 // (plugins/cairn/hooks/session-start.sh) to name a deployment that did not answer, so
@@ -87,6 +92,28 @@ export function deploymentCheck(dep: Deployment | null): Check {
     ok: true,
     line: `deployment ${dep.name} → ${dep.url} (from ${dep.source}, ${secret})`,
   };
+}
+
+/**
+ * The page's URL for a cloud deployment's: the same host with `.convex.site` for
+ * `.convex.cloud`, the region kept. Undefined for any other URL, a local deployment's
+ * among them, whose site port cn cannot know.
+ */
+export function pageUrl(url: string): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".convex.cloud")) return undefined;
+  return `https://${parsed.hostname.replace(/\.convex\.cloud$/, ".convex.site")}`;
+}
+
+/** Where the deployment serves its page, for a cloud deployment; nothing otherwise. */
+export function pageCheck(dep: Deployment | null): Check[] {
+  const url = dep ? pageUrl(dep.url) : undefined;
+  return url ? [{ check: "page", ok: true, line: `page ${url}` }] : [];
 }
 
 /** Who this shell acts as, and in which session, when the hook exported one. */
@@ -170,7 +197,12 @@ export async function run(argv: string[]): Promise<number> {
   }
 
   const { deployment, actor, can } = session();
-  checks.push(deploymentCheck(deployment), actorCheck(actor), canCheck(can));
+  checks.push(
+    deploymentCheck(deployment),
+    ...pageCheck(deployment),
+    actorCheck(actor),
+    canCheck(can),
+  );
 
   // The ping needs the generated api, so it loads the way the api check did: a machine
   // where codegen has not run gets that line, not a crash before any line.
