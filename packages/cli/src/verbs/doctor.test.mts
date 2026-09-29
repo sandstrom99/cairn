@@ -5,6 +5,7 @@ import {
   canCheck,
   checkLines,
   deploymentCheck,
+  functionsFailed,
   nodeCheck,
   parse,
   pingChecks,
@@ -125,6 +126,28 @@ describe("cn doctor", () => {
       line: "can web android",
     });
     expect(canCheck([]).line).toBe("can nothing declared");
+  });
+
+  it("reads a deployment without deployment.pushedFrom as running older functions", () => {
+    // What the client throws in place of Convex's missing-function error, carrying it.
+    const missing = new Error(
+      "cairn runs older functions than this cn (no deployment:pushedFrom)",
+      {
+        cause: new Error(
+          "[Request ID: 96c34ef5691cf1cb] Server Error\nCould not find public function for 'deployment:pushedFrom'.\n",
+        ),
+      },
+    );
+    expect(functionsFailed(cloud, missing, "/src/cairn")).toEqual({
+      check: "functions",
+      ok: false,
+      line: "cairn runs functions older than this cn: vp run @cairn/backend#push:cloud -- cairn",
+    });
+    expect(functionsFailed(cloud, new Error("fetch failed"), "/src/cairn")).toEqual({
+      check: "functions",
+      ok: false,
+      line: "functions on cairn: fetch failed",
+    });
   });
 
   it("prints one marked line per check", () => {

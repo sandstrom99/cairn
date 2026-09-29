@@ -23,10 +23,20 @@
 // its handler (docs/design.md §12). With no secret resolved the arguments go through
 // untouched, with no `secret` key at all, which is what the anonymous local deployment
 // and any test against it see.
+//
+// A call the deployment refuses because it runs other functions than this cn, an argument
+// its validator does not know or lacks, or a function it does not have, is rethrown here
+// as the one line lib/pushed.mts makes of it, naming the deployment and the fix, in place
+// of Convex's multi-line error. The original rides on the new error as its `cause`. A
+// ConvexError is the deployment's own answer and passes through untouched, as does
+// anything else.
 
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { ConvexHttpClient } from "convex/browser";
+import { getFunctionName } from "convex/server";
+import { ConvexError } from "convex/values";
 import { type Deployment, noDeploymentMessage } from "./config.mts";
+import { checkoutRoot, mismatchLine } from "./pushed.mts";
 import { type Session, session } from "./session.mts";
 
 export { api };
@@ -57,11 +67,41 @@ export function withSecret(http: CairnClient, secret?: string): CairnClient {
 }
 
 /**
- * A client for a deployment named outright, rather than one the config resolves: what
- * `cn init` checks against, since the deployment it was given is not in the file yet.
+ * `http` with every plain error that means the deployment runs other functions than this
+ * cn rethrown as the one line naming `dep` and the fix; every other error untouched.
  */
-export function connectTo(target: { url: string; secret?: string }): CairnClient {
-  return withSecret(client(target.url), target.secret);
+export function explained(http: CairnClient, dep: Deployment, root: string): CairnClient {
+  const explain =
+    (fn: string) =>
+    (e: unknown): never => {
+      if (e instanceof Error && !(e instanceof ConvexError)) {
+        const line = mismatchLine(e.message, dep, root, fn);
+        if (line !== null) throw new Error(line, { cause: e });
+      }
+      throw e;
+    };
+  return {
+    query: (fn, ...args) => http.query(fn, ...args).catch(explain(getFunctionName(fn))),
+    mutation: (fn, ...args) => http.mutation(fn, ...args).catch(explain(getFunctionName(fn))),
+  };
+}
+
+/**
+ * A client for a deployment named outright, rather than one the config resolves: what
+ * `cn init` checks against, since the deployment it was given is not in the file yet. A
+ * target with no name is named by its URL, as one CAIRN_URL chose is.
+ */
+export function connectTo(target: {
+  url: string;
+  secret?: string;
+  name?: string;
+  source?: Deployment["source"];
+}): CairnClient {
+  const dep: Deployment =
+    target.name === undefined
+      ? { name: "CAIRN_URL", url: target.url, source: "CAIRN_URL" }
+      : { name: target.name, url: target.url, source: target.source ?? "default" };
+  return explained(withSecret(client(target.url), target.secret), dep, checkoutRoot());
 }
 
 /** A session that resolved a deployment, with the client for it. */

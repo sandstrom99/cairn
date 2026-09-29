@@ -27,8 +27,14 @@
 // file, so it reaches the cloud whatever `.env.local` says in the meantime. The watcher
 // ships no page: `vp run dev:web` is the loop for the page, and the watcher's is the
 // functions'.
+//
+// Between the two, a push records on the deployment the commit its functions came from
+// (scripts/pushed.mjs), which `cn doctor` compares with the checkout it runs from. The
+// watcher records one before it starts, marked `-dirty` whatever the tree holds, since it
+// pushes the working tree as it changes and what it serves is never a commit.
 import { pickClouds } from "./clouds.mjs";
 import { shipPage } from "./page.mjs";
+import { pushedFrom, recordPush } from "./pushed.mjs";
 import { convexStatus, holdEnvLocal, runConvex } from "./run-convex.mjs";
 
 const USAGE = "usage: vp run @cairn/backend#push:cloud [-- <name>], or #dev:cloud [-- <name>]";
@@ -52,8 +58,21 @@ const { targets } = picked;
 
 const restore = holdEnvLocal();
 
+/** The line a push or a watcher says in place of a record, outside a git checkout. */
+const unrecorded = (t) => `not recorded: ${t.name} is pushed from outside a git checkout`;
+
 if (!once) {
   const [t] = targets;
+  const commit = pushedFrom();
+  if (commit === null) console.error(unrecorded(t));
+  else {
+    const value = commit.endsWith("-dirty") ? commit : `${commit}-dirty`;
+    const status = recordPush({ value, env: { ...process.env, CONVEX_DEPLOYMENT: t.deployment } });
+    if (status !== 0) {
+      restore();
+      process.exit(status);
+    }
+  }
   console.error(`watching ${t.name} (${t.deployment})`);
   runConvex(["dev", "--env-file", t.envFile, ...flags], { onExit: restore });
 } else {
@@ -71,10 +90,13 @@ if (!once) {
       console.error(`pushing ${t.name} (${t.deployment})`);
       try {
         status = await convexStatus(["dev", "--once", "--env-file", t.envFile, ...flags]);
+        const env = { ...process.env, CONVEX_DEPLOYMENT: t.deployment };
         if (status === 0) {
-          const env = { ...process.env, CONVEX_DEPLOYMENT: t.deployment };
-          status = (await shipPage({ env })).status;
+          const value = pushedFrom();
+          if (value === null) console.error(unrecorded(t));
+          else status = recordPush({ value, env });
         }
+        if (status === 0) status = (await shipPage({ env })).status;
       } catch (e) {
         console.error(e.message);
         status = 1;

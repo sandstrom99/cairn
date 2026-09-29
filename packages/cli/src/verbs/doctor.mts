@@ -12,14 +12,20 @@
 // proves the secret this machine holds is the one the deployment wants, and the line
 // after it says so. Doctor names where a secret came from and never prints it.
 //
+// Where the ping answered, the last line is the functions: the commit `#push:cloud`
+// recorded on the deployment (`deployment.pushedFrom`) against the commit this cn runs
+// from, read with git, saying which side is behind and the one command that fixes it
+// (lib/pushed.mts). A deployment with no record passes, since only `#push:cloud` records
+// one; a deployment without `deployment.pushedFrom` at all runs functions older than it.
+//
 // The actor and the capabilities are facts, never failures: the name a claim will carry
 // and the session beside it (lib/actor.mts), and the list `cn ready` marks rows against
 // (lib/can.mts), so a `--mine` that finds nothing or a row marked `needs ios` can be read
 // back to where the name or the list came from.
 //
 // --json is the same checks as rows, `{ check, ok, line }`, named node, api, deployment,
-// actor and can, then ping where a deployment resolved, and secret where one was held
-// and taken.
+// actor and can, then ping where a deployment resolved, secret where one was held and
+// taken, and functions where the ping answered.
 //
 // The `deployment <name> → <url> (…)` line is read by the SessionStart hook
 // (plugins/cairn/hooks/session-start.sh) to name a deployment that did not answer, so
@@ -28,9 +34,16 @@
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
 import type { Actor } from "../lib/actor.mts";
-import { answer, checkLine } from "../lib/cli.mts";
+import { answer, checkLine, errorData, redacted } from "../lib/cli.mts";
 import { type Deployment, noDeploymentMessage } from "../lib/config.mts";
 import type { Ping } from "../lib/ping.mts";
+import {
+  type Check,
+  checkoutRoot,
+  functionsCheck,
+  isMissingFunction,
+  label,
+} from "../lib/pushed.mts";
 import { session } from "../lib/session.mts";
 
 export const name = "doctor";
@@ -38,12 +51,6 @@ export const summary = "whether this machine can run cn against a deployment";
 export const spec = { bool: ["json"] } as const satisfies ArgSpec;
 
 const NODE_FLOOR = 24;
-
-type Check = {
-  check: "node" | "api" | "deployment" | "actor" | "can" | "ping" | "secret";
-  ok: boolean;
-  line: string;
-};
 
 type Parsed = { action: "doctor"; json: boolean };
 
@@ -128,6 +135,19 @@ function refusedLine(dep: Deployment): string {
     : `${dep.name} needs a secret: cn init --refresh --name ${dep.name} --secret-cmd '<command>' stores one`;
 }
 
+/**
+ * The functions line when `deployment.pushedFrom` threw. The client has already rewritten
+ * a missing function into its own line, so the error it replaced is read off `cause`: no
+ * such function means the deployment predates the record, and so this cn.
+ */
+export function functionsFailed(dep: Deployment, e: unknown, root: string): Check {
+  const original = e instanceof Error && e.cause instanceof Error ? e.cause : e;
+  if (original instanceof Error && isMissingFunction(original.message))
+    return functionsCheck(dep, "missing", root);
+  const said = errorData(e)?.message ?? (e instanceof Error ? e.message : String(e));
+  return { check: "functions", ok: false, line: `functions on ${label(dep)}: ${redacted(said)}` };
+}
+
 /** The checks as lines, marked. */
 export const checkLines = (checks: Check[]): string[] => checks.map((c) => checkLine(c.ok, c.line));
 
@@ -156,7 +176,18 @@ export async function run(argv: string[]): Promise<number> {
   // where codegen has not run gets that line, not a crash before any line.
   if (deployment) {
     const { ping } = await import("../lib/ping.mts");
-    checks.push(...pingChecks(deployment, await ping(deployment)));
+    const pinged = await ping(deployment);
+    checks.push(...pingChecks(deployment, pinged));
+    if (pinged.answered) {
+      const { api, connectTo } = await import("../lib/client.mts");
+      const root = checkoutRoot();
+      try {
+        const recorded = await connectTo(deployment).query(api.deployment.pushedFrom, {});
+        checks.push(functionsCheck(deployment, recorded, root));
+      } catch (e) {
+        checks.push(functionsFailed(deployment, e, root));
+      }
+    }
   }
 
   answer(parsed.json, checks, checkLines);

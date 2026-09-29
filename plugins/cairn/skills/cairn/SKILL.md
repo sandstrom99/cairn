@@ -34,7 +34,10 @@ call to it failed: run `cn doctor` and read its last line before any verb. When 
 stores, prints no secret and asks nothing of the person. If that command fails because
 the password manager is locked, which 1Password says as `account is not signed in` or as
 `authorization timeout`, unlocking it is the one thing to hand the person. Anything
-else about the URL or the secret is theirs, since neither is yours to change.
+else about the URL or the secret is theirs, since neither is yours to change. When
+doctor's last line, or a verb that failed, names `#push:cloud`, the deployment runs other
+functions than this `cn`: pushing a company's deployment is the person's, so say that to
+them rather than running it.
 
 ## How work is named in a reply
 

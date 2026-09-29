@@ -784,7 +784,12 @@ answers on, the page is built with `VITE_CAIRN_URL` set to it, and the files are
 published in one mutation, so a failed upload leaves the last page up. The page and
 the functions it calls go out in one command and cannot drift, and the upload is an
 internal function, so only `convex run` with the deployment's own credentials ships
-a page. The bundle names the deployment and never a secret: a person pastes the
+a page. Between the two it records the commit the functions came from as the
+deployment's `CAIRN_PUSHED_FROM` (`backend/scripts/pushed.mjs`), with `-dirty` after it
+where `backend/convex` held uncommitted changes, and `cn doctor` compares it with the
+checkout `cn` runs from, by git: commits, never working trees, and `backend/convex/tests`
+left out, so its last line says which side is behind and the one command that fixes it
+(cn-91, 2026-09-29). The bundle names the deployment and never a secret: a person pastes the
 secret once, into that origin's localStorage, and a reload does not ask again. The
 screen that asks is the page's front door and speaks the page's words: "needs its
 secret" to a browser that sent none, "refused the secret" to one that sent the wrong
@@ -981,7 +986,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn epic new <title> [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
 | `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
-| `cn doctor` | `projects.list`, as the ping | query |
+| `cn doctor` | `projects.list`, as the ping; `deployment.pushedFrom`, as the functions line | query |
 | `cn init --name … --url … [--secret-cmd …] [--can …] [--host …] [--default]` · `cn init --refresh [--name …] [--secret-cmd …]` | `projects.list`, as the check; then it writes this machine's config, or, with `--refresh`, rewrites one deployment's secret from its stored command | query, local |
 
 Every read verb takes `--json`. Every list line starts with the reference form.
