@@ -18,10 +18,19 @@ evals/                       `claude plugin eval` cases: a fresh session with on
 ## Install on a machine
 
 The repo root is a marketplace (`.claude-plugin/marketplace.json`) that lists this
-plugin. Register it once and enable the plugin:
+plugin. Register it once per machine:
 
 ```bash
 claude plugin marketplace add ~/code/cairn
+```
+
+Then enable the plugin per repository, which is what `/cairn:init` does: `enabledPlugins`
+with `cairn@cairn` and `CAIRN_DEPLOYMENT` in the `env` of the repository's
+`.claude/settings.json`, or of its `settings.local.json` when the choice is this
+machine's alone. On a machine where every repository is one company's, install it at
+user scope instead:
+
+```bash
 claude plugin install cairn@cairn
 ```
 
