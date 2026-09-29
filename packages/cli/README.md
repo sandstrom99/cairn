@@ -7,7 +7,7 @@ behind it.
 ## Install on a machine
 
 From a clone of its own, kept at main and never worked in, since every repository's
-sessions run the `cn` it holds (the root README's "Install `cn`"):
+sessions run the `cn` it holds (the root README's "1. Install `cn`"):
 
 ```bash
 git clone https://github.com/sandstrom99/cairn ~/.local/share/cairn

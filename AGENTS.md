@@ -13,7 +13,7 @@ only: not a wiki, not a knowledge base, not an orchestrator.
 ## Where work happens
 
 Never in the install. `cn` on PATH and the plugin every repository's sessions load both
-run from a clone kept at `main`, `~/.local/share/cairn` by the README's "Install `cn`",
+run from a clone kept at `main`, `~/.local/share/cairn` by the README's "1. Install `cn`",
 so a branch checked out there changes every company's sessions at once. Work happens in
 a development clone, anywhere other than the install, and in the worktrees under its
 `.claude/worktrees/`, where checking anything out reaches nothing else.
@@ -248,4 +248,5 @@ under `ep-1` to `ep-5`, and the file they came from is gone.
 
 A contributor has no access to that worklist and does not need it. Problems and
 proposals go through GitHub, as `CONTRIBUTING.md` says, and the maintainer files what
-is taken on into cairn.
+is taken on into cairn. A collaborator the maintainer has joined to `cairn`, as the
+README's "Joining a worklist that exists" says, works this same loop.
