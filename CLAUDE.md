@@ -28,3 +28,7 @@ files under the project that owns the part of the repository it touches:
 | Project | Covers |
 |---|---|
 | `cn` | everything here: `backend/`, `packages/`, `plugins/`, `apps/`, `docs/`, `scripts/` |
+
+That deployment is the maintainer's. On a contributor's machine a session here opens
+with the plugin's not-set-up lines, or with nothing when `cn` is not installed, and work
+goes untracked, which is fine; see `CONTRIBUTING.md`.

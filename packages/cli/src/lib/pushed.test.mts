@@ -97,8 +97,8 @@ describe("checkoutRoot", () => {
 describe("pushFix", () => {
   it("names the deployment to push, or its URL where CAIRN_URL chose it", () => {
     expect(pushFix(cloud)).toBe(PUSH);
-    expect(pushFix({ ...cloud, name: "invyte", source: "CAIRN_DEPLOYMENT" })).toBe(
-      "vp run @cairn/backend#push:cloud -- invyte",
+    expect(pushFix({ ...cloud, name: "northwind", source: "CAIRN_DEPLOYMENT" })).toBe(
+      "vp run @cairn/backend#push:cloud -- northwind",
     );
     expect(pushFix(local)).toBe("push this checkout's functions to http://127.0.0.1:3210");
   });

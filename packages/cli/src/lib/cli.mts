@@ -1,5 +1,4 @@
-// cli.mts: the shell every verb runs in, written once. Adapted from Invyte's
-// tools/lib/cli.mts, trimmed to what cn needs.
+// cli.mts: the shell every verb runs in, written once, trimmed to what cn needs.
 //
 //   import { UsageError, answer, errorData, fail, main, say, warn } from "../lib/cli.mts";
 //

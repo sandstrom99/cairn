@@ -363,7 +363,7 @@ const FOLLOW_UP_CAP = 3;
  * The situation report, at most five lines (docs/design.md §8):
  *
  * ```
- * cairn · invyte · wsl/claude can web
+ * cairn · acme · wsl/claude can web
  * ready 4         app-31 "retry on reconnect" P1 · app-40 "…" P2
  * in progress     app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
  * follow-ups      app-22 "confirm the retry path" [verify] · 1 more needs what you lack

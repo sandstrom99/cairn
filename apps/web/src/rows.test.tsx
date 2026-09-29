@@ -45,7 +45,7 @@ const busy = epic({
         claimedAt: now - 2 * HOUR,
       },
     ],
-    stuck: { id: "cn-10", title: "Invyte runs on cairn", lastActivity: now - 9 * DAY },
+    stuck: { id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY },
     waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
   },
 });

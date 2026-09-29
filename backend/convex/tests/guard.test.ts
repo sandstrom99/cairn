@@ -29,11 +29,11 @@ describe("guard", () => {
     await t.mutation(api.projects.create, {
       actor,
       slug: "web",
-      name: "invyte.dk",
+      name: "northwind.example",
       secret: "s3cret",
     });
     const projects = await t.query(api.projects.list, { secret: "s3cret" });
-    expect(projects).toEqual([{ slug: "web", name: "invyte.dk" }]);
+    expect(projects).toEqual([{ slug: "web", name: "northwind.example" }]);
     const events = await eventsOf(t);
     expect(events).toHaveLength(1);
     expect(JSON.stringify(events[0])).not.toContain("s3cret");

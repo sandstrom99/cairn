@@ -10,11 +10,11 @@
 //   CAIRN_DEPLOYMENT                   names one deployment in the file below, and takes
 //                                      its url and secret; a repository sets it in the
 //                                      env of its Claude settings
-//   ~/.config/cairn/config.json        { "default": "invyte", "host": "wsl",
+//   ~/.config/cairn/config.json        { "default": "acme", "host": "wsl",
 //                                        "can": ["web", "android"],
-//                                        "deployments": { "invyte": { "url": "https://….convex.cloud",
-//                                                                     "secret": "…",
-//                                                                     "secretCmd": "op read …" } } }
+//                                        "deployments": { "acme": { "url": "https://….convex.cloud",
+//                                                                   "secret": "…",
+//                                                                   "secretCmd": "op read …" } } }
 //
 // A CAIRN_DEPLOYMENT the file lacks is an error naming the deployments it has, never a
 // fall back to the default: the repository asked for one worklist, and writing to another
