@@ -18,3 +18,12 @@
   get.
 - Replies name work in the reference form, `app-14 "fix connection retry"`, from
   the first line of the first slice onward.
+
+## cairn
+
+Work in this repository is tracked in cairn, on the deployment `cairn`. An issue
+files under the project that owns the part of the repository it touches:
+
+| Project | Covers |
+|---|---|
+| `cn` | everything here: `backend/`, `packages/`, `plugins/`, `apps/`, `docs/`, `scripts/` |

@@ -1,12 +1,14 @@
 // run-convex.mjs: the one way this package starts `convex`. `local.mjs`, `cloud.mjs`,
-// `throwaway.mjs` and `secret.mjs` each decide which deployment and which environment;
-// this is the spawn they share, the signals it forwards and the exit status it maps.
+// `throwaway.mjs`, `secret.mjs` and `new-cloud.mjs` each decide which deployment and which
+// environment; this is the spawn they share, the signals it forwards and the exit status
+// it maps.
 //
 //   spawnConvex(args, options)   the child, for a caller that owns its lifetime
 //   runConvex(args, options)     the child in the foreground, this process's exit status
 //   convexStatus(args, options)  the child in the foreground, its exit status resolved
 //   convexSync(args, options)    the child run to its end, its output captured
-//   holdEnvLocal()               `.env.local`'s bytes now, and the function that puts them back
+//   holdEnvLocal(file)           an env file's bytes now, `.env.local`'s by default, and the
+//                                function that puts them back
 //   valueIn(file, name)          the value an env file gives a name
 //   deploymentIn(file)           the CONVEX_DEPLOYMENT an env file names
 //
@@ -47,16 +49,20 @@ export function convexSync(args, { cwd = packageRoot, env = process.env, input }
 }
 
 /**
- * Reads `.env.local`'s bytes now, or notes that there is no file, and returns the function
- * that writes them back exactly, or removes the file when there was none. convex 1.46
+ * Reads `file`'s bytes now, or notes that there is no file, and returns the function that
+ * writes them back exactly, or removes the file when there was none. `file` is this
+ * package's `.env.local` unless a caller runs convex from another directory. convex 1.46
  * writes the deployment it talked to into `.env.local` whatever `--env-file` says;
  * `cloud.mjs` says why that binding has to survive.
+ *
+ * @param {string} [file]
+ * @returns {() => void}
  */
-export function holdEnvLocal() {
-  const saved = existsSync(envLocal) ? readFileSync(envLocal) : null;
+export function holdEnvLocal(file = envLocal) {
+  const saved = existsSync(file) ? readFileSync(file) : null;
   return () => {
-    if (saved !== null) writeFileSync(envLocal, saved);
-    else if (existsSync(envLocal)) rmSync(envLocal);
+    if (saved !== null) writeFileSync(file, saved);
+    else if (existsSync(file)) rmSync(file);
   };
 }
 
@@ -93,15 +99,16 @@ export function runConvex(args, { env, after, onExit = () => {} } = {}) {
  * Runs `convex <args>` in the foreground and resolves with its exit status — 1 when a
  * signal ended it or it could not start — leaving this process running, for a caller that
  * runs convex more than once, which runConvex's process.exit cannot serve. SIGINT and
- * SIGTERM reach the child while it runs.
+ * SIGTERM reach the child while it runs. `cwd` and `stdio` go to spawnConvex, whose own
+ * defaults, this package and the terminal, stand when they are not given.
  *
  * @param {string[]} args
- * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @param {{ env?: NodeJS.ProcessEnv, cwd?: string, stdio?: import("node:child_process").StdioOptions }} [options]
  * @returns {Promise<number>}
  */
-export function convexStatus(args, { env } = {}) {
+export function convexStatus(args, { env, cwd, stdio } = {}) {
   return new Promise((resolve) => {
-    const child = spawnConvex(args, { env });
+    const child = spawnConvex(args, { env, cwd, stdio });
     const forwarders = ["SIGINT", "SIGTERM"].map((signal) => {
       const forward = () => child.kill(signal);
       process.on(signal, forward);

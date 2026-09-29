@@ -21,7 +21,11 @@ driven entirely through the `cn` CLI. With a deployment configured, this session
 with `cn brief` in its context: the counts, what is ready, what is in progress and who
 holds it. That is state — everything below is how to act on it. On a machine where the
 session opened instead with "not set up on this machine", run `/cairn:init` before
-anything else: no verb below can work until the config exists. Where it opened with
+anything else: no verb below can work until the config exists. When the person asks to
+put a company or a repository on cairn, a worklist for a company that has none or a
+repository whose sessions should open on one, that is `/cairn:init` too: it stands the
+deployment up, sets the machine up and wires the repository, and asks the person only to
+name things. Where it opened with
 "cairn: CAIRN_DEPLOYMENT is <name>, and this machine has no …", this repository names a
 deployment the machine has not joined: run `/cairn:init`, which sets up exactly that one.
 Where it opened with "cairn: <name> did not answer; cn doctor says why", a deployment is configured and the
@@ -127,7 +131,10 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
   the issue as a link: `cn update <id> --revision N --link '[label](url)'`. An epic's plan
   doc and a decision blocker's options go on the epic and the blocker the same way.
   `cn search <text>` before `cn create`: what you are about to file may already be there,
-  open or closed, and then the answer is that issue, not a second one.
+  open or closed, and then the answer is that issue, not a second one. `--project` on
+  `cn create` is the project the repository's `## cairn` section, in its `CLAUDE.md` or
+  `CLAUDE.local.md`, gives for the part the work touches. With no such section,
+  `cn project list`, and ask the person when more than one could fit.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
   `cn release <id>` when it is not, so the next session can take it.

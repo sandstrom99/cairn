@@ -27,6 +27,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -37,6 +38,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { OLD_FILE, pickClouds } from "../backend/scripts/clouds.mjs";
+import { newCloud } from "../backend/scripts/new-cloud.mjs";
 import { shipPage } from "../backend/scripts/page.mjs";
 import { convexSync } from "../backend/scripts/run-convex.mjs";
 import { changeSecret } from "../backend/scripts/secret.mjs";
@@ -1798,6 +1800,226 @@ row("verbs/init.mts (refresh)", () => {
     assert.equal(bytes(), kept, "a refused secret was written anyway");
   } finally {
     rmSync(warm, { recursive: true, force: true });
+  }
+});
+
+row("backend/scripts/new-cloud.mjs (files)", async () => {
+  // What `#new:cloud` does around convex, with a stand-in convex that writes `.env.local`
+  // the way convex 1.46 does. No network and no account: the directory it runs in and the
+  // HOME it reads a login from are both built here, so neither backend/ nor this machine's
+  // ~/.convex is ever read or written.
+  last = undefined;
+  const scratch = mkdtempSync(join(tmpdir(), "cairn-e2e-newcloud-"));
+  try {
+    const dir = join(scratch, "backend");
+    const fakeHome = join(scratch, "home");
+    mkdirSync(dir);
+    mkdirSync(join(fakeHome, ".convex"), { recursive: true });
+    const login = join(fakeHome, ".convex", "config.json");
+    const envLocal = join(dir, ".env.local");
+    const cloudFile = (name) => join(dir, `.env.cloud.${name}.local`);
+    const env = { PATH: process.env.PATH, HOME: fakeHome };
+    const original =
+      "CONVEX_DEPLOYMENT=anonymous:anonymous-backend\nCONVEX_URL=http://127.0.0.1:3210\n";
+    /** What convex 1.46 leaves in `.env.local` once it has made a deployment. */
+    const made = (deployment, team, project) =>
+      `# Deployment used by \`npx convex dev\`\nCONVEX_DEPLOYMENT=${deployment} # team: ${team}, project: ${project}\n\nCONVEX_URL=https://${deployment.slice(4)}.convex.cloud\n`;
+    const next = (name) =>
+      `next: vp run @cairn/backend#secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`;
+    const noLogin =
+      "not logged in to Convex on this machine: npx convex login, from backend/, logs in; nothing created";
+
+    /**
+     * `newCloud` with a stand-in convex that records how it was called, leaves `write` in
+     * `.env.local` when given, then throws when told to or exits `status`.
+     */
+    const attempt = async (options, { write, status = 0, throws = false } = {}) => {
+      const calls = [];
+      const lines = [];
+      const code = await newCloud({
+        dir,
+        env,
+        err: (line) => lines.push(line),
+        ...options,
+        run: async (args, { cwd, env: childEnv }) => {
+          calls.push({ args, cwd, env: childEnv });
+          if (write !== undefined) writeFileSync(join(cwd, ".env.local"), write);
+          if (throws) throw new Error("convex fell over");
+          return status;
+        },
+      });
+      return { code, calls, lines };
+    };
+
+    writeFileSync(login, '{"accessToken":"x"}');
+    const bad = await attempt({ name: "Bad_Name" });
+    assert.equal(bad.code, 2, "a name cn init would refuse was not refused");
+    assert.deepEqual(bad.lines, [
+      'the name is lowercase letters, digits and dashes, as cn init --name takes it, not "Bad_Name"',
+    ]);
+    assert.equal(bad.calls.length, 0, "convex ran for a bad name");
+    assert.deepEqual(readdirSync(dir), [], "a bad name wrote a file");
+
+    writeFileSync(cloudFile("taken"), "CONVEX_DEPLOYMENT=dev:taken-1\n");
+    const taken = await attempt({ name: "taken" });
+    assert.equal(taken.code, 2, "a name the checkout keeps was not refused");
+    assert.deepEqual(taken.lines, [
+      "backend/.env.cloud.taken.local exists: this checkout already keeps a deployment called taken; nothing created",
+    ]);
+    assert.equal(taken.calls.length, 0, "convex ran for a name the checkout keeps");
+    assert.equal(
+      readFileSync(cloudFile("taken"), "utf8"),
+      "CONVEX_DEPLOYMENT=dev:taken-1\n",
+      "the file already there changed",
+    );
+
+    rmSync(login);
+    const out = await attempt({ name: "acme" });
+    assert.equal(out.code, 1, "no login was not refused");
+    assert.deepEqual(out.lines, [noLogin]);
+    assert.equal(out.calls.length, 0, "convex ran with no login");
+    writeFileSync(login, "not json");
+    const garbled = await attempt({ name: "acme" });
+    assert.equal(garbled.code, 1, "a login file that does not parse counted as a login");
+    assert.deepEqual(garbled.lines, [noLogin]);
+    assert.equal(garbled.calls.length, 0, "convex ran with a login file that does not parse");
+
+    writeFileSync(login, '{"accessToken":"x"}');
+    writeFileSync(envLocal, original);
+    const acme = await attempt(
+      {
+        name: "acme",
+        env: {
+          ...env,
+          CONVEX_DEPLOYMENT: "dev:elsewhere",
+          CONVEX_DEPLOY_KEY: "k",
+          CONVEX_AGENT_MODE: "anonymous",
+        },
+      },
+      { write: made("dev:happy-otter-123", "acme", "cairn-acme") },
+    );
+    assert.equal(acme.code, 0, `the creation did not pass:\n${acme.lines.join("\n")}`);
+    assert.equal(acme.calls.length, 1, "convex did not run exactly once");
+    const [call] = acme.calls;
+    assert.deepEqual(call.args, [
+      "dev",
+      "--once",
+      "--configure",
+      "new",
+      "--project",
+      "cairn-acme",
+      "--dev-deployment",
+      "cloud",
+      "--skip-push",
+    ]);
+    assert.equal(call.cwd, dir, "convex did not run in the directory given");
+    for (const key of [
+      "CONVEX_DEPLOYMENT",
+      "CONVEX_DEPLOY_KEY",
+      "CONVEX_DEPLOYMENT_TOKEN",
+      "CONVEX_URL",
+      "CONVEX_AGENT_MODE",
+    ]) {
+      assert.ok(!(key in call.env), `convex's environment carries ${key}`);
+    }
+    assert.equal(call.env.HOME, fakeHome, "convex's environment lost HOME");
+    assert.equal(call.env.PATH, process.env.PATH, "convex's environment lost PATH");
+    assert.equal(
+      readFileSync(cloudFile("acme"), "utf8"),
+      "# The cloud deployment cn init calls acme, made by #new:cloud. #push:cloud, #dev:cloud and #secret read this.\n" +
+        "# team: acme, project: cairn-acme\n" +
+        "CONVEX_DEPLOYMENT=dev:happy-otter-123\n" +
+        "CONVEX_URL=https://happy-otter-123.convex.cloud\n",
+      "the cloud file is not the four lines",
+    );
+    assert.equal(readFileSync(envLocal, "utf8"), original, ".env.local was not put back");
+    assert.deepEqual(acme.lines, [
+      "creating Convex project cairn-acme for acme",
+      "created acme: dev:happy-otter-123 at https://happy-otter-123.convex.cloud, in backend/.env.cloud.acme.local",
+      next("acme"),
+    ]);
+    const picked = pickClouds({ dir, name: "acme" });
+    assert.deepEqual(
+      picked.targets?.map((t) => t.deployment),
+      ["dev:happy-otter-123"],
+      "the file is not the deployment #push:cloud and #secret read",
+    );
+
+    const beta = await attempt(
+      { name: "beta", team: "acme-co", project: "worklist" },
+      { write: made("dev:brave-lynx-456", "acme-co", "worklist") },
+    );
+    assert.equal(beta.code, 0, `the creation in a team did not pass:\n${beta.lines.join("\n")}`);
+    assert.deepEqual(beta.calls[0].args, [
+      "dev",
+      "--once",
+      "--configure",
+      "new",
+      "--project",
+      "worklist",
+      "--dev-deployment",
+      "cloud",
+      "--skip-push",
+      "--team",
+      "acme-co",
+    ]);
+    assert.equal(beta.lines[0], "creating Convex project worklist for beta in team acme-co");
+
+    const idle = await attempt({ name: "idle" }, { status: 1 });
+    assert.equal(idle.code, 1, "a convex that made nothing passed");
+    assert.deepEqual(idle.lines, [
+      "creating Convex project cairn-idle for idle",
+      "convex created nothing (exit 1); nothing written",
+    ]);
+    assert.ok(!existsSync(cloudFile("idle")), "a convex that made nothing left a cloud file");
+    assert.equal(readFileSync(envLocal, "utf8"), original, ".env.local moved after a failure");
+
+    const late = await attempt(
+      { name: "late" },
+      { write: made("dev:late-otter-789", "acme", "cairn-late"), status: 1 },
+    );
+    assert.equal(late.code, 1, "a convex that failed after creating passed");
+    assert.ok(existsSync(cloudFile("late")), "a deployment convex made has no file");
+    assert.deepEqual(late.lines, [
+      "creating Convex project cairn-late for late",
+      "created late: dev:late-otter-789 at https://late-otter-789.convex.cloud, in backend/.env.cloud.late.local",
+      "convex exited 1 after creating it; the file is written",
+      next("late"),
+    ]);
+
+    rmSync(envLocal);
+    const fresh = await attempt(
+      { name: "fresh" },
+      { write: made("dev:fresh-fox-1", "acme", "cairn-fresh") },
+    );
+    assert.equal(fresh.code, 0, `the creation with no .env.local did not pass`);
+    assert.ok(existsSync(cloudFile("fresh")), "the creation with no .env.local wrote no file");
+    assert.ok(!existsSync(envLocal), "an .env.local that was not there was left behind");
+
+    writeFileSync(envLocal, original);
+    const noUrl = await attempt({ name: "nourl" }, { write: "CONVEX_DEPLOYMENT=dev:no-url-1\n" });
+    assert.equal(noUrl.code, 1, "a deployment with no URL passed");
+    assert.deepEqual(noUrl.lines, [
+      "creating Convex project cairn-nourl for nourl",
+      "convex made dev:no-url-1 but wrote no CONVEX_URL; nothing written",
+    ]);
+    assert.ok(!existsSync(cloudFile("nourl")), "a deployment with no URL got a file");
+
+    await assert.rejects(
+      attempt(
+        { name: "thrown" },
+        { write: made("dev:thrown-1", "acme", "cairn-thrown"), throws: true },
+      ),
+      /convex fell over/,
+      "a convex that threw did not reject",
+    );
+    assert.equal(
+      readFileSync(envLocal, "utf8"),
+      original,
+      ".env.local was not put back after a throw",
+    );
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
   }
 });
 
