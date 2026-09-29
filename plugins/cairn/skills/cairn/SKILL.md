@@ -113,7 +113,7 @@ an issue.
 | `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists; `--link` puts a link on a new one | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | the person's own, or an agent's on their word | `blockers.ack` · `blockers.resolve` |
-| `cn epic new\|list\|close` · `cn project new\|list` | the containers; `epic new --link` puts a link on the new epic, `epic list` and `project list` print a health block each, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
+| `cn epic new\|list\|close` · `cn project new\|list\|update` | the containers; `epic new --link` puts a link on the new epic, `epic list` and `project list` print a health block each, `project update` changes a project's name, description and links against a revision, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |

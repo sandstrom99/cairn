@@ -28,6 +28,10 @@ export default defineSchema({
   projects: defineTable({
     slug: v.string(),
     name: v.string(),
+    description: v.optional(v.string()),
+    links: v.optional(v.array(linkValidator)),
+    // Projects made before cn-125 carry none and read as 0 (lib/revision.ts).
+    revision: v.optional(v.number()),
   }).index("by_slug", ["slug"]),
 
   counters: defineTable({
@@ -131,10 +135,12 @@ export default defineSchema({
     issueId: v.optional(v.id("issues")),
     epicId: v.optional(v.id("epics")),
     blockerId: v.optional(v.id("blockers")),
+    projectId: v.optional(v.id("projects")),
     revision: v.optional(v.number()),
     changes: v.any(),
   })
     .index("by_issue", ["issueId", "revision"])
     .index("by_epic", ["epicId"])
-    .index("by_blocker", ["blockerId"]),
+    .index("by_blocker", ["blockerId"])
+    .index("by_project", ["projectId"]),
 });

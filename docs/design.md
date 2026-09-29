@@ -88,8 +88,11 @@ from `counters` inside the creating mutation and never reused. Nothing ever
 prints `_id`.
 
 ```
-projects      slug              string        the id prefix: app, web, cn. ep and bl are reserved
-              name              string
+projects      slug              string        the id prefix: app, web, cn. ep and bl are reserved. Never changes
+              name              string        its one-line summary
+              description?      string        what does not belong, which repository the work lands in
+              links?            { url, label?, by, at }[]   a repository is a link, never a field
+              revision?         number        absent on a project from before cn-125, which reads as 0
               index by_slug [slug]
 
 counters      key               string        "ep", "bl", or a project slug
@@ -166,9 +169,11 @@ events        kind              string        issue.create, issue.claim, edge.ad
               issueId?          Id<issues>
               epicId?           Id<epics>
               blockerId?        Id<blockers>
+              projectId?        Id<projects>
               revision?         number        the revision the target moved to
               changes           any           field → { from, to }, or the payload of the action
-              index by_issue [issueId, revision], by_epic [epicId], by_blocker [blockerId]
+              index by_issue [issueId, revision], by_epic [epicId], by_blocker [blockerId],
+                    by_project [projectId]
 
 actor      =  { name: string, kind: human | agent }          stored inline wherever it appears
 ```
@@ -202,13 +207,14 @@ parent or edge end never reads as live work (§7).
 
 ### Revision and events
 
-Every mutable write to an issue, epic or blocker carries the `revision` the
-writer read, bumps it by one, and writes an `events` row carrying the new
+Every mutable write to an issue, epic, blocker or project carries the `revision`
+the writer read, bumps it by one, and writes an `events` row carrying the new
 revision and what changed. A journal append is an insert: it stamps
 `lastActivity` and writes an event, but neither takes nor bumps `revision`. A
 stale write is rejected with the events since the writer's revision, which is
 exactly the "what changed, who changed it and when" of §9, read from the table
-rather than reconstructed.
+rather than reconstructed. A project from before cn-125 was stored with no revision
+and reads as revision 0, so nothing migrates it; its first update stores 1.
 
 What an event records is what a reader should see, not the patch that was written.
 `lastActivity`, `claimedAt` and `closedAt` are housekeeping the row's own time already
@@ -228,7 +234,9 @@ edge, a blocker's raise and an attach read relative to the id whose line it is, 
 §7 reads an edge from either end, `blocked by cn-1`, `waits on bl-3`, `holds cn-18`; the
 resolve recorded on each issue a blocker held is the blocker and the note. A create has no
 payload, since the reference leading its line already names what was created, except a
-project, which has no reference to lead with and prints as its slug and name. A raw patch
+project, which has no reference to lead with and prints as its slug and name. A project's
+update leads with nothing either, and names the project at the start of its changes, as
+the resolve an issue was freed by names its blocker. A raw patch
 from before 2026-09-20, a blocker's own resolve among them, reads as the changes the same
 move records today: the housekeeping and the actor today's event leaves out are dropped,
 an actor prints by name and a verification record as its summary, so an old close and a
@@ -275,21 +283,23 @@ author and a timestamp, and every append stamps the issue's `lastActivity`. Wher
 
 ### Links
 
-Issues, epics and blockers carry links. On an issue they point at what its work left
+Issues, epics, blockers and projects carry links. On an issue they point at what its work left
 behind: a pull request, a commit, a Claude artifact, a doc, a screenshot, a dashboard. A
 link is a URL, an optional label, who added it and when.
 
-It is a field of the thing, the same on all three. `--link` on `cn create`, `cn epic new`
-and `cn wait` sets it, and `--link` and `--unlink` on `cn update` change it, against the
-revision like any edit. A URL already there takes the new label, and a bare one leaves it
-as it is, so linking twice is harmless. Only http and https are accepted, because the page
-renders a link as an anchor. It prints as its label, then its URL, then who added it and
-when:
+It is a field of the thing, the same on all four. `--link` on `cn create`, `cn epic new`,
+`cn wait` and `cn project new` sets it, and `--link` and `--unlink` on `cn update` and
+`cn project update` change it, against the revision like any edit. A URL already there
+takes the new label, and a bare one leaves it as it is, so linking twice is harmless.
+Only http and https are accepted, because the page renders a link as an anchor. It
+prints as its label, then its URL, then who added it and when:
 
     doc · https://example.com/doc · by balder/claude 2h ago
 
 An epic's links are where its plan doc goes. A decision blocker's are where the artifact
-laying out its options goes, since the blocker is what a person is asked to resolve.
+laying out its options goes, since the blocker is what a person is asked to resolve. A
+project's are where its repository goes: a repository is a link, a URL cairn never reads,
+and never a field.
 
 cairn knows no code host. A pull request is a link like any other: nothing reads its
 state, nothing tells a merged one from an open one, and nothing counts toward readiness,
@@ -1019,7 +1029,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn waiting` | `blockers.list` | query |
 | `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | `blockers.ack` · `blockers.resolve` | mutation; an agent's carries `--said` |
 | `cn epic new <title> [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
-| `cn project new <slug> --name …` · `cn project list` | `projects.create` · `projects.list` | |
+| `cn project new <slug> --name … [--description …] [--link <url>…]` · `cn project update <slug> --revision N [--name …] [--description …] [--link <url>…] [--unlink <url>…]` · `cn project list` | `projects.create` · `projects.update`: the name, description and links against a revision; nothing changes a slug, since every issue id carries it · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping; `deployment.pushedFrom`, as the functions line | query |
 | `cn init --name … --url … [--secret-cmd …] [--host …] [--default]` · `cn init --refresh [--name …] [--secret-cmd …]` | `projects.list`, as the check; then it writes this machine's config, or, with `--refresh`, rewrites one deployment's secret from its stored command | query, local |

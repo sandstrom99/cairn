@@ -430,15 +430,25 @@ type LogParts = {
 /**
  * The target leads because that is what happened to, an issue first since an event that
  * names both an issue and its blocker is about the issue; a create has no payload,
- * because the reference at the start of the line already names what was created.
+ * because the reference at the start of the line already names what was created. A
+ * project never leads: the page links a lead to its `/<id>`, and a project has no page,
+ * so a project's update names it at the start of its changes instead, the way the
+ * resolve that freed an issue names its blocker.
  */
 export function logParts(e: LogEvent, now: number = Date.now()): LogParts {
+  const pieces = eventPieces(e.kind, e.changes, e.issue?.id);
+  const changes =
+    e.kind === "project.update" && e.project !== undefined
+      ? pieces.length > 0
+        ? [clip(`${ref(e.project)}: ${pieces[0]}`), ...pieces.slice(1)]
+        : [clip(ref(e.project))]
+      : pieces;
   return {
     target: e.issue ?? e.blocker ?? e.epic,
     kind: e.kind,
     actor: e.actor.name,
     when: since(e.at, now),
-    changes: eventPieces(e.kind, e.changes, e.issue?.id),
+    changes,
   };
 }
 

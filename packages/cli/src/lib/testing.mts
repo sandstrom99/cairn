@@ -99,6 +99,9 @@ export function project(over: Partial<ProjectView> = {}): ProjectView {
   return {
     slug: "app",
     name: "the app",
+    description: undefined,
+    links: undefined,
+    revision: 0,
     filed: 0,
     counts: { open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
     health: { moving: [], stuck: [], waiting: [] },
@@ -143,6 +146,7 @@ export function logEvent(over: Partial<LogEvent> = {}): LogEvent {
     issue: { id: "cn-1", title: "schema, ids, revision, events" },
     epic: undefined,
     blocker: undefined,
+    project: undefined,
     ...over,
   };
 }

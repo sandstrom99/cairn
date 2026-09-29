@@ -192,8 +192,8 @@ the repository named it.
    Propose projects from the repository's layout, and keep them coarse: one per thing the
    repository ships, not one per directory. An app and its backend are one project, and a
    repository is often one project. A slug is one to sixteen lowercase letters and digits,
-   starting with a letter, not `ep` or `bl`. Every issue id carries it, so nothing renames
-   one: settle them with the person before creating any. Then run
+   starting with a letter, not `ep` or `bl`. Every issue id carries it, so nothing changes a
+   slug: settle them with the person before creating any. Then run
    `CAIRN_DEPLOYMENT=<name> cn project new <slug> --name "<what it covers>"` for each one
    they keep that the deployment does not have yet.
 4. **The cairn section** goes in `CLAUDE.md` beside a tracked settings file, or in

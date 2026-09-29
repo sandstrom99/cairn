@@ -21,6 +21,7 @@ export type EventKind =
   | "epic.close"
   | "epic.drop"
   | "project.create"
+  | "project.update"
   | "blocker.raise"
   | "blocker.attach"
   | "blocker.update"
@@ -37,6 +38,7 @@ type EventInput = {
   issueId?: Id<"issues">;
   epicId?: Id<"epics">;
   blockerId?: Id<"blockers">;
+  projectId?: Id<"projects">;
   /** The revision the target moved to, absent for an insert-only action. */
   revision?: number;
   /** field → { from, to }, or the payload of the action. */

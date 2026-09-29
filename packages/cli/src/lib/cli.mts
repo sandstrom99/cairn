@@ -122,9 +122,10 @@ export async function main(
       // it is at now are the retry (design §9).
       if (data?.kind === "stale") {
         for (const line of staleLines(data)) console.error(line);
-        console.error(
-          `  re-read with cn show ${data.id} and retry with --revision ${data.current}`,
-        );
+        // Every id ends `-<digits>` and a project's slug never holds a `-`, so what does
+        // not is a slug, which `cn show` does not read.
+        const reread = /-\d+$/.test(data.id) ? `cn show ${data.id}` : "cn project list --json";
+        console.error(`  re-read with ${reread} and retry with --revision ${data.current}`);
       }
       return;
     }

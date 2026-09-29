@@ -257,6 +257,7 @@ describe("the parts a line is joined from", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       epic: undefined,
       blocker: undefined,
+      project: undefined,
     };
     expect(logParts(created, now)).toEqual({
       target: { id: "cn-2", title: "scratch: second" },

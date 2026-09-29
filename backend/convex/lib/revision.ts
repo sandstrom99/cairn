@@ -1,7 +1,7 @@
 // revision.ts: optimistic concurrency, and the rejection that makes it usable. Every
-// mutable write to an issue, epic or blocker carries the revision the writer read. A
-// stale one is not a failure a human is paged for: it comes back with every event since
-// that revision — who changed what, and when — so the agent re-reads, decides and
+// mutable write to an issue, epic, blocker or project carries the revision the writer
+// read. A stale one is not a failure a human is paged for: it comes back with every event
+// since that revision — who changed what, and when — so the agent re-reads, decides and
 // retries (docs/design.md §9). A journal append is an insert and takes no revision.
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -13,11 +13,23 @@ import { type Revisioned, type Target, eventView, eventsOn } from "./graph";
 /** The event row's foreign key for this target, the one key `record` needs. */
 const targetKey = (
   target: Target,
-): { issueId: Id<"issues"> } | { epicId: Id<"epics"> } | { blockerId: Id<"blockers"> } => {
+):
+  | { issueId: Id<"issues"> }
+  | { epicId: Id<"epics"> }
+  | { blockerId: Id<"blockers"> }
+  | { projectId: Id<"projects"> } => {
   if (target.table === "issues") return { issueId: target.doc._id };
   if (target.table === "epics") return { epicId: target.doc._id };
-  return { blockerId: target.doc._id };
+  if (target.table === "blockers") return { blockerId: target.doc._id };
+  return { projectId: target.doc._id };
 };
+
+/** The revision a target is at. A project made before cn-125 has none stored, and reads 0. */
+const revisionOf = (target: Target): number => target.doc.revision ?? 0;
+
+/** What a stale write names: an issue's, epic's or blocker's id, or a project's slug. */
+const nameOf = (target: Target): string =>
+  target.table === "projects" ? target.doc.slug : target.doc.id;
 
 /** Every event on the target past `revision`, newest last. */
 async function eventsSince(
@@ -36,10 +48,9 @@ export async function expectRevision(
   target: Target,
   revision: number,
 ): Promise<void> {
-  const doc = target.doc;
-  if (doc.revision === revision) return;
+  if (revisionOf(target) === revision) return;
   const since = (await eventsSince(ctx, target, revision)).map(eventView);
-  throw stale(doc, revision, since);
+  throw stale({ id: nameOf(target), revision: revisionOf(target) }, revision, since);
 }
 
 /**
@@ -53,9 +64,9 @@ export async function applyRevision<T extends Revisioned>(
   patch: Partial<Doc<T>>,
   event: { kind: EventKind; actor: Actor; changes: unknown },
 ): Promise<Doc<T>> {
-  const revision = target.doc.revision + 1;
+  const revision = revisionOf(target) + 1;
   // The checker reads `target.doc` through the conditional's constraint, which widens its
-  // `_id` to an id of any of the three tables; `Target<T>` pins it to `T`'s.
+  // `_id` to an id of any of the four tables; `Target<T>` pins it to `T`'s.
   const id = target.doc._id as Id<T>;
   await ctx.db.patch(id, { ...patch, revision });
   await record(ctx, {

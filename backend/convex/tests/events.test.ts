@@ -156,6 +156,22 @@ describe("events.recent", () => {
       expect(text).not.toContain('"issueId"');
       expect(text).not.toContain('"epicId"');
       expect(text).not.toContain('"blockerId"');
+      expect(text).not.toContain('"projectId"');
     }
+  });
+
+  it("names a project's update by its slug and its name now, and nothing else", async () => {
+    const t = await withClaim();
+    await t.mutation(api.projects.update, { actor, slug: "cn", revision: 0, name: "renamed" });
+    await t.mutation(api.projects.update, { actor, slug: "cn", revision: 1, name: "cairn now" });
+    const [latest] = await t.query(api.events.recent, { limit: 1 });
+    expect(latest).toMatchObject({
+      kind: "project.update",
+      revision: 2,
+      project: { id: "cn", title: "cairn now" },
+    });
+    expect(latest!.issue).toBeUndefined();
+    expect(latest!.epic).toBeUndefined();
+    expect(latest!.blocker).toBeUndefined();
   });
 });

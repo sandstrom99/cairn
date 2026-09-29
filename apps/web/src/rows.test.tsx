@@ -196,6 +196,13 @@ const raised = event({
 });
 const created = event({ kind: "issue.create", changes: { title: { to: "x" } } });
 const unnamed = event({ kind: "project.create", issue: undefined });
+const renamed = event({
+  kind: "project.update",
+  revision: 1,
+  changes: { name: { from: "the app", to: "the app, renamed" } },
+  issue: undefined,
+  project: { id: "app", title: "the app, renamed" },
+});
 
 const updated: HistoryEvent = {
   at: now - 2 * HOUR,
@@ -309,7 +316,7 @@ const PINS: Pin[] = [
     text: ["Log", "Everything cn wrote to this deployment, newest first.", logLine(closed, now)],
     rows: [logLine(closed, now)],
   },
-  ...Object.entries({ closed, long, noted, linked, raised, created, unnamed }).map(
+  ...Object.entries({ closed, long, noted, linked, raised, created, unnamed, renamed }).map(
     ([which, e]): Pin => ({
       name: `an event in the feed (${which})`,
       element: <FeedEvent event={e} now={now} />,
