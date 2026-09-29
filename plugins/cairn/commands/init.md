@@ -125,8 +125,36 @@ the repository named it.
    and `"env": { "CAIRN_DEPLOYMENT": "<name>" }`, merged with what is there and changing
    nothing else. That value is a name from each machine's config, never a URL or a secret,
    and nothing this sitting writes into the repository, tracked or not, holds a secret.
-   - When the file is a symlink, as in a checkout whose worktrees share one, write the file
-     it points to.
+   - **Never print a settings file**, this one or `~/.claude/settings.json`: no `cat`, no
+     reading it whole, no `grep` that shows a value. Its `env` is where people keep API
+     keys, and a key printed once stays in the transcript. Merge with this, from the
+     repository's root, which prints the names of what the file holds and never a value:
+
+     ```bash
+     node -e '
+     const fs = require("fs"), path = require("path");
+     const [given, name] = process.argv.slice(1);
+     const file = fs.existsSync(given) ? fs.realpathSync(given) : given;
+     const s = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+     s.enabledPlugins = { ...s.enabledPlugins, "cairn@cairn": true };
+     s.env = { ...s.env, CAIRN_DEPLOYMENT: name };
+     fs.mkdirSync(path.dirname(file), { recursive: true });
+     fs.writeFileSync(file, JSON.stringify(s, null, 2) + "\n");
+     console.log(`wrote ${file}\nkeys: ${Object.keys(s).join(", ")}\nenv: ${Object.keys(s.env).join(", ")}\nplugins: ${JSON.stringify(s.enabledPlugins)}`);
+     ' .claude/settings.local.json <name>
+     ```
+
+     `.claude/settings.json` in place of the path for a tracked file. Every key and `env`
+     name that was there before is still listed, and step 5 reads the repository's plugins
+     from the last line. For `~/.claude/settings.json`'s plugins,
+     `node -p 'JSON.stringify(require(process.argv[1]).enabledPlugins ?? {})' ~/.claude/settings.json`.
+     Claude Code keeps its own diff of a file a command changes, the lines around the
+     change included, when git could see that file as the session began. An ignored
+     settings file gets none. When `git check-ignore` below finds the file was not ignored
+     and the merge's `env` line names what look like keys, tell the person: those lines
+     are in this session's transcript, and the file was one `git add` from a commit.
+   - When the file is a symlink, as in a checkout whose worktrees share one, the script
+     writes the file it points to, and its first line names that file.
    - A machine-local file has to be ignored by git. When `git check-ignore -q <file>`
      fails, add its path to the file `git rev-parse --git-path info/exclude` prints, never
      to the tracked `.gitignore`.
@@ -155,7 +183,7 @@ the repository named it.
 5. **Another tracker.** Look for one:
    - a `.beads/` directory;
    - a beads plugin in the `enabledPlugins` of the repository's settings or of
-     `~/.claude/settings.json`;
+     `~/.claude/settings.json`, read the two ways step 2 gives, never by printing either;
    - `bd` in the repository's `CLAUDE.md`, `AGENTS.md` or hooks;
    - a `TODO` file.
 
