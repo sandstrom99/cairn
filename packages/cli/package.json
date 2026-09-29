@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "description": "cn: the cairn CLI. One verb is one Convex function call plus formatting. No build step.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sandstrom99/cairn.git",
+    "directory": "packages/cli"
+  },
   "bin": {
     "cn": "./bin/cn"
   },

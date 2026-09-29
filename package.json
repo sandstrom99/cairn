@@ -2,6 +2,11 @@
   "name": "cairn",
   "private": true,
   "description": "An agent worklist on Convex: one deployment per company, a cn CLI over typed calls, no sync layer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sandstrom99/cairn.git"
+  },
   "type": "module",
   "scripts": {
     "verify": "vp check && vp run -r test",
