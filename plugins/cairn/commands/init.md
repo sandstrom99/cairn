@@ -72,8 +72,8 @@ Otherwise offer to stand one up, and do it with them.
    It sets the deployment's secret before any function exists there, stores it in a
    1Password item with the URL beside it, and prints the `cn init --name …` line every
    machine sets up with. The secret itself is never printed. When `op` fails with
-   `account is not signed in`, 1Password is locked: ask the person to unlock it, and run
-   the same command again.
+   `account is not signed in` or `authorization timeout`, 1Password is locked: ask the
+   person to unlock it, and run the same command again.
 6. `vp run @cairn/backend#push:cloud -- <name>`: the functions, then the page, which is
    then at `https://<deployment>.convex.site`.
 
@@ -100,7 +100,9 @@ Then `cn init --name <name> --url <url> --secret-cmd '<command>' --can <cap>…`
 default where it is, and the repository names it instead (part 3).
 
 A refused secret or a deployment that does not answer writes nothing at all, so fix the
-input and run the same command again. A secret that worked and is now refused means the
+input and run the same command again. A secret command that fails with `account is not
+signed in` or `authorization timeout` means 1Password is locked: ask the person to unlock
+it, and run the same `cn init` again. A secret that worked and is now refused means the
 deployment's secret was rotated: run `cn init --refresh`, not a new `cn init`, and it
 re-runs the command this machine stored and rewrites that one secret. A name that is
 taken means this machine is already set up for that deployment: read `cn doctor` before
