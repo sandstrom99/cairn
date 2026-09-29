@@ -10,6 +10,7 @@
 
 import type * as blockers from "../blockers.js";
 import type * as brief from "../brief.js";
+import type * as deployment from "../deployment.js";
 import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
 import type * as events from "../events.js";
@@ -54,6 +55,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   blockers: typeof blockers;
   brief: typeof brief;
+  deployment: typeof deployment;
   edges: typeof edges;
   epics: typeof epics;
   events: typeof events;

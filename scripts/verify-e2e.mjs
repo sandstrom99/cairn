@@ -40,6 +40,7 @@ import { fileURLToPath } from "node:url";
 import { OLD_FILE, pickClouds } from "../backend/scripts/clouds.mjs";
 import { newCloud } from "../backend/scripts/new-cloud.mjs";
 import { shipPage } from "../backend/scripts/page.mjs";
+import { recordPush } from "../backend/scripts/pushed.mjs";
 import { convexSync } from "../backend/scripts/run-convex.mjs";
 import { changeSecret } from "../backend/scripts/secret.mjs";
 import { startThrowaway } from "../backend/scripts/throwaway.mjs";
@@ -275,6 +276,12 @@ const row = (name, fn) => rows.push({ name, fn });
 row("verbs/doctor.mts", () => {
   const seen = pass("doctor", "cn doctor did not pass against the throwaway deployment");
   assert.match(seen.out, /deployment answered: 0 project\(s\)/);
+  // Nothing has recorded a push on the throwaway, and a CAIRN_URL deployment is named by it.
+  assert.equal(
+    lines(seen.stdout).at(-1),
+    `✓ functions on the deployment at ${url} not recorded: only #push:cloud records them`,
+    "cn doctor's last line is not the functions line",
+  );
   assert.match(seen.out, /^✓ actor e2e\/claude \(agent\), no session$/m, "no actor line");
   assert.match(seen.out, /^✓ can nothing declared$/m, "no can line with nothing declared");
   assert.match(
@@ -286,7 +293,7 @@ row("verbs/doctor.mts", () => {
   const checks = json("doctor");
   assert.deepEqual(
     checks.map((c) => c.check),
-    ["node", "api", "deployment", "actor", "can", "ping"],
+    ["node", "api", "deployment", "actor", "can", "ping", "functions"],
     "cn doctor --json is not the checks as rows",
   );
   assert.ok(
@@ -1563,6 +1570,50 @@ row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
   // A file the build did not make is a 404, never the page standing in for it.
   const missing = await get("/assets/missing.js");
   assert.equal(missing.status, 404, "a missing asset is answered with something other than 404");
+});
+
+row("backend/scripts/pushed.mjs", () => {
+  last = undefined;
+  /** `recordPush` against the throwaway, the step `#push:cloud` runs after the functions. */
+  const record = (value) =>
+    assert.equal(
+      recordPush({ value, env: deployment.env, cwd: deployment.dir }),
+      0,
+      `recording ${value} on the throwaway failed`,
+    );
+  const head = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  }).stdout.trim();
+  assert.match(head, /^[0-9a-f]{40}$/, "this checkout has no HEAD to record");
+  const at = `the deployment at ${url}`;
+  const lastLine = (result) => lines(result.stdout).at(-1);
+
+  record("0".repeat(40));
+  const unknown = cn("doctor");
+  assert.equal(unknown.status, 1, "cn doctor passed against functions from an unknown commit");
+  assert.equal(
+    lastLine(unknown),
+    `✗ ${at} runs functions from 0000000, a commit this checkout has not fetched: git -C ${root} pull --ff-only, then cn doctor again`,
+    "cn doctor does not name a commit this checkout has not fetched",
+  );
+
+  record(`${head}-dirty`);
+  const dirty = pass("doctor", "cn doctor failed on functions pushed with uncommitted changes");
+  assert.equal(
+    lastLine(dirty),
+    `✓ functions on ${at} pushed from ${head.slice(0, 7)} with uncommitted changes, so not compared`,
+    "cn doctor compared functions pushed with uncommitted changes",
+  );
+
+  // Last, the commit this cn runs from, so every doctor in the rows after stays green.
+  record(head);
+  const same = pass("doctor", "cn doctor failed on functions pushed from this checkout's HEAD");
+  assert.equal(
+    lastLine(same),
+    `✓ functions on ${at} pushed from ${head.slice(0, 7)}, the same as this cn's`,
+    "cn doctor does not read HEAD's functions as the same as this cn's",
+  );
 });
 
 row("backend/scripts/secret.mjs (new)", () => {
