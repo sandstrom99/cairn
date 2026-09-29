@@ -31,8 +31,8 @@
 // deployment stores, or the --secret-cmd given, which then replaces the stored one: that
 // is how a machine set up before commands were kept takes its first. It checks that the
 // deployment accepts what the command printed, and rewrites that deployment's secret and
-// nothing else. --name is the deployment, the file's default when absent. CAIRN_SECRET
-// plays no part: the file is what gets fixed.
+// nothing else. --name is the deployment; when absent, the one CAIRN_DEPLOYMENT names,
+// then the file's default. CAIRN_SECRET plays no part: the file is what gets fixed.
 //
 // It checks before it writes. The deployment has to answer, and where a secret was found
 // it has to be accepted; a check that fails writes nothing and says what to fix. What it
@@ -189,7 +189,11 @@ async function refresh(parsed: { name?: string; command?: string }): Promise<num
   }
   const deployments = existing.deployments ?? {};
   const names = Object.keys(deployments);
-  const name = parsed.name ?? existing.default ?? (names.length === 1 ? names[0] : undefined);
+  const name =
+    parsed.name ??
+    (process.env.CAIRN_DEPLOYMENT || undefined) ??
+    existing.default ??
+    (names.length === 1 ? names[0] : undefined);
   if (name === undefined) {
     bad(`${path} has no default; pass --name, one of ${names.join(", ")}`);
     return 1;

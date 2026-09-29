@@ -3,9 +3,10 @@
 //   cn doctor [--json]      one line per check; exit 1 if any fails
 //
 // Checks the Node floor, that the generated Convex API is importable (so @cairn/backend
-// is installed and codegen has run), which deployment config resolves, who this shell
-// acts as and what it declares it can do, and then calls that deployment:
-// `projects.list` is the ping, so a green doctor means a verb will run.
+// is installed and codegen has run), which deployment config resolves and which of
+// CAIRN_URL, CAIRN_DEPLOYMENT or the file's default chose it, who this shell acts as and
+// what it declares it can do, and then calls that deployment: `projects.list` is the
+// ping, so a green doctor means a verb will run.
 //
 // Where the deployment is fenced by a secret (docs/design.md §12), the ping is what
 // proves the secret this machine holds is the one the deployment wants, and the line
@@ -120,7 +121,7 @@ export function pingChecks(dep: Deployment | null, ping: Ping): Check[] {
  * and the file's is `cn init --refresh`'s, which re-runs the command this machine keeps.
  */
 function refusedLine(dep: Deployment): string {
-  if (dep.source === "env" || dep.secretSource === "env")
+  if (dep.source === "CAIRN_URL" || dep.secretSource === "env")
     return `${dep.name} ${dep.secret ? "refused CAIRN_SECRET" : "needs a secret"}: set CAIRN_SECRET to the deployment's current one`;
   return dep.secret
     ? `${dep.name} refused the secret this machine holds: cn init --refresh --name ${dep.name} takes the current one`

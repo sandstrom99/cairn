@@ -3,17 +3,22 @@
 //   import { readConfig, resolveDeployment } from "../lib/config.mts";
 //   const dep = resolveDeployment(env, readConfig(env));   // { url, source } or null
 //
-// The rule for how a session resolves repo → project → deployment is deferred
-// (docs/design.md §13); the lean is global config, since a project is coarse and
-// path-derivation is out. What is settled is where that config lives and its shape,
-// so nothing else has to move when the rule is decided:
+// Three things name the deployment, in this order, and the first that does wins
+// (docs/design.md §13). A project is coarse, so nothing is derived from the path:
 //
 //   CAIRN_URL                          wins, for hooks, crons and a one-off run
+//   CAIRN_DEPLOYMENT                   names one deployment in the file below, and takes
+//                                      its url and secret; a repository sets it in the
+//                                      env of its Claude settings
 //   ~/.config/cairn/config.json        { "default": "invyte", "host": "wsl",
 //                                        "can": ["web", "android"],
 //                                        "deployments": { "invyte": { "url": "https://….convex.cloud",
 //                                                                     "secret": "…",
 //                                                                     "secretCmd": "op read …" } } }
+//
+// A CAIRN_DEPLOYMENT the file lacks is an error naming the deployments it has, never a
+// fall back to the default: the repository asked for one worklist, and writing to another
+// is worse than failing.
 //
 // `host` is this machine's name in an actor (lib/actor.mts) and `can` is what it can do,
 // the fallback for `cn ready --can` (lib/can.mts); everything else about the file is
@@ -63,7 +68,8 @@ export type CairnConfig = {
 export type Deployment = {
   name: string;
   url: string;
-  source: "env" | "config";
+  /** What chose the deployment: the environment's URL, its name, or the file's default. */
+  source: "CAIRN_URL" | "CAIRN_DEPLOYMENT" | "default";
   /** The shared secret to send, when this machine has one for the deployment. */
   secret?: string;
   secretSource?: "env" | "config";
@@ -181,7 +187,29 @@ export function resolveDeployment(
   const fromEnv = env.CAIRN_SECRET
     ? { secret: env.CAIRN_SECRET, secretSource: "env" as const }
     : {};
-  if (env.CAIRN_URL) return { name: "CAIRN_URL", url: env.CAIRN_URL, source: "env", ...fromEnv };
+  if (env.CAIRN_URL)
+    return { name: "CAIRN_URL", url: env.CAIRN_URL, source: "CAIRN_URL", ...fromEnv };
+  // An empty value is unset, the way a settings file clears what another one set.
+  const named = env.CAIRN_DEPLOYMENT || undefined;
+  if (named !== undefined) {
+    const setup = `cn init --name ${named} sets it up (cn init --help)`;
+    if (!cfg)
+      throw new Error(
+        `CAIRN_DEPLOYMENT is ${named}, and this machine has no cairn config: ${setup}`,
+      );
+    const deployments = cfg.deployments ?? {};
+    const dep = deployments[named];
+    if (!dep) {
+      const names = Object.keys(deployments);
+      const list = names.length > 0 ? names.join(", ") : "none";
+      throw new Error(
+        `CAIRN_DEPLOYMENT is ${named}, and this machine has no deployment by that name (it has ${list}): ${setup}`,
+      );
+    }
+    if (!dep.url) throw new Error(`${configPath(env)}: deployment "${named}" has no url`);
+    const fromConfig = dep.secret ? { secret: dep.secret, secretSource: "config" as const } : {};
+    return { name: named, url: dep.url, source: "CAIRN_DEPLOYMENT", ...fromConfig, ...fromEnv };
+  }
   if (!cfg) return null;
   // A hand-edited file can lack the key altogether; that is a file with no deployments.
   const deployments = cfg.deployments ?? {};
@@ -193,5 +221,5 @@ export function resolveDeployment(
     throw new Error(`${configPath(env)}: default "${name}" names no deployment in the file`);
   if (!dep.url) throw new Error(`${configPath(env)}: deployment "${name}" has no url`);
   const fromConfig = dep.secret ? { secret: dep.secret, secretSource: "config" as const } : {};
-  return { name, url: dep.url, source: "config", ...fromConfig, ...fromEnv };
+  return { name, url: dep.url, source: "default", ...fromConfig, ...fromEnv };
 }

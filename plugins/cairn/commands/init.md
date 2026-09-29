@@ -10,7 +10,9 @@ up: say which deployment and stop.
 The url is `$ARGUMENTS` when that is given; otherwise look for a cairn deployment URL in
 this repository's `CLAUDE.md`, `AGENTS.md` or `README`, and ask the person only if it is
 nowhere. The name is a short lowercase word for whose worklist it is, usually the company
-or the repository.
+or the repository. When `CAIRN_DEPLOYMENT` is set, this repository has already named it:
+that is the name, and it stays out of `--default`, so the machine's default is left where
+it is.
 
 Then ask, in one round, only what cannot be found: the command that prints the
 deployment's secret — `op read "op://<vault>/<item>/secret"` is the usual shape — or that

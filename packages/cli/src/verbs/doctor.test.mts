@@ -13,7 +13,7 @@ import {
 const cloud = {
   name: "cairn",
   url: "https://tidy-otter-1.convex.cloud",
-  source: "config" as const,
+  source: "default" as const,
   secret: "s3cret/+=",
   secretSource: "config" as const,
 };
@@ -37,15 +37,22 @@ describe("cn doctor", () => {
     const fromConfig = deploymentCheck(cloud);
     expect(fromConfig.ok).toBe(true);
     expect(fromConfig.line).toBe(
-      "deployment cairn → https://tidy-otter-1.convex.cloud (from config, secret from config)",
+      "deployment cairn → https://tidy-otter-1.convex.cloud (from default, secret from config)",
     );
     expect(fromConfig.line).not.toContain("s3cret");
     expect(deploymentCheck({ ...cloud, secretSource: "env" }).line).toContain(
       "secret from CAIRN_SECRET",
     );
     expect(
-      deploymentCheck({ name: "CAIRN_URL", url: "http://127.0.0.1:3210", source: "env" }).line,
-    ).toBe("deployment CAIRN_URL → http://127.0.0.1:3210 (from env, no secret)");
+      deploymentCheck({ name: "CAIRN_URL", url: "http://127.0.0.1:3210", source: "CAIRN_URL" })
+        .line,
+    ).toBe("deployment CAIRN_URL → http://127.0.0.1:3210 (from CAIRN_URL, no secret)");
+  });
+
+  it("names CAIRN_DEPLOYMENT when that is what chose the deployment", () => {
+    expect(deploymentCheck({ ...cloud, name: "invyte", source: "CAIRN_DEPLOYMENT" }).line).toBe(
+      "deployment invyte → https://tidy-otter-1.convex.cloud (from CAIRN_DEPLOYMENT, secret from config)",
+    );
   });
 
   it("is the one sentence every verb says when nothing resolves", () => {
@@ -61,7 +68,7 @@ describe("cn doctor", () => {
     ]);
     expect(
       pingChecks(
-        { name: "local", url: "http://127.0.0.1:3210", source: "env" },
+        { name: "local", url: "http://127.0.0.1:3210", source: "CAIRN_URL" },
         { answered: true, projects: 0 },
       ),
     ).toEqual([{ check: "ping", ok: true, line: "deployment answered: 0 project(s)" }]);
@@ -87,10 +94,14 @@ describe("cn doctor", () => {
     );
     expect(
       pingChecks(
-        { name: "CAIRN_URL", url: "https://tidy-otter-1.convex.cloud", source: "env" },
+        { name: "CAIRN_URL", url: "https://tidy-otter-1.convex.cloud", source: "CAIRN_URL" },
         no,
       )[0]!.line,
     ).toBe("CAIRN_URL needs a secret: set CAIRN_SECRET to the deployment's current one");
+    // A deployment CAIRN_DEPLOYMENT named holds the file's secret: the file is what gets fixed.
+    expect(pingChecks({ ...cloud, name: "invyte", source: "CAIRN_DEPLOYMENT" }, no)[0]!.line).toBe(
+      "invyte refused the secret this machine holds: cn init --refresh --name invyte takes the current one",
+    );
     expect(pingChecks(null, { answered: false, refused: false, message: "fetch failed" })).toEqual([
       { check: "ping", ok: false, line: "deployment did not answer: fetch failed" },
     ]);

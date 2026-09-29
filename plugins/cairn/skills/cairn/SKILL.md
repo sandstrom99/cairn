@@ -22,7 +22,9 @@ with `cn brief` in its context: the counts, what is ready, what is in progress a
 holds it. That is state — everything below is how to act on it. On a machine where the
 session opened instead with "not set up on this machine", run `/cairn:init` before
 anything else: no verb below can work until the config exists. Where it opened with
-"cairn: <name> did not answer; cn doctor says why", a deployment is configured and the
+"cairn: CAIRN_DEPLOYMENT is <name>, and this machine has no …", this repository names a
+deployment the machine has not joined: run `/cairn:init`, which sets up exactly that one.
+Where it opened with "cairn: <name> did not answer; cn doctor says why", a deployment is configured and the
 call to it failed: run `cn doctor` and read its last line before any verb. When it names
 `cn init --refresh`, run that yourself: it re-runs the command this machine already
 stores, prints no secret and asks nothing of the person. If that command fails because

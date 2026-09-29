@@ -61,7 +61,7 @@ describe("session", () => {
   it("resolves CAIRN_URL without a file, in the same one read", () => {
     const s = session({}, { XDG_CONFIG_HOME: tempHome(), CAIRN_URL: "https://env" });
     expect(reads).toHaveBeenCalledTimes(1);
-    expect(s.deployment).toMatchObject({ name: "CAIRN_URL", source: "env" });
+    expect(s.deployment).toMatchObject({ name: "CAIRN_URL", source: "CAIRN_URL" });
   });
 });
 
