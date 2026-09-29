@@ -424,6 +424,40 @@ describe("revision", () => {
     });
   });
 
+  it("reads a project stored with no revision as 0, and stores 1 on its first write", async () => {
+    const t = fresh();
+    const _id = await t.run((ctx) =>
+      ctx.db.insert("projects", { slug: "old", name: "from before" }),
+    );
+    await t.run(async (ctx) => {
+      const doc = (await ctx.db.get(_id))!;
+      await expect(expectRevision(ctx, { table: "projects", doc }, 0)).resolves.toBeUndefined();
+      const after = await applyRevision(
+        ctx,
+        { table: "projects", doc },
+        { name: "renamed" },
+        {
+          kind: "project.update",
+          actor,
+          changes: { name: { from: "from before", to: "renamed" } },
+        },
+      );
+      expect(after).toMatchObject({ revision: 1, name: "renamed" });
+      await expect(expectRevision(ctx, { table: "projects", doc: after }, 0)).rejects.toMatchObject(
+        {
+          data: {
+            kind: "stale",
+            id: "old",
+            current: 1,
+            since: [{ revision: 1, kind: "project.update" }],
+          },
+        },
+      );
+    });
+    const events = await eventsOf(t, "project.update");
+    expect(events).toMatchObject([{ projectId: _id, revision: 1 }]);
+  });
+
   it("refuses a misspelt field at the type, which no test can run into", () => {
     // Never called: it exists to be type-checked, and `vp check` fails on the directive
     // the day the misspelling stops being an error.

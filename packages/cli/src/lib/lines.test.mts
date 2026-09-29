@@ -35,6 +35,7 @@ import {
   epic,
   human,
   issue,
+  logEvent,
   now,
   project,
 } from "./testing.mts";
@@ -1209,6 +1210,7 @@ describe("logLine", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       epic: undefined,
       blocker: undefined,
+      project: undefined,
     };
     expect(logLine(claim, now)).toBe(
       'cn-2 "scratch: second"  issue.claim  wsl/claude  2h ago  status open → in_progress, claimedBy — → wsl/claude',
@@ -1225,6 +1227,7 @@ describe("logLine", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       epic: undefined,
       blocker: undefined,
+      project: undefined,
     };
     expect(logLine(noted, now)).toBe(
       'cn-2 "scratch: second"  journal.append  mac/claude  5m ago  finding: the counter row is created on first use…',
@@ -1245,6 +1248,7 @@ describe("logLine", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       epic: undefined,
       blocker: undefined,
+      project: undefined,
     };
     expect(logLine(blocked, now)).toBe(
       'cn-2 "scratch: second"  edge.add  wsl/claude  1m ago  blocked by cn-1',
@@ -1280,6 +1284,7 @@ describe("logLine", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       blocker: { id: "bl-1", title: "confirm the invite copy" },
       epic: undefined,
+      project: undefined,
     };
     expect(logLine(raise, now)).toBe(
       'cn-2 "scratch: second"  blocker.raise  wsl/claude  1m ago  bl-1 "confirm the invite copy" decision · owner balder',
@@ -1309,6 +1314,7 @@ describe("logLine", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       blocker: undefined,
       epic: undefined,
+      project: undefined,
     };
     expect(logLine(freed, now)).toBe(
       'cn-2 "scratch: second"  blocker.resolve  wsl/balder  1m ago  bl-1 "confirm the invite copy": the short one…',
@@ -1334,6 +1340,7 @@ describe("logLine", () => {
       issue: { id: "cn-2", title: "scratch: second" },
       blocker: undefined,
       epic: undefined,
+      project: undefined,
     };
     expect(logLine(freed, now)).toBe(
       'cn-2 "scratch: second"  blocker.resolve  wsl/claude  1m ago  bl-1 "confirm the invite copy": the short one, on their word "go ahead"',
@@ -1350,6 +1357,7 @@ describe("logLine", () => {
       issue: undefined,
       blocker: { id: "bl-1", title: "confirm the invite copy" },
       epic: undefined,
+      project: undefined,
     };
     expect(logLine(resolve, now)).toBe(
       'bl-1 "confirm the invite copy"  blocker.resolve  wsl/balder  1m ago  status raised → resolved, resolution — → the short one',
@@ -1366,6 +1374,7 @@ describe("logLine", () => {
       issue: undefined,
       blocker: undefined,
       epic: { id: "ep-1", title: "Create to close" },
+      project: undefined,
     };
     expect(logLine(create, now)).toBe('ep-1 "Create to close"  epic.create  wsl/claude  2h ago');
   });
@@ -1391,6 +1400,7 @@ describe("logLine", () => {
       issue: undefined,
       blocker: undefined,
       epic: { id: "ep-1", title: "Create to close" },
+      project: undefined,
     };
     expect(logLine(run, now)).toBe(
       'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  did 1 · raised 0 · by balder/balder',
@@ -1411,9 +1421,33 @@ describe("logLine", () => {
       issue: undefined,
       blocker: undefined,
       epic: undefined,
+      project: undefined,
     };
     expect(logLine(create, now)).toBe(
       '—  project.create  wsl/claude  2h ago  cn "cairn: backend, cli, plugin"',
+    );
+  });
+
+  it("names a project's update at the start of its changes, since a project never leads", () => {
+    const update = logEvent({
+      at: ago(MINUTE),
+      kind: "project.update",
+      revision: 1,
+      changes: {
+        name: { from: "scratch: a project", to: "scratch: the project" },
+        description: { from: undefined, to: "scratch: why" },
+      },
+      issue: undefined,
+      project: { id: "scratch", title: "scratch: the project" },
+    });
+    expect(logLine(update, now)).toBe(
+      '—  project.update  wsl/claude  1m ago  scratch "scratch: the project": name scratch: a project → scratch: the project, description — → scratch: why',
+    );
+    expect(logParts({ ...update, changes: {} }, now).changes).toEqual([
+      'scratch "scratch: the project"',
+    ]);
+    expect(logLine({ ...update, project: undefined }, now)).toBe(
+      "—  project.update  wsl/claude  1m ago  name scratch: a project → scratch: the project, description — → scratch: why",
     );
   });
 
@@ -1427,6 +1461,7 @@ describe("logLine", () => {
       issue: { id: "cn-1", title: "the first issue" },
       epic: undefined,
       blocker: undefined,
+      project: undefined,
     };
     expect(logLine(create, now)).toBe('cn-1 "the first issue"  issue.create  wsl/claude  2h ago');
   });
@@ -1441,6 +1476,7 @@ describe("logLine", () => {
       issue: { id: "cn-1", title: "the first issue" },
       epic: undefined,
       blocker: undefined,
+      project: undefined,
     };
     expect(logLine(old, now)).toBe(
       'cn-1 "the first issue"  issue.update  wsl/claude  2h ago  requires [] → ["ios"]',

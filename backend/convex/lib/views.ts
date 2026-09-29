@@ -90,6 +90,17 @@ export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
   };
 }
 
+/** A project as every answer carries it: its slug, name, description, links and revision. */
+export function projectView(doc: Doc<"projects">) {
+  return {
+    slug: doc.slug,
+    name: doc.name,
+    description: doc.description,
+    links: doc.links,
+    revision: doc.revision ?? 0,
+  };
+}
+
 /**
  * A blocker with the issues it holds. The blocker's own `kind` travels as `blockerKind`,
  * because `show.get` spreads this view under its own `kind: "blocker"` discriminator and

@@ -2,11 +2,23 @@
 // corrupt an id: a slug that cannot be a prefix, one reserved for epics or blockers, and
 // a second project claiming a prefix that is already minting. Beside them is what
 // `projects.list` reads for each (docs/design.md §8): the epic's three health lines over
-// the project's issues, and its pulse of the last 28 days.
+// the project's issues, and its pulse of the last 28 days. Then `update`: the name, the
+// description and the links, against a revision a project from before cn-125 reads as 0.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { DAY, PULSE_DAYS } from "../lib/thresholds";
-import { type Harness, actor, at, closeIssue, eventsOf, fresh, raise, seed } from "./test.fixtures";
+import {
+  type Harness,
+  actor,
+  at,
+  closeIssue,
+  eventsOf,
+  fresh,
+  other,
+  raise,
+  rows,
+  seed,
+} from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
 
@@ -61,11 +73,170 @@ describe("projects", () => {
     await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
     const events = await eventsOf(t);
     expect(events).toHaveLength(1);
+    const [project] = await rows(t, "projects");
     expect(events[0]).toMatchObject({
       kind: "project.create",
       actor,
+      projectId: project!._id,
       changes: { slug: "cn", name: "cairn" },
     });
+  });
+
+  it("creates a project with a description and links, at revision 0", async () => {
+    const t = fresh();
+    const created = await t.mutation(api.projects.create, {
+      actor,
+      slug: "cn",
+      name: "cairn",
+      description: "not the marketing site",
+      link: [{ url: "https://example.com/repo", label: "repo" }, { url: "https://example.com/b" }],
+    });
+    expect(created).toMatchObject({ slug: "cn", name: "cairn", revision: 0 });
+    const listed = await projectOf(t);
+    expect(listed).toMatchObject({
+      slug: "cn",
+      name: "cairn",
+      description: "not the marketing site",
+      revision: 0,
+      links: [
+        { url: "https://example.com/repo", label: "repo", by: actor, at: expect.any(Number) },
+        { url: "https://example.com/b", by: actor, at: expect.any(Number) },
+      ],
+    });
+  });
+
+  it("creates a project without them as no description, no links and revision 0", async () => {
+    const t = fresh();
+    await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
+    const listed = await projectOf(t);
+    expect(listed.description).toBeUndefined();
+    expect(listed.links).toBeUndefined();
+    expect(listed.revision).toBe(0);
+    const [row] = await rows(t, "projects");
+    expect(row).not.toHaveProperty("description");
+    expect(row).not.toHaveProperty("links");
+  });
+});
+
+describe("projects.update", () => {
+  /** One project, `cn`, named "cairn" with the repository linked, at revision 0. */
+  const project = async (): Promise<Harness> => {
+    const t = fresh();
+    await t.mutation(api.projects.create, {
+      actor,
+      slug: "cn",
+      name: "cairn",
+      link: [{ url: "https://example.com/repo", label: "repo" }],
+    });
+    return t;
+  };
+
+  it("changes the name, the description and the links, and records one project.update", async () => {
+    const t = await project();
+    const updated = await t.mutation(api.projects.update, {
+      actor,
+      slug: "cn",
+      revision: 0,
+      name: "cairn: the worklist",
+      description: "why",
+      link: [{ url: "https://example.com/b" }],
+      unlink: ["https://example.com/repo"],
+    });
+    expect(updated).toMatchObject({
+      slug: "cn",
+      name: "cairn: the worklist",
+      description: "why",
+      revision: 1,
+      links: [{ url: "https://example.com/b", by: actor }],
+    });
+    const [row] = await rows(t, "projects");
+    const events = await eventsOf(t, "project.update");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actor,
+      projectId: row!._id,
+      revision: 1,
+      changes: {
+        name: { from: "cairn", to: "cairn: the worklist" },
+        description: { to: "why" },
+        links: {
+          from: [{ url: "https://example.com/repo", label: "repo" }],
+          to: [{ url: "https://example.com/b" }],
+        },
+      },
+    });
+  });
+
+  it("refuses a stale revision by slug, with the project.update since it", async () => {
+    const t = await project();
+    await t.mutation(api.projects.update, { actor, slug: "cn", revision: 0, name: "one" });
+    await expect(
+      t.mutation(api.projects.update, { actor: other, slug: "cn", revision: 0, name: "two" }),
+    ).rejects.toMatchObject({
+      data: {
+        kind: "stale",
+        id: "cn",
+        yours: 0,
+        current: 1,
+        since: [{ revision: 1, actor, kind: "project.update" }],
+      },
+    });
+  });
+
+  it("refuses a name with nothing in it, and an edit with nothing to change", async () => {
+    const t = await project();
+    await expect(
+      t.mutation(api.projects.update, { actor, slug: "cn", revision: 0, name: "  " }),
+    ).rejects.toMatchObject({ data: { kind: "invalid", message: "a project needs a name" } });
+    await expect(
+      t.mutation(api.projects.update, { actor, slug: "cn", revision: 0 }),
+    ).rejects.toMatchObject({ data: { kind: "invalid", message: "nothing to update" } });
+  });
+
+  it("hands the project back as it was on a bare re-link, with no revision and no event", async () => {
+    const t = await project();
+    const same = await t.mutation(api.projects.update, {
+      actor,
+      slug: "cn",
+      revision: 0,
+      link: [{ url: "https://example.com/repo" }],
+    });
+    expect(same).toMatchObject({ revision: 0, links: [{ label: "repo" }] });
+    expect(await eventsOf(t, "project.update")).toEqual([]);
+  });
+
+  it("refuses unlinking a URL it does not carry, and a slug it does not have, naming each", async () => {
+    const t = await project();
+    await expect(
+      t.mutation(api.projects.update, {
+        actor,
+        slug: "cn",
+        revision: 0,
+        unlink: ["https://example.com/missing"],
+      }),
+    ).rejects.toMatchObject({
+      data: { kind: "invalid", message: "cn has no link https://example.com/missing" },
+    });
+    await expect(
+      t.mutation(api.projects.update, { actor, slug: "nope", revision: 0, name: "x" }),
+    ).rejects.toMatchObject({ data: { kind: "not-found", message: "no such project nope" } });
+  });
+
+  it("reads a project stored before cn-125, with no revision, as 0 and updates it to 1", async () => {
+    const t = fresh();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("projects", { slug: "old", name: "from before" });
+    });
+    expect(await projectOf(t, "old")).toMatchObject({ slug: "old", revision: 0 });
+    const updated = await t.mutation(api.projects.update, {
+      actor,
+      slug: "old",
+      revision: 0,
+      description: "now described",
+    });
+    expect(updated).toMatchObject({ revision: 1, description: "now described" });
+    const [row] = await rows(t, "projects");
+    expect(row!.revision).toBe(1);
   });
 });
 
@@ -76,6 +247,7 @@ describe("project health", () => {
     expect(await projectOf(t, "admin")).toEqual({
       slug: "admin",
       name: "the admin app",
+      revision: 0,
       filed: 0,
       counts: { open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
       health: { moving: [], stuck: [], waiting: [] },

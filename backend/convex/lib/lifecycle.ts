@@ -377,6 +377,52 @@ export async function editEpic(
   });
 }
 
+/** What `cn project update` can change. The slug is not here: every issue id carries it. */
+export type ProjectEdit = {
+  name?: string;
+  description?: string;
+  link?: LinkInput[];
+  unlink?: string[];
+};
+
+/**
+ * The one `project.update`, shaped like `editEpic`: patches every field given and records
+ * each as `{ from, to }`. A project has no `lastActivity`, so nothing is stamped beside the
+ * patch. Refuses an empty edit and a name with nothing in it; a link edit that changes
+ * nothing hands the project back as it was, with no revision and no event.
+ */
+export async function editProject(
+  ctx: MutationCtx,
+  actor: Actor,
+  doc: Doc<"projects">,
+  edit: ProjectEdit,
+): Promise<Doc<"projects">> {
+  const patch: Partial<Doc<"projects">> = {};
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (edit.name !== undefined) {
+    if (edit.name.trim() === "") throw invalid("a project needs a name");
+    changes.name = { from: doc.name, to: edit.name };
+    patch.name = edit.name;
+  }
+  if (edit.description !== undefined) {
+    changes.description = { from: doc.description, to: edit.description };
+    patch.description = edit.description;
+  }
+  if (edit.link !== undefined || edit.unlink !== undefined) {
+    const links = editLinks(doc.links, edit, doc.slug, { by: actor, at: Date.now() });
+    if (links !== undefined) {
+      patch.links = links.next;
+      changes.links = links.change;
+    } else if (Object.keys(patch).length === 0) return doc;
+  }
+  if (Object.keys(patch).length === 0) throw invalid("nothing to update");
+  return await applyRevision(ctx, { table: "projects", doc }, patch, {
+    kind: "project.update",
+    actor,
+    changes,
+  });
+}
+
 /**
  * A blocker has been seen, by the person or by an agent on their word: raised moves to
  * waiting, and the event keeps the words when there are any.

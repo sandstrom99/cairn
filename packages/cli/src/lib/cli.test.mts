@@ -100,6 +100,37 @@ describe("main", () => {
       "  re-read with cn show cn-2 and retry with --revision 3",
     ]);
   });
+
+  it("points a stale project's retry at cn project list, since cn show reads no slug", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await main(
+      async () => {
+        throw new ConvexError({
+          kind: "stale",
+          message: "app is at revision 1, you read 0",
+          id: "app",
+          yours: 0,
+          current: 1,
+          since: [
+            {
+              revision: 1,
+              actor: { name: "wsl/other", kind: "agent" },
+              at: Date.now(),
+              kind: "project.update",
+              changes: { name: { from: "the app", to: "the app, renamed" } },
+            },
+          ],
+        });
+      },
+      { argv: [] },
+    );
+    expect(process.exitCode).toBe(1);
+    expect(err.mock.calls.map((c) => c[0])).toEqual([
+      "✗ app is at revision 1, you read 0",
+      "  r1  wsl/other  just now  project.update  name the app → the app, renamed",
+      "  re-read with cn project list --json and retry with --revision 1",
+    ]);
+  });
 });
 
 describe("errorData", () => {

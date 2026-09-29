@@ -1,7 +1,7 @@
 // events.ts: the one read over the audit trail that is not scoped to a single issue.
 // What happened across the deployment, newest first — `cn log` prints it and the web
 // window subscribes to it. Refs are resolved here, not left as Convex ids, because
-// nothing outside the deployment knows what an issue, epic or blocker id even is.
+// nothing outside the deployment knows what an issue, epic, blocker or project id even is.
 //
 // An edge is one event listed once. `edges.add` and `edges.remove` record it on both of
 // its ends so that either issue's own history shows it (show.ts), and this read keeps the
@@ -46,6 +46,25 @@ function resolver(ctx: QueryCtx) {
   };
 }
 
+/**
+ * Resolves a project's Convex id to its slug and its name now, once per call, the way
+ * `resolver` does for the tables that carry `id` and `title`. A project has neither, so it
+ * reads as one: the slug is what names it and the name is its title.
+ */
+function projectResolver(ctx: QueryCtx) {
+  const cache = new Map<string, Promise<Ref | undefined>>();
+  return function resolve(id: Id<"projects"> | undefined): Promise<Ref | undefined> {
+    if (id === undefined) return Promise.resolve(undefined);
+    const held = cache.get(id);
+    if (held) return held;
+    const found = ctx.db
+      .get(id)
+      .then((doc) => (doc ? { id: doc.slug, title: doc.name } : undefined));
+    cache.set(id, found);
+    return found;
+  };
+}
+
 export const recent = query({
   args: { limit: v.optional(v.number()), before: v.optional(v.number()) },
   handler: async (ctx, { limit = DEFAULT_LIMIT, before }) => {
@@ -53,6 +72,7 @@ export const recent = query({
       throw invalid(`limit is a whole number from 1 to ${LOG_LIMIT}, not ${limit}`);
 
     const resolve = resolver(ctx);
+    const resolveProject = projectResolver(ctx);
     const out: LogEvent[] = [];
     // A page is `limit` rows, and a mirror row does not count towards it, so the read
     // walks on past a page that was short for that reason and stops at the table's end.
@@ -69,6 +89,7 @@ export const recent = query({
           issue,
           epic: await resolve(e.epicId),
           blocker: await resolve(e.blockerId),
+          project: await resolveProject(e.projectId),
         });
         if (out.length === limit) break;
       }
@@ -81,6 +102,7 @@ type LogEvent = EventView & {
   issue: Ref | undefined;
   epic: Ref | undefined;
   blocker: Ref | undefined;
+  project: Ref | undefined;
 };
 
 /** The `limit` newest rows, or the `limit` newest before `cursor` once there is one. */

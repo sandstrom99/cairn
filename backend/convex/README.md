@@ -23,7 +23,7 @@ What is here, one public function per `cn` verb or action word:
 | `edges.ts` | `add`, `remove`; one direction stored, recorded on both ends, §3 |
 | `epics.ts` | `create`, `list`, `close` |
 | `blockers.ts` | `raise`, `list`, `ack`, `resolve`, §6 |
-| `projects.ts` | `create`, `list` |
+| `projects.ts` | `create`, `update`, `list` |
 | `review.ts` | `get`, the sitting of §7: one query listing what to look at in an epic, writes nothing |
 | `lib/` | mechanism shared by the above: `actor`, `changes`, `clock`, `errors`, `events`, `followUp`, `guard`, `ids`, `inbox`, `lookup`, `raise`, `readiness`, `revision`, `thresholds`, `verification`, `views` |
 

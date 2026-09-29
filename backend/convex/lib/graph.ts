@@ -134,33 +134,31 @@ export async function issuesHeldBy(
 }
 
 /** The tables whose rows carry a revision and have events hung on them. */
-export type Revisioned = "issues" | "epics" | "blockers";
+export type Revisioned = "issues" | "epics" | "blockers" | "projects";
 
 /** A document events hang on: which table it is in decides which index reads them. */
 export type Target<T extends Revisioned = Revisioned> = T extends Revisioned
   ? { table: T; doc: Doc<T> }
   : never;
 
+/** The events hung on a target, through its table's own index, in index order. */
+function eventsQuery(ctx: QueryCtx, target: Target) {
+  const events = ctx.db.query("events");
+  if (target.table === "issues")
+    return events.withIndex("by_issue", (q) => q.eq("issueId", target.doc._id));
+  if (target.table === "epics")
+    return events.withIndex("by_epic", (q) => q.eq("epicId", target.doc._id));
+  if (target.table === "blockers")
+    return events.withIndex("by_blocker", (q) => q.eq("blockerId", target.doc._id));
+  return events.withIndex("by_project", (q) => q.eq("projectId", target.doc._id));
+}
+
 /**
  * Every event on a target, oldest first. The issue index orders by revision and an append
- * carries none, so time is the order here, for all three tables alike.
+ * carries none, so time is the order here, for all four tables alike.
  */
 export async function eventsOn(ctx: QueryCtx, target: Target): Promise<Doc<"events">[]> {
-  const rows =
-    target.table === "issues"
-      ? await ctx.db
-          .query("events")
-          .withIndex("by_issue", (q) => q.eq("issueId", target.doc._id))
-          .collect()
-      : target.table === "epics"
-        ? await ctx.db
-            .query("events")
-            .withIndex("by_epic", (q) => q.eq("epicId", target.doc._id))
-            .collect()
-        : await ctx.db
-            .query("events")
-            .withIndex("by_blocker", (q) => q.eq("blockerId", target.doc._id))
-            .collect();
+  const rows = await eventsQuery(ctx, target).collect();
   rows.sort((a, b) => a._creationTime - b._creationTime);
   return rows;
 }

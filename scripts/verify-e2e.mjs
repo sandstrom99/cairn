@@ -1169,6 +1169,76 @@ row("verbs/update.mts (blocker)", () => {
   assert.match(resolved.out, /bl-1 was resolved by/);
 });
 
+row("verbs/project.mts (update)", () => {
+  const made = pass(
+    `project new scratch --name 'scratch: a project' --description 'scratch: what it holds' --link '[repo](https://example.com/repo)'`,
+    "cn project new --description --link was refused",
+  );
+  assert.equal(
+    made.stdout.trim(),
+    "scratch  scratch: a project",
+    "cn project new does not print the slug and the name",
+  );
+  const listed = json("project list").find((p) => p.slug === "scratch");
+  assert.ok(listed, "cn project list --json does not carry the new project");
+  assert.equal(listed.description, "scratch: what it holds", "the description did not land");
+  assert.deepEqual(
+    listed.links.map((l) => [l.url, l.label, l.by.name]),
+    [["https://example.com/repo", "repo", "e2e/claude"]],
+    "cn project list --json does not carry the link with who added it",
+  );
+  assert.equal(listed.revision, 0, "a new project is not at revision 0");
+  assert.ok(
+    lines(pass("project list", "cn project list exited non-zero").stdout).includes(
+      'scratch "scratch: a project"  nothing filed',
+    ),
+    "cn project list does not print the new project's head as nothing filed",
+  );
+
+  const line = `project update scratch --revision 0 --name 'scratch: the project' --description 'scratch: why'`;
+  const updated = pass(line, "cn project update against the revision it was at was refused");
+  assert.equal(
+    updated.stdout.trim(),
+    'scratch "scratch: the project" r1',
+    "cn project update does not print the project and its new revision",
+  );
+  const stale = cn(line);
+  assert.equal(stale.status, 1, "a write to a project against a moved revision was not refused");
+  assert.match(
+    stale.stderr,
+    /^ {2}r1 {2}e2e\/claude {2}just now {2}project\.update {2}/m,
+    "the refusal does not list the project.update that moved it",
+  );
+  assert.equal(
+    lines(stale.stderr).at(-1),
+    "  re-read with cn project list --json and retry with --revision 1",
+    "the refusal does not end with where a project's revision is read and --revision to retry with",
+  );
+
+  const relinked = pass(
+    "project update scratch --revision 1 --link https://example.com/b --unlink https://example.com/repo",
+    "cn project update --link --unlink was refused",
+  );
+  assert.match(relinked.stdout.trim(), / r2$/, "the link edit did not move the project to r2");
+  const logged = lines(pass("log --limit 1", "cn log --limit 1 exited non-zero").stdout);
+  assert.equal(logged.length, 1, "cn log --limit 1 printed other than one line");
+  assert.ok(logged[0].startsWith("—  project.update"), "a project's update leads with something");
+  for (const piece of [
+    'scratch "scratch: the project": ',
+    "linked https://example.com/b",
+    "unlinked repo · https://example.com/repo",
+  ])
+    assert.ok(logged[0].includes(piece), `cn log's project.update line lacks ${piece}`);
+
+  const slug = cn("project update scratch --revision 2 --slug other");
+  assert.equal(slug.status, 2, "--slug on cn project update was not a usage error");
+  const nothing = cn("project update scratch --revision 2");
+  assert.equal(nothing.status, 2, "cn project update with nothing to change was not refused");
+  const unknown = cn("project update nope --revision 0 --name x");
+  assert.equal(unknown.status, 1, "an unknown slug was not refused");
+  assert.match(unknown.out, /nope/, "the refusal does not name the slug");
+});
+
 row("plugins/cairn/hooks/stop.sh", () => {
   const stop = (session, extra = {}, opts = {}) =>
     stopHook(JSON.stringify({ session_id: session, hook_event_name: "Stop", ...extra }), opts);
