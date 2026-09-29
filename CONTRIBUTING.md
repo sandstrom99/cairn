@@ -19,10 +19,12 @@ links back to the issue from there.
 
 ## Proposing a change
 
-Open an issue first for anything bigger than a fix, so the shape is agreed before the
-code is written.
+Propose a change as an issue: what you want to be true, and why. Pull requests are open
+to collaborators only while cairn is this early, since its shape still changes and every
+change goes through `docs/design.md` and the verification table in `AGENTS.md`. When a
+proposal is taken on, the maintainer makes the change or invites you to make it.
 
-A pull request's title is a Conventional Commit, `<type>(<scope>): <subject>`, since a
+For a collaborator, a pull request's title is a Conventional Commit, `<type>(<scope>): <subject>`, since a
 squash merge makes it the commit that lands on `main`. The types are `feat`, `fix`,
 `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` and `revert`; the scopes are
 `backend`, `cli`, `plugin`, `docs` and `tooling`.
