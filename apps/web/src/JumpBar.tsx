@@ -102,7 +102,7 @@ export function JumpBar({
           {open && (
             <CommandList className="glass absolute inset-x-0 bottom-16 rounded-[18px] p-1.5">
               <CommandEmpty className="px-3 py-2.5 text-left text-row text-slate">
-                Nothing here is called that. Try an id like cn-26.
+                Nothing here is called that. Try an id, or a word from a title.
               </CommandEmpty>
               {withTyped(term, destinations).map(({ id, title, what }) => (
                 <CommandItem
@@ -128,7 +128,7 @@ export function JumpBar({
               onValueChange={setTerm}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="Go to cn-26, ep-4 or a title"
+              placeholder="Go to an id or a title"
               spellCheck={false}
               className="min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-hidden placeholder:text-slate"
             />
