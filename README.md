@@ -97,7 +97,7 @@ What you need:
 Open Claude Code in the repository you want a worklist for, and paste:
 
 ```text
-Set up cairn for me: clone https://github.com/sandstrom99/cairn to ~/.local/share/cairn and install it the way its README's "Install cn" section says, then read ~/.local/share/cairn/plugins/cairn/commands/init.md and follow it with me for this repository.
+Set up cairn for me: clone https://github.com/sandstrom99/cairn to ~/.local/share/cairn and install it the way its README's "1. Install `cn`" section says, then read ~/.local/share/cairn/plugins/cairn/commands/init.md and follow it with me for this repository.
 ```
 
 What happens:
@@ -116,7 +116,23 @@ Then talk to it:
 - "This looks stuck."
 - "What happened to the storm alerts epic?"
 
-To do it by hand, or to set up another machine, everything below is the same steps.
+### Joining a worklist that exists
+
+A colleague's machine, or another of your own, joins the worklist that is already there
+and creates nothing. Get two things from whoever runs it: the deployment's URL, which
+ends in `.convex.cloud`, and how its secret reaches you. That is either a 1Password item
+you can read, or the secret itself, which you save to `~/.config/cairn/<name>.secret`
+with mode 600 and never paste into a chat. Then open Claude Code anywhere and paste:
+
+```text
+Join an existing cairn worklist from this machine: clone https://github.com/sandstrom99/cairn to ~/.local/share/cairn and install it the way its README's "1. Install `cn`" section says, then read ~/.local/share/cairn/plugins/cairn/commands/init.md and follow it with me. The deployment already exists, so ask me for its URL and the command that prints its secret, and wire no repository unless I name one.
+```
+
+A joining machine installs `cn`, runs `cn init`, and registers the plugin: steps 1, 3
+and 4 below, and never step 2. A repository someone already wired for the worklist then
+opens on it, since its settings name the deployment.
+
+To do it by hand, everything below is the same steps.
 
 ---
 

@@ -29,6 +29,11 @@ files under the project that owns the part of the repository it touches:
 |---|---|
 | `cn` | everything here: `backend/`, `packages/`, `plugins/`, `apps/`, `docs/`, `scripts/` |
 
-That deployment is the maintainer's. On a contributor's machine a session here opens
-with the plugin's not-set-up lines, or with nothing when `cn` is not installed, and work
-goes untracked, which is fine; see `CONTRIBUTING.md`.
+That deployment is the maintainer's, and a collaborator joins it only when the
+maintainer hands over its URL and secret. A machine that has joined opens here on
+`cairn · cairn`, and a session there works the maintainer's loop, as AGENTS.md's
+"Dogfood" says: the issue the person names or the top of `cn ready`,
+claimed before anything is touched, journaled as it goes, and closed with its proof
+once the pull request merges. On any other machine a session here opens with the
+plugin's not-set-up lines, or with nothing when `cn` is not installed, and work goes
+untracked, which is fine; see `CONTRIBUTING.md`.

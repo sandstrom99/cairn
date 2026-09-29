@@ -13,13 +13,18 @@ their password manager, and nothing else: never ask them to run or paste a comma
 Run `cn doctor` first. Everything below that is not `cn` runs from the cairn checkout,
 the directory `cn` is installed from: `readlink -f "$(command -v cn)"` prints
 `<checkout>/packages/cli/bin/cn`. With no `cn` on PATH at all, install it with the person
-the way the checkout's README says under "Install `cn`", in the checkout that
+the way the checkout's README says under "1. Install `cn`", in the checkout that
 `claude plugin marketplace list` shows as the `cairn` source, and ask before writing
 anything outside it.
 
 The repository is the one this session is in, unless the arguments or the person name
 another. The cairn checkout is wired already, so from there it is always another: ask
 which.
+
+When the person is joining a deployment that exists and names no repository, the
+machine is the whole of it: part 1 is done, part 2 sets the machine up, and part 3 is its
+step 1 alone, the marketplace. A repository someone already wired names the deployment
+in its settings, so it opens on it once the machine is set up.
 
 ## 1. A deployment for the company
 

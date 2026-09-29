@@ -32,9 +32,31 @@ squash merge makes it the commit that lands on `main`. The types are `feat`, `fi
 The body says what changed, why, how it was verified, and what is still open. Paste the
 evidence: the failing output, the command and what it printed.
 
+## Working on cairn's own worklist
+
+A collaborator may also be joined to the worklist cairn is built from, the deployment
+`cairn`. The maintainer hands over its URL and its secret, and you join from the
+README's "Joining a worklist that exists", which installs `cn` and the plugin and sets
+your machine up. Work then happens in a development clone of your own, set up as
+"Verifying a change" below says, and never in the install at `~/.local/share/cairn`, as
+[AGENTS.md](AGENTS.md)'s "Where work happens" says.
+
+A Claude Code session in that clone opens on `cairn · cairn`, the worklist's brief, and
+works the maintainer's own loop, AGENTS.md's "Dogfood":
+
+- the issue you name, or the top of `cn ready`, is claimed before anything is touched;
+- what the session finds goes on the issue as it goes, as journal entries;
+- the pull request links back to the issue, and the issue closes with its proof once
+  the pull request merges;
+- a problem found along the way that is not the issue at hand is filed in cairn with
+  `cn create`, not as a GitHub issue.
+
+You ask for these in plain words, "what's next?" or "pick up cn-40", and the session
+runs the commands.
+
 ## Verifying a change
 
-Once per clone, with `vp` installed as the README's "Install `cn`" says:
+Once per clone, with `vp` installed as the README's "1. Install `cn`" says:
 
 ```bash
 vp install
