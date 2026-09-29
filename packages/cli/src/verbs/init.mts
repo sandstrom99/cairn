@@ -23,7 +23,8 @@
 //
 // --can is what this machine can do: ios, android, web, device. It is the fallback for
 // `cn ready --can`, and it is a machine's capability, so `decision` is not one of them.
-// --host is what this machine calls itself in an actor name, the OS hostname when absent.
+// --host is what this machine calls itself in an actor name, `<host>/claude` on every
+// claim. When absent it is the OS hostname up to its first dot, lowercased.
 // --default makes this deployment the one every verb resolves to, for a file that already
 // names another; the first deployment in a fresh file is the default either way.
 //
