@@ -1,7 +1,7 @@
 // events.ts: the audit trail every mutation writes to. One row per action, carrying the
 // revision the target moved to and what changed, so a stale write can be rejected with
 // the real history rather than a reconstruction (docs/design.md §3, §9).
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
 
@@ -47,3 +47,16 @@ type EventInput = {
 export async function record(ctx: MutationCtx, event: EventInput): Promise<void> {
   await ctx.db.insert("events", { ...event });
 }
+
+/**
+ * The second row of an edge: the one on the end that does not lead its sentence. The
+ * subject of `blocks` is its `to` end and of every other type its `from` end, and the
+ * row hangs on the issue `cn log` leads its line with, so the row whose issue is not
+ * the subject is the mirror.
+ */
+export const isMirror = (e: Doc<"events">, issue: { id: string } | undefined): boolean => {
+  if (!e.kind.startsWith("edge.") || issue === undefined) return false;
+  const changes = e.changes as { type?: string; from?: string; to?: string } | undefined;
+  const subject = changes?.type === "blocks" ? changes.to : changes?.from;
+  return subject !== undefined && subject !== issue.id;
+};

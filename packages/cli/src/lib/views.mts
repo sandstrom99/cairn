@@ -24,6 +24,9 @@ export type ReviewView = FunctionReturnType<typeof api.review.get>;
 /** What `cn log` lists: one event, with whatever it names resolved to id and title. */
 export type LogEvent = FunctionReturnType<typeof api.events.recent>[number];
 
+/** What `cn project list` answers: each project with its counts, health and pulse. */
+export type ProjectView = FunctionReturnType<typeof api.projects.list>[number];
+
 /** What `cn brief` answers: the counts and the heads of design §8. */
 export type BriefView = FunctionReturnType<typeof api.brief.get>;
 
@@ -83,6 +86,9 @@ export type EpicLineView = Referable & {
     waiting: (Referable & { owner: string })[];
   };
 };
+
+/** Enough of an epic or a project to print its health block. */
+export type HealthView = Pick<EpicLineView, "id" | "title" | "counts" | "health">;
 
 /** One journal entry, as `cn show` carries the five newest. */
 export type JournalEntry = { at: number; author: { name: string }; kind: string; body: string };

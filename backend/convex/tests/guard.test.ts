@@ -33,7 +33,9 @@ describe("guard", () => {
       secret: "s3cret",
     });
     const projects = await t.query(api.projects.list, { secret: "s3cret" });
-    expect(projects).toEqual([{ slug: "web", name: "northwind.example" }]);
+    expect(projects.map(({ slug, name }) => ({ slug, name }))).toEqual([
+      { slug: "web", name: "northwind.example" },
+    ]);
     const events = await eventsOf(t);
     expect(events).toHaveLength(1);
     expect(JSON.stringify(events[0])).not.toContain("s3cret");
@@ -42,7 +44,8 @@ describe("guard", () => {
   it("checks nothing when the deployment has no secret", async () => {
     const t = fresh();
     await t.mutation(api.projects.create, { actor, slug: "app", name: "the Flutter app" });
-    expect(await t.query(api.projects.list, {})).toEqual([
+    const projects = await t.query(api.projects.list, {});
+    expect(projects.map(({ slug, name }) => ({ slug, name }))).toEqual([
       { slug: "app", name: "the Flutter app" },
     ]);
   });
