@@ -104,7 +104,7 @@ describe("linkParts", () => {
 
   it("is an issue's last fact where it has links, and no fact where it has none", () => {
     const links = [{ url: "https://example.com/d", label: "doc", by, at: ago(HOUR) }];
-    const facts = issueFacts(issue({ links, requires: ["ios"] }), now);
+    const facts = issueFacts(issue({ links }), now);
     expect(facts.at(-1)).toEqual({
       label: "links",
       links: [{ url: "https://example.com/d", label: "doc", by: "by wsl/claude 1h ago" }],

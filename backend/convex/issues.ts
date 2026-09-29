@@ -81,7 +81,6 @@ export const create = mutation({
     type: v.optional(issueTypeValidator),
     followUpKind: v.optional(followUpKindValidator),
     parent: v.optional(v.string()),
-    requires: v.optional(v.array(v.string())),
     link: v.optional(v.array(linkInputValidator)),
   },
   handler: async (ctx, args) => {
@@ -129,7 +128,6 @@ export const create = mutation({
       type,
       followUpKind: args.followUpKind,
       parentIssueId: parent?._id,
-      requires: args.requires ?? [],
       links: addLinks([], args.link ?? [], { by: args.actor, at: Date.now() }),
       priority: args.priority ?? DEFAULT_PRIORITY,
     });
@@ -241,7 +239,6 @@ export const update = mutation({
     epic: v.optional(v.string()),
     // null clears the date; absent leaves it alone. The two are different intentions.
     deferUntil: v.optional(v.union(v.number(), v.null())),
-    requires: v.optional(v.array(v.string())),
     link: v.optional(v.array(linkInputValidator)),
     unlink: v.optional(v.array(v.string())),
   },
@@ -256,7 +253,6 @@ export const update = mutation({
       design: args.design,
       acceptance: args.acceptance,
       priority: args.priority,
-      requires: args.requires,
       deferUntil: args.deferUntil,
       epic: args.epic === undefined ? undefined : await openEpicArg(ctx, args.actor, args.epic),
       link: args.link,
@@ -292,7 +288,6 @@ export const close = mutation({
       v.object({
         title: v.string(),
         kind: followUpKindValidator,
-        requires: v.optional(v.array(v.string())),
         priority: v.optional(v.number()),
       }),
     ),

@@ -105,7 +105,7 @@ an issue.
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line; `--link <url>` or `--link '[label](url)'` puts a link on it, and repeats | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease | `issues.claim` · `issues.release` |
-| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer, requires; `--link` adds a link or relabels one, `--unlink <url>` takes one off. The id says what changes: an epic takes its title, description and links, a blocker its title, `--resolves` and links, and a flag the thing has no field for is refused | `issues.update` · `epics.update` · `blockers.update` |
+| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer; `--link` adds a link or relabels one, `--unlink <url>` takes one off. The id says what changes: an epic takes its title, description and links, a blocker its title, `--resolves` and links, and a flag the thing has no field for is refused | `issues.update` · `epics.update` · `blockers.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
 | `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line; each open issue the close was the last thing holding is printed under it as a `ready` line, the next thing to pick without another `cn ready` | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
@@ -230,4 +230,5 @@ answered; the person asks for more when they want it.
 - **Closing takes evidence.** A command and its output, or `unverified` with a reason.
   Prose is what an agent fabricates.
 - **Residue becomes a follow-up, not a hanging parent.** Verified on Android and web but
-  not iOS: close it, spawn `[follow-up · verify] requires: ios`, move on.
+  not iOS: close it, spawn a `verify` follow-up titled for what it needs, `verify: the
+  retry path on an iPhone`, move on.

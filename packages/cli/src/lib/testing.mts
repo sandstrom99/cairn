@@ -40,7 +40,6 @@ export function issue(over: Partial<ShownIssue> = {}): ShownIssue {
     type: "task",
     followUpKind: undefined,
     parent: undefined,
-    requires: [],
     links: undefined,
     status: "open",
     priority: 0,

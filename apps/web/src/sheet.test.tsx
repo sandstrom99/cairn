@@ -23,7 +23,6 @@ const held = issue({
   title: "apps/web, the read-only window",
   design: "On the skeleton.\n\nLines come from lines.mts.",
   acceptance: "- The page lists open epics.\n- Nothing on the page calls a mutation.",
-  requires: ["web"],
   status: "in_progress",
   priority: 2,
   claimedBy: agent,

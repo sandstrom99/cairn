@@ -27,9 +27,6 @@ describe("cn create", () => {
         "verify",
         "--parent",
         "cn-1",
-        "--requires",
-        "ios",
-        "device",
       ]),
     ).toEqual({
       action: "create",
@@ -43,9 +40,14 @@ describe("cn create", () => {
         type: "follow-up",
         followUpKind: "verify",
         parent: "cn-1",
-        requires: ["ios", "device"],
       },
     });
+  });
+
+  it("takes no --requires: what work needs is said in its own text", () => {
+    expect(() => parse(["--project", "cn", "--title", "one", "--requires", "ios"])).toThrow(
+      "unknown option --requires",
+    );
   });
 
   it("leaves out what was not given rather than sending undefined", () => {

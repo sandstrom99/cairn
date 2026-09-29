@@ -37,7 +37,6 @@ export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
     type: doc.type,
     followUpKind: doc.followUpKind,
     parent: parent ? end(parent) : undefined,
-    requires: doc.requires,
     links: doc.links,
     status: doc.status,
     priority: doc.priority,

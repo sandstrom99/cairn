@@ -496,7 +496,6 @@ describe("brief", () => {
       status: "in_progress",
       claimedBy: { name: "wsl/claude", kind: "agent" },
       claimedAt: ago(5 * MINUTE),
-      requires: ["ios", "device"],
       waitingOn: [{ id: "bl-1", title: "the App Store agreement" }],
       followUps: [{ id: "cn-2", title: "check it on a device", status: "open" }],
       journal: [
@@ -513,7 +512,7 @@ describe("brief", () => {
       "status          moving wsl/claude 5m · P0 · created 2h ago · revision 0",
     );
     expect(text).not.toContain("claimed");
-    expect(text).toContain("requires        ios, device");
+    expect(text).not.toContain("requires");
     expect(text).toContain('waiting on      bl-1 "the App Store agreement"');
     expect(text).toContain("  1h wsl/claude finding: the counter row is created on first use");
   });
@@ -1360,6 +1359,22 @@ describe("logLine", () => {
       blocker: undefined,
     };
     expect(logLine(create, now)).toBe('cn-1 "the first issue"  issue.create  wsl/claude  2h ago');
+  });
+
+  it("reads an update from before cn-119, when an issue still carried requires, as a line", () => {
+    const old = {
+      at: ago(2 * HOUR),
+      actor: { name: "wsl/claude", kind: "agent" } as const,
+      kind: "issue.update",
+      revision: 1,
+      changes: { requires: { from: [], to: ["ios"] } },
+      issue: { id: "cn-1", title: "the first issue" },
+      epic: undefined,
+      blocker: undefined,
+    };
+    expect(logLine(old, now)).toBe(
+      'cn-1 "the first issue"  issue.update  wsl/claude  2h ago  requires [] → ["ios"]',
+    );
   });
 });
 

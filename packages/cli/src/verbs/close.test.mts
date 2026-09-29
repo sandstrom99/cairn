@@ -33,8 +33,6 @@ describe("cn close", () => {
         "confirm the lifecycle on a second machine",
         "--kind",
         "verify",
-        "--requires",
-        "device",
         "--priority",
         "1",
       ]),
@@ -46,7 +44,6 @@ describe("cn close", () => {
       followUp: {
         title: "confirm the lifecycle on a second machine",
         kind: "verify",
-        requires: ["device"],
         priority: 1,
       },
     });
@@ -92,14 +89,18 @@ describe("cn close", () => {
     expect(() => parse([...base, "--follow-up", "check it", "--kind", "ship"])).toThrow(UsageError);
   });
 
-  it("refuses --requires and --priority without the follow-up they describe, by name", () => {
+  it("refuses --kind and --priority without the follow-up they describe, by name", () => {
     const base = ["cn-2", "--revision", "2", "--run", "vp run verify"];
-    expect(() => parse([...base, "--requires", "ios"])).toThrow(
-      /--requires belongs to --follow-up/,
+    expect(() => parse([...base, "--priority", "1"])).toThrow(/--priority belongs to --follow-up/);
+    expect(() => parse([...base, "--kind", "verify", "--priority", "1"])).toThrow(
+      /--kind and --priority belong to --follow-up/,
     );
-    expect(() => parse([...base, "--priority", "1"])).toThrow(UsageError);
+  });
+
+  it("takes no --requires on the follow-up", () => {
+    const base = ["cn-2", "--revision", "2", "--run", "vp run verify"];
     expect(() =>
-      parse([...base, "--kind", "verify", "--requires", "ios", "--priority", "1"]),
-    ).toThrow(/--kind and --requires and --priority belong to --follow-up/);
+      parse([...base, "--follow-up", "check it", "--kind", "verify", "--requires", "ios"]),
+    ).toThrow("unknown option --requires");
   });
 });

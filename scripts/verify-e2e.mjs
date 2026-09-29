@@ -339,6 +339,11 @@ row("verbs/create.mts", () => {
   );
   assert.match(first.out, /cn-1/, "the first issue did not mint cn-1");
   assert.equal(json("show cn-1").design, design, "--design @notes.md did not store the file");
+  assert.ok(!("requires" in json("show cn-1")), "cn show --json still carries requires");
+  const requires = cn(`create --project cn --epic ep-1 --title 'scratch: ios' --requires ios`);
+  assert.equal(requires.status, 2, "cn create --requires was not refused");
+  assert.match(requires.stderr, /unknown option --requires/, "the refusal does not name it");
+  assert.deepEqual(ids(json("list")), ["cn-1"], "a create refused for --requires minted one");
   const ftp = cn(
     `create --project cn --epic ep-1 --title 'scratch: ftp' --link ftp://example.com/x`,
   );

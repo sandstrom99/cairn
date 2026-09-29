@@ -15,7 +15,8 @@ with `cn journal <id> --kind evidence "…"` first, then close `--unverified` wi
 that points at that entry.
 
 Anything left over is a follow-up, never a hanging parent:
-`--follow-up "<title>" --kind verify|decide|cleanup [--requires ios]`.
+`--follow-up "<title>" --kind verify|decide|cleanup`, its title saying what finishing it
+needs, as `verify: the retry path on an iPhone`.
 
 A `ready` line under the answer is an issue this close unblocked: it is the next thing to
 pick, and no `cn ready` is needed first.

@@ -18,11 +18,11 @@ describe("parseArgs", () => {
   });
 
   it("swallows positionals into a list flag until the next flag", () => {
-    const r = parseArgs(["--requires", "ios", "device", "--json"], {
-      list: ["requires"],
+    const r = parseArgs(["--link", "https://a", "https://b", "--json"], {
+      list: ["link"],
       bool: ["json"],
     });
-    expect(r.opts.requires).toEqual(["ios", "device"]);
+    expect(r.opts.link).toEqual(["https://a", "https://b"]);
     expect(r.opts.json).toBe(true);
   });
 
@@ -40,7 +40,7 @@ describe("parseArgs", () => {
   });
 
   it("reads a bool that was not given as false, and leaves a value or list absent", () => {
-    const { opts } = parseArgs([], { bool: ["json"], value: ["epic"], list: ["requires"] });
+    const { opts } = parseArgs([], { bool: ["json"], value: ["epic"], list: ["link"] });
     expect(opts).toEqual({ json: false });
   });
 
@@ -48,12 +48,12 @@ describe("parseArgs", () => {
     const { opts } = parseArgs(["--epic", "e-1", "--json"], {
       bool: ["json"],
       value: ["epic"],
-      list: ["requires"],
+      list: ["link"],
     });
     // The annotations are the test: a shape the spec does not give a flag fails `vp check`.
     const json: boolean = opts.json;
     const epic: string | undefined = opts.epic;
-    const requires: string[] | undefined = opts.requires;
-    expect([json, epic, requires]).toEqual([true, "e-1", undefined]);
+    const link: string[] | undefined = opts.link;
+    expect([json, epic, link]).toEqual([true, "e-1", undefined]);
   });
 });

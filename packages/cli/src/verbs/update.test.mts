@@ -34,9 +34,6 @@ describe("cn update", () => {
         "ep-2",
         "--defer-until",
         "2026-10-01",
-        "--requires",
-        "ios",
-        "device",
       ]),
     ).toEqual({
       action: "update",
@@ -51,22 +48,22 @@ describe("cn update", () => {
         priority: 0,
         epic: "ep-2",
         deferUntil: Date.parse("2026-10-01"),
-        requires: ["ios", "device"],
       },
     });
   });
 
-  it("clears a date and a capability list with none, which absent does not", () => {
+  it("clears a date with none, which absent does not", () => {
     expect(parse(["cn-2", "--revision", "0", "--defer-until", "none"])).toEqual({
       action: "update",
       kind: "issue",
       args: { id: "cn-2", revision: 0, deferUntil: null },
     });
-    expect(parse(["cn-2", "--revision", "0", "--requires", "none"])).toEqual({
-      action: "update",
-      kind: "issue",
-      args: { id: "cn-2", revision: 0, requires: [] },
-    });
+  });
+
+  it("takes no --requires", () => {
+    expect(() => parse(["cn-2", "--revision", "0", "--requires", "ios"])).toThrow(
+      "unknown option --requires",
+    );
   });
 
   it("adds links and takes them off, each flag on its own being a change", () => {
@@ -157,7 +154,7 @@ describe("cn update", () => {
       /^a blocker has no --description; cn update bl-2 takes --title, --resolves, --link and --unlink$/,
     );
     expect(() => parse(["cn-1", "--revision", "2", "--resolves", "x"])).toThrow(
-      /^an issue has no --resolves; cn update cn-1 takes --title, --description, --design, --acceptance, --priority, --epic, --defer-until, --requires, --link and --unlink$/,
+      /^an issue has no --resolves; cn update cn-1 takes --title, --description, --design, --acceptance, --priority, --epic, --defer-until, --link and --unlink$/,
     );
     expect(() => parse(["ep-3", "--revision", "2"])).toThrow(
       /^cn update <id> --revision N needs a field to change$/,

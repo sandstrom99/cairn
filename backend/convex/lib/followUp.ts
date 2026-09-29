@@ -13,7 +13,6 @@ import type { IssueView } from "./views";
 type FollowUpInput = {
   title: string;
   kind: FollowUpKind;
-  requires?: string[];
   priority?: number;
   description?: string;
 };
@@ -38,7 +37,6 @@ export async function createFollowUp(
     type: "follow-up",
     followUpKind: args.kind,
     parentIssueId: parent._id,
-    requires: args.requires ?? [],
     links: [],
     priority: args.priority ?? parent.priority,
   });
