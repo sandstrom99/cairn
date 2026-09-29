@@ -28,7 +28,7 @@ describe("resolveDeployment", () => {
   it("prefers CAIRN_URL over any file", () => {
     expect(
       resolveDeployment({ CAIRN_URL: "https://env" }, { deployments: { a: { url: "https://a" } } }),
-    ).toEqual({ name: "CAIRN_URL", url: "https://env", source: "env" });
+    ).toEqual({ name: "CAIRN_URL", url: "https://env", source: "CAIRN_URL" });
   });
 
   it("uses the default deployment from the file", () => {
@@ -37,7 +37,7 @@ describe("resolveDeployment", () => {
         default: "b",
         deployments: { a: { url: "https://a" }, b: { url: "https://b" } },
       }),
-    ).toEqual({ name: "b", url: "https://b", source: "config" });
+    ).toEqual({ name: "b", url: "https://b", source: "default" });
   });
 
   it("uses the only deployment when there is one and no default", () => {
@@ -80,7 +80,7 @@ describe("resolveDeployment", () => {
     ).toEqual({
       name: "a",
       url: "https://a",
-      source: "config",
+      source: "default",
       secret: "from-file",
       secretSource: "config",
     });
@@ -99,9 +99,73 @@ describe("resolveDeployment", () => {
     expect(resolveDeployment({ CAIRN_URL: "https://env", CAIRN_SECRET: "s" }, null)).toEqual({
       name: "CAIRN_URL",
       url: "https://env",
-      source: "env",
+      source: "CAIRN_URL",
       secret: "s",
       secretSource: "env",
+    });
+  });
+
+  describe("CAIRN_DEPLOYMENT", () => {
+    const two: CairnConfig = {
+      default: "cairn",
+      deployments: {
+        cairn: { url: "https://cairn", secret: "cairn-secret" },
+        invyte: { url: "https://invyte", secret: "invyte-secret" },
+      },
+    };
+
+    it("names a deployment in the file over its default, with the file's secret", () => {
+      expect(resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "invyte" }, two)).toEqual({
+        name: "invyte",
+        url: "https://invyte",
+        source: "CAIRN_DEPLOYMENT",
+        secret: "invyte-secret",
+        secretSource: "config",
+      });
+    });
+
+    it("gives way to CAIRN_URL", () => {
+      expect(
+        resolveDeployment({ CAIRN_URL: "https://env", CAIRN_DEPLOYMENT: "invyte" }, two),
+      ).toEqual({ name: "CAIRN_URL", url: "https://env", source: "CAIRN_URL" });
+    });
+
+    it("is unset when empty, so the default resolves", () => {
+      expect(resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "" }, two)).toMatchObject({
+        name: "cairn",
+        source: "default",
+      });
+    });
+
+    it("lets CAIRN_SECRET override the named deployment's secret", () => {
+      expect(
+        resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "invyte", CAIRN_SECRET: "from-shell" }, two),
+      ).toMatchObject({
+        name: "invyte",
+        source: "CAIRN_DEPLOYMENT",
+        secret: "from-shell",
+        secretSource: "env",
+      });
+    });
+
+    it("refuses a name the file lacks, naming the ones it has in file order", () => {
+      expect(() => resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "nope" }, two)).toThrow(
+        "CAIRN_DEPLOYMENT is nope, and this machine has no deployment by that name (it has cairn, invyte): cn init --name nope sets it up (cn init --help)",
+      );
+    });
+
+    it("says none when the file has no deployments", () => {
+      expect(() =>
+        resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "nope" }, {} as CairnConfig),
+      ).toThrow(
+        "CAIRN_DEPLOYMENT is nope, and this machine has no deployment by that name (it has none): cn init --name nope sets it up (cn init --help)",
+      );
+    });
+
+    it("refuses with no config at all rather than answering null", () => {
+      expect(() => resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "nope" }, null)).toThrow(
+        "CAIRN_DEPLOYMENT is nope, and this machine has no cairn config: cn init --name nope sets it up (cn init --help)",
+      );
     });
   });
 

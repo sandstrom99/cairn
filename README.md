@@ -102,6 +102,13 @@ written and the line says what to fix. What it writes is
 `CAIRN_URL` and `CAIRN_SECRET` in the environment override the file, which is the
 way in for a CI runner or a one-off. `cn init --help` is the whole contract.
 
+A machine with more than one deployment picks one per repository:
+`CAIRN_DEPLOYMENT=<name>` in the `env` of the repository's `.claude/settings.json`,
+or of its `settings.local.json` when the choice is this machine's alone, and every
+session there, its hooks included, resolves to that deployment. It is a name from
+the config, never a URL or a secret. `cn doctor` says whether `CAIRN_URL`,
+`CAIRN_DEPLOYMENT` or the default chose.
+
 A company that has no deployment yet stands one up once, from `backend/`, on a
 machine with a Convex account:
 
@@ -159,7 +166,9 @@ configured, a session opens with two lines pointing at `/cairn:init`, which does
 step 2 together with the person: it asks for the command that prints the secret,
 never the secret, and for what the machine can do. With a deployment configured
 that does not answer, it opens with one line naming the deployment and `cn
-doctor`, which says why.
+doctor`, which says why. With a `CAIRN_DEPLOYMENT` this machine has not set up, it
+opens with the one line `cn` fails with, naming the deployments the machine has and
+the `cn init` that adds the missing one.
 
 ### 4. Open the page
 

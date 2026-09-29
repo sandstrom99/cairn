@@ -64,6 +64,8 @@ on every call — `op` is not on that path, because one read costs seconds:
 Editing it by hand is how a deployment that already exists changes, its secret aside,
 which is `cn init --refresh`'s. `CAIRN_SECRET` in the shell overrides the file, for a hook
 or a one-off run, and `cn init` takes it as the secret when `--secret-cmd` is not given.
+Which deployment a call goes to is `CAIRN_URL` when it is set, then the deployment in the
+file that `CAIRN_DEPLOYMENT` names, then the file's `default`.
 
 When it works, the last two lines of `cn doctor` are the deployment answering and
 
@@ -92,7 +94,7 @@ src/lib/
   flags.mts      what a flag's value has to be: revision, priority, date, a link, one of a set of words, once;
                  and which positionals a verb takes, onlyId and onlyFlags
   session.mts    what one call is: the config read once, and the deployment, actor and can from it
-  config.mts     which deployment: CAIRN_URL, then ~/.config/cairn/config.json
+  config.mts     which deployment: CAIRN_URL, then CAIRN_DEPLOYMENT, then ~/.config/cairn/config.json's default
   can.mts        what this session can do: --can, then CAIRN_CAN, then the config
   client.mts     the typed Convex client and the generated `api`; connect() is the session with its client
   actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>, with CAIRN_SESSION beside it

@@ -600,7 +600,10 @@ secret, it prints one line, `cairn: <name> did not answer; cn doctor says why`,
 settled 2026-09-22: until then the hook swallowed every failure, so a dead URL
 or a wrong secret started a session exactly like a machine with nothing
 installed, and the skill taught only two states. The hook never diagnoses; `cn
-doctor` does, and the line names it. The hook's 5 s timeout in the manifest is
+doctor` does, and the line names it. With a config that does not resolve at all,
+such as a `CAIRN_DEPLOYMENT` this machine has not set up, it prints `cairn: <cn's
+one line>`, the line `cn` itself fails with, since no deployment was reached to
+not answer (2026-09-29). The hook's 5 s timeout in the manifest is
 what bounds a URL that never answers at all. One query, `brief.get(can)`,
 returns the numbers and the heads; `cn brief` lays them out:
 
@@ -1146,6 +1149,7 @@ Added when the solution was mapped, 2026-09-17:
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
   `{ "default": "invyte", "can": ["web", "android"], "deployments": { "invyte": { "url": …, "secret": … } } }`.
+  A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the
   arguments before the handler, so nothing downstream sees it. A deployment with none set
@@ -1171,7 +1175,7 @@ implementation.
 
 | Open question | Current lean |
 |---|---|
-| How a session resolves repo → project → deployment | Global config. A project is coarse, so path-derivation is out. The file and its shape are reserved: `CAIRN_URL`, then `~/.config/cairn/config.json` with named deployments and a default (`packages/cli/src/lib/config.mts`). `cn init` writes that file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, mode 600 |
+| How a session resolves repo → project → deployment | Settled 2026-09-29 (cn-89): `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL and secret from there. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Lean: the anonymous local deployment until `create` works, then one cloud deployment per company. Slice 8, `cn-8 "a cloud deployment per company, and the secret that guards it"` |
 | Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth arrives when cairn serves more than one person, `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"`, and only then does the actor stop being an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |

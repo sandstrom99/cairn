@@ -12,14 +12,17 @@
 # is set here too, so the brief printed below already knows which claims are this one's.
 #
 # Silent when `cn` is not on PATH, so a session never fails to start because of this.
-# With `cn` here it prints one of three states, exit 0 every way. The brief, when the
+# With `cn` here it prints one of four states, exit 0 every way. The brief, when the
 # deployment answers. With nothing configured, two lines saying so and where setup lives:
 # `cn brief` exits 0 and prints nothing in exactly that case
 # (packages/cli/src/verbs/brief.mts), and a machine that has `cn` installed is a machine
-# that means to use it. And when a deployment is configured but does not answer, or
-# refuses the secret, one line naming it and `cn doctor`, which says why; without it a
-# dead or misconfigured deployment looked exactly like nothing installed. The name is the
-# one `cn doctor` resolves, read from its `deployment <name> → <url>` line. The 5 s
+# that means to use it. When a deployment is configured but does not answer, or refuses
+# the secret, one line naming it and `cn doctor`, which says why; without it a dead or
+# misconfigured deployment looked exactly like nothing installed. The name is the one
+# `cn doctor` resolves, read from its `deployment <name> → <url>` line. And when the
+# config does not resolve at all, such as a CAIRN_DEPLOYMENT this machine has not set up,
+# `cairn: <cn's one line>`, the line cn fails with, since no deployment was reached and
+# "did not answer" would send the reader to the wrong place. The 5 s
 # timeout in plugin.json bounds a black-holed URL: a `cn brief` that hangs is cut off
 # there, and the session starts with nothing rather than late.
 # `matcher: ""` fires it after /clear and compaction too, where the state was just lost.
@@ -49,8 +52,17 @@ Every cn verb fails with "no deployment" until it is. /cairn:init sets it up wit
 EOT
   exit 0
 fi
-# A deployment resolved and the call failed. `cn doctor` resolves the same one and prints
-# its name, never the secret, and its own ping is the diagnosis the line points at.
-name=$(cn doctor 2>/dev/null | sed -n 's/^[^ ]* deployment \([^ ]*\) → .*/\1/p' | head -n 1 || true)
-printf 'cairn: %s did not answer; cn doctor says why\n' "${name:-the configured deployment}"
+# The call failed. `cn doctor` resolves the same deployment and prints its name, never the
+# secret, and its own ping is the diagnosis the line points at. When it prints no
+# `deployment <name> →` line, nothing resolved: the config itself is wrong — a
+# CAIRN_DEPLOYMENT this machine has not set up, a default naming nothing — and cn doctor
+# fails with the one line that says so, which is the line to hand on.
+report=$(cn doctor 2>&1 || true)
+name=$(printf '%s\n' "$report" | sed -n 's/^[^ ]* deployment \([^ ]*\) → .*/\1/p' | head -n 1)
+if [ -n "$name" ]; then
+  printf 'cairn: %s did not answer; cn doctor says why\n' "$name"
+  exit 0
+fi
+problem=$(printf '%s\n' "$report" | sed -n 's/^✗ //p' | head -n 1)
+printf 'cairn: %s\n' "${problem:-the configured deployment did not answer; cn doctor says why}"
 exit 0

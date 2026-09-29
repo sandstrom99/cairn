@@ -64,9 +64,11 @@ let last;
 const secrets = {};
 
 /** The environment every call gets: nothing of this machine's cairn, everything of this run's. */
-function environment({ as, xdg, viaConfig, session, secret }) {
+function environment({ as, xdg, viaConfig, session, secret, deployment }) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("CAIRN_")) delete env[key];
+  // A deployment named the way a repository's Claude settings name one, from the file.
+  if (deployment !== undefined) env.CAIRN_DEPLOYMENT = deployment;
   // The secret rows fence the throwaway, and a call names the secret it carries.
   if (secret !== undefined) env.CAIRN_SECRET = secret;
   delete env.CLAUDECODE;
@@ -119,9 +121,13 @@ function words(line) {
  * when it runs in one. `xdg` is the config home it reads, and `viaConfig` withholds
  * CAIRN_URL so it has to. `input` is what it reads on stdin, which is empty without it.
  * `secret` is the CAIRN_SECRET it carries, once the secret rows have fenced the throwaway.
+ * `deployment` is the CAIRN_DEPLOYMENT it carries, naming one deployment in the file.
  */
-function cn(line, { as = "agent", xdg = home, viaConfig = false, session, input, secret } = {}) {
-  const env = environment({ as, xdg, viaConfig, session, secret });
+function cn(
+  line,
+  { as = "agent", xdg = home, viaConfig = false, session, input, secret, deployment } = {},
+) {
+  const env = environment({ as, xdg, viaConfig, session, secret, deployment });
   const result = spawnSync(process.execPath, [MAIN, ...words(line)], {
     encoding: "utf8",
     cwd: xdg,
@@ -148,10 +154,11 @@ const json = (line, opts) =>
 /**
  * The SessionStart hook, run as a cold machine with `cn` on PATH and no deployment, and
  * as Claude Code runs it: the session's JSON on stdin, and CLAUDE_ENV_FILE naming the
- * file it sources before every Bash command of that session.
+ * file it sources before every Bash command of that session. `deployment` is the
+ * CAIRN_DEPLOYMENT a repository's Claude settings hand it.
  */
-function hook({ session, envFile, xdg = cold } = {}) {
-  const env = environment({ as: "agent", xdg, viaConfig: true });
+function hook({ session, envFile, xdg = cold, deployment } = {}) {
+  const env = environment({ as: "agent", xdg, viaConfig: true, deployment });
   env.PATH = `${bin}:${env.PATH ?? ""}`;
   if (envFile !== undefined) env.CLAUDE_ENV_FILE = envFile;
   const input =
@@ -1207,7 +1214,7 @@ row("verbs/init.mts", () => {
   // The file alone is enough from here: nothing in the environment names a deployment.
   const doctored = pass("doctor", "cn doctor failed on the config cn init just wrote", viaFile);
   assert.match(doctored.out, /e2e/, "cn doctor does not name the deployment it resolved");
-  assert.match(doctored.out, /from config/, "cn doctor does not name the config as the source");
+  assert.match(doctored.out, /from default/, "cn doctor does not name the default as the source");
   assert.match(doctored.out, /^✓ can web android$/m, "cn doctor does not read can from the file");
   assert.match(
     doctored.out,
@@ -1290,6 +1297,125 @@ row("verbs/init.mts", () => {
   const ttyless = hook({ envFile });
   assert.equal(ttyless.status, 0, "the hook exited non-zero with empty stdin");
   assert.equal(readFileSync(envFile, "utf8").split("\n").length, 3, "empty stdin wrote a line");
+});
+
+row("lib/config.mts", () => {
+  // A machine with two deployments, the default one dead, the way a machine that works
+  // for two companies holds both: CAIRN_DEPLOYMENT is how a repository picks the other.
+  // The throwaway has no secret set yet, so it takes the one the file holds.
+  const named = mkdtempSync(join(tmpdir(), "cairn-e2e-named-"));
+  const empty = mkdtempSync(join(tmpdir(), "cairn-e2e-empty-"));
+  const config = join(named, "cairn", "config.json");
+  const both = {
+    default: "dead",
+    deployments: {
+      dead: { url: "http://127.0.0.1:9" },
+      e2e: { url, secret: "s3cret", secretCmd: "echo s3cret" },
+    },
+  };
+  mkdirSync(join(named, "cairn"));
+  writeFileSync(config, JSON.stringify(both), { mode: 0o600 });
+  const viaFile = { xdg: named, viaConfig: true };
+  const missing =
+    "CAIRN_DEPLOYMENT is nope, and this machine has no deployment by that name (it has dead, e2e): cn init --name nope sets it up (cn init --help)";
+  const unset =
+    "CAIRN_DEPLOYMENT is nope, and this machine has no cairn config: cn init --name nope sets it up (cn init --help)";
+  try {
+    // Nothing set: the file's default, read as the default.
+    const byDefault = cn("doctor", viaFile);
+    assert.equal(byDefault.status, 1, "cn doctor passed against a default that does not answer");
+    assert.ok(
+      byDefault.stdout.includes("deployment dead → http://127.0.0.1:9 (from default, no secret)"),
+      "cn doctor does not read the file's default as what chose the deployment",
+    );
+
+    // CAIRN_DEPLOYMENT over the default, with the named deployment's url and secret.
+    const byName = cn("doctor", { ...viaFile, deployment: "e2e" });
+    assert.equal(byName.status, 0, "cn doctor failed on the deployment CAIRN_DEPLOYMENT names");
+    assert.ok(
+      byName.stdout.includes(`deployment e2e → ${url} (from CAIRN_DEPLOYMENT, secret from config)`),
+      "cn doctor does not read CAIRN_DEPLOYMENT as what chose the deployment",
+    );
+    assert.match(
+      byName.stdout,
+      /^✓ secret accepted by e2e$/m,
+      "the named deployment's secret was not taken",
+    );
+
+    // A name the file lacks: one line naming the ones it has, and nothing on stdout.
+    const byNothing = cn("doctor", { ...viaFile, deployment: "nope" });
+    assert.equal(byNothing.status, 1, "cn doctor passed on a name the file lacks");
+    assert.equal(byNothing.stdout, "", "cn doctor printed an answer for a name the file lacks");
+    assert.equal(
+      byNothing.out,
+      `✗ ${missing}\n`,
+      "a name the file lacks is not one line naming the deployments it has",
+    );
+
+    // CAIRN_URL still wins over a name, even one the file lacks.
+    const byUrl = cn("doctor", { xdg: named, deployment: "nope" });
+    assert.equal(byUrl.status, 0, "CAIRN_URL did not win over CAIRN_DEPLOYMENT");
+    assert.ok(
+      byUrl.stdout.includes("(from CAIRN_URL, no secret)"),
+      "cn doctor does not read CAIRN_URL as what chose the deployment",
+    );
+
+    // The hook, the same three ways.
+    const dead = hook({ xdg: named });
+    assert.equal(dead.status, 0, "the hook exited non-zero against a dead default");
+    assert.equal(
+      dead.stdout,
+      "cairn: dead did not answer; cn doctor says why\n",
+      "the hook does not name the dead default",
+    );
+    const briefed = hook({ xdg: named, deployment: "e2e" });
+    assert.equal(briefed.status, 0, "the hook exited non-zero with CAIRN_DEPLOYMENT=e2e");
+    assert.match(briefed.stdout, /^cairn · e2e · /m, "the hook did not print e2e's brief");
+    assert.ok(
+      !briefed.stdout.includes("did not answer"),
+      "the hook said a deployment did not answer when the named one did",
+    );
+    const started = Date.now();
+    const lacking = hook({ xdg: named, deployment: "nope" });
+    const took = Date.now() - started;
+    assert.equal(lacking.status, 0, "the hook exited non-zero on a name the file lacks");
+    assert.equal(
+      lacking.stdout,
+      `cairn: ${missing}\n`,
+      "the hook does not hand on cn's one line for a name the file lacks",
+    );
+    assert.ok(took < 5000, `the hook took ${took}ms on a name the file lacks, past the 5 s`);
+
+    // A bare --refresh follows the same order: the default, then the name.
+    const written = readFileSync(config, "utf8");
+    const refreshDead = cn("init --refresh", viaFile);
+    assert.equal(refreshDead.status, 1, "cn init --refresh passed against the dead default");
+    assert.match(refreshDead.out, /dead/, "cn init --refresh does not name the default it tried");
+    assert.equal(readFileSync(config, "utf8"), written, "the refused --refresh wrote anyway");
+    const refreshNamed = cn("init --refresh", { ...viaFile, deployment: "e2e" });
+    assert.equal(refreshNamed.status, 0, "cn init --refresh failed on the named deployment");
+    assert.match(refreshNamed.out, /e2e/, "cn init --refresh does not name the one it refreshed");
+    assert.deepEqual(
+      JSON.parse(readFileSync(config, "utf8")),
+      both,
+      "cn init --refresh changed more than the named deployment's secret",
+    );
+
+    // No config at all: the line says there is none.
+    const bare = cn("doctor", { xdg: empty, viaConfig: true, deployment: "nope" });
+    assert.equal(bare.status, 1, "cn doctor passed on a name with no config at all");
+    assert.equal(bare.out, `✗ ${unset}\n`, "a name with no config is not the one line saying so");
+    const coldHook = hook({ xdg: empty, deployment: "nope" });
+    assert.equal(coldHook.status, 0, "the hook exited non-zero on a name with no config");
+    assert.equal(
+      coldHook.stdout,
+      `cairn: ${unset}\n`,
+      "the hook does not hand on cn's one line for a name with no config",
+    );
+  } finally {
+    rmSync(named, { recursive: true, force: true });
+    rmSync(empty, { recursive: true, force: true });
+  }
 });
 
 row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
