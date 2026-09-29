@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# cn: the cairn CLI. The checkout is the install:
+# cn: the cairn CLI. A clone kept at main, and never worked in, is the install:
 #
-#   ln -s ~/code/cairn/packages/cli/bin/cn ~/.local/bin/cn
+#   ln -s ~/.local/share/cairn/packages/cli/bin/cn ~/.local/bin/cn
 #
 # Resolves its own symlink, then runs src/main.mts under Node, which strips the types
 # itself on 24 and later. Nothing is built. Written to bash 3.2 so it runs on macOS.

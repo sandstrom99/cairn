@@ -65,17 +65,25 @@ hand.
 
 ### 1. Install `cn`
 
-Nothing is built: the checkout is the install. `cn` runs its TypeScript source
+Nothing is built: a clone is the install. `cn` runs its TypeScript source
 under Node 24, which strips the types itself, and `vp` (vite-plus) brings that
 Node with it.
 
+The install is a clone of its own, kept at `main` and never worked in. Every
+repository's sessions run what it holds, `cn` from its `packages/cli` and the plugin
+from its `plugins/cairn` (step 3), so a branch checked out there would reach all of
+them at once.
+
 ```bash
-curl -fsSL https://vite.plus | bash                 # once per machine: vp, and its Node
-git clone https://github.com/sandstrom99/cairn ~/code/cairn
-cd ~/code/cairn && vp install                       # once per checkout
-ln -s "$PWD/packages/cli/bin/cn" ~/.local/bin/cn    # or anywhere else on PATH
+curl -fsSL https://vite.plus | bash                   # once per machine: vp, and its Node
+git clone https://github.com/sandstrom99/cairn ~/.local/share/cairn
+cd ~/.local/share/cairn && vp install
+ln -s "$PWD/packages/cli/bin/cn" ~/.local/bin/cn      # or anywhere else on PATH
 cn --help
 ```
+
+To take what has merged since, from inside it: `git pull --ff-only && vp install`.
+Work on cairn itself happens in another clone and its worktrees, as `AGENTS.md` says.
 
 ### 2. Point it at a deployment: `cn init`
 
@@ -113,7 +121,9 @@ the config, never a URL or a secret. `cn doctor` says whether `CAIRN_URL`,
 
 #### A deployment for a company
 
-A company that has no worklist yet gets one once, from a machine with the checkout.
+A company that has no worklist yet gets one once, from a machine with the install. The
+commands below run inside it, so the files they leave beside it are the install's, and a
+push from it pushes main.
 cairn keeps the worklist on Convex, a hosted database that runs cairn's functions, and
 four things there matter: an account, made at the first login; a team the account
 belongs to, which that first login makes in your name; a project in the team, one per
@@ -128,13 +138,13 @@ sandbox ones included. https://www.convex.dev/pricing has the limits.
 Log in once per machine, in your own terminal, since it finishes in the browser:
 
 ```bash
-cd backend && CONVEX_ALLOW_ANONYMOUS=false npx convex login
+cd ~/.local/share/cairn/backend && CONVEX_ALLOW_ANONYMOUS=false npx convex login
 ```
 
 The variable stops convex offering, after the login, to link the local deployment
 `backend/` runs on into your account, which would rebind `backend/.env.local` to it.
 
-Then, from the checkout's root, make the deployment. `acme` is the name `cn init` will
+Then, from the install's root, make the deployment. `acme` is the name `cn init` will
 give it, lowercase letters, digits and dashes:
 
 ```bash
@@ -142,7 +152,7 @@ vp run @cairn/backend#new:cloud -- acme
 ```
 
 It creates the Convex project `cairn-acme` with its development deployment, and writes
-`backend/.env.cloud.acme.local`, which is gitignored and binds this checkout's cloud
+`backend/.env.cloud.acme.local`, which is gitignored and binds the install's cloud
 commands to that deployment. `backend/.env.local` stays as it was. `--team <team>` picks
 the team when the account has more than one, which `npx convex login status` lists, and
 `--project <project>` names the Convex project something other than `cairn-acme`.
@@ -161,7 +171,7 @@ the secret is never on the terminal. It prints the `cn init --name acme …` lin
 other machine that joins. The page is at `https://<deployment>.convex.site` once the push
 has shipped it.
 
-A checkout that keeps several deployments, one file each, pushes every one of them
+An install that keeps several deployments, one file each, pushes every one of them
 with a bare `vp run @cairn/backend#push:cloud`, so a backend change reaches every
 company's worklist, and names one after `--` to push only that one.
 
@@ -185,11 +195,15 @@ situation report, a Stop hook that hands back one line when a session stops
 holding a claim it has not journaled, and `/cairn:ready`, `/cairn:pick`,
 `/cairn:handoff`, `/cairn:close`, `/cairn:review` and `/cairn:init`.
 
-Register it once per machine:
+Register the install once per machine. The plugin loads in place from it, never from a
+copy, so the next `git pull` there reaches every repository's next session:
 
 ```bash
-claude plugin marketplace add ~/code/cairn
+claude plugin marketplace add ~/.local/share/cairn
 ```
+
+Run again with another path, the same command moves the registration and keeps every
+repository's `enabledPlugins`; `claude plugin marketplace remove` would take them out.
 
 Then enable the plugin in each repository whose sessions should open on a worklist,
 which is what `/cairn:init` does with you. It goes in the repository's
@@ -218,8 +232,10 @@ claude plugin install cairn@cairn
 This repository's own `.claude/settings.json` enables the plugin through
 `extraKnownMarketplaces`, naming the checkout as a `directory` source of `"."`, which
 works only inside cairn. Anywhere else that path is one machine's, which is why a
-repository enables the plugin by name instead. Either way, a project's settings need the
-folder's trust dialog accepted once in an interactive `claude`.
+repository enables the plugin by name instead. On a machine that has registered the
+install, the install wins even inside cairn and its worktrees, so cairn's own sessions
+run main's plugin too. Either way, a project's settings need the folder's trust dialog
+accepted once in an interactive `claude`.
 
 The hooks do nothing until `cn` is on PATH. With `cn` installed and nothing
 configured, a session opens with two lines pointing at `/cairn:init`, which does

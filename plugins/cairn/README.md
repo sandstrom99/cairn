@@ -18,10 +18,13 @@ evals/                       `claude plugin eval` cases: a fresh session with on
 ## Install on a machine
 
 The repo root is a marketplace (`.claude-plugin/marketplace.json`) that lists this
-plugin. Register it once per machine:
+plugin. Register the install once per machine, the clone kept at main that `cn` runs
+from too, never a checkout that is worked in: the plugin loads in place from the
+directory registered, so whatever it has checked out is what every repository's
+sessions get.
 
 ```bash
-claude plugin marketplace add ~/code/cairn
+claude plugin marketplace add ~/.local/share/cairn
 ```
 
 Then enable the plugin per repository, which is what `/cairn:init` does: `enabledPlugins`

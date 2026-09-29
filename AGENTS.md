@@ -10,6 +10,25 @@ An agent worklist on Convex. One deployment per company, a `cn` CLI over typed
 Convex calls, and a Claude Code plugin that teaches agents to use it. Tasks
 only: not a wiki, not a knowledge base, not an orchestrator.
 
+## Where work happens
+
+Never in the install. `cn` on PATH and the plugin every repository's sessions load both
+run from a clone kept at `main`, `~/.local/share/cairn` by the README's "Install `cn`",
+so a branch checked out there changes every company's sessions at once. Work happens in
+a development clone, `~/code/cairn` on Balder's machine, and in the worktrees under its
+`.claude/worktrees/`, where checking anything out reaches nothing else.
+
+- **`cn` on PATH runs main.** Where a row below runs `cn` by hand, it means this
+  checkout's: `export PATH="$PWD/packages/cli/bin:$PATH"` first. The hooks call `cn` by
+  name, so their rows need it too. `vp run verify:e2e` runs this checkout's `cn` itself.
+- **A session here runs main's plugin**, not this checkout's, since the registered
+  install wins over the `"."` in `.claude/settings.json`.
+- **After a merge**, bring the install up to it: `git -C ~/.local/share/cairn pull
+  --ff-only`, then `vp install` from inside it. A `#push:cloud` after a merge runs from
+  there too: the install's `backend/` holds each deployment's `.env.cloud.<name>.local`,
+  so what it pushes is main. A development clone holds none, and pushing a branch to a
+  company's deployment takes copying that one company's file into its `backend/` first.
+
 ## Verify a change
 
 This section is the verification suite, at its start. It grows with the
