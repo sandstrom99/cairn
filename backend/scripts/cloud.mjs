@@ -1,7 +1,15 @@
-// cloud.mjs: `convex dev` against the cloud deployment, with `.env.local` left alone.
+// cloud.mjs: `convex dev` against the cloud deployments, with `.env.local` left alone.
 //
-//   node scripts/cloud.mjs            the watcher              (#dev:cloud)
-//   node scripts/cloud.mjs --once     one push, then the page  (#push:cloud)
+//   node scripts/cloud.mjs [<name>]           the watcher, against one     (#dev:cloud)
+//   node scripts/cloud.mjs --once [<name>]    a push, then the page, each  (#push:cloud)
+//
+// A checkout keeps one cloud deployment per company, one `backend/.env.cloud.<name>.local`
+// each, and clouds.mjs says which a command runs against. A push goes to every deployment
+// the checkout keeps unless one is named, in name order, so a backend change cannot reach
+// one company's worklist and not another's; it stops at the first that fails and names
+// the ones it did not reach. The watcher holds one deployment open, so it runs against the
+// one named, or the only one. A word on its own is a deployment's name, and a flag for
+// convex goes through with its value joined, `--flag=value`.
 //
 // convex 1.46 saves the deployment it just talked to into `.env.local` — its name, its
 // client URL and its HTTP actions URL — whatever `--env-file` says, because the write-back
@@ -10,8 +18,8 @@
 //
 // That binding has to survive: `#verify`, `#dev` and the Convex MCP server in `.mcp.json`
 // all read `.env.local`, and none of them says which deployment it reached. This wrapper
-// holds the file's bytes, runs the push, and writes them back exactly as they were when
-// the child exits, however it exits.
+// holds the file's bytes, runs the pushes, and writes them back exactly as they were when
+// the last child exits, however it exits.
 //
 // A push that landed ships the page after it (scripts/page.mjs), so the functions and the
 // page they serve at `https://<name>.convex.site` go out in one command and cannot drift.
@@ -19,25 +27,72 @@
 // file, so it reaches the cloud whatever `.env.local` says in the meantime. The watcher
 // ships no page: `vp run dev:web` is the loop for the page, and the watcher's is the
 // functions'.
-import { join } from "node:path";
+import { pickClouds } from "./clouds.mjs";
 import { shipPage } from "./page.mjs";
-import { deploymentIn, holdEnvLocal, packageRoot, runConvex } from "./run-convex.mjs";
+import { convexStatus, holdEnvLocal, runConvex } from "./run-convex.mjs";
 
-const ENV_CLOUD = ".env.cloud.local";
+const USAGE = "usage: vp run @cairn/backend#push:cloud [-- <name>], or #dev:cloud [-- <name>]";
+
+// vp hands on the `--` that separates its own flags from the script's.
+const args = process.argv.slice(2).filter((arg) => arg !== "--");
+const once = args.includes("--once");
+const flags = args.filter((arg) => arg.startsWith("-") && arg !== "--once");
+const names = args.filter((arg) => !arg.startsWith("-"));
+if (names.length > 1) {
+  console.error(USAGE);
+  process.exit(2);
+}
+
+const picked = pickClouds({ name: names[0], one: !once });
+if (picked.targets === undefined) {
+  console.error(picked.message);
+  process.exit(picked.code);
+}
+const { targets } = picked;
 
 const restore = holdEnvLocal();
 
-const args = process.argv.slice(2);
+if (!once) {
+  const [t] = targets;
+  console.error(`watching ${t.name} (${t.deployment})`);
+  runConvex(["dev", "--env-file", t.envFile, ...flags], { onExit: restore });
+} else {
+  // A signal between pushes, or while the page ships, would otherwise end this process
+  // before the `finally` puts `.env.local` back. It stops the run after the step under way
+  // instead; convexStatus hands it to a convex that is running.
+  let interrupted = false;
+  const interrupt = () => (interrupted = true);
+  process.on("SIGINT", interrupt);
+  process.on("SIGTERM", interrupt);
 
-/** The page for the deployment the push just reached, named rather than read from `.env.local`. */
-const page = async () => {
-  const deployment = deploymentIn(join(packageRoot, ENV_CLOUD));
-  if (deployment === undefined) throw new Error(`${ENV_CLOUD} names no CONVEX_DEPLOYMENT`);
-  const { status } = await shipPage({ env: { ...process.env, CONVEX_DEPLOYMENT: deployment } });
-  return status;
-};
-
-runConvex(["dev", "--env-file", ENV_CLOUD, ...args], {
-  after: args.includes("--once") ? page : undefined,
-  onExit: restore,
-});
+  let status = 0;
+  try {
+    for (const [i, t] of targets.entries()) {
+      console.error(`pushing ${t.name} (${t.deployment})`);
+      try {
+        status = await convexStatus(["dev", "--once", "--env-file", t.envFile, ...flags]);
+        if (status === 0) {
+          const env = { ...process.env, CONVEX_DEPLOYMENT: t.deployment };
+          status = (await shipPage({ env })).status;
+        }
+      } catch (e) {
+        console.error(e.message);
+        status = 1;
+      }
+      if (interrupted && status === 0) status = 1;
+      if (status !== 0) {
+        const rest = targets.slice(i + 1).map((r) => r.name);
+        console.error(
+          `stopped at ${t.name}${rest.length ? `; not pushed: ${rest.join(", ")}` : ""}`,
+        );
+        break;
+      }
+    }
+    if (status === 0 && targets.length > 1) {
+      console.error(`pushed ${targets.map((t) => t.name).join(", ")}`);
+    }
+  } finally {
+    restore();
+  }
+  process.exit(status);
+}

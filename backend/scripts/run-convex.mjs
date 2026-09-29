@@ -4,6 +4,7 @@
 //
 //   spawnConvex(args, options)   the child, for a caller that owns its lifetime
 //   runConvex(args, options)     the child in the foreground, this process's exit status
+//   convexStatus(args, options)  the child in the foreground, its exit status resolved
 //   convexSync(args, options)    the child run to its end, its output captured
 //   holdEnvLocal()               `.env.local`'s bytes now, and the function that puts them back
 //   valueIn(file, name)          the value an env file gives a name
@@ -85,6 +86,39 @@ export function runConvex(args, { env, after, onExit = () => {} } = {}) {
     }
     onExit();
     process.exit(status);
+  });
+}
+
+/**
+ * Runs `convex <args>` in the foreground and resolves with its exit status — 1 when a
+ * signal ended it or it could not start — leaving this process running, for a caller that
+ * runs convex more than once, which runConvex's process.exit cannot serve. SIGINT and
+ * SIGTERM reach the child while it runs.
+ *
+ * @param {string[]} args
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @returns {Promise<number>}
+ */
+export function convexStatus(args, { env } = {}) {
+  return new Promise((resolve) => {
+    const child = spawnConvex(args, { env });
+    const forwarders = ["SIGINT", "SIGTERM"].map((signal) => {
+      const forward = () => child.kill(signal);
+      process.on(signal, forward);
+      return [signal, forward];
+    });
+    let done = false;
+    const finish = (status) => {
+      if (done) return;
+      done = true;
+      for (const [signal, forward] of forwarders) process.off(signal, forward);
+      resolve(status);
+    };
+    child.on("error", (e) => {
+      console.error(`convex did not start: ${e.message}`);
+      finish(1);
+    });
+    child.on("exit", (code, signal) => finish(code ?? (signal ? 1 : 0)));
   });
 }
 
