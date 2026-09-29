@@ -2,8 +2,7 @@
 //
 //   cn close <id> --revision N --run '<command>'
 //   cn close <id> --revision N --unverified '<why>'
-//                 [--follow-up <title> --kind verify|decide|cleanup
-//                  [--requires <cap>…] [--priority 0-4]]
+//                 [--follow-up <title> --kind verify|decide|cleanup [--priority 0-4]]
 //
 // --run runs the command here and records it: the command, its exit status and the last
 // 40 lines it wrote, with a ten-minute timeout. The agent never types the output in, so
@@ -17,8 +16,8 @@
 // --follow-up creates the residue in the same mutation, linked to this issue and in the
 // same epic, so a parent never closes without it: the iOS check that this machine cannot
 // run, the decision that surfaced on the way. It is counted outside the epic's
-// denominator, so "12 done" keeps meaning what it says. --requires is what a session
-// needs to finish it: ios, android, web, device, decision.
+// denominator, so "12 done" keeps meaning what it says. What it needs, a phone or one
+// machine, goes in its title: `verify: the retry path on an iPhone`.
 //
 // An --unverified close with no --follow-up gets one anyway: a `verify:` follow-up is
 // spawned beside it in the same mutation, by you, unless the issue already has a child. And
@@ -41,7 +40,6 @@ export const name = "close";
 export const summary = "finish an issue, with a command that proves it";
 export const spec = {
   value: ["revision", "run", "unverified", "follow-up", "kind", "priority"],
-  list: ["requires"],
 } as const satisfies ArgSpec;
 
 /** How much of a failed run belongs on the screen beside the refusal. */
@@ -50,7 +48,6 @@ const ON_REFUSAL = 10;
 type FollowUp = {
   title: string;
   kind: (typeof FOLLOW_UP_KINDS)[number];
-  requires?: string[];
   priority?: number;
 };
 
@@ -68,7 +65,7 @@ type Parsed = {
 const USAGE = "cn close <id> --revision N --run '<command>' | --unverified <why>";
 
 /** The flags that describe the follow-up; none of them means anything without its title. */
-const DESCRIBING = ["kind", "requires", "priority"] as const;
+const DESCRIBING = ["kind", "priority"] as const;
 
 export function parse(argv: string[]): Parsed {
   const { pos, opts } = parseArgs(argv, spec);
@@ -100,7 +97,6 @@ export function parse(argv: string[]): Parsed {
       : {
           title,
           kind: kind!,
-          ...maybe("requires", opts.requires),
           ...maybe("priority", priority(opts.priority)),
         };
 

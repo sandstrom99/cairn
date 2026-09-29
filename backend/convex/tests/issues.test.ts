@@ -53,9 +53,10 @@ describe("issues.create", () => {
       type: "task",
       status: "open",
       priority: 0,
-      requires: [],
       revision: 0,
     });
+    expect(first).not.toHaveProperty("requires");
+    expect(await rawIssue(t, "cn-1")).not.toHaveProperty("requires");
     expect(second.priority).toBe(2);
   });
 
@@ -582,13 +583,11 @@ describe("issues.update", () => {
       revision: 0,
       priority: 1,
       epic: "ep-2",
-      requires: ["ios"],
     });
     expect(updated).toMatchObject({
       revision: 1,
       priority: 1,
       epic: { id: "ep-2", title: "A session starts warm" },
-      requires: ["ios"],
     });
     expect(updated.lastActivity).toBe(Date.now());
     expect(updated.lastActivity).toBeGreaterThan(before);
@@ -596,7 +595,6 @@ describe("issues.update", () => {
     const [event] = await eventsOf(t, "issue.update");
     expect(event!.changes).toEqual({
       priority: { from: 0, to: 1 },
-      requires: { from: [], to: ["ios"] },
       epic: { from: "ep-1", to: "ep-2" },
     });
   });
@@ -826,7 +824,7 @@ describe("issues.close", () => {
     const t = await withIssue();
     const { issue, followUp } = await closeIssue(t, "cn-1", 0, {
       verification: { unverified: "verified on android and web; this machine has no ios" },
-      followUp: { title: "confirm the retry path on a device", kind: "verify", requires: ["ios"] },
+      followUp: { title: "confirm the retry path on a device", kind: "verify" },
     });
     expect(issue.status).toBe("closed");
     expect(followUp).toMatchObject({
@@ -835,7 +833,6 @@ describe("issues.close", () => {
       type: "follow-up",
       followUpKind: "verify",
       status: "open",
-      requires: ["ios"],
       priority: 0,
       parent: { id: "cn-1" },
       epic: { id: "ep-1" },

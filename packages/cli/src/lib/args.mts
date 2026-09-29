@@ -1,8 +1,8 @@
 // args.mts: the one argument parser.
 //
 //   import { parseArgs } from "../lib/args.mts";
-//   const { pos, opts } = parseArgs(argv, { bool: ["json"], value: ["epic"], list: ["requires"] });
-//   // opts.json: boolean · opts.epic: string | undefined · opts.requires: string[] | undefined
+//   const { pos, opts } = parseArgs(argv, { bool: ["json"], value: ["epic"], list: ["link"] });
+//   // opts.json: boolean · opts.epic: string | undefined · opts.link: string[] | undefined
 //
 // The spec types the result: a bool is `boolean`, false when not given; a value is
 // `string | undefined`; a list is `string[] | undefined`. What the string has to be, an
@@ -10,7 +10,7 @@
 //
 // A bool flag is `--x`; `--x=no|false|0|off` turns it off. A value flag is `--x y` or
 // `--x=y`, and the last one wins. A list flag swallows every following positional
-// (`--requires ios device`) or takes `--x=y`, and accumulates across repeats. `--` ends
+// (`--link https://a https://b`) or takes `--x=y`, and accumulates across repeats. `--` ends
 // the flags. An unknown flag, or a value flag with no value, throws UsageError, which
 // `main()` turns into exit 2.
 

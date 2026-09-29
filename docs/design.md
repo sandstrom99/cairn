@@ -59,7 +59,7 @@ doing that.
 | Statuses | `open`, `in_progress`, `closed`, `dropped`. Blocked is derived, never stored. |
 | Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is the first thing a review sitting looks at (§7). Revised 2026-09-17 from one inbox per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
-| Residue | A `follow-up` issue with `requires[]`, linked to its parent, counted **outside** the epic denominator. |
+| Residue | A `follow-up` issue linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
 | Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5, 2026-09-22). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released by a person; nothing releases one alone (§7, revised 2026-09-22). |
 | Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (cn-87). |
@@ -116,7 +116,7 @@ issues        id                string        app-14
               type              task | follow-up
               followUpKind?     verify | decide | cleanup       required iff type = follow-up
               parentIssueId?    Id<issues>    the issue whose residue this is
-              requires          string[]      what a session needs: ios, android, web, device, decision
+              requires?         string[]      unread since 2026-09-29 (§5); declared until patch.ts has run everywhere, cn-120
               links?            { url, label?, by, at }[]   http and https only
               status            open | in_progress | closed | dropped
               priority          number        0 is highest, 4 is backlog
@@ -410,12 +410,14 @@ the inbox, is not.
 The problem, in Balder's own two cases:
 
 - A change verified on Android and web, but this machine is WSL and cannot run
-  iOS. Very likely fine. It should reach **the next iOS session** by itself.
+  iOS. Very likely fine. It should reach **the next session that can run iOS**.
 - A decision that surfaced mid-implementation and might change direction. Merge
   now, revisit later. Not blocking, but it must not evaporate.
 
 Both are the same shape, and it is **routing, not blocking**. The iOS check is
 not waiting on a dependency; it is waiting on a session that has an iOS device.
+Its title says so, every session sees it on the brief's follow-ups line, and the
+one with a device picks it up: cairn fences nothing by machine (§5).
 
 ```
 app-14  fix connection retry          closed ✓
@@ -423,9 +425,8 @@ app-14  fix connection retry          closed ✓
         residue → app-22
 
 app-22  [follow-up · verify]          open
-        requires: ios
         parent:   app-14
-        confirm retry path on a device
+        verify: the retry path on an iPhone
 
 epic:  12 done · 3 follow-ups open
        (follow-ups are not in the denominator)
@@ -433,7 +434,7 @@ epic:  12 done · 3 follow-ups open
 
 - `type: follow-up`, with `followUpKind` of `verify`, `decide` or `cleanup`.
 - `parentIssueId` links back to what produced it.
-- `requires[]` declares what a session needs in order to finish it.
+- What finishing it needs, a phone or one machine, is in its title or description.
 - **Counted outside the epic denominator**, so "12 done" keeps meaning what it
   says.
 - The parent closes. Nothing hangs half-finished.
@@ -461,8 +462,10 @@ agnostic, so a machine fence is text on the issue.
 > `bd ready` on every backend**, so a worker fencing itself to one lane claims
 > from another and believes it is fenced. With no fence, nothing can fail open.
 
-`requires[]` is still written, and `cn show` still prints it, until cn-119 takes it
-off issues; nothing reads it.
+`requires[]` went from issues on the same day, in cn-119: nothing writes it and nothing
+reads it. It stays declared in the schema, optional, only because issues written before
+then carry it; `patch.ts` strips it from a deployment, and cn-120 drops the field once
+every deployment has run that.
 
 ---
 
@@ -976,11 +979,11 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description, a link's URL or label, or a journal entry holds the text, case aside, each with the field it was found in | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
-| `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14 --requires ios] [--link <url>…]` | `issues.create` | mutation |
+| `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14] [--link <url>…]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
-| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--requires] [--resolves] [--link] [--unlink]` | `issues.update`, `epics.update` or `blockers.update`, by the id: an epic takes its title, description and links, a blocker its title, `--resolves` and links | mutation |
+| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--resolves] [--link] [--unlink]` | `issues.update`, `epics.update` or `blockers.update`, by the id: an epic takes its title, description and links, a blocker its title, `--resolves` and links | mutation |
 | `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
-| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --requires ios --priority 1]` | `issues.close` | mutation |
+| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --priority 1]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
 | `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
 | `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |

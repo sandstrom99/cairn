@@ -141,7 +141,6 @@ describe("lifecycle", () => {
         epicId: epic._id,
         title: "two",
         type: "task",
-        requires: [],
         links: [],
         priority: 2,
       }),

@@ -2,8 +2,7 @@
 //
 //   cn create --project <slug> --epic <ep-id> --title <title>
 //             [--priority 0-4] [--description <text>] [--design <how>] [--acceptance <what>]
-//             [--type follow-up --kind verify|decide|cleanup] [--parent <id>]
-//             [--requires <cap>…] [--link <url>…]
+//             [--type follow-up --kind verify|decide|cleanup] [--parent <id>] [--link <url>…]
 //
 // --type is task unless it says follow-up, and --kind belongs to a follow-up alone: a
 // follow-up needs one, and a task given one is refused, `only a follow-up has a kind`.
@@ -15,9 +14,9 @@
 // --design is HOW it will be built and may change during implementation. --acceptance is
 // WHAT success is, verifiable yes or no, and stays still across sessions: if rewriting
 // the solution a different way would change it, it is a design note in a criterion's
-// clothes. --requires is what a session needs to do it at all: ios, android, web, device,
-// decision. One machine is not a capability, so work only one machine can do says which
-// in its title or description. --priority is 0 highest to 4 backlog, and defaults to 2.
+// clothes. Work only a phone, a device or one machine can do says which in its title or
+// description: nothing in cairn fences it (docs/design.md §5). --priority is 0 highest to
+// 4 backlog, and defaults to 2.
 //
 // --description, --design and --acceptance are Markdown, which the web page sets and cn
 // prints as written. Open each with a plain sentence, since cn prints the first line
@@ -71,7 +70,7 @@ export const spec = {
     "kind",
     "parent",
   ],
-  list: ["requires", "link"],
+  list: ["link"],
 } as const satisfies ArgSpec;
 
 type CreateArgs = {
@@ -85,7 +84,6 @@ type CreateArgs = {
   type?: (typeof ISSUE_TYPES)[number];
   followUpKind?: (typeof FOLLOW_UP_KINDS)[number];
   parent?: string;
-  requires?: string[];
   link?: LinkInput[];
 };
 
@@ -113,7 +111,6 @@ export function parse(argv: string[]): Parsed {
       ...maybe("type", oneOf(opts.type, "type", ISSUE_TYPES)),
       ...maybe("followUpKind", oneOf(opts.kind, "kind", FOLLOW_UP_KINDS)),
       ...maybe("parent", opts.parent),
-      ...maybe("requires", opts.requires),
       ...maybe("link", links(opts.link)),
     },
   };

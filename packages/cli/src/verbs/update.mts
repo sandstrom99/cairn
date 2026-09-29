@@ -2,8 +2,7 @@
 //
 //   cn update <id> --revision N [--title <text>] [--description <text>] [--design <how>]
 //                  [--acceptance <what>] [--priority 0-4] [--epic <ep-id>]
-//                  [--defer-until <date>|none] [--requires <cap>… | --requires none]
-//                  [--link <url>…] [--unlink <url>…]
+//                  [--defer-until <date>|none] [--link <url>…] [--unlink <url>…]
 //   cn update ep-N --revision N [--title <text>] [--description <text>]
 //                  [--link <url>…] [--unlink <url>…]
 //   cn update bl-N --revision N [--title <text>] [--resolves <what ends it>]
@@ -19,7 +18,7 @@
 // and owner stay as raised. A flag the thing has no field for is refused, naming it.
 //
 // --defer-until parks the issue until a date, which hides it from `cn ready` and from
-// nothing else; `none` clears the date. `--requires none` clears the capabilities.
+// nothing else; `none` clears the date.
 // --design is HOW and may change; --acceptance is WHAT and should not. All three text
 // fields are Markdown, and take `@-` for stdin or `@path` for a file, as `cn create --help`
 // says.
@@ -51,7 +50,7 @@ export const spec = {
     "defer-until",
     "resolves",
   ],
-  list: ["requires", "link", "unlink"],
+  list: ["link", "unlink"],
 } as const satisfies ArgSpec;
 
 type Kind = "issue" | "epic" | "blocker";
@@ -75,7 +74,6 @@ const FITS: Record<Kind, readonly Flag[]> = {
     "priority",
     "epic",
     "defer-until",
-    "requires",
     "link",
     "unlink",
   ],
@@ -101,7 +99,6 @@ type UpdateArgs = {
   priority?: number;
   epic?: string;
   deferUntil?: number | null;
-  requires?: string[];
   link?: LinkInput[];
   unlink?: string[];
 };
@@ -182,10 +179,6 @@ export function parse(argv: string[]): Parsed {
     return { action: "update", kind, args };
   }
 
-  // `--requires none` is how a list gets emptied: an absent flag leaves it alone.
-  const listed = opts.requires;
-  const requires = listed?.length === 1 && listed[0] === "none" ? [] : listed;
-
   const args: UpdateArgs = {
     ...common,
     ...maybe("description", text(opts.description, "--description")),
@@ -194,7 +187,6 @@ export function parse(argv: string[]): Parsed {
     ...maybe("priority", priority(opts.priority)),
     ...maybe("epic", opts.epic),
     ...maybe("deferUntil", deferUntil(opts["defer-until"])),
-    ...maybe("requires", requires),
     ...linking,
   };
   if (Object.keys(args).length === 2) throw new UsageError(NOTHING);

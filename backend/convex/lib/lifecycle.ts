@@ -46,7 +46,6 @@ type NewIssue = {
   type: IssueType;
   followUpKind?: FollowUpKind;
   parentIssueId?: Id<"issues">;
-  requires: string[];
   links: Link[];
   priority: number;
 };
@@ -74,7 +73,6 @@ export async function insertIssue(
     type: fields.type,
     ...(fields.followUpKind === undefined ? {} : { followUpKind: fields.followUpKind }),
     ...(fields.parentIssueId === undefined ? {} : { parentIssueId: fields.parentIssueId }),
-    requires: fields.requires,
     ...(fields.links.length === 0 ? {} : { links: fields.links }),
     status: "open",
     priority: checkPriority(fields.priority),
@@ -229,7 +227,6 @@ export type IssueEdit = {
   design?: string;
   acceptance?: string;
   priority?: number;
-  requires?: string[];
   deferUntil?: number | null;
   epic?: Doc<"epics">;
   link?: LinkInput[];
@@ -250,9 +247,7 @@ export async function editIssue(
 ): Promise<Doc<"issues">> {
   const patch: Partial<Doc<"issues">> = {};
   const changes: Record<string, { from: unknown; to: unknown }> = {};
-  const set = <
-    K extends "title" | "description" | "design" | "acceptance" | "priority" | "requires",
-  >(
+  const set = <K extends "title" | "description" | "design" | "acceptance" | "priority">(
     field: K,
     to: Doc<"issues">[K],
   ) => {
@@ -264,7 +259,6 @@ export async function editIssue(
   if (edit.design !== undefined) set("design", edit.design);
   if (edit.acceptance !== undefined) set("acceptance", edit.acceptance);
   if (edit.priority !== undefined) set("priority", checkPriority(edit.priority));
-  if (edit.requires !== undefined) set("requires", edit.requires);
   if (edit.deferUntil !== undefined) {
     // null clears the field; the change is recorded as null so the history reads as
     // "to nothing" rather than dropping the key.

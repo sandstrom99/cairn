@@ -583,7 +583,6 @@ export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] 
     facts.push({ label: "proof", code: ran, text });
   }
   if (shown.droppedReason !== undefined) facts.push({ label: "reason", text: shown.droppedReason });
-  if (shown.requires.length > 0) facts.push({ label: "requires", text: shown.requires.join(", ") });
   if (shown.parent) facts.push({ label: "parent", refs: ends([shown.parent]) });
   // The blocking edges, then the context ones: those say where an issue came from and what
   // it sits beside, and none of them touches readiness (design §3). Every issue named here
