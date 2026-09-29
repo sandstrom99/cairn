@@ -35,9 +35,9 @@ _A demo worklist, for a fictional team building a tide-and-weather app._
 - **`cn`, the CLI agents use.** One verb is one typed call to the deployment, and every
   read takes `--json`. It works from any shell, so any agent can use it; the plugin is
   Claude Code's.
-- **A web page for people.** The deployment serves it itself, at
-  `https://<deployment>.convex.site`: read-only, live, and printing the same lines `cn`
-  prints.
+- **A web page for people.** The deployment serves it itself, at its own URL with
+  `.convex.cloud` changed to `.convex.site`: read-only, live, and printing the same lines
+  `cn` prints.
 - **Proof on close.** Closing an issue runs the command that proves the work and records
   its exit code. A close without proof spawns the follow-up that owes it.
 - **A person's word ends a wait.** An agent resolves a blocker only by quoting what the
@@ -282,7 +282,9 @@ Then push the functions and the page:
 vp run @cairn/backend#push:cloud -- acme
 ```
 
-The page is at `https://<deployment>.convex.site` once the push has shipped it.
+The page is then at the deployment's URL with `.convex.cloud` changed to `.convex.site`,
+the region kept: `https://happy-otter-123.eu-west-1.convex.site` for
+`https://happy-otter-123.eu-west-1.convex.cloud`. Dropping the region gives a 404.
 
 An install that keeps several deployments, one file each, pushes every one of them
 with a bare `vp run @cairn/backend#push:cloud`, so a backend change reaches every
@@ -349,7 +351,8 @@ is written and the line says what to fix. What it writes is
 `~/.config/cairn/config.json`, mode 600, with the secret and the command beside it.
 
 `cn doctor` is green when it shows the deployment answering and
-`✓ secret accepted by acme`. From then on every verb resolves to that deployment.
+`✓ secret accepted by acme`. Its `✓ page …` line is where this deployment's page is,
+which a machine that joined learns nowhere else. From then on every verb resolves to that deployment.
 `CAIRN_URL` and `CAIRN_SECRET` in the environment override the file, which is the
 way in for a CI runner or a one-off. `cn init --help` is the whole contract.
 
@@ -426,8 +429,9 @@ the `cn init` that adds the missing one.
 `apps/web` is the window for a person: every row is one of `cn`'s lines, live
 over a subscription, with the deployment's activity beside it. It is read-only
 today. The deployment serves it itself: `vp run @cairn/backend#push:cloud` pushes
-the functions and then the page, built for that deployment, so it is at
-`https://<deployment>.convex.site` on any machine, a phone included. It reads
+the functions and then the page, built for that deployment, so it is at the
+deployment's URL with `.convex.cloud` changed to `.convex.site`, region and all, on any
+machine, a phone included. `cn doctor` prints it as its `✓ page …` line. It reads
 nothing until the secret is pasted into it, once per browser, which keeps it. The
 secret is what this machine's `--secret-cmd` prints; run that command yourself, in your
 own terminal, to copy it.

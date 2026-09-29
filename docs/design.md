@@ -775,7 +775,8 @@ path with `index.html`.
 
 **The page is hosted by the deployment it reads.** `@convex-dev/static-hosting`,
 installed in `backend/convex/convex.config.ts`, keeps the built page in the
-deployment's own storage and serves it at `https://<name>.convex.site`, answering
+deployment's own storage and serves it at the deployment's site URL: its `.convex.cloud`
+URL with `.convex.site` in place and the region kept, which `cn doctor` prints. It answers
 every path without an extension with `index.html`. cairn has no HTTP routes of its
 own, so the component owns the site root, and anything cairn ever routes over HTTP
 goes under `/api`. `#push:cloud` pushes the functions and then ships the page
@@ -1190,7 +1191,7 @@ implementation.
 | Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo |
 | The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The session is the channel (§6) |
-| Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at `https://<name>.convex.site`, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. Which deployments one browser knows about waits on running cairn for more than one person, the next row |
+| Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. Which deployments one browser knows about waits on running cairn for more than one person, the next row |
 | Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself goes with it, since cn-11, which carried it, was dropped on 2026-09-28 |
 
 ---

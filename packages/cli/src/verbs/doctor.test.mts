@@ -7,6 +7,8 @@ import {
   deploymentCheck,
   functionsFailed,
   nodeCheck,
+  pageCheck,
+  pageUrl,
   parse,
   pingChecks,
 } from "./doctor.mts";
@@ -48,6 +50,25 @@ describe("cn doctor", () => {
       deploymentCheck({ name: "CAIRN_URL", url: "http://127.0.0.1:3210", source: "CAIRN_URL" })
         .line,
     ).toBe("deployment CAIRN_URL → http://127.0.0.1:3210 (from CAIRN_URL, no secret)");
+  });
+
+  it("names the page at the deployment's URL with .site for .cloud, region and all", () => {
+    expect(pageUrl("https://tidy-otter-1.convex.cloud")).toBe("https://tidy-otter-1.convex.site");
+    expect(pageUrl("https://perfect-sandpiper-97.eu-west-1.convex.cloud/")).toBe(
+      "https://perfect-sandpiper-97.eu-west-1.convex.site",
+    );
+    expect(pageCheck(cloud)).toEqual([
+      { check: "page", ok: true, line: "page https://tidy-otter-1.convex.site" },
+    ]);
+  });
+
+  it("names no page for a deployment that is not a cloud one, or none at all", () => {
+    expect(pageUrl("http://127.0.0.1:3210")).toBeUndefined();
+    expect(pageUrl("http://tidy-otter-1.convex.cloud")).toBeUndefined();
+    expect(pageUrl("https://example.com/convex.cloud")).toBeUndefined();
+    expect(pageUrl("not a url")).toBeUndefined();
+    expect(pageCheck({ ...cloud, url: "http://127.0.0.1:3210" })).toEqual([]);
+    expect(pageCheck(null)).toEqual([]);
   });
 
   it("names CAIRN_DEPLOYMENT when that is what chose the deployment", () => {

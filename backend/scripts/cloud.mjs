@@ -22,7 +22,8 @@
 // the last child exits, however it exits.
 //
 // A push that landed ships the page after it (scripts/page.mjs), so the functions and the
-// page they serve at `https://<name>.convex.site` go out in one command and cannot drift.
+// page they serve at the deployment's `.convex.site` URL go out in one command and cannot
+// drift.
 // The upload names the cloud deployment in its environment, which convex takes over any
 // file, so it reaches the cloud whatever `.env.local` says in the meantime. The watcher
 // ships no page: `vp run dev:web` is the loop for the page, and the watcher's is the
