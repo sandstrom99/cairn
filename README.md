@@ -130,7 +130,8 @@ Join an existing cairn worklist from this machine: clone https://github.com/sand
 
 A joining machine installs `cn`, runs `cn init`, and registers the plugin: steps 1, 3
 and 4 below, and never step 2. A repository someone already wired for the worklist then
-opens on it, since its settings name the deployment.
+opens on it, since its settings name the deployment. `cn doctor` prints where the
+worklist's page is, as its `✓ page …` line.
 
 To do it by hand, everything below is the same steps.
 
