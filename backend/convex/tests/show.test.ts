@@ -152,8 +152,8 @@ describe("show.get", () => {
       id: "ep-1",
       counts: { open: 1 },
       // The health block of §8 rides on every epic read: nothing moving, nothing waiting,
-      // and no stuck line while the one open issue is younger than the threshold.
-      health: { moving: [], waiting: [] },
+      // and nothing stuck while the one open issue is younger than its priority's limit.
+      health: { moving: [], stuck: [], waiting: [] },
       issues: [
         {
           id: "cn-1",
@@ -165,26 +165,36 @@ describe("show.get", () => {
     });
   });
 
-  it("leaves an epic with nothing neglected in it without a stuck line", async () => {
+  it("leaves an epic with nothing neglected in it an empty stuck list", async () => {
     const t = await withFirst();
     const shown = await t.query(api.show.get, { id: "ep-1" });
     if (shown.kind !== "epic") throw new Error("ep-1 is an epic");
-    expect(shown.health.stuck).toBeUndefined();
+    expect(shown.health.stuck).toEqual([]);
   });
 
-  it("marks an issue stuck when it is the one the epic's stuck line names", async () => {
+  it("marks an issue stuck exactly when it is among its epic's stuck issues", async () => {
     at("2026-09-17T09:00:00Z");
     const t = await withFirst();
-    // A second later, so cn-1 is the one silent longest; four days on, both are past the
-    // threshold, the line names cn-1, and cn-2 is not stuck.
-    at("2026-09-17T09:00:01Z");
-    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "younger" });
+    // Four days on: cn-1, a P0, is past its day; cn-2, a P1, is past its three days; cn-3,
+    // a P2, is inside its week; and cn-4, a P0 a blocker holds, is waiting instead.
+    for (const [title, priority] of [
+      ["the P1", 1],
+      ["the P2", 2],
+      ["the held P0", 0],
+    ] as const)
+      await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title, priority });
+    await raise(t, "cn-4");
     const later = Date.now() + 4 * DAY;
     const epic = await t.query(api.show.get, { id: "ep-1", now: later });
     if (epic.kind !== "epic") throw new Error("ep-1 is an epic");
-    expect(epic.health.stuck?.id).toBe("cn-1");
-    expect(await t.query(api.show.get, { id: "cn-1", now: later })).toMatchObject({ stuck: true });
-    expect(await t.query(api.show.get, { id: "cn-2", now: later })).toMatchObject({ stuck: false });
+    expect(epic.health.stuck.map((i) => i.id)).toEqual(["cn-1", "cn-2"]);
+    for (const [id, stuck] of [
+      ["cn-1", true],
+      ["cn-2", true],
+      ["cn-3", false],
+      ["cn-4", false],
+    ] as const)
+      expect(await t.query(api.show.get, { id, now: later })).toMatchObject({ stuck });
     expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({ stuck: false });
   });
 

@@ -14,7 +14,8 @@
 // beside them rather than inside them, so residue cannot dilute progress.
 //
 // `list` prints a health block per epic (docs/design.md §8): the counts, then what is
-// moving, what has been stuck longest, and what waits on a person. Never a percentage.
+// moving, what is stuck past its priority's limit, and what waits on a person. Never a
+// percentage.
 //
 // `close` is refused while a task in the epic is open, and names every one of them. An
 // open follow-up does not refuse it: residue is routed work, and `cn ready` still lists

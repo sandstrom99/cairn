@@ -79,7 +79,7 @@ export type EpicLineView = Referable & {
   counts: { open: number; inProgress: number; closed: number; followUps: number };
   health: {
     moving: (Referable & { claimedBy: { name: string }; claimedAt: number })[];
-    stuck?: Referable & { lastActivity: number };
+    stuck: (Referable & { lastActivity: number })[];
     waiting: (Referable & { owner: string })[];
   };
 };

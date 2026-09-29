@@ -164,13 +164,15 @@ describe("the parts a line is joined from", () => {
             claimedAt: ago(2 * HOUR),
           },
         ],
-        stuck: { id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) },
+        stuck: [{ id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) }],
         waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
       },
     };
     const parts = healthParts(view, now);
     expect(parts.counts).toBe("2 done · 2 open · 1 follow-up");
-    expect(parts.rows.map((row) => [row.fact, row.target.id, row.tail])).toEqual([
+    expect(
+      parts.rows.map((row) => [row.fact, row.fact === "more" ? "" : row.target.id, row.tail]),
+    ).toEqual([
       ["moving", "cn-7", "wsl/claude 2h"],
       ["stuck", "cn-9", "silent 9d"],
       ["waiting", "bl-3", "· owner balder"],

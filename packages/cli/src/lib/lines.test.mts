@@ -71,7 +71,7 @@ describe("healthLines", () => {
     title: "An epic tells the truth",
     lastActivity: now - DAY,
     counts: { open: 0, inProgress: 0, closed: 2, followUps: 1 },
-    health: { moving: [], waiting: [] },
+    health: { moving: [], stuck: [], waiting: [] },
   };
 
   it("is one line for an epic with nothing behind the other three", () => {
@@ -100,7 +100,7 @@ describe("healthLines", () => {
                 claimedAt: ago(2 * HOUR),
               },
             ],
-            stuck: { id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) },
+            stuck: [{ id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) }],
             waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
           },
         },
@@ -110,6 +110,37 @@ describe("healthLines", () => {
       '  moving   cn-7 "the web window\'s first page" wsl/claude 2h',
       '  stuck    cn-9 "the page\'s live feed" silent 9d',
       '  waiting  bl-3 "confirm the invite copy" · owner balder',
+    ]);
+  });
+
+  /** Stuck issues as the deployment orders them, most urgent first. */
+  const stuck = (n: number) =>
+    [9, 4, 8, 6, 5].slice(0, n).map((days, i) => ({
+      id: `cn-${i + 1}`,
+      title: `stuck ${i + 1}`,
+      lastActivity: ago(days * DAY),
+    }));
+  const waiting = [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }];
+
+  it("names the first three stuck issues in the order given and counts the rest", () => {
+    expect(
+      healthLines({ ...bare, health: { moving: [], stuck: stuck(5), waiting } }, now).slice(1),
+    ).toEqual([
+      '  stuck    cn-1 "stuck 1" silent 9d',
+      '  stuck    cn-2 "stuck 2" silent 4d',
+      '  stuck    cn-3 "stuck 3" silent 8d',
+      "           and 2 more stuck",
+      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+    ]);
+  });
+
+  it("prints no count when exactly three are stuck", () => {
+    expect(
+      healthLines({ ...bare, health: { moving: [], stuck: stuck(3), waiting: [] } }, now).slice(1),
+    ).toEqual([
+      '  stuck    cn-1 "stuck 1" silent 9d',
+      '  stuck    cn-2 "stuck 2" silent 4d',
+      '  stuck    cn-3 "stuck 3" silent 8d',
     ]);
   });
 });
@@ -678,7 +709,7 @@ describe("brief", () => {
       counts: { open: 1, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
       health: {
         moving: [],
-        stuck: undefined,
+        stuck: [],
         waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
       },
       issues: [{ id: "cn-1", title: "schema, ids", status: "open", priority: 0 }],

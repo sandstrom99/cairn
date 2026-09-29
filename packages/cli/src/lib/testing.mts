@@ -81,7 +81,7 @@ export function epic(over: Partial<ShownEpic> = {}): ShownEpic {
     createdAt: ago(DAY),
     lastActivity: ago(DAY),
     counts: { open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
-    health: { moving: [], stuck: undefined, waiting: [] },
+    health: { moving: [], stuck: [], waiting: [] },
     issues: [],
     ...over,
   };

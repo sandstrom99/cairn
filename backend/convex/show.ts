@@ -8,7 +8,7 @@
 // readiness and the rest are context. Every issue the neighbourhood names carries its
 // status, because a finished one is history or finished work, never live (§7): a `blocks`
 // edge into a finished issue holds nothing back and stays, and a dropped follow-up is not
-// work left. `stuck` is the epic's own stuck line pointing at this issue, so `cn show` and
+// work left. `stuck` is this issue being among its epic's stuck issues, so `cn show` and
 // the page say it from the one rule.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -72,7 +72,7 @@ async function issue(
   return {
     kind: "issue" as const,
     ...view,
-    stuck: stuckOf(siblings, now ?? Date.now())?._id === doc._id,
+    stuck: (await stuckOf(ctx, siblings, now ?? Date.now())).some((i) => i._id === doc._id),
     journal: entries.map((e) => ({
       author: e.author,
       kind: e.kind,

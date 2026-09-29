@@ -11,22 +11,37 @@ import { isLive } from "./validators";
 import { epicView } from "./views";
 
 /**
- * The one issue of an epic that is stuck, or none: open, unclaimed, not deferred, silent
- * longest, and only once that silence passes STUCK_AFTER_MS. The rule lives here alone, so
- * the epic's health line and an issue's own state (`show.get`) name the same issue.
+ * Every issue of an epic that is stuck: open, unclaimed, not deferred, silent strictly
+ * longer than its priority's limit in STUCK_AFTER_MS, and held by no unresolved blocker,
+ * most urgent first and silent longest within a priority. A priority with no limit is never
+ * stuck. An issue a blocker holds is waiting, never stuck as well. The rule lives here
+ * alone, so the epic's health and an issue's own state (`show.get`) name the same issues.
  */
-export function stuckOf(issues: Doc<"issues">[], now: number): Doc<"issues"> | undefined {
-  const idle = issues.filter(
-    (i) =>
+export async function stuckOf(
+  ctx: QueryCtx,
+  issues: Doc<"issues">[],
+  now: number,
+): Promise<Doc<"issues">[]> {
+  const silent = issues.filter((i) => {
+    const limit = STUCK_AFTER_MS[i.priority];
+    return (
       i.status === "open" &&
       i.claimedBy === undefined &&
-      (i.deferUntil === undefined || i.deferUntil <= now),
+      (i.deferUntil === undefined || i.deferUntil <= now) &&
+      limit !== undefined &&
+      now - i.lastActivity > limit
+    );
+  });
+  const stuck: Doc<"issues">[] = [];
+  for (const i of silent) {
+    if ((await unresolvedBlockersOn(ctx, i._id)).length === 0) stuck.push(i);
+  }
+  return stuck.sort(
+    (a, b) =>
+      a.priority - b.priority ||
+      a.lastActivity - b.lastActivity ||
+      a._creationTime - b._creationTime,
   );
-  const silent = idle.reduce<Doc<"issues"> | undefined>(
-    (worst, i) => (worst === undefined || i.lastActivity < worst.lastActivity ? i : worst),
-    undefined,
-  );
-  return silent !== undefined && now - silent.lastActivity > STUCK_AFTER_MS ? silent : undefined;
 }
 
 /**
@@ -34,9 +49,9 @@ export function stuckOf(issues: Doc<"issues">[], now: number): Doc<"issues"> | u
  * waits on a person. Not a percentage — an epic at 95% frozen for a month reads better
  * than one at 40% advancing daily, so each line is a fact with a query behind it.
  *
- * `stuck` is the single open, unclaimed, undeferred issue that has been silent longest,
- * and only once that silence passes STUCK_AFTER_MS: an epic nobody has neglected has no
- * stuck line at all.
+ * `stuck` is every open, unclaimed, undeferred issue no blocker holds that has been silent
+ * past its priority's limit in STUCK_AFTER_MS, most urgent first: an epic with nothing past
+ * its limit has an empty list.
  *
  * `now` is the caller's clock when a subscriber sends one, because a subscription re-runs
  * on data and never on time.
@@ -63,10 +78,11 @@ export async function epicHealth(
     }))
     .sort((a, b) => a.claimedAt - b.claimedAt);
 
-  const neglected = stuckOf(issues, now);
-  const stuck = neglected
-    ? { id: neglected.id, title: neglected.title, lastActivity: neglected.lastActivity }
-    : undefined;
+  const stuck = (await stuckOf(ctx, issues, now)).map((i) => ({
+    id: i.id,
+    title: i.title,
+    lastActivity: i.lastActivity,
+  }));
 
   // One blocker can hold several of the epic's issues, and it is one waiting line either
   // way, so the walk over blockerLinks deduplicates by blocker.

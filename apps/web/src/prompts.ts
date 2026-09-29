@@ -92,7 +92,7 @@ export function epicPrompts(epic: ShownEpic, review: ReviewView | undefined): Pr
 
   const prompts: (Prompt | false)[] = [
     { key: "where", parts: ["Where is ", r, "? What's done, what's moving, what's in the way."] },
-    (epic.health.stuck !== undefined || epic.health.waiting.length > 0) && {
+    (epic.health.stuck.length > 0 || epic.health.waiting.length > 0) && {
       key: "stuck",
       parts: ["Something in ", r, " is stuck. What's holding it, and what do you need from me?"],
     },

@@ -691,9 +691,11 @@ Each line is a fact with a read behind it, `epicHealth` in `lib/health.ts`,
 which `epics.list` and `show.get` carry, and a line with nothing behind it is
 not printed: a fresh epic is its first line alone. `done` and `open` count
 tasks, follow-ups sit beside them (§5), `moving` is every claim with who and
-since when, `stuck` is the one open unclaimed issue silent longest once past
-the threshold in §12, and `waiting` is every unresolved blocker on the epic's
-live issues.
+since when, `stuck` is every open, unclaimed issue silent past its priority's
+limit in §12, most urgent first and silent longest within a priority, the first
+three by name and the rest counted, `and 2 more stuck`, and `waiting` is every
+unresolved blocker on the epic's live issues. An issue a blocker holds is
+waiting, never stuck as well.
 
 ### The web window
 
@@ -1175,8 +1177,11 @@ Added when the solution was mapped, 2026-09-17:
   entry and the close is `--unverified` pointing at it.
 - **Thresholds**: a claim silent 24 hours is shown as silent, an inbox item
   older than 7 days and a blocker past its nudge date are `cn review` findings,
-  and an epic's "stuck" line is its open unclaimed issue silent longest, shown
-  past 3 days. Revised 2026-09-22 from "released" and "raised" (§7). A claim
+  and an issue is stuck once it sits open, unclaimed and unheld past its
+  priority's limit, P0 a day, P1 3 days, P2 a week, and P3 and P4 never, so a
+  quiet backlog is not stuck (`STUCK_AFTER_MS`; revised 2026-09-29, cn-129, from
+  the one issue silent longest past 3 days, which named a P4 in nearly every
+  epic). Revised 2026-09-22 from "released" and "raised" (§7). A claim
   with nothing journaled for an hour, counted from the later of the claim and
   its newest entry, is what the Stop hook hands back (§8, `JOURNAL_QUIET_MS`,
   added 2026-09-22).

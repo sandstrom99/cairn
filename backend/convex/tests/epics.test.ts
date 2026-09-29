@@ -113,32 +113,83 @@ describe("epic health", () => {
     });
   });
 
-  it("has no stuck line until the silence passes three days, then names the worst", async () => {
+  it("names an issue stuck only once its silence passes its priority's limit", async () => {
+    for (const priority of [0, 1, 2]) {
+      at("2026-09-17T09:00:00Z");
+      const t = await seed({ issues: [{ title: "work 1", priority }] });
+      const { lastActivity } = await rawIssue(t, "cn-1");
+      const limit = STUCK_AFTER_MS[priority]!;
+      expect((await healthOf(t, "ep-1", lastActivity + limit)).stuck).toEqual([]);
+      expect((await healthOf(t, "ep-1", lastActivity + limit + 1)).stuck).toEqual([
+        { id: "cn-1", title: "work 1", lastActivity },
+      ]);
+    }
+  });
+
+  it("never names a P3 or a P4 stuck, however long it sits", async () => {
     at("2026-09-17T09:00:00Z");
-    const t = await work(2);
-    at("2026-09-19T09:00:00Z");
-    expect((await healthOf(t)).stuck).toBeUndefined();
-    // cn-2 is touched today, so cn-1 is the one that has been silent longest.
-    await t.mutation(api.issues.update, { actor, id: "cn-2", revision: 0, priority: 1 });
-    at("2026-09-21T09:00:00Z");
-    expect((await healthOf(t)).stuck).toMatchObject({ id: "cn-1", title: "work 1" });
+    const t = await seed({
+      issues: [
+        { title: "work 1", priority: 3 },
+        { title: "work 2", priority: 4 },
+      ],
+    });
+    const { lastActivity } = await rawIssue(t, "cn-1");
+    expect((await healthOf(t, "ep-1", lastActivity + 365 * DAY)).stuck).toEqual([]);
+  });
+
+  it("orders the stuck issues by priority, then silent longest first", async () => {
+    const t = await seed();
+    const create = async (when: string, title: string, priority: number) => {
+      at(when);
+      await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title, priority });
+    };
+    await create("2026-09-01T09:00:00Z", "a P2, oldest", 2);
+    await create("2026-09-02T09:00:00Z", "a P0", 0);
+    await create("2026-09-03T09:00:00Z", "a P1", 1);
+    await create("2026-09-04T09:00:00Z", "a younger P0", 0);
+    await create("2026-09-05T09:00:00Z", "a younger P2", 2);
+    await create("2026-09-06T09:00:00Z", "a P3", 3);
+    at("2026-09-29T09:00:00Z");
+    expect((await healthOf(t)).stuck.map((i) => i.id)).toEqual([
+      "cn-2",
+      "cn-4",
+      "cn-3",
+      "cn-1",
+      "cn-5",
+    ]);
+  });
+
+  it("names an issue a blocker holds as waiting, never stuck as well", async () => {
+    at("2026-09-17T09:00:00Z");
+    const t = await seed({
+      issues: [
+        { title: "work 1", priority: 0 },
+        { title: "work 2", priority: 0 },
+      ],
+    });
+    await raise(t, "cn-1");
+    at("2026-09-25T09:00:00Z");
+    const health = await healthOf(t);
+    expect(health.stuck.map((i) => i.id)).toEqual(["cn-2"]);
+    expect(health.waiting).toEqual([
+      { id: "bl-1", title: "the App Store agreement", owner: "balder" },
+    ]);
   });
 
   it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
     at("2026-09-17T09:00:00Z");
     const t = await work(2);
     const { lastActivity } = await rawIssue(t, "cn-1");
-    expect((await healthOf(t, "ep-1", lastActivity + STUCK_AFTER_MS)).stuck).toBeUndefined();
-    expect((await healthOf(t, "ep-1", lastActivity + STUCK_AFTER_MS + 1)).stuck).toMatchObject({
-      id: "cn-1",
-      title: "work 1",
-    });
-    const shown = await t.query(api.show.get, {
-      id: "ep-1",
-      now: lastActivity + STUCK_AFTER_MS + 1,
-    });
+    const limit = STUCK_AFTER_MS[2]!;
+    expect((await healthOf(t, "ep-1", lastActivity + limit)).stuck).toEqual([]);
+    expect((await healthOf(t, "ep-1", lastActivity + limit + 1)).stuck).toMatchObject([
+      { id: "cn-1", title: "work 1" },
+      { id: "cn-2", title: "work 2" },
+    ]);
+    const shown = await t.query(api.show.get, { id: "ep-1", now: lastActivity + limit + 1 });
     if (shown.kind !== "epic") throw new Error("ep-1 is an epic");
-    expect(shown.health.stuck).toMatchObject({ id: "cn-1" });
+    expect(shown.health.stuck.map((i) => i.id)).toEqual(["cn-1", "cn-2"]);
   });
 
   it("counts neither a deferred issue nor a claimed one as stuck", async () => {
@@ -152,7 +203,14 @@ describe("epic health", () => {
     });
     await t.mutation(api.issues.claim, { actor, id: "cn-2" });
     at("2026-09-25T09:00:00Z");
-    expect((await healthOf(t)).stuck).toBeUndefined();
+    expect((await healthOf(t)).stuck).toEqual([]);
+  });
+
+  it("leaves an epic with nothing past its limit an empty stuck list", async () => {
+    at("2026-09-17T09:00:00Z");
+    const t = await work(2);
+    at("2026-09-23T09:00:00Z");
+    expect((await healthOf(t)).stuck).toEqual([]);
   });
 
   it("names an unresolved blocker once however many issues it holds, and drops it resolved", async () => {

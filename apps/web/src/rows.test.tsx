@@ -45,7 +45,23 @@ const busy = epic({
         claimedAt: now - 2 * HOUR,
       },
     ],
-    stuck: { id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY },
+    stuck: [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY }],
+    waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
+  },
+});
+
+/** An epic with five stuck issues: three named, and the rest counted in a row of its own. */
+const crowded = epic({
+  id: "ep-6",
+  title: "The page shows what is stuck",
+  counts: { open: 5, inProgress: 0, closed: 1, dropped: 0, followUps: 0 },
+  health: {
+    moving: [],
+    stuck: [9, 4, 8, 6, 5].map((days, i) => ({
+      id: `cn-${30 + i}`,
+      title: `stuck ${i + 1}`,
+      lastActivity: now - days * DAY,
+    })),
     waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
   },
 });
@@ -215,6 +231,12 @@ const PINS: Pin[] = [
     element: <Epics epics={[busy]} events={[]} issues={[]} now={now} />,
     text: healthLines(busy, now),
     rows: healthLines(busy, now).slice(1),
+  },
+  {
+    name: "an epic's health block, the stuck past the first three counted",
+    element: <Epics epics={[crowded]} events={[]} issues={[]} now={now} />,
+    text: healthLines(crowded, now),
+    rows: healthLines(crowded, now).slice(1),
   },
   {
     name: "an epic's health block, with its description under the head line",

@@ -105,21 +105,29 @@ export const freedLine = (issues: Referable[]): string => `  freed  ${refs(issue
  * An epic's health, as many lines as it has facts (docs/design.md §8):
  *
  * ```
- * ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up
+ * ep-3 "An epic tells the truth"  2 done · 7 open · 1 follow-up
  *   moving   cn-7 "the web window's first page" balder/claude 2h
  *   stuck    cn-9 "the page's live feed" silent 9d
+ *   stuck    cn-11 "the rail's counts" silent 4d
+ *   stuck    cn-12 "the log's filters" silent 8d
+ *            and 2 more stuck
  *   waiting  bl-3 "confirm the invite copy" · owner balder
  * ```
  *
  * Never a percentage: an epic at 95% frozen for a month reads better than one at 40%
  * advancing daily. A line with nothing behind it is not printed at all, so a fresh epic
- * is one line and the three that follow are only there when they say something.
+ * is one line and the three that follow are only there when they say something. Stuck
+ * issues are named most urgent first, three at most, and the rest counted.
  */
 export function healthLines(view: EpicLineView, now: number = Date.now()): string[] {
   const { epic, counts, rows } = healthParts(view, now);
   return [
     `${ref(epic)}  ${counts}`,
-    ...rows.map((row) => `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`),
+    ...rows.map((row) =>
+      row.fact === "more"
+        ? `  ${fact("")}${row.tail}`
+        : `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`,
+    ),
   ];
 }
 

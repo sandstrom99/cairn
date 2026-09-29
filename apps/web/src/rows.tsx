@@ -111,18 +111,31 @@ const ROW =
   "grid grid-cols-[92px_minmax(0,1fr)_auto] gap-x-3 gap-y-1 narrow:grid-cols-[78px_minmax(0,1fr)]";
 const TAIL = "text-small whitespace-nowrap text-slate narrow:col-start-2";
 
-/** An epic's facts, a row each: what is moving, what is stuck, what waits on a person. */
+/**
+ * An epic's facts, a row each: what is moving, what is stuck, what waits on a person. The
+ * stuck issues past the first three are counted in one row that links nowhere.
+ */
 export function HealthRows({ rows }: { rows: HealthRow[] }) {
   return (
     <ul className="paper divide-y divide-hair">
       {rows.map((row) => (
-        <HealthRowLine key={`${row.fact} ${row.target.id}`} row={row} />
+        <HealthRowLine
+          key={row.fact === "more" ? "more" : `${row.fact} ${row.target.id}`}
+          row={row}
+        />
       ))}
     </ul>
   );
 }
 
 function HealthRowLine({ row }: { row: HealthRow }) {
+  if (row.fact === "more")
+    return (
+      <li className={cn("items-baseline px-4 py-[13px]", ROW)}>
+        <span />
+        <span className="text-small text-slate">{row.tail}</span>
+      </li>
+    );
   // A waiting row's tail opens with cn's `· `, which a column makes redundant.
   const led = row.tail.startsWith("· ");
   return (

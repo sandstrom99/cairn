@@ -63,8 +63,16 @@ export function blockerParts(view: BlockerLineView, now: number = Date.now()): B
   return { target: { id: view.id, title: view.title }, kind: view.blockerKind, tail };
 }
 
-/** One fact of an epic's health: which of the three it is, what it names, and the rest. */
-export type HealthRow = { fact: "moving" | "stuck" | "waiting"; target: Referable; tail: string };
+/**
+ * One fact of an epic's health: which of the three it is, what it names, and the rest; or,
+ * as the second shape, the count of the stuck issues past the ones named.
+ */
+export type HealthRow =
+  | { fact: "moving" | "stuck" | "waiting"; target: Referable; tail: string }
+  | { fact: "more"; tail: string };
+
+/** How many stuck issues an epic's health names before it counts the rest (§8). */
+const STUCK_NAMED = 3;
 
 /** The health block in pieces: the epic, its counts as one run, and a row per fact. */
 type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
@@ -78,8 +86,9 @@ export const countsRun = (counts: EpicLineView["counts"]): string => {
 };
 
 /**
- * An epic's health in pieces (docs/design.md §8): what is moving, what has been stuck
- * longest, and what waits on a person. A row with nothing behind it is not there at all.
+ * An epic's health in pieces (docs/design.md §8): what is moving, what is stuck past its
+ * priority's limit, the first three by name and the rest counted, and what waits on a
+ * person. A row with nothing behind it is not there at all.
  */
 export function healthParts(view: EpicLineView, now: number = Date.now()): HealthParts {
   const rows: HealthRow[] = [];
@@ -89,12 +98,10 @@ export function healthParts(view: EpicLineView, now: number = Date.now()): Healt
       target: issue,
       tail: `${issue.claimedBy.name} ${age(issue.claimedAt, now)}`,
     });
-  if (view.health.stuck)
-    rows.push({
-      fact: "stuck",
-      target: view.health.stuck,
-      tail: `silent ${age(view.health.stuck.lastActivity, now)}`,
-    });
+  for (const issue of view.health.stuck.slice(0, STUCK_NAMED))
+    rows.push({ fact: "stuck", target: issue, tail: `silent ${age(issue.lastActivity, now)}` });
+  if (view.health.stuck.length > STUCK_NAMED)
+    rows.push({ fact: "more", tail: `and ${view.health.stuck.length - STUCK_NAMED} more stuck` });
   for (const blocker of view.health.waiting)
     rows.push({ fact: "waiting", target: blocker, tail: `· owner ${blocker.owner}` });
   return { epic: view, counts: countsRun(view.counts), rows };
@@ -513,8 +520,8 @@ const ends = (items: (Referable & { status: string })[]): Named[] =>
 
 /**
  * Where an issue stands, from its own fields and its neighbourhood, in the order the
- * words matter: held, then held up, then at rest. `stuck` is the epic's stuck line
- * pointing at this issue, computed by the deployment (design §8), never a second rule here.
+ * words matter: held, then held up, then at rest. `stuck` is this issue being among its
+ * epic's stuck issues, computed by the deployment (design §8), never a second rule here.
  */
 export function stateParts(shown: ShownIssue, now: number = Date.now()): StateParts {
   if (shown.status === "in_progress")
