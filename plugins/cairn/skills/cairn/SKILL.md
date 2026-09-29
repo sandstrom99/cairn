@@ -134,7 +134,8 @@ refuses one it does not: `cn ready ios` is a usage error, since it means `--can 
   open or closed, and then the answer is that issue, not a second one. `--project` on
   `cn create` is the project the repository's `## cairn` section, in its `CLAUDE.md` or
   `CLAUDE.local.md`, gives for the part the work touches. With no such section,
-  `cn project list`, and ask the person when more than one could fit.
+  `cn project list`, and ask the person when more than one could fit. Where the section
+  says new work goes to another tracker, file it there, not with `cn create`.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
   `cn release <id>` when it is not, so the next session can take it.
