@@ -1133,7 +1133,10 @@ Added when the solution was mapped, 2026-09-17:
 - **The actor `cn` sends** is `CAIRN_ACTOR` when set, else `<host>/<user>`, with
   `kind: agent` when `CLAUDECODE` is in the environment (Claude Code sets it for
   every shell it runs) and `human` otherwise. So a session on this machine is
-  `wsl/claude` and Balder at a terminal is `wsl/balder`. Since 2026-09-22 it
+  `wsl/claude` and Balder at a terminal is `wsl/balder`. `<host>` is `CAIRN_HOST`,
+  then the config's `host`, which `cn init --host` writes, then the OS hostname up to
+  its first dot and lowercased (since 2026-09-29, so a Mac's `Balders-Mac-mini.local`
+  reads `balders-mac-mini`). Since 2026-09-22 it
   carries `session` beside the name when `CAIRN_SESSION` is set, which the
   SessionStart hook exports from the `session_id` Claude Code hands it. The
   name does not change with it, so the log and `--mine` keep one stable actor;
