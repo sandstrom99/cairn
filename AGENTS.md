@@ -62,10 +62,14 @@ Green is exactly this, and nothing else counts:
 ```
 pass: All N files are correctly formatted
 pass: Found no warnings, lint errors, or type errors in N files
- Test Files  15 passed (15)      ← backend
- Test Files  42 passed (42)      ← cli
- Test Files  19 passed (19)      ← web
+ Test Files  N passed (N)      ← backend
+ Test Files  N passed (N)      ← cli
+ Test Files  N passed (N)      ← web
 ```
+
+Each `N` is whatever the tree holds that day, so a new test file changes none of this.
+What makes it green is the shape: both `pass:` lines, and three `Test Files` lines in
+that order, each with the same number twice and no `failed` in it.
 
 `vp check --fix` repairs formatting. Lint and type errors are yours to fix. The
 gate is fast enough that scoping the check buys nothing (one file 1.1s, the
