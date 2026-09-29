@@ -1094,10 +1094,18 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 
 Three things pinned, and why:
 
-- **vite-plus is pinned to the global `vp` binary's version**, 0.1.24 in the
-  catalog. The `latest` tags mix a 0.3.x core with the 0.1.x test package that
-  0.3.x no longer uses, and `vp check` then dies on "Cannot find native binding"
-  before doing anything. Upgrade the global binary and the catalog together.
+- **vite-plus is pinned in the catalog**, 0.1.24 for `vite-plus`, `vite` and
+  `vitest` alike, and the three move together. The `latest` tags mix a 0.3.x core
+  with the 0.1.x test package that 0.3.x no longer uses, and `vp check` then dies
+  on "Cannot find native binding" before doing anything. The global `vp` need not
+  match it: it hands check, test and build to the checkout's own copy, and
+  `vp --version` lists both. A global of 0.3.1 or later also brings the pnpm that
+  `packageManager` names, which 0.1.x does not. Until 2026-09-29 this rule tied
+  the global to the catalog too. It was dropped when a global 1.0.0, the README's
+  installer's latest, over the catalog's 0.1.24 ran `vp install`, `vp run verify`
+  and `vp run verify:e2e` green on a fresh Mac. CI still installs the global at the
+  catalog's version, since `setup-vp` reads it from `package.json`, and sets pnpm
+  up beside it.
 - **TypeScript 5.9, not 7.** vite-plus 0.1.x declares a peer range of 5 or 6,
   and Convex runs the installed `tsc`. Nothing in the tree needs 7.
 - **Task caching off** (`run.cache: false`). To cache, the runner traces every

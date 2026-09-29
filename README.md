@@ -198,6 +198,13 @@ ln -s "$PWD/packages/cli/bin/cn" ~/.local/bin/cn      # or anywhere else on PATH
 cn --help
 ```
 
+The installer puts `vp` in `~/.vite-plus` and appends a line sourcing
+`~/.vite-plus/env` to your shell's startup files: vite-plus 1.0.0 wrote it to `~/.zshenv`,
+`~/.profile` and `~/.bash_profile`. Where your dotfiles are managed, move that line into
+them. The installer gives you the
+latest `vp`, which is fine: the repository pins its own vite-plus, and `vp` runs that
+copy inside it. `vp --version` lists both.
+
 To take what has merged since, from inside it: `git pull --ff-only && vp install`.
 Work on cairn itself happens in another clone and its worktrees, as `AGENTS.md` says.
 
