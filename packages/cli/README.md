@@ -36,6 +36,16 @@ cn init --name cairn --url "$(op read 'op://Personal/cairn dev deployment/url')"
 cn doctor
 ```
 
+Without 1Password, the secret is a file only this machine reads, saved mode 600, and the
+command reads it:
+
+```bash
+cn init --name cairn --url https://<deployment>.convex.cloud \
+  --secret-cmd 'cat ~/.config/cairn/cairn.secret' \
+  --can web android
+cn doctor
+```
+
 `--can` is what this machine can do, not what it must be. `--secret-cmd` is run once,
 here, and its stdout is the secret, so the secret is never an argument and never in a
 shell history; `cn init` checks that the deployment answers and takes it before writing
@@ -44,10 +54,13 @@ file already has, it refuses and changes nothing. The one exception is `cn init 
 which re-runs the secret command stored beside a deployment's secret, as `secretCmd`, and
 rewrites that secret once the deployment takes it: how a machine follows a rotation.
 
-The two values to fill in are the deployment's url and its secret, and 1Password is where
-both live: the item `cairn dev deployment` in the Personal vault, fields `url`, `secret`
-and `deployment`. The secret is the one `CAIRN_SECRET` set on the deployment, so a machine
-already logged in to Convex can also read it back with
+The two values to fill in are the deployment's url and its secret, and they live either
+in 1Password, as the item `cairn dev deployment` in the Personal vault, fields `url`,
+`secret` and `deployment`, or in a file such as `~/.config/cairn/cairn.secret`, which
+`node backend/scripts/secret.mjs new` writes on the machine that stands the deployment up
+(the root README's "A deployment of your own") and which reaches another machine through
+whatever you share secrets with. The secret is the one `CAIRN_SECRET` set on the
+deployment, so a machine already logged in to Convex can also read it back with
 `npx convex env get CAIRN_SECRET --deployment <deployment>` from `backend/`.
 
 The file `cn init` writes is `~/.config/cairn/config.json`, and it is the copy `cn` reads
@@ -66,6 +79,8 @@ on every call — `op` is not on that path, because one read costs seconds:
   }
 }
 ```
+
+With the file form, `secretCmd` is `"cat ~/.config/cairn/cairn.secret"`.
 
 Editing it by hand is how a deployment that already exists changes, its secret aside,
 which is `cn init --refresh`'s. `CAIRN_SECRET` in the shell overrides the file, for a hook
