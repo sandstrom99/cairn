@@ -351,7 +351,7 @@ In Convex terms it is one query function, `ready.list`: the candidates through
 `by_status [open]`, every `blocks` edge into them through `by_to` with the
 blocking issue's status, every `blockerLinks` row through `by_issue` with the
 blocker's status, then the date test and the sort. Every read is an index
-lookup, and at the sizes here (Invyte's beads graph is 136 issues) the whole
+lookup, and at the sizes here (the first company's beads graph is 136 issues) the whole
 thing touches a few hundred documents. Convex caps one query at 16,384
 documents read; that is the ceiling to watch, about two orders of magnitude
 away.
@@ -610,7 +610,7 @@ what bounds a URL that never answers at all. One query, `brief.get(can)`,
 returns the numbers and the heads; `cn brief` lays them out:
 
 ```
-cairn · invyte · wsl/claude can web android
+cairn · acme · wsl/claude can web android
 ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
 in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
 follow-ups     app-22 "[verify] confirm retry path on a device" (web)
@@ -1002,7 +1002,7 @@ title:
     app-14 "fix connection retry"
 
 A bare `app-14` there is a bug in the skill or the CLI. Beads ids like
-`invyte-wu03.2` gave the reader nothing to hold on to, and a session's worth of
+`app-wu03.2` gave the reader nothing to hold on to, and a session's worth of
 "working on wu03.2" was unreadable a day later. Later in the same reply, with
 the form in sight above it, a bare id reads fine; settled 2026-09-27 from the
 eval below, whose first three runs each slipped once on a later mention and
@@ -1155,7 +1155,7 @@ Added when the solution was mapped, 2026-09-17:
   through; a `duplicates` edge between them is the answer given (§7).
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
-  `{ "default": "invyte", "can": ["web", "android"], "deployments": { "invyte": { "url": …, "secret": … } } }`.
+  `{ "default": "acme", "can": ["web", "android"], "deployments": { "acme": { "url": …, "secret": … } } }`.
   A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the
@@ -1188,7 +1188,7 @@ implementation.
 | Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Identity auth arrives when cairn serves more than one person, `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"`, and only then does the actor stop being an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window before it sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
 | Who counts as the actor on a journal entry or a claim | Lean: the argument `cn` sends (§12) until identity auth exists, then the token's identity, with `kind` from whether the token belongs to a person |
 | Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo |
-| The 136 issues in the Invyte beads graph | Nothing now; likely a partial import later |
+| The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The session is the channel (§6) |
 | Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at `https://<name>.convex.site`, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. Which deployments one browser knows about waits on running cairn for more than one person, the next row |
 | Running cairn for more than one person | Deliberately after it feels good to use alone. Open, as Balder put them on 2026-09-21: how a working agent is identified, how two machines of one person are told apart, how one person is told apart from a colleague, and how cairn is handed to somebody else at all. Whether a session needs an identifier of its own was answered 2026-09-22: it does, as `session` beside the actor's name (§5, §12), and that is the part of identity a claim depends on. The page's deployment picker waits on the same answers. Parked as `cn-28 "cairn for more than one person: who an agent is, which machine, which colleague, and how it is handed out"` in the inbox, to become an epic when planned; identity on the page itself goes with it, since cn-11, which carried it, was dropped on 2026-09-28 |
@@ -1211,8 +1211,8 @@ stands.
 Measured 2026-09-15 against a shallow clone of `gastownhall/beads`, and
 2026-09-16 against the full source tree at
 `~/.claude/plugins/marketplaces/beads-marketplace` (HEAD `f56632a`, ahead of the
-installed 1.2.2 binary) plus the live 136-issue database at
-`~/code/invyte-hq/invyte/.bare/.beads/`.
+installed 1.2.2 binary) plus the first company's live 136-issue beads
+database.
 
 ```
 production Go   348,385 lines
@@ -1235,7 +1235,7 @@ Almost none of that is the idea. Where the mass sits:
 
 - **There is no epic entity.** An epic is `issue_type = 'epic'` plus
   `parent-child` dependency rows, and children get dotted ids
-  (`invyte-lm5.4`) minted from a `child_counters` table that is **purely local
+  (`app-lm5.4`) minted from a `child_counters` table that is **purely local
   to one database**. Two machines creating a child of the same parent between
   syncs both mint `parent.N`, and `child_counters` is not on the auto-resolve
   allowlist, so the pull aborts. That is the collision that happened here.
@@ -1301,6 +1301,6 @@ Named 2026-09-16. Rejected, and why:
   `ready close cn-14` reads badly.
 
 **Design settled** over an interview on 2026-09-16 and 2026-09-17. The original
-README made this conditional on the beads trial (`invyte-1ck`) ending in a no;
+README made this conditional on the beads trial (`app-1ck`) ending in a no;
 that condition is superseded by the decision to build it here and dogfood it on
 its own construction before it goes anywhere near Invyte.

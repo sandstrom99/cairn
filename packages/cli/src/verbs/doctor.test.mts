@@ -51,8 +51,8 @@ describe("cn doctor", () => {
   });
 
   it("names CAIRN_DEPLOYMENT when that is what chose the deployment", () => {
-    expect(deploymentCheck({ ...cloud, name: "invyte", source: "CAIRN_DEPLOYMENT" }).line).toBe(
-      "deployment invyte → https://tidy-otter-1.convex.cloud (from CAIRN_DEPLOYMENT, secret from config)",
+    expect(deploymentCheck({ ...cloud, name: "northwind", source: "CAIRN_DEPLOYMENT" }).line).toBe(
+      "deployment northwind → https://tidy-otter-1.convex.cloud (from CAIRN_DEPLOYMENT, secret from config)",
     );
   });
 
@@ -100,8 +100,10 @@ describe("cn doctor", () => {
       )[0]!.line,
     ).toBe("CAIRN_URL needs a secret: set CAIRN_SECRET to the deployment's current one");
     // A deployment CAIRN_DEPLOYMENT named holds the file's secret: the file is what gets fixed.
-    expect(pingChecks({ ...cloud, name: "invyte", source: "CAIRN_DEPLOYMENT" }, no)[0]!.line).toBe(
-      "invyte refused the secret this machine holds: cn init --refresh --name invyte takes the current one",
+    expect(
+      pingChecks({ ...cloud, name: "northwind", source: "CAIRN_DEPLOYMENT" }, no)[0]!.line,
+    ).toBe(
+      "northwind refused the secret this machine holds: cn init --refresh --name northwind takes the current one",
     );
     expect(pingChecks(null, { answered: false, refused: false, message: "fetch failed" })).toEqual([
       { check: "ping", ok: false, line: "deployment did not answer: fetch failed" },

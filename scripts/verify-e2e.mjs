@@ -1489,29 +1489,29 @@ row("backend/scripts/clouds.mjs", () => {
     );
 
     const two = holding({
-      ".env.cloud.invyte.local": "dev:b",
+      ".env.cloud.northwind.local": "dev:b",
       ".env.cloud.cairn.local": "dev:a",
       ".env.local": "anonymous:local",
       ".env.cloud.Bad_Name.local": "dev:c",
     });
     assert.deepEqual(
       picked(two),
-      [...cairn, { name: "invyte", deployment: "dev:b" }],
+      [...cairn, { name: "northwind", deployment: "dev:b" }],
       "a push does not run against every cloud file, in name order, and no decoy",
     );
     assert.deepEqual(
       picked(two, { one: true }),
-      { code: 2, message: "name the deployment: backend/ has cairn, invyte" },
+      { code: 2, message: "name the deployment: backend/ has cairn, northwind" },
       "a single-deployment command picked one of two without a name",
     );
     assert.deepEqual(
-      picked(two, { name: "invyte" }),
-      [{ name: "invyte", deployment: "dev:b" }],
+      picked(two, { name: "northwind" }),
+      [{ name: "northwind", deployment: "dev:b" }],
       "a name does not pick its deployment alone",
     );
     assert.deepEqual(
       picked(two, { name: "nope" }),
-      { code: 2, message: "no cloud deployment named nope: backend/ has cairn, invyte" },
+      { code: 2, message: "no cloud deployment named nope: backend/ has cairn, northwind" },
       "a name that picks nothing is not refused naming the ones there are",
     );
 

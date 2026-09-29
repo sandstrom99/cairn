@@ -15,7 +15,7 @@ only: not a wiki, not a knowledge base, not an orchestrator.
 Never in the install. `cn` on PATH and the plugin every repository's sessions load both
 run from a clone kept at `main`, `~/.local/share/cairn` by the README's "Install `cn`",
 so a branch checked out there changes every company's sessions at once. Work happens in
-a development clone, `~/code/cairn` on Balder's machine, and in the worktrees under its
+a development clone, anywhere other than the install, and in the worktrees under its
 `.claude/worktrees/`, where checking anything out reaches nothing else.
 
 - **`cn` on PATH runs main.** Where a row below runs `cn` by hand, it means this
@@ -42,6 +42,14 @@ This section is the verification suite, at its start. It grows with the
 project: every new verb, table or surface adds its row to the table below and,
 where the unit tests cannot prove it, a command that runs it for real. Nothing
 here is optional, and nothing gets removed because it became inconvenient.
+
+`vp run verify` and `vp run verify:e2e` need no deployment of anyone's, since the e2e
+rows run against a throwaway they start and stop. A row that names the cloud deployment
+`cairn`, or needs a cloud deployment at all (`#push:cloud`, `#secret` against the cloud,
+`#new:cloud`, `cn doctor` with nothing set, the guard row, the `.claude/settings.json`
+row, the init.md row's cairn checkout), runs against a deployment of your own, stood up
+as the README's "Install by hand" says, with `cairn` read as its name; or the pull
+request names it as not run, and why.
 
 One command, about a second, before you say anything works:
 
@@ -127,7 +135,7 @@ change works where it runs:
 | `plugins/cairn/hooks/stop.sh` | `printf '{"session_id":"<this session>"}' \| bash plugins/cairn/hooks/stop.sh` with a claim held by that session; then the same with `"stop_hook_active":true`; then with empty stdin | with the claim an hour past its newest entry, one JSON line whose `hookSpecificOutput.additionalContext` is the `cn brief --unjournaled` line, and with the claim fresh nothing at all; silent under `stop_hook_active`, silent with no session, exit 0 every way. The e2e row proves the wrapping with a stand-in `cn`, since an hour cannot pass inside it; the threshold crossing is `backend/convex/tests/brief.test.ts` |
 | `verbs/init.mts` | with `XDG_CONFIG_HOME` pointed at an empty directory and no `CAIRN_URL` throughout: `cn doctor`, then `bash plugins/cairn/hooks/session-start.sh`, then `cn init --name e2e --url <the throwaway's> --secret-cmd "echo s3cret" --can web android`, then `cn doctor`, then that same `cn init` again, then `cn init --name other --url <the same>`, then `cn init --name dead --url http://127.0.0.1:9`, then the hook with `XDG_CONFIG_HOME` pointed at a directory whose `cairn/config.json` names `dead` at that URL, then the hook again | a cold machine is told to run `cn init` and the hook points at `/cairn:init`; the config lands mode 600 with the command kept beside the secret as `secretCmd` and the secret never printed; a name already there is refused and the bytes do not move; a second deployment leaves the default and `can` alone and carries no `secret` or `secretCmd` key; a deployment that does not answer writes nothing; a config naming one starts a session with `cairn: dead did not answer; cn doctor says why` and nothing else, exit 0, in under 5 s; and the hook that asked for setup now prints the brief |
 | `lib/config.mts` | with `XDG_CONFIG_HOME` pointed at a directory whose `cairn/config.json` has `dead` at `http://127.0.0.1:9` as the default and `e2e` at the throwaway beside it: `cn doctor` with nothing set, with `CAIRN_DEPLOYMENT=e2e`, with `CAIRN_DEPLOYMENT=nope`, and with `CAIRN_URL` set beside `nope`; the SessionStart hook the same three ways; `cn init --refresh` with nothing set and with `CAIRN_DEPLOYMENT=e2e`; then `cn doctor` and the hook with `CAIRN_DEPLOYMENT=nope` and no config at all | the default is read `(from default, …)` and `CAIRN_DEPLOYMENT` overrides it `(from CAIRN_DEPLOYMENT, secret from config)` and `✓ secret accepted by e2e`; a name the file lacks exits 1 with one line naming `dead, e2e` and `cn init --name nope`, and `CAIRN_URL` still wins over it; the hook prints `cairn: dead did not answer; cn doctor says why` with nothing set, e2e's brief under `CAIRN_DEPLOYMENT=e2e`, and that one line under `nope`, exit 0 every way and under 5 s; a bare `--refresh` goes to `dead` and writes nothing, and under `CAIRN_DEPLOYMENT=e2e` it refreshes e2e; with no config the line says there is none. That Claude Code hands settings `env` to a hook is Claude Code's, proved once by hand on 2026-09-29 in a scratch repo, `settings.local.json` winning over `settings.json` |
-| `backend/scripts/clouds.mjs` | `pickClouds` over directories built in the run: one empty, one holding the old name `.env.cloud.local` alone and one holding it beside `.env.cloud.cairn.local`, one holding that file alone, one holding it beside `.env.cloud.invyte.local` with the decoys `.env.local` and `.env.cloud.Bad_Name.local`, the name `nope` against that one, and a `.env.cloud.empty.local` naming no deployment, named and not | an empty directory is `no cloud deployment in backend/: …`, exit 1; the old name is refused with the line to rename it, exit 1, even beside a new one; one file is that deployment with or without `one`; two are `cairn, invyte` in name order and no decoy, `one` is refused with `name the deployment: backend/ has cairn, invyte`, exit 2, and `invyte` picks it alone; `nope` is `no cloud deployment named nope: backend/ has cairn, invyte`, exit 2; and the file naming no deployment is `backend/.env.cloud.empty.local names no CONVEX_DEPLOYMENT`, exit 1, whether named or not |
+| `backend/scripts/clouds.mjs` | `pickClouds` over directories built in the run: one empty, one holding the old name `.env.cloud.local` alone and one holding it beside `.env.cloud.cairn.local`, one holding that file alone, one holding it beside `.env.cloud.northwind.local` with the decoys `.env.local` and `.env.cloud.Bad_Name.local`, the name `nope` against that one, and a `.env.cloud.empty.local` naming no deployment, named and not | an empty directory is `no cloud deployment in backend/: …`, exit 1; the old name is refused with the line to rename it, exit 1, even beside a new one; one file is that deployment with or without `one`; two are `cairn, northwind` in name order and no decoy, `one` is refused with `name the deployment: backend/ has cairn, northwind`, exit 2, and `northwind` picks it alone; `nope` is `no cloud deployment named nope: backend/ has cairn, northwind`, exit 2; and the file naming no deployment is `backend/.env.cloud.empty.local names no CONVEX_DEPLOYMENT`, exit 1, whether named or not |
 | `backend/scripts/page.mjs`, `backend/convex/convex.config.ts` | `shipPage` against the throwaway, the step `#push:cloud` runs after the functions, then GETs from the throwaway's site URL: `/`, then `/cn-1`, `/ep-1` and `/bl-1`, then the script `index.html` loads, then `/assets/missing.js` | the page builds for the deployment and uploads into it through the component's own CLI; the site root answers `index.html`, and every path the page routes itself answers the same bytes; the script is served as JavaScript and names the deployment that serves it; and a file the build did not make is a 404, never the page standing in for it |
 | `backend/scripts/pushed.mjs` | `vp run verify:e2e` | `recordPush` against the throwaway, the step `#push:cloud` runs after the functions, three times, each followed by `cn doctor`: an all-zero commit, then this checkout's HEAD with `-dirty` after it, then HEAD itself | the last line names the commit this checkout has not fetched and `git -C <this checkout> pull --ff-only`, exit 1; then `✓ functions on … pushed from <HEAD's 7> with uncommitted changes, so not compared`, exit 0; then `✓ functions on … pushed from <HEAD's 7>, the same as this cn's`, exit 0, which the rows after it read |
 | `backend/scripts/secret.mjs` (new) | `changeSecret` against the throwaway, as `#secret` runs it against the cloud: `rotate` on the open deployment, then `cn ready` with no secret; `revoke` with `--op op://Vault/x`, and `new` with `--op Vault/x`; then `new --op "op://Vault/cairn e2e"` with a stand-in `op` on PATH that lists no items, then `cn ready` with no secret and with the one the stand-in stored; then `new` again | a rotate on an open deployment exits 2 naming `new` and leaves it open; revoke refuses `--op`, and an `--op` that is not `op://<vault>/<item>` is refused naming that shape, each exiting 2; `new` exits 0 with nothing on stdout, and the stand-in logs `item list --vault Vault --format json` then `item create --vault Vault` taking on stdin a `SECURE_NOTE` titled "cairn e2e" with a `url` field, the throwaway's, and a `CONCEALED` `secret` of 44 characters of base64, which is in no argv; no stderr line carries the secret, and one is the `cn init --name` line a machine sets up with; a call with no secret exits 1 naming `cn init --refresh`, and the stored secret answers; a second `new` exits 2 with nothing on stdout, and the secret still answers |
@@ -225,7 +233,7 @@ two move together.
 Conventional Commits, and the pull request title is the squash-merge subject.
 Scopes here: `backend`, `cli`, `plugin`, `docs`, `tooling`.
 
-## Dogfood
+## Dogfood, the maintainer's loop
 
 Every task is a cairn issue in cairn, on the cloud deployment `cairn` that
 `~/.config/cairn/config.json` defaults to. What to do next is `cn ready` with
@@ -237,3 +245,7 @@ it.
 
 The eleven slices mapped on 2026-09-17 went in that day as `cn-1` to `cn-11`
 under `ep-1` to `ep-5`, and the file they came from is gone.
+
+A contributor has no access to that worklist and does not need it. Problems and
+proposals go through GitHub, as `CONTRIBUTING.md` says, and the maintainer files what
+is taken on into cairn.

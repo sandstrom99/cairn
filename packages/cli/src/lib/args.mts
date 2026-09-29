@@ -1,4 +1,4 @@
-// args.mts: the one argument parser. Adapted from Invyte's tools/lib/args.mts.
+// args.mts: the one argument parser.
 //
 //   import { parseArgs } from "../lib/args.mts";
 //   const { pos, opts } = parseArgs(argv, { bool: ["json"], value: ["epic"], list: ["requires"] });

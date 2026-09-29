@@ -110,23 +110,23 @@ describe("resolveDeployment", () => {
       default: "cairn",
       deployments: {
         cairn: { url: "https://cairn", secret: "cairn-secret" },
-        invyte: { url: "https://invyte", secret: "invyte-secret" },
+        northwind: { url: "https://northwind", secret: "northwind-secret" },
       },
     };
 
     it("names a deployment in the file over its default, with the file's secret", () => {
-      expect(resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "invyte" }, two)).toEqual({
-        name: "invyte",
-        url: "https://invyte",
+      expect(resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "northwind" }, two)).toEqual({
+        name: "northwind",
+        url: "https://northwind",
         source: "CAIRN_DEPLOYMENT",
-        secret: "invyte-secret",
+        secret: "northwind-secret",
         secretSource: "config",
       });
     });
 
     it("gives way to CAIRN_URL", () => {
       expect(
-        resolveDeployment({ CAIRN_URL: "https://env", CAIRN_DEPLOYMENT: "invyte" }, two),
+        resolveDeployment({ CAIRN_URL: "https://env", CAIRN_DEPLOYMENT: "northwind" }, two),
       ).toEqual({ name: "CAIRN_URL", url: "https://env", source: "CAIRN_URL" });
     });
 
@@ -139,9 +139,12 @@ describe("resolveDeployment", () => {
 
     it("lets CAIRN_SECRET override the named deployment's secret", () => {
       expect(
-        resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "invyte", CAIRN_SECRET: "from-shell" }, two),
+        resolveDeployment(
+          { ...env, CAIRN_DEPLOYMENT: "northwind", CAIRN_SECRET: "from-shell" },
+          two,
+        ),
       ).toMatchObject({
-        name: "invyte",
+        name: "northwind",
         source: "CAIRN_DEPLOYMENT",
         secret: "from-shell",
         secretSource: "env",
@@ -150,7 +153,7 @@ describe("resolveDeployment", () => {
 
     it("refuses a name the file lacks, naming the ones it has in file order", () => {
       expect(() => resolveDeployment({ ...env, CAIRN_DEPLOYMENT: "nope" }, two)).toThrow(
-        "CAIRN_DEPLOYMENT is nope, and this machine has no deployment by that name (it has cairn, invyte): cn init --name nope sets it up (cn init --help)",
+        "CAIRN_DEPLOYMENT is nope, and this machine has no deployment by that name (it has cairn, northwind): cn init --name nope sets it up (cn init --help)",
       );
     });
 
@@ -202,36 +205,36 @@ describe("withDeployment", () => {
 
   it("adds beside what is there, leaving the default, host and can alone", () => {
     const existing: CairnConfig = {
-      default: "invyte",
+      default: "northwind",
       host: "wsl",
       can: ["web", "android"],
-      deployments: { invyte: { url: "https://a", secret: "s" } },
+      deployments: { northwind: { url: "https://a", secret: "s" } },
     };
     expect(withDeployment(existing, input)).toEqual({
-      default: "invyte",
+      default: "northwind",
       host: "wsl",
       can: ["web", "android"],
-      deployments: { invyte: { url: "https://a", secret: "s" }, cairn: { url: "https://b" } },
+      deployments: { northwind: { url: "https://a", secret: "s" }, cairn: { url: "https://b" } },
     });
     expect(existing.deployments.cairn).toBeUndefined();
   });
 
   it("takes the default with --default, and when the file names none", () => {
     const existing: CairnConfig = {
-      default: "invyte",
-      deployments: { invyte: { url: "https://a" } },
+      default: "northwind",
+      deployments: { northwind: { url: "https://a" } },
     };
     expect(withDeployment(existing, { ...input, makeDefault: true }).default).toBe("cairn");
-    const undecided: CairnConfig = { deployments: { invyte: { url: "https://a" } } };
+    const undecided: CairnConfig = { deployments: { northwind: { url: "https://a" } } };
     expect(withDeployment(undecided, input).default).toBe("cairn");
   });
 
   it("replaces host and can only when they are given", () => {
     const existing: CairnConfig = {
-      default: "invyte",
+      default: "northwind",
       host: "wsl",
       can: ["web"],
-      deployments: { invyte: { url: "https://a" } },
+      deployments: { northwind: { url: "https://a" } },
     };
     expect(withDeployment(existing, { ...input, host: "mac", can: ["ios"] })).toMatchObject({
       host: "mac",
@@ -269,32 +272,32 @@ describe("withDeployment", () => {
 
 describe("withSecret", () => {
   const existing: CairnConfig = {
-    default: "invyte",
+    default: "northwind",
     host: "wsl",
     can: ["web", "android"],
     deployments: {
-      invyte: { url: "https://a", secret: "old" },
+      northwind: { url: "https://a", secret: "old" },
       cairn: { url: "https://b", secret: "s", secretCmd: "op read b" },
     },
   };
 
   it("replaces one deployment's secret and command, and nothing else", () => {
-    expect(withSecret(existing, "invyte", { secret: "new", secretCmd: "op read a" })).toEqual({
-      default: "invyte",
+    expect(withSecret(existing, "northwind", { secret: "new", secretCmd: "op read a" })).toEqual({
+      default: "northwind",
       host: "wsl",
       can: ["web", "android"],
       deployments: {
-        invyte: { url: "https://a", secret: "new", secretCmd: "op read a" },
+        northwind: { url: "https://a", secret: "new", secretCmd: "op read a" },
         cairn: { url: "https://b", secret: "s", secretCmd: "op read b" },
       },
     });
     // Pure: what it was handed is as it was.
-    expect(existing.deployments.invyte).toEqual({ url: "https://a", secret: "old" });
+    expect(existing.deployments.northwind).toEqual({ url: "https://a", secret: "old" });
   });
 
   it("names the deployment the file does not have, and the ones it does", () => {
     expect(() => withSecret(existing, "nope", { secret: "s", secretCmd: "c" })).toThrow(
-      "nope is not a deployment in the config; it has invyte, cairn",
+      "nope is not a deployment in the config; it has northwind, cairn",
     );
   });
 });

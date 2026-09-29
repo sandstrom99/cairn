@@ -3,7 +3,7 @@
 //
 //   app-14 "fix connection retry"
 //
-// A bare id is a bug. Beads ids like `invyte-wu03.2` gave the reader nothing to hold on
+// A bare id is a bug. Beads ids like `app-wu03.2` gave the reader nothing to hold on
 // to, and a session's worth of "working on wu03.2" was unreadable a day later. Every
 // list line starts with this form, `--json` carries both fields, and a URL into the web
 // app slots in behind the same form later (docs/design.md §10).

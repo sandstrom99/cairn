@@ -8,11 +8,11 @@ import { actor, eventsOf, fresh } from "./test.fixtures";
 describe("projects", () => {
   it("creates a project and lists it by slug", async () => {
     const t = fresh();
-    await t.mutation(api.projects.create, { actor, slug: "web", name: "invyte.dk" });
+    await t.mutation(api.projects.create, { actor, slug: "web", name: "northwind.example" });
     await t.mutation(api.projects.create, { actor, slug: "app", name: "the Flutter app" });
     expect(await t.query(api.projects.list, {})).toEqual([
       { slug: "app", name: "the Flutter app" },
-      { slug: "web", name: "invyte.dk" },
+      { slug: "web", name: "northwind.example" },
     ]);
   });
 
