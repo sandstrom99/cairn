@@ -1,14 +1,15 @@
 // secret.mjs: the cloud deployment's `CAIRN_SECRET`, set from here and handed out once.
 //
-//   vp run @cairn/backend#secret -- new [--op op://<vault>/<item>]      the first secret
-//   vp run @cairn/backend#secret -- rotate [--op op://<vault>/<item>]   a fresh one in its place
-//   vp run @cairn/backend#secret -- revoke                             one nobody holds
-//   import { changeSecret } from "./secret.mjs"                        the e2e rows, on a throwaway
+//   vp run @cairn/backend#secret -- new [<name>] [--op op://<vault>/<item>]      the first secret
+//   vp run @cairn/backend#secret -- rotate [<name>] [--op op://<vault>/<item>]   a fresh one in its place
+//   vp run @cairn/backend#secret -- revoke [<name>]                             one nobody holds
+//   import { changeSecret } from "./secret.mjs"                                 the e2e rows, on a throwaway
 //
-// The deployment is the one `backend/.env.cloud.local` names, bound by `CONVEX_DEPLOYMENT`
-// in convex's environment, which convex takes over any file, the way `cloud.mjs` ships the
-// page. convex 1.46 still writes whatever it talked to into `.env.local`, so the script
-// holds that file's bytes and puts them back when it exits, however it exits.
+// The deployment is the one named, from `backend/.env.cloud.<name>.local`, or the only one
+// the checkout keeps (clouds.mjs), bound by `CONVEX_DEPLOYMENT` in convex's environment,
+// which convex takes over any file, the way `cloud.mjs` ships the page. convex 1.46 still
+// writes whatever it talked to into `.env.local`, so the script holds that file's bytes and
+// puts them back when it exits, however it exits.
 //
 // `new` sets the first secret on a deployment that has none, and refuses one that has a
 // secret already; `rotate` replaces the secret a deployment has, and refuses one that has
@@ -39,13 +40,14 @@
 // `node backend/scripts/secret.mjs rotate | …`, and `vp run` is for `--op`.
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
+import { pickClouds } from "./clouds.mjs";
 import { convexSync, holdEnvLocal, packageRoot, valueIn } from "./run-convex.mjs";
 
 const ACTIONS = ["new", "rotate", "revoke"];
-const USAGE = "usage: vp run @cairn/backend#secret -- new|rotate|revoke [--op op://<vault>/<item>]";
+const USAGE =
+  "usage: vp run @cairn/backend#secret -- new|rotate|revoke [<name>] [--op op://<vault>/<item>]";
 const NAME = "CAIRN_SECRET";
 const OP_REF = /^op:\/\/([^/]+)\/([^/]+)$/;
 
@@ -61,17 +63,27 @@ const said = (result) => `${result.stderr ?? ""}${result.error ? `\n${result.err
  * Sets a fresh `CAIRN_SECRET` on the deployment `cwd` and `env` reach, and hands it out:
  * `new` and `rotate` to the 1Password item `op` names or to `out`, `revoke` to nobody.
  * `out` receives the secret and nothing else, `err` every other line, and no line through
- * `err` carries the secret. `deployment` is what the lines call the deployment; `url` is its
- * client URL, for the line a machine sets up with and for a 1Password item created here.
+ * `err` carries the secret. `deployment` is what the lines call the deployment; `name` is what
+ * `cn init` names it, for the line a machine sets up with; `url` is its client URL, for that
+ * line and for a 1Password item created here.
  *
  * @param {string} action `new`, `rotate` or `revoke`; anything else is refused with the usage line
- * @param {{ op?: string, url?: string, deployment?: string, cwd?: string, env?: NodeJS.ProcessEnv, out: (secret: string) => void, err: (line: string) => void }} options
+ * @param {{ op?: string, url?: string, name?: string, deployment?: string, cwd?: string, env?: NodeJS.ProcessEnv, out: (secret: string) => void, err: (line: string) => void }} options
  * @returns {0 | 1 | 2} 0 once the secret is set and handed out, 2 for a refusal that changed
  *   nothing, 1 for a command that failed
  */
 export function changeSecret(
   action,
-  { op, url, deployment = "the deployment", cwd = packageRoot, env = process.env, out, err },
+  {
+    op,
+    url,
+    name = "<name>",
+    deployment = "the deployment",
+    cwd = packageRoot,
+    env = process.env,
+    out,
+    err,
+  },
 ) {
   if (!ACTIONS.includes(action)) {
     err(USAGE);
@@ -169,7 +181,7 @@ export function changeSecret(
 
   const next = (command) =>
     action === "new"
-      ? `a machine sets up with: cn init --name <name> --url ${url ?? "<url>"} --secret-cmd '${command}'`
+      ? `a machine sets up with: cn init --name ${name} --url ${url ?? "<url>"} --secret-cmd '${command}'`
       : "every machine is refused until it runs cn init --refresh";
 
   if (op === undefined) {
@@ -210,7 +222,7 @@ export function changeSecret(
   return 0;
 }
 
-/** The command line, `.env.cloud.local` read, and `changeSecret` against the cloud deployment. */
+/** The command line, the cloud deployment picked, and `changeSecret` against it. */
 function main(argv) {
   // vp hands on the `--` that separates its own flags from the script's.
   const args = argv[0] === "--" ? argv.slice(1) : argv;
@@ -226,23 +238,22 @@ function main(argv) {
     process.stderr.write(`${e.message}\n${USAGE}\n`);
     return 2;
   }
-  const [action, ...rest] = parsed.positionals;
+  const [action, name, ...rest] = parsed.positionals;
   if (action === undefined || rest.length > 0 || !ACTIONS.includes(action)) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
   }
 
-  const file = join(packageRoot, ".env.cloud.local");
-  const deployment = valueIn(file, "CONVEX_DEPLOYMENT");
-  const url = valueIn(file, "CONVEX_URL");
-  for (const [name, value] of [
-    ["CONVEX_DEPLOYMENT", deployment],
-    ["CONVEX_URL", url],
-  ]) {
-    if (value === undefined) {
-      process.stderr.write(`.env.cloud.local names no ${name}\n`);
-      return 1;
-    }
+  const picked = pickClouds({ name, one: true });
+  if (picked.targets === undefined) {
+    process.stderr.write(`${picked.message}\n`);
+    return picked.code;
+  }
+  const [t] = picked.targets;
+  const url = valueIn(t.file, "CONVEX_URL");
+  if (url === undefined) {
+    process.stderr.write(`backend/${t.envFile} names no CONVEX_URL\n`);
+    return 1;
   }
 
   const restore = holdEnvLocal();
@@ -251,8 +262,9 @@ function main(argv) {
   return changeSecret(action, {
     op: parsed.values.op,
     url,
-    deployment,
-    env: { ...process.env, CONVEX_DEPLOYMENT: deployment },
+    name: t.name,
+    deployment: `${t.name} (${t.deployment})`,
+    env: { ...process.env, CONVEX_DEPLOYMENT: t.deployment },
     out: (secret) => process.stdout.write(`${secret}\n`),
     err: (line) => process.stderr.write(`${line}\n`),
   });

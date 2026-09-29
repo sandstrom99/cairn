@@ -36,6 +36,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { OLD_FILE, pickClouds } from "../backend/scripts/clouds.mjs";
 import { shipPage } from "../backend/scripts/page.mjs";
 import { convexSync } from "../backend/scripts/run-convex.mjs";
 import { changeSecret } from "../backend/scripts/secret.mjs";
@@ -199,6 +200,7 @@ function secretRun(action, { op, env } = {}) {
   got.status = changeSecret(action, {
     op,
     url,
+    name: "e2e",
     deployment: "the throwaway",
     cwd: deployment.dir,
     env: env ?? deployment.env,
@@ -1418,6 +1420,115 @@ row("lib/config.mts", () => {
   }
 });
 
+row("backend/scripts/clouds.mjs", () => {
+  // The files a checkout keeps, one per company it pushes, built here rather than read from
+  // backend/, so the row never sees the real deployment's file and cannot reach it.
+  last = undefined;
+  const dirs = [];
+  /** A directory holding exactly `files`, each an env file naming `deployment` or nothing. */
+  const holding = (files) => {
+    const dir = mkdtempSync(join(tmpdir(), "cairn-e2e-clouds-"));
+    dirs.push(dir);
+    for (const [file, deployment] of Object.entries(files)) {
+      const lines = deployment === undefined ? "" : `CONVEX_DEPLOYMENT=${deployment}\n`;
+      writeFileSync(join(dir, file), `${lines}CONVEX_URL=https://a.invalid\n`);
+    }
+    return dir;
+  };
+  const oldName =
+    "backend/.env.cloud.local is the old name: rename it to backend/.env.cloud.<name>.local, <name> as cn init names the deployment";
+  const noCloud =
+    "no cloud deployment in backend/: backend/.env.cloud.<name>.local names one, <name> as cn init names it";
+  /** The names and deployments a pick runs against, or its refusal as it stands. */
+  const picked = (dir, options) => {
+    const got = pickClouds({ dir, ...options });
+    return got.targets === undefined
+      ? got
+      : got.targets.map(({ name, deployment }) => ({ name, deployment }));
+  };
+  try {
+    assert.deepEqual(
+      picked(holding({})),
+      { code: 1, message: noCloud },
+      "an empty backend/ is not refused as holding no cloud deployment",
+    );
+    assert.deepEqual(
+      picked(holding({ [OLD_FILE]: "dev:a" })),
+      { code: 1, message: oldName },
+      "the old file name is not refused with the line to rename it",
+    );
+    assert.deepEqual(
+      picked(holding({ [OLD_FILE]: "dev:a", ".env.cloud.cairn.local": "dev:a" })),
+      { code: 1, message: oldName },
+      "the old file name is taken when a new one sits beside it",
+    );
+
+    const one = holding({ ".env.cloud.cairn.local": "dev:a" });
+    const cairn = [{ name: "cairn", deployment: "dev:a" }];
+    assert.deepEqual(picked(one), cairn, "one file is not the deployment a push runs against");
+    assert.deepEqual(
+      picked(one, { one: true }),
+      cairn,
+      "one file is not the deployment a single-deployment command runs against",
+    );
+    const full = pickClouds({ dir: one }).targets[0];
+    assert.equal(full.envFile, ".env.cloud.cairn.local", "the target does not carry its file name");
+    assert.equal(
+      full.file,
+      join(one, ".env.cloud.cairn.local"),
+      "the target's path is not absolute",
+    );
+
+    const two = holding({
+      ".env.cloud.invyte.local": "dev:b",
+      ".env.cloud.cairn.local": "dev:a",
+      ".env.local": "anonymous:local",
+      ".env.cloud.Bad_Name.local": "dev:c",
+    });
+    assert.deepEqual(
+      picked(two),
+      [...cairn, { name: "invyte", deployment: "dev:b" }],
+      "a push does not run against every cloud file, in name order, and no decoy",
+    );
+    assert.deepEqual(
+      picked(two, { one: true }),
+      { code: 2, message: "name the deployment: backend/ has cairn, invyte" },
+      "a single-deployment command picked one of two without a name",
+    );
+    assert.deepEqual(
+      picked(two, { name: "invyte" }),
+      [{ name: "invyte", deployment: "dev:b" }],
+      "a name does not pick its deployment alone",
+    );
+    assert.deepEqual(
+      picked(two, { name: "nope" }),
+      { code: 2, message: "no cloud deployment named nope: backend/ has cairn, invyte" },
+      "a name that picks nothing is not refused naming the ones there are",
+    );
+
+    const empty = holding({
+      ".env.cloud.cairn.local": "dev:a",
+      ".env.cloud.empty.local": undefined,
+    });
+    const unnamed = {
+      code: 1,
+      message: "backend/.env.cloud.empty.local names no CONVEX_DEPLOYMENT",
+    };
+    assert.deepEqual(
+      picked(empty, { name: "empty" }),
+      unnamed,
+      "a named file with no CONVEX_DEPLOYMENT was taken",
+    );
+    assert.deepEqual(
+      picked(empty),
+      unnamed,
+      "a push ran with one of its files naming no CONVEX_DEPLOYMENT",
+    );
+  } finally {
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
   last = undefined;
   const shipped = await shipPage({ cwd: deployment.dir, env: deployment.env, quiet: true });
@@ -1491,7 +1602,7 @@ row("backend/scripts/secret.mjs (new)", () => {
   offArgv(calls, a, "new --op");
   unechoed(made.err, a, "new --op");
   assert.ok(
-    made.err.some((line) => line.includes("cn init --name")),
+    made.err.some((line) => line.includes("cn init --name e2e --url")),
     "new does not print the line a machine sets up with",
   );
   secrets.a = a;

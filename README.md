@@ -119,14 +119,19 @@ npx convex dev --once               # creates the project on first run and write
 ```
 
 Copy the `CONVEX_DEPLOYMENT` and `CONVEX_URL` lines it wrote into
-`backend/.env.cloud.local`, which is gitignored and is what binds this checkout's
-cloud commands. Then give the deployment its secret, its functions and the page:
+`backend/.env.cloud.<name>.local`, `<name>` being the name `cn init` will give the
+deployment. The file is gitignored and is what binds this checkout's cloud commands
+to that deployment. Then give the deployment its secret, its functions and the page:
 
 ```bash
 cd ..
-vp run @cairn/backend#secret -- new --op "op://<vault>/cairn <company> deployment"
-vp run @cairn/backend#push:cloud
+vp run @cairn/backend#secret -- new <name> --op "op://<vault>/cairn <company> deployment"
+vp run @cairn/backend#push:cloud -- <name>
 ```
+
+A checkout that keeps several deployments, one file each, pushes every one of them
+with a bare `vp run @cairn/backend#push:cloud`, so a backend change reaches every
+company's worklist, and names one after `--` to push only that one.
 
 The script creates that 1Password item with the fields `url` and `secret`, and the
 secret is never on the terminal. Every other machine is the `cn init` above, with
@@ -134,9 +139,9 @@ the `--secret-cmd` line the script prints. A bare `npx convex` in `backend/`
 rebinds `.env.local` to whatever it last talked to; the next
 `vp run @cairn/backend#…` puts it back and says so.
 
-Rotating is `vp run @cairn/backend#secret -- rotate --op …`, and then
+Rotating is `vp run @cairn/backend#secret -- rotate <name> --op …`, and then
 `cn init --refresh` on each machine, which runs the command it stored at setup
-again. Revoking is `vp run @cairn/backend#secret -- revoke`, which fences the
+again. Revoking is `vp run @cairn/backend#secret -- revoke <name>`, which fences the
 deployment with a secret nobody holds until the next rotate.
 `convex env remove CAIRN_SECRET` would open it to anyone with the URL, so never
 that. One shared secret cannot shut out one machine: a rotate shuts out all of
