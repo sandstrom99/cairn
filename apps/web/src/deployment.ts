@@ -1,13 +1,13 @@
 // deployment.ts: the one place the page asks the deployment anything. Live subscriptions,
 // each to a function cn calls: brief.get for the headline, epics.list for health and the
 // rail, projects.list for the rail's Projects section and the Projects pages, blockers.list
-// for what waits on a person, events.recent for the feed and the log, issues.list for the
-// lists and the jump bar; and deployment.name, which cn does not call,
-// for the rail's head and the tab title. Nothing here calls a mutation: the window reads.
-// show.get is asked here too, through `useShown`, for the id on screen, and
-// review.get through `useReview`, for an epic's page. undefined from any of them is the
-// subscription not having answered yet, never an empty list; unanswered is the deployment
-// not having answered at all.
+// for what waits on a person, events.recent for the feed, issues.list for the lists and the
+// jump bar; and deployment.name, which cn does not call, for the rail's head and the tab
+// title. The log page asks events.recent for more through `useLog`, while it is open.
+// Nothing here calls a mutation: the window reads. show.get is asked here too, through
+// `useShown`, for the id on screen, and review.get through `useReview`, for an epic's page.
+// undefined from any of them is the subscription not having answered yet, never an empty
+// list; unanswered is the deployment not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { JOURNAL_MAX, LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
 import type {
@@ -30,7 +30,11 @@ import type { Destination } from "./JumpBar.tsx";
 import type { WaitingBlocker } from "./Overview.tsx";
 import type { Listed } from "./rows.tsx";
 
-/** How much of the feed the column shows: the head of the one subscription. */
+/**
+ * The overview's feed, and the whole of its `events.recent` subscription: every write reruns
+ * it, so it reads no more events than the column shows. The log page asks for its 200 on its
+ * own, through `useLog`.
+ */
 export const FEED = 30;
 
 /**
@@ -50,6 +54,7 @@ export type Deployment = {
   projects: ProjectView[] | undefined;
   blockers: WaitingBlocker[] | undefined;
   issues: Listed[] | undefined;
+  /** The newest `FEED` events, newest first: the feed, and the line under a latest epic. */
   events: LogEvent[] | undefined;
   /** Every issue, open epic and open blocker, for the jump bar. */
   destinations: Destination[];
@@ -59,7 +64,10 @@ export type Deployment = {
   name: string | null | undefined;
 };
 
-/** The seven subscriptions, the jump bar's destinations, and whether the deployment answered. */
+/**
+ * The seven subscriptions, the feed among them only `FEED` deep, the jump bar's destinations,
+ * and whether the deployment answered.
+ */
 export function useDeployment(secret: string | undefined, now: number): Deployment {
   const who: Who = secret === undefined ? {} : { secret };
   const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
@@ -67,7 +75,7 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
   const projects = useHeld(useQuery(api.projects.list, { ...who, now }));
   const blockers = useQuery(api.blockers.list, who);
   const issues: Listed[] | undefined = useQuery(api.issues.list, who);
-  const events = useHeld(useQuery(api.events.recent, { ...who, limit: LOG_LIMIT }));
+  const events = useHeld(useQuery(api.events.recent, { ...who, limit: FEED }));
   const name = useQuery(api.deployment.name, who);
 
   const destinations = useMemo<Destination[]>(
@@ -91,6 +99,15 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
   const unanswered = waited && !connection.hasEverConnected;
 
   return { who, brief, epics, projects, blockers, issues, events, destinations, unanswered, name };
+}
+
+/**
+ * The log page's own subscription: the 200 newest events, newest first, or undefined until
+ * they answer. It is alive only while that route is on screen, so no other screen pays for
+ * 200 events on every write.
+ */
+export function useLog(who: Who): LogEvent[] | undefined {
+  return useQuery(api.events.recent, { ...who, limit: LOG_LIMIT });
 }
 
 /**

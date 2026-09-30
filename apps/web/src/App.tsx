@@ -3,7 +3,7 @@
 // `Window` reads the route, asks `useDeployment` and `useShown` (deployment.ts), holds the
 // previous id's page across a change with `useStale` (held.ts), and hands the `Shell` the
 // page, what the column lists, whether the column is collapsed (column.ts) and the theme;
-// `ItemPage` is the page for one id.
+// `ItemPage` is the page for one id, and `LogLive` the log page with its own subscription.
 //
 // The path picks the page (location.ts). The rail, the ground and the jump bar stay where
 // they are across pages and so do the subscriptions under them, so going from an epic to
@@ -15,12 +15,12 @@
 // id is an answer the page reads (Lost), since show.get is asked through `useQueries`, which
 // hands its error back rather than throwing it.
 import { ref } from "@cairn/cli/ref";
-import type { ReviewView, Shown } from "@cairn/cli/views";
+import type { LogEvent, ReviewView, Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { readCollapsed, writeCollapsed } from "./column.ts";
 import { Unanswered } from "./Connect.tsx";
-import { FEED, useDeployment, useReview, useShown, WAIT } from "./deployment.ts";
+import { useDeployment, useLog, useReview, useShown, WAIT, type Who } from "./deployment.ts";
 import type { Listing } from "./Feed.tsx";
 import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
 import { useStale } from "./held.ts";
@@ -151,7 +151,7 @@ function Window({
       ? undefined
       : id !== undefined && error === undefined && shown !== undefined && shown.kind !== "epic"
         ? { kind: "history", self: shown.id, events: shown.events }
-        : { kind: "feed", events: events?.slice(0, FEED) };
+        : { kind: "feed", events };
   return (
     <Shell
       name={name ?? undefined}
@@ -196,7 +196,7 @@ function Window({
       ) : route.page === "issues" ? (
         <IssuesPage issues={issues} />
       ) : route.page === "log" ? (
-        <LogPage events={events} now={now} />
+        <LogLive who={who} events={events} now={now} />
       ) : (
         <Gate key={route.id} host={host} secret={secret} what={route.id} onSecret={onSecret}>
           {error !== undefined ? (
@@ -233,6 +233,16 @@ export const titleOf = (
           : route?.page === "log"
             ? `Log · ${deployment}`
             : deployment;
+
+/**
+ * The log page, on a subscription of its own that lives only while the route is on screen,
+ * since `Window` cannot ask for it conditionally. Until the 200 newest answer, it shows the
+ * feed's events, which are already there, so moving from the overview never blinks it empty.
+ */
+function LogLive({ who, events, now }: { who: Who; events: LogEvent[] | undefined; now: number }) {
+  const log = useLog(who);
+  return <LogPage events={log ?? events} now={now} />;
+}
 
 /** The page for one id, set back while the answer it shows is the previous id's. */
 function ItemPage({
