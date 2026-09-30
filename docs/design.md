@@ -821,7 +821,10 @@ every plain same-origin link into `history.pushState`, so components write
 `<a href>` and nothing else: links work with a modifier held, render in a test
 with no router around them, and keep the live subscriptions when clicked
 (`apps/web/src/location.ts`). Whatever hosts the built page has to answer every
-path with `index.html`.
+path with `index.html`. The feed's subscription to `events.recent` is the 30 the
+column shows, since every write reruns it, and the Log holds its own at the 200
+newest only while it is open, showing the feed's 30 until those answer, so moving
+to it never blinks empty. Added 2026-09-30.
 
 **The page is hosted by the deployment it reads.** `@convex-dev/static-hosting`,
 installed in `backend/convex/convex.config.ts`, keeps the built page in the

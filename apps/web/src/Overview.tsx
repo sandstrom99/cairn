@@ -97,7 +97,10 @@ export function Epics({
   now,
 }: {
   epics: EpicLineView[];
-  /** The page's events, newest first, for the line under a latest epic; undefined until they answer. */
+  /**
+   * The feed's events, the newest 30, newest first, for the line under a latest epic: an epic
+   * whose last event is older than those shows no line. Undefined until they answer.
+   */
   events: LogEvent[] | undefined;
   /** Every issue, for which epic an event's issue is under; undefined until they answer. */
   issues: Listed[] | undefined;
