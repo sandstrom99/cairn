@@ -68,7 +68,11 @@ if (!once) {
   if (commit === null) console.error(unrecorded(t));
   else {
     const value = commit.endsWith("-dirty") ? commit : `${commit}-dirty`;
-    const status = recordPush({ value, env: { ...process.env, CONVEX_DEPLOYMENT: t.deployment } });
+    const status = recordPush({
+      value,
+      name: t.name,
+      env: { ...process.env, CONVEX_DEPLOYMENT: t.deployment },
+    });
     if (status !== 0) {
       restore();
       process.exit(status);
@@ -95,7 +99,7 @@ if (!once) {
         if (status === 0) {
           const value = pushedFrom();
           if (value === null) console.error(unrecorded(t));
-          else status = recordPush({ value, env });
+          else status = recordPush({ value, name: t.name, env });
         }
         if (status === 0) status = (await shipPage({ env })).status;
       } catch (e) {

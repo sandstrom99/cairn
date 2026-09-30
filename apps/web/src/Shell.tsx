@@ -15,6 +15,7 @@ import type { Theme } from "./theme.ts";
 
 /** The page's frame around `children`, which is the page for the route. */
 export function Shell({
+  name,
   host,
   epics,
   current,
@@ -30,6 +31,8 @@ export function Shell({
   onForget,
   children,
 }: {
+  /** The deployment's own name, for the rail's head. */
+  name?: string;
   host: string;
   epics: EpicLineView[] | undefined;
   current: string;
@@ -54,6 +57,7 @@ export function Shell({
     <>
       <Ground waiting={waiting} />
       <Rail
+        name={name}
         host={host}
         epics={epics}
         current={current}

@@ -117,10 +117,8 @@ function Window({
   };
   const route = routeOf(path);
   const now = useMinute();
-  const { who, brief, epics, blockers, issues, events, destinations, unanswered } = useDeployment(
-    secret,
-    now,
-  );
+  const { who, brief, epics, blockers, issues, events, destinations, unanswered, name } =
+    useDeployment(secret, now);
   const id = route?.page === "item" ? route.id : undefined;
   const answer = useShown(who, id, now);
   const review = useReview(who, id, now);
@@ -131,7 +129,7 @@ function Window({
   const epicId = id?.startsWith("ep-") ? id : issues?.find((i) => i.id === id)?.epic.id;
 
   const named = destinations.find((d) => d.id === id);
-  const title = titleOf(route, named ? ref(named) : id);
+  const title = titleOf(route, named ? ref(named) : id, name ?? "cairn");
   useEffect(() => {
     document.title = title;
   }, [title]);
@@ -154,6 +152,7 @@ function Window({
         : { kind: "feed", events: events?.slice(0, FEED) };
   return (
     <Shell
+      name={name ?? undefined}
       host={host}
       epics={epics}
       current={path}
@@ -203,14 +202,19 @@ function Window({
   );
 }
 
-const titleOf = (route: Route | undefined, named: string | undefined): string =>
+/** The tab's title: the page, then the deployment's word, or the word alone on the overview. */
+export const titleOf = (
+  route: Route | undefined,
+  named: string | undefined,
+  deployment: string,
+): string =>
   route?.page === "item" && named
-    ? `${named} · cairn`
+    ? `${named} · ${deployment}`
     : route?.page === "issues"
-      ? "Issues · cairn"
+      ? `Issues · ${deployment}`
       : route?.page === "log"
-        ? "Log · cairn"
-        : "cairn";
+        ? `Log · ${deployment}`
+        : deployment;
 
 /** The page for one id, set back while the answer it shows is the previous id's. */
 function ItemPage({

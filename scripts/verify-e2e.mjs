@@ -1663,12 +1663,23 @@ row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
 row("backend/scripts/pushed.mjs", () => {
   last = undefined;
   /** `recordPush` against the throwaway, the step `#push:cloud` runs after the functions. */
-  const record = (value) =>
+  const record = (value, name) =>
     assert.equal(
-      recordPush({ value, env: deployment.env, cwd: deployment.dir }),
+      recordPush({ value, name, env: deployment.env, cwd: deployment.dir }),
       0,
       `recording ${value} on the throwaway failed`,
     );
+  const on = { cwd: deployment.dir, env: deployment.env };
+  /**
+   * `deployment.name`, run on the throwaway. convex prints a result as JSON and prints
+   * nothing at all for null, so an empty stdout is the query answering null.
+   */
+  const named = () => {
+    const result = convexSync(["run", "deployment:name"], on);
+    assert.equal(result.status, 0, `convex run deployment:name failed:\n${result.stderr}`);
+    const out = (result.stdout ?? "").trim();
+    return out === "" ? null : JSON.parse(out);
+  };
   const head = spawnSync("git", ["rev-parse", "HEAD"], {
     cwd: root,
     encoding: "utf8",
@@ -1678,6 +1689,7 @@ row("backend/scripts/pushed.mjs", () => {
   const lastLine = (result) => lines(result.stdout).at(-1);
 
   record("0".repeat(40));
+  assert.equal(named(), null, "a deployment no push named answers a name");
   const unknown = cn("doctor");
   assert.equal(unknown.status, 1, "cn doctor passed against functions from an unknown commit");
   assert.equal(
@@ -1695,7 +1707,11 @@ row("backend/scripts/pushed.mjs", () => {
   );
 
   // Last, the commit this cn runs from, so every doctor in the rows after stays green.
-  record(head);
+  record(head, "e2e");
+  const held = convexSync(["env", "get", "CAIRN_NAME"], on);
+  assert.equal(held.status, 0, "convex env get CAIRN_NAME failed after the push named it");
+  assert.equal((held.stdout ?? "").trim(), "e2e", "the push did not record its name");
+  assert.equal(named(), "e2e", "deployment.name does not answer the name the push recorded");
   const same = pass("doctor", "cn doctor failed on functions pushed from this checkout's HEAD");
   assert.equal(
     lastLine(same),
