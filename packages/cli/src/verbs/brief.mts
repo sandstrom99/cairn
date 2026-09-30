@@ -16,10 +16,11 @@
 //
 //   you hold cn-27 "retry on reconnect", last journal 3h ago
 //
-// That is what the plugin's Stop hook hands back. The clock and the threshold are the
-// deployment's (`unjournaledSince` on a brief.get row, counted from the later of the claim
-// and its newest entry), and a shell with no session (CAIRN_SESSION) holds nothing. With
-// --json it prints those rows.
+// That is what the plugin's Stop hook hands back. It calls `brief.unjournaled`, the
+// in-progress rows this session holds, so the Stop hook reads nothing it does not need;
+// the clock and the threshold are still the deployment's (`unjournaledSince` on each
+// row, counted from the later of the claim and its newest entry), and a shell with no
+// session (CAIRN_SESSION) holds nothing. With --json it prints those rows.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
@@ -50,17 +51,18 @@ export async function run(argv: string[]): Promise<number> {
   if (!deployment) return 0;
 
   const client = connectTo(deployment);
-  // The actor goes along so the deployment can mark which claims are this session's.
-  const view = await client.query(api.brief.get, { actor: me });
   if (parsed.unjournaled) {
     // The rows are the deployment's marks on what it says is this session's; the line is
     // one or none, and a silent exit 0 is the answer "nothing held quiet".
-    answer(parsed.json, unjournaled(view), () => {
-      const line = unjournaledLine(view);
+    const rows = await client.query(api.brief.unjournaled, { actor: me });
+    answer(parsed.json, unjournaled(rows), () => {
+      const line = unjournaledLine(rows);
       return line === undefined ? [] : [line];
     });
     return 0;
   }
+  // The actor goes along so the deployment can mark which claims are this session's.
+  const view = await client.query(api.brief.get, { actor: me });
   answer(parsed.json, view, (v) => briefLines(v, { deployment: deployment.name, actor: me.name }));
   return 0;
 }

@@ -4,11 +4,13 @@
 #
 #   you hold cn-27 "retry on reconnect", last journal 3h ago
 #
-# It is `cn brief --unjournaled`, verbatim, wrapped as `additionalContext` so the turn
-# continues once with the line in front of the model, labelled hook feedback rather than
-# a hook error. Plain stdout would not do: at Stop, Claude Code writes it to the debug log
-# and never to the model; only SessionStart and the prompt hooks add stdout as context.
-# `decision: block` reaches the model too, but as an error, and a fact is not one.
+# It is `cn brief --unjournaled`, verbatim, a verb that reads only what this session
+# holds, since it runs at the end of every turn. It goes back as `additionalContext` so
+# the turn continues once with the line in front of the model, labelled hook feedback
+# rather than a hook error. Plain stdout would not do: at Stop, Claude Code writes it to
+# the debug log and never to the model; only SessionStart and the prompt hooks add
+# stdout as context. `decision: block` reaches the model too, but as an error, and a fact
+# is not one.
 #
 # Once per stop: Claude Code sets stop_hook_active when it is already continuing because
 # of a stop hook, and the hook is silent then, so a line the model chose to leave alone

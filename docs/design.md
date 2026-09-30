@@ -673,7 +673,9 @@ SessionStart hook alone; a human terminal has no session.
 
 The other end is one line, not a report. Added 2026-09-22. When a session tries
 to end a turn holding a claim with nothing journaled for longer than the
-threshold in §12, a Stop hook hands it back `cn brief --unjournaled`:
+threshold in §12, a Stop hook hands it back `cn brief --unjournaled`, which
+calls `brief.unjournaled` and reads this session's in-progress rows alone
+(2026-09-30):
 
 ```
 you hold cn-27 "retry on reconnect", last journal 3h ago
@@ -1036,7 +1038,8 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 
 | Verb | Function | |
 |---|---|---|
-| `cn brief [--unjournaled]` | `brief.get` | query |
+| `cn brief` | `brief.get` | query |
+| `cn brief --unjournaled` | `brief.unjournaled`: the in-progress rows this session holds, with the brief's marks, for the Stop hook; the one flag that picks a function, since the hook runs at the end of every turn and the brief walks every open issue to answer it | query |
 | `cn ready` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine] [--silent] [--blocked]` | `issues.list`; `--silent <duration>` is what nobody has touched for that long and `--blocked` what a live `blocks` edge holds, both over live issues unless `--status` says otherwise, each row then carrying its silence or its holders | query |
 | `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description, a link's URL or label, or a journal entry holds the text, case aside, each with the field it was found in | query |

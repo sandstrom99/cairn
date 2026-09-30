@@ -443,8 +443,11 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
  * later of the claim and its newest entry, so a claim taken after that entry reads
  * `claimed 2h ago, nothing journaled since` rather than naming an entry that predates it.
  */
-export function unjournaledLine(view: BriefView, now: number = Date.now()): string | undefined {
-  const clauses = unjournaled(view).map((i) => {
+export function unjournaledLine(
+  rows: BriefView["inProgress"],
+  now: number = Date.now(),
+): string | undefined {
+  const clauses = unjournaled(rows).map((i) => {
     const at = i.unjournaledSince;
     const tail =
       i.lastJournal === at

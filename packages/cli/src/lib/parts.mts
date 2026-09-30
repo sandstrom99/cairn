@@ -666,8 +666,9 @@ export const journalParts = (e: JournalEntry, now: number = Date.now()) => ({
 /** An in-progress row this session holds with nothing journaled past the threshold. */
 type HeldQuiet = BriefView["inProgress"][number] & { unjournaledSince: number };
 
-/** The in-progress rows this session holds with nothing journaled past the threshold. */
-export const unjournaled = (view: BriefView): HeldQuiet[] =>
-  view.inProgress.filter(
-    (i): i is HeldQuiet => i.mine === true && typeof i.unjournaledSince === "number",
-  );
+/**
+ * The rows this session holds with nothing journaled past the threshold, from
+ * `brief.unjournaled`'s answer, or the brief's `inProgress`.
+ */
+export const unjournaled = (rows: BriefView["inProgress"]): HeldQuiet[] =>
+  rows.filter((i): i is HeldQuiet => i.mine === true && typeof i.unjournaledSince === "number");

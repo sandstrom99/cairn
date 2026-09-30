@@ -14,11 +14,12 @@
 // nothing releases it (§7) — and `lastJournal` with `unjournaledSince`, when the issue was
 // last journaled and, past JOURNAL_QUIET_MS counted from the later of the claim and that
 // entry, the moment nothing has been journaled since. The plugin's Stop hook reads the
-// last one through `cn brief --unjournaled` and hands it back as one line (§8).
+// last one through `cn brief --unjournaled`, which calls `brief.unjournaled`: the
+// in-progress rows this session holds and nothing more, handed back as one line (§8).
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { actorValidator, sameSession } from "./lib/actor";
+import { type Actor, actorValidator, sameSession } from "./lib/actor";
 import { nowArg } from "./lib/clock";
 import { query } from "./lib/guard";
 import { readyIssues } from "./lib/readiness";
@@ -63,6 +64,22 @@ async function journalFacts(
   };
 }
 
+/**
+ * One in-progress row of the brief, and of `unjournaled`, so the two cannot disagree:
+ * the claim, whether it is the asking session's, and the deployment's marks on it.
+ */
+async function heldRow(ctx: QueryCtx, doc: Doc<"issues">, actor: Actor | undefined, now: number) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    claimedBy: doc.claimedBy,
+    claimedAt: doc.claimedAt,
+    mine: actor !== undefined && doc.claimedBy !== undefined && sameSession(doc.claimedBy, actor),
+    ...(now - doc.lastActivity > CLAIM_SILENT_MS ? { silentSince: doc.lastActivity } : {}),
+    ...(await journalFacts(ctx, doc, now)),
+  };
+}
+
 export const get = query({
   args: { actor: v.optional(actorValidator), ...nowArg },
   handler: async (ctx, { actor, now = Date.now() }) => {
@@ -93,18 +110,7 @@ export const get = query({
       inProgress: await Promise.all(
         inProgress
           .sort((a, b) => (a.claimedAt ?? a._creationTime) - (b.claimedAt ?? b._creationTime))
-          .map(async (doc) => ({
-            id: doc.id,
-            title: doc.title,
-            claimedBy: doc.claimedBy,
-            claimedAt: doc.claimedAt,
-            mine:
-              actor !== undefined &&
-              doc.claimedBy !== undefined &&
-              sameSession(doc.claimedBy, actor),
-            ...(now - doc.lastActivity > CLAIM_SILENT_MS ? { silentSince: doc.lastActivity } : {}),
-            ...(await journalFacts(ctx, doc, now)),
-          })),
+          .map((doc) => heldRow(ctx, doc, actor, now)),
       ),
       followUps: followUps.map((i) => ({
         id: i.id,
@@ -113,5 +119,30 @@ export const get = query({
       })),
       waiting: waiting.length,
     };
+  },
+});
+
+/**
+ * The in-progress rows this session holds, each with the brief's marks, and nothing else
+ * read: what the Stop hook asks at the end of every turn through `cn brief --unjournaled`,
+ * where `brief.get` walked readiness over every open issue to answer a question about
+ * this session's own claims. Only `by_status` for `in_progress` is read, then the newest
+ * journal entry of each row that is this session's.
+ */
+export const unjournaled = query({
+  args: { actor: actorValidator, ...nowArg },
+  handler: async (ctx, { actor, now = Date.now() }) => {
+    const held = (
+      await ctx.db
+        .query("issues")
+        .withIndex("by_status", (q) => q.eq("status", "in_progress"))
+        .collect()
+    ).filter((doc) => doc.claimedBy !== undefined && sameSession(doc.claimedBy, actor));
+    // Every row is `mine` by construction, and in the brief's order.
+    return await Promise.all(
+      held
+        .sort((a, b) => (a.claimedAt ?? a._creationTime) - (b.claimedAt ?? b._creationTime))
+        .map((doc) => heldRow(ctx, doc, actor, now)),
+    );
   },
 });

@@ -210,3 +210,60 @@ describe("brief.get", () => {
     });
   });
 });
+
+// What the Stop hook asks at the end of every turn: the brief's own in-progress rows,
+// narrowed to this session's, so the hook's line and the brief cannot disagree.
+describe("brief.unjournaled", () => {
+  it("lists only the in-progress issues this session holds", async () => {
+    const t = await worklist();
+    const one = { ...actor, session: "s-1" };
+    // The same name from another session: the name alone cannot tell the two apart.
+    const two = { ...actor, session: "s-2" };
+    await t.mutation(api.issues.claim, { actor: one, id: "cn-2" });
+    await t.mutation(api.issues.claim, { actor: two, id: "cn-3" });
+
+    // cn-4 is held by another machine and cn-1 is open: neither is this session's.
+    const mine = await t.query(api.brief.unjournaled, { actor: one });
+    expect(mine.map((i) => [i.id, i.mine])).toEqual([["cn-2", true]]);
+    const theirs = await t.query(api.brief.unjournaled, { actor: two });
+    expect(theirs.map((i) => [i.id, i.mine])).toEqual([["cn-3", true]]);
+  });
+
+  it("marks a claim quiet past the threshold exactly as the brief does", async () => {
+    const t = await worklist();
+    const one = { ...actor, session: "s-1" };
+    await t.mutation(api.issues.claim, { actor: one, id: "cn-2" });
+    // The one row, checked against the same issue's row in the full brief at the same now.
+    const held = async (now: number) => {
+      const [row, ...rest] = await t.query(api.brief.unjournaled, { actor: one, now });
+      expect(rest).toEqual([]);
+      const brief = (await t.query(api.brief.get, { actor: one, now })).inProgress;
+      expect(row).toEqual(brief.find((i) => i.id === "cn-2"));
+      return row!;
+    };
+
+    const claimedAt = (await held(Date.now())).claimedAt!;
+    expect(await held(claimedAt + HOUR)).not.toHaveProperty("unjournaledSince");
+    expect(await held(claimedAt + HOUR + 1)).toMatchObject({ unjournaledSince: claimedAt });
+
+    const entry = await t.mutation(api.journal.append, {
+      actor: other,
+      id: "cn-2",
+      kind: "finding",
+      body: "here",
+    });
+    expect(await held(entry.at + HOUR + 1)).toMatchObject({
+      lastJournal: entry.at,
+      unjournaledSince: entry.at,
+    });
+  });
+
+  it("is empty for a session that holds nothing, and for an actor with no session", async () => {
+    const t = await worklist();
+    // cn-4 is held all the while, by another machine.
+    expect(await t.query(api.brief.unjournaled, { actor: { ...actor, session: "s-1" } })).toEqual(
+      [],
+    );
+    expect(await t.query(api.brief.unjournaled, { actor })).toEqual([]);
+  });
+});

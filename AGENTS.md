@@ -211,7 +211,9 @@ reason is in `docs/design.md` §11.
   word (`epic new`, `dep rm`) each action is one function; `cn update` runs one function
   per kind of id, `issues.update`, `epics.update` or `blockers.update`. The CLI never
   decides. If a verb needs logic, the logic goes in `backend/convex/` and gets a test
-  there.
+  there. `cn brief --unjournaled` runs `brief.unjournaled`, the one flag that picks a
+  function, because the Stop hook runs it at the end of every turn and must not read
+  the whole worklist to answer for this session's claims.
 - **The reference form.** Every output line, journal entry, commit and reply that
   names an issue or epic uses `app-14 "fix connection retry"`. It is spelled in
   one place, `ref()` in `packages/cli/src/lib/ref.mts`.
