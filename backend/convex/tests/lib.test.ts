@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { summarised, summary } from "../lib/events";
 import { eventsOn, issuesHeldBy, unresolvedBlockersOn } from "../lib/graph";
 import { mint } from "../lib/ids";
 import { ensureInbox } from "../lib/inbox";
@@ -131,15 +132,70 @@ const rawBlocker = async (t: Harness, id: string) =>
 /** The `changes` of the newest event of a kind. */
 const lastChanges = async (t: Harness, kind: string) => (await eventsOf(t, kind)).at(-1)!.changes;
 
+describe("summary", () => {
+  it("returns a string of one line within the limit as it is, 80 characters included", () => {
+    expect(summary("in_progress")).toBe("in_progress");
+    expect(summary("")).toBe("");
+    expect(summary("x".repeat(80))).toBe("x".repeat(80));
+  });
+
+  it("cuts a longer line to 79 characters and a `…`, trimmed before it", () => {
+    expect(summary("x".repeat(81))).toBe(`${"x".repeat(79)}…`);
+    expect(summary(`${"x".repeat(75)}    ${"y".repeat(10)}`)).toBe(`${"x".repeat(75)}…`);
+  });
+
+  it("keeps the first of several lines, with a `…`, and ignores a trailing newline", () => {
+    expect(summary("first\nsecond\nthird")).toBe("first…");
+    expect(summary("first   \nsecond")).toBe("first…");
+    expect(summary("first\n")).toBe("first");
+    expect(summary("first\n  \n")).toBe("first");
+    // A body pasted from Windows ends its lines in CRLF; the `\r` is not part of the line.
+    expect(summary("first\r\nsecond")).toBe("first…");
+  });
+
+  it("summarised walks arrays and nested objects, and leaves everything but strings alone", () => {
+    const changes = {
+      description: { from: "one\ntwo", to: "three" },
+      links: [{ url: "https://example.com/d", label: "doc\nmore" }],
+      priority: { from: 2, to: 1 },
+      done: true,
+      gone: null,
+      absent: undefined,
+      tags: ["a\nb", 3],
+    };
+    const before = structuredClone(changes);
+    expect(summarised(changes)).toEqual({
+      description: { from: "one…", to: "three" },
+      links: [{ url: "https://example.com/d", label: "doc…" }],
+      priority: { from: 2, to: 1 },
+      done: true,
+      gone: null,
+      absent: undefined,
+      tags: ["a…", 3],
+    });
+    expect(changes).toEqual(before);
+    expect(summarised("a\nb")).toBe("a…");
+    expect(summarised(7)).toBe(7);
+    expect(summarised(null)).toBeNull();
+    expect(summarised(undefined)).toBeUndefined();
+  });
+});
+
 describe("lifecycle", () => {
-  it("insertIssue mints cn-2 after cn-1 and records the view minus createdAt", async () => {
+  it("insertIssue mints cn-2 after cn-1 and records the view minus createdAt, each text as its first line", async () => {
     const t = await withOne();
     const epic = await rawEpic(t, "ep-1");
+    const description = "what the second one is for\nwhy it matters\nwhat it is not";
+    const design = "one long line of design, ".repeat(4);
+    const acceptance = "cn show prints it";
     const view = await t.run(async (ctx) =>
       insertIssue(ctx, actor, {
         project: await projectBySlug(ctx, "cn"),
         epicId: epic._id,
         title: "two",
+        description,
+        design,
+        acceptance,
         type: "task",
         links: [],
         priority: 2,
@@ -147,11 +203,17 @@ describe("lifecycle", () => {
     );
     expect(view.id).toBe("cn-2");
     expect(view).toMatchObject({ status: "open", revision: 0, epic: { id: "ep-1" } });
+    expect(view).toMatchObject({ description, design, acceptance });
     const events = await eventsOf(t, "issue.create");
     expect(events).toHaveLength(2);
     const { createdAt: _, ...rest } = view;
     expect(events[1]).toMatchObject({ actor, revision: 0, epicId: epic._id });
-    expect(events[1]!.changes).toEqual(rest);
+    expect(events[1]!.changes).toEqual({
+      ...rest,
+      description: "what the second one is for…",
+      design: `${design.slice(0, 79).trimEnd()}…`,
+      acceptance,
+    });
     expect("createdAt" in (events[1]!.changes as object)).toBe(false);
   });
 
@@ -165,6 +227,20 @@ describe("lifecycle", () => {
     expect(events[0]).toMatchObject({ actor, epicId: doc._id, revision: 0 });
     const { createdAt: _, ...rest } = epicView(doc, []);
     expect(events[0]!.changes).toEqual(rest);
+  });
+
+  it("insertEpic records its description as the first line, and the row keeps it whole", async () => {
+    const t = fresh();
+    const description = "a session starts warm\nwith the brief in context";
+    const doc = await t.run((ctx) =>
+      insertEpic(ctx, actor, { id: "ep-8", title: "Eight", description }),
+    );
+    expect(doc.description).toBe(description);
+    const { createdAt: _, ...rest } = epicView(doc, []);
+    expect((await eventsOf(t, "epic.create"))[0]!.changes).toEqual({
+      ...rest,
+      description: "a session starts warm…",
+    });
   });
 
   it("claimIssue returns the doc in_progress and records the status and the claimer's name", async () => {

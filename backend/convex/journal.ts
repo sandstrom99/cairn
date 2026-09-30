@@ -13,9 +13,6 @@ import { mutation } from "./lib/guard";
 import { issueById } from "./lib/lookup";
 import { journalKindValidator } from "./lib/validators";
 
-/** As much of a body as belongs in a history line. */
-const SUMMARY = 80;
-
 export const append = mutation({
   args: {
     actor: actorValidator,
@@ -40,7 +37,8 @@ export const append = mutation({
       kind: "journal.append",
       actor: args.actor,
       issueId: issue._id,
-      changes: { kind: args.kind, body: args.body.slice(0, SUMMARY) },
+      // The whole body: `record` keeps its first line, the way every text in an event travels.
+      changes: { kind: args.kind, body: args.body },
     });
 
     const entry = (await ctx.db.get(_id))!;

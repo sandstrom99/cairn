@@ -22,7 +22,10 @@ import type { FollowUpKind, IssueType } from "./validators";
 import type { VerificationInput } from "./verification";
 import { type IssueView, epicView, issueView } from "./views";
 
-/** The public fields of a just-created document, for an event's `changes`. */
+/**
+ * The public fields of a just-created document, for an event's `changes`. `record` cuts
+ * the text fields to their first line, so the whole description stays on the row.
+ */
 export function createdChanges<T extends { createdAt: number }>(view: T): Omit<T, "createdAt"> {
   const copy: Record<string, unknown> = { ...view };
   delete copy.createdAt;

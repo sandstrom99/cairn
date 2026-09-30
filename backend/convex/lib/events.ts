@@ -41,13 +41,46 @@ type EventInput = {
   projectId?: Id<"projects">;
   /** The revision the target moved to, absent for an insert-only action. */
   revision?: number;
-  /** field → { from, to }, or the payload of the action. */
+  /**
+   * field → { from, to }, or the payload of the action. Strings are summarised on the way
+   * in, by `record`.
+   */
   changes: unknown;
 };
 
-/** Writes one `events` row. Every mutation calls this. */
+/** As much of a string as an event keeps: one line, this long. */
+export const SUMMARY = 80;
+
+/**
+ * The first line of `text`, cut to SUMMARY characters, with `…` where anything followed:
+ * more lines, or a longer first line. A string of one line within the limit comes back as
+ * it is, so an id, a title or a status is never touched.
+ */
+export function summary(text: string): string {
+  const [line = ""] = text.split(/\r?\n/);
+  const more = line.length > SUMMARY || text.slice(line.length).trim() !== "";
+  return more ? `${line.slice(0, SUMMARY - 1).trimEnd()}…` : line;
+}
+
+/** `changes` with every string in it, at any depth, passed through `summary`. */
+export function summarised(changes: unknown): unknown {
+  if (typeof changes === "string") return summary(changes);
+  if (Array.isArray(changes)) return changes.map(summarised);
+  if (changes !== null && typeof changes === "object")
+    return Object.fromEntries(
+      Object.entries(changes as Record<string, unknown>).map(([k, v]) => [k, summarised(v)]),
+    );
+  return changes;
+}
+
+/**
+ * Writes one `events` row. Every mutation calls this. No string in `changes` outlives its
+ * first line: what an event records is what a reader should see, and a reader sees one
+ * line per field, so a description, a design or a note travels here as its first line and
+ * stays whole only on the row it belongs to.
+ */
 export async function record(ctx: MutationCtx, event: EventInput): Promise<void> {
-  await ctx.db.insert("events", { ...event });
+  await ctx.db.insert("events", { ...event, changes: summarised(event.changes) });
 }
 
 /**
