@@ -3,8 +3,11 @@
 // cairn never reads. `cn` resolves which project a session is in, not the deployment
 // (docs/design.md §13). The slug never changes, because the ids carry it; the name, the
 // description and the links change against a revision (§3, §9). `list` reads each one's
-// health the way an epic's is read, and its pulse (§8). `ep` and `bl` are reserved: epics
-// and blockers mint from the same counters mechanism and would collide.
+// health the way an epic's is read, and its pulse (§8) only for a caller that sends
+// `pulse: true`, `cn project list` and the page's Projects routes: the page's rail
+// subscribes to the list on every screen and leaves the pulse out, so it reads no pulse
+// rows. `ep` and `bl` are reserved: epics and blockers mint from the same counters
+// mechanism and would collide.
 import { v } from "convex/values";
 import { actorValidator } from "./lib/actor";
 import { nowArg } from "./lib/clock";
@@ -12,12 +15,12 @@ import { conflict, invalid } from "./lib/errors";
 import { record } from "./lib/events";
 import { issuesWhere } from "./lib/graph";
 import { mutation, query } from "./lib/guard";
-import { issueHealth, pulses } from "./lib/health";
+import { issueHealth } from "./lib/health";
 import { editProject } from "./lib/lifecycle";
 import { addLinks, linkInputValidator } from "./lib/links";
 import { findProject, projectBySlug } from "./lib/lookup";
+import { pulses } from "./lib/pulse";
 import { expectRevision } from "./lib/revision";
-import { PULSE_DAYS } from "./lib/thresholds";
 import { countsOf, projectView } from "./lib/views";
 
 const SLUG = /^[a-z][a-z0-9]{0,15}$/;
@@ -82,14 +85,20 @@ export const update = mutation({
 });
 
 export const list = query({
-  args: { ...nowArg },
-  handler: async (ctx, { now }) => {
+  args: { ...nowArg, pulse: v.optional(v.boolean()) },
+  handler: async (ctx, { now, pulse: withPulse }) => {
     const at = now ?? Date.now();
     const rows = await ctx.db.query("projects").withIndex("by_slug").collect();
     const filed = await Promise.all(
       rows.map((project) => issuesWhere(ctx, { project, epic: null })),
     );
-    const pulse = await pulses(ctx, filed.flat(), at);
+    const pulse = withPulse
+      ? await pulses(
+          ctx,
+          rows.map((p) => p._id),
+          at,
+        )
+      : undefined;
     return Promise.all(
       rows.map(async (project, i) => {
         const issues = filed[i]!;
@@ -98,9 +107,7 @@ export const list = query({
           filed: issues.length,
           counts: countsOf(issues),
           health: await issueHealth(ctx, issues, at),
-          pulse:
-            pulse.get(project._id) ??
-            Array.from({ length: PULSE_DAYS }, () => ({ events: 0, closes: 0 })),
+          ...(pulse === undefined ? {} : { pulse: pulse.get(project._id)! }),
         };
       }),
     );

@@ -4,6 +4,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
+import { dayOf } from "./pulse";
 
 /**
  * Every kind of event the deployment writes. The table's `kind` stays a string, since rows
@@ -74,13 +75,41 @@ export function summarised(changes: unknown): unknown {
 }
 
 /**
- * Writes one `events` row. Every mutation calls this. No string in `changes` outlives its
- * first line: what an event records is what a reader should see, and a reader sees one
- * line per field, so a description, a design or a note travels here as its first line and
- * stays whole only on the row it belongs to.
+ * Writes one `events` row, and counts it into its project's pulse when it touches an issue.
+ * Every mutation calls this, so every event is counted in the transaction that writes it.
+ * No string in `changes` outlives its first line: what an event records is what a reader
+ * should see, and a reader sees one line per field, so a description, a design or a note
+ * travels here as its first line and stays whole only on the row it belongs to.
  */
 export async function record(ctx: MutationCtx, event: EventInput): Promise<void> {
   await ctx.db.insert("events", { ...event, changes: summarised(event.changes) });
+  if (event.issueId === undefined) return;
+  await countEvent(ctx, event, (await ctx.db.get(event.issueId)) ?? undefined, Date.now());
+}
+
+/**
+ * Counts one event into the `pulse` row of its issue's project for the UTC day `at` falls on
+ * (§8). A pulse counts the events on the project's issues and the closes among them: an
+ * edge once, as `cn log` shows it, its mirror skipped; a drop is not a close; an event that
+ * touches no issue, a blocker's or an epic's alone, is not counted. It runs inside the
+ * mutation that wrote the event, so the count cannot drift from the events it counts;
+ * `pulse:rebuild` calls it too, over every event, to recount from nothing.
+ */
+export async function countEvent(
+  ctx: MutationCtx,
+  event: Pick<Doc<"events">, "kind" | "changes">,
+  issue: Doc<"issues"> | undefined,
+  at: number,
+): Promise<void> {
+  if (issue === undefined || isMirror(event, issue)) return;
+  const day = dayOf(at);
+  const row = await ctx.db
+    .query("pulse")
+    .withIndex("by_project_day", (q) => q.eq("projectId", issue.projectId).eq("day", day))
+    .unique();
+  const closes = event.kind === "issue.close" ? 1 : 0;
+  if (row) await ctx.db.patch(row._id, { events: row.events + 1, closes: row.closes + closes });
+  else await ctx.db.insert("pulse", { projectId: issue.projectId, day, events: 1, closes });
 }
 
 /**
@@ -89,7 +118,10 @@ export async function record(ctx: MutationCtx, event: EventInput): Promise<void>
  * row hangs on the issue `cn log` leads its line with, so the row whose issue is not
  * the subject is the mirror.
  */
-export const isMirror = (e: Doc<"events">, issue: { id: string } | undefined): boolean => {
+export const isMirror = (
+  e: Pick<Doc<"events">, "kind" | "changes">,
+  issue: { id: string } | undefined,
+): boolean => {
   if (!e.kind.startsWith("edge.") || issue === undefined) return false;
   const changes = e.changes as { type?: string; from?: string; to?: string } | undefined;
   const subject = changes?.type === "blocks" ? changes.to : changes?.from;

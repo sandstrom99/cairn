@@ -24,6 +24,7 @@ import type { WaitingBlocker } from "./Overview.tsx";
 import { Group, Pending, Title } from "./page.tsx";
 import {
   type Mark,
+  NO_PULSE,
   NOTHING_FILED,
   clauseOf,
   closedIn,
@@ -56,10 +57,11 @@ function laneOf(project: ProjectView, issues: Listed[], held: Lane["held"]): Lan
   return { project, issues: live, marks, held };
 }
 
-const sum = (pulse: ProjectView["pulse"], of: "events" | "closes"): number =>
+const sum = (pulse: NonNullable<ProjectView["pulse"]>, of: "events" | "closes"): number =>
   pulse.reduce((total, day) => total + day[of], 0);
 
-const most = (pulse: ProjectView["pulse"]): number => Math.max(0, ...pulse.map((d) => d.events));
+const most = (pulse: NonNullable<ProjectView["pulse"]>): number =>
+  Math.max(0, ...pulse.map((d) => d.events));
 
 const CHART = "How long since each issue moved";
 const CHART_ASIDE = "every dot is an issue · higher is more urgent";
@@ -76,7 +78,7 @@ export function ProjectsPage({ projects, issues, blockers, now }: Reads) {
     );
   const held = heldBy(blockers);
   const lanes = orderProjects(projects).map((p) => laneOf(p, issues, held));
-  const pulseMax = Math.max(0, ...projects.map((p) => most(p.pulse)));
+  const pulseMax = Math.max(0, ...projects.map((p) => most(p.pulse ?? NO_PULSE)));
   return (
     <article>
       <header>
@@ -133,11 +135,11 @@ function ProjectSection({ lane, pulseMax, now }: { lane: Lane; pulseMax: number;
             <div>
               <div className="mb-[7px] text-meta text-slate">
                 <Run
-                  text={`${open} open · ${inProgress} in progress · ${sum(project.pulse, "closes")} closed in 4 weeks`}
+                  text={`${open} open · ${inProgress} in progress · ${sum(project.pulse ?? NO_PULSE, "closes")} closed in 4 weeks`}
                 />
               </div>
               <Pulse
-                pulse={project.pulse}
+                pulse={project.pulse ?? NO_PULSE}
                 height={30}
                 max={pulseMax}
                 caps={["4 weeks ago", "today"]}
@@ -301,16 +303,16 @@ export function ProjectPage({ slug, projects, issues, blockers, now }: Reads & {
               title="The last four weeks"
               aside={
                 <Run
-                  text={`${sum(project.pulse, "events")} events · ${sum(project.pulse, "closes")} closed`}
+                  text={`${sum(project.pulse ?? NO_PULSE, "events")} events · ${sum(project.pulse ?? NO_PULSE, "closes")} closed`}
                 />
               }
               className="mt-0"
             >
               <div className="paper px-4 pt-3.5 pb-3">
                 <Pulse
-                  pulse={project.pulse}
+                  pulse={project.pulse ?? NO_PULSE}
                   height={64}
-                  max={most(project.pulse)}
+                  max={most(project.pulse ?? NO_PULSE)}
                   caps={["4 weeks ago", "2 weeks", "today"]}
                 />
               </div>

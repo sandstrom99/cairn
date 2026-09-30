@@ -111,7 +111,7 @@ export async function run(argv: string[]): Promise<number> {
     console.log(`${ref({ id: project.slug, title: project.name })} r${project.revision}`);
     return 0;
   }
-  const projects = await client.query(api.projects.list, {});
+  const projects = await client.query(api.projects.list, { pulse: true });
   // A health block per project, a blank line between them.
   answer(parsed.json, projects, (all) =>
     all.flatMap((p, i) => (i === 0 ? [] : [""]).concat(projectLines(p))),

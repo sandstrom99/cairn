@@ -19,6 +19,7 @@
     "verify": "node scripts/local.mjs dev --once",
     "push:cloud": "node scripts/cloud.mjs --once",
     "secret": "node scripts/secret.mjs",
+    "rebuild:pulse": "node scripts/rebuild-pulse.mjs",
     "new:cloud": "node scripts/new-cloud.mjs",
     "codegen": "node scripts/local.mjs codegen",
     "test": "vp test run"

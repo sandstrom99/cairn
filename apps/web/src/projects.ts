@@ -6,12 +6,23 @@
 // waiting because a blocker on the list holds it. The chart's scale is here rather than in
 // the component so a test can hold it, and the dots are placed in percent, which renders to
 // a string with no element to measure.
+import { PULSE_DAYS } from "@cairn/backend/convex/lib/thresholds.js";
 import { type Referable, ref } from "@cairn/cli/ref";
 import { DAY, HOUR, age } from "@cairn/cli/time";
 import type { ProjectView } from "@cairn/cli/views";
 import type { WaitingBlocker } from "./Overview.tsx";
 import type { Listed } from "./rows.tsx";
 import { type Tone, projectWord } from "./tone.tsx";
+
+/**
+ * The pulse a project is drawn with before the list that carries pulses has answered: the
+ * rail's list leaves it out, and until the Projects routes' own subscription lands, every
+ * day reads quiet.
+ */
+export const NO_PULSE: { events: number; closes: number }[] = Array.from(
+  { length: PULSE_DAYS },
+  () => ({ events: 0, closes: 0 }),
+);
 
 /** What a project has live: open and in progress, and the follow-ups beside them. */
 export const liveOf = (
@@ -107,7 +118,7 @@ export const clauseText = (c: ProjectClause): string =>
 export function subline(projects: ProjectView[]): string {
   const live = projects.reduce((sum, p) => sum + liveOf(p.counts), 0);
   const closes = projects.reduce(
-    (sum, p) => sum + p.pulse.reduce((days, day) => days + day.closes, 0),
+    (sum, p) => sum + (p.pulse ?? NO_PULSE).reduce((days, day) => days + day.closes, 0),
     0,
   );
   const n = projects.length;

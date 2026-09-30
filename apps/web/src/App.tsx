@@ -15,12 +15,20 @@
 // id is an answer the page reads (Lost), since show.get is asked through `useQueries`, which
 // hands its error back rather than throwing it.
 import { ref } from "@cairn/cli/ref";
-import type { LogEvent, ReviewView, Shown } from "@cairn/cli/views";
+import type { LogEvent, ProjectView, ReviewView, Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { readCollapsed, writeCollapsed } from "./column.ts";
 import { Unanswered } from "./Connect.tsx";
-import { useDeployment, useLog, useReview, useShown, WAIT, type Who } from "./deployment.ts";
+import {
+  useDeployment,
+  useLog,
+  usePulsed,
+  useReview,
+  useShown,
+  WAIT,
+  type Who,
+} from "./deployment.ts";
 import type { Listing } from "./Feed.tsx";
 import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
 import { useStale } from "./held.ts";
@@ -28,7 +36,7 @@ import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { type Route, routeOf, useLinks, usePath } from "./location.ts";
 import { useMinute } from "./now.ts";
-import { Brief, Epics, Waiting } from "./Overview.tsx";
+import { Brief, Epics, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { Pending } from "./page.tsx";
 import { ProjectPage, ProjectsPage } from "./ProjectPages.tsx";
 import type { Listed } from "./rows.tsx";
@@ -184,14 +192,15 @@ function Window({
           </>
         )
       ) : route.page === "projects" ? (
-        <ProjectsPage projects={projects} issues={issues} blockers={blockers} now={now} />
+        <ProjectsLive who={who} now={now} projects={projects} issues={issues} blockers={blockers} />
       ) : route.page === "project" ? (
-        <ProjectPage
+        <ProjectsLive
+          who={who}
+          now={now}
           slug={route.slug}
           projects={projects}
           issues={issues}
           blockers={blockers}
-          now={now}
         />
       ) : route.page === "issues" ? (
         <IssuesPage issues={issues} />
@@ -242,6 +251,40 @@ export const titleOf = (
 function LogLive({ who, events, now }: { who: Who; events: LogEvent[] | undefined; now: number }) {
   const log = useLog(who);
   return <LogPage events={log ?? events} now={now} />;
+}
+
+/**
+ * The Projects page, or one project's page with `slug`, drawn from the list with each
+ * project's pulse, which only these two routes subscribe to. Until that answer lands the
+ * rail's list, which carries no pulse, draws the page, so it is never blank for the pulse.
+ */
+function ProjectsLive({
+  who,
+  now,
+  projects,
+  issues,
+  blockers,
+  slug,
+}: {
+  who: Who;
+  now: number;
+  projects: ProjectView[] | undefined;
+  issues: Listed[] | undefined;
+  blockers: WaitingBlocker[] | undefined;
+  slug?: string;
+}) {
+  const pulsed = usePulsed(who, now);
+  return slug === undefined ? (
+    <ProjectsPage projects={pulsed ?? projects} issues={issues} blockers={blockers} now={now} />
+  ) : (
+    <ProjectPage
+      slug={slug}
+      projects={pulsed ?? projects}
+      issues={issues}
+      blockers={blockers}
+      now={now}
+    />
+  );
 }
 
 /** The page for one id, set back while the answer it shows is the previous id's. */
