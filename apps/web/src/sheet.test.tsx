@@ -12,6 +12,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
+import { typesetting } from "./Prose.tsx";
+
+// The page's passages are set once Markdown.tsx is in (Prose.tsx).
+await typesetting;
 
 /**
  * The issue the page is opened on: held by this session, with an edge each way, a closed

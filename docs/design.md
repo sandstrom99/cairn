@@ -876,11 +876,14 @@ The look, and what each choice rules out:
 - **One face, Recursive**, from sans to mono along its MONO axis. Prose in sans;
   ids, commands and verification records in mono, because they get pasted into
   a terminal.
-- **Written text is set in the same terms** (`apps/web/src/Prose.tsx`). A heading is
+- **Written text is set in the same terms** (`apps/web/src/Markdown.tsx`). A heading is
   weight and never outranks the page's own, a link is an underline, code is a tint,
   a quote is a rule, a task's box is ink or hollow; no hue anywhere, since chroma
   means state. react-markdown builds React elements, so raw HTML shows as text and a
-  `javascript:` link goes nowhere.
+  `javascript:` link goes nowhere. It is a quarter of the page's script, so it loads
+  beside the page and not before it (`Prose.tsx`): the secret form and the first
+  screen wait on 152 kB gzipped rather than 198, and a passage reads as written until
+  it lands, or for good if it never does (cn-98, 2026-09-30).
 - **A jump bar where a chat page has its composer.** Type an id or part of a
   title and go. It reads, like everything else on the page.
 - **One motion nobody asked for**: an event arriving over the subscription lands

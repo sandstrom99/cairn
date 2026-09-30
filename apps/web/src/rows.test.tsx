@@ -30,10 +30,14 @@ import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { Epics, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { squeeze } from "./plain.ts";
 import { ProjectHead, ProjectsPage } from "./ProjectPages.tsx";
+import { typesetting } from "./Prose.tsx";
 import { Rail } from "./Rail.tsx";
 import { IssueRows, type Listed } from "./rows.tsx";
 import { rows, text } from "./testing.tsx";
 import { epicWord } from "./tone.tsx";
+
+// The page's passages are set once Markdown.tsx is in (Prose.tsx).
+await typesetting;
 
 const busy = epic({
   id: "ep-4",

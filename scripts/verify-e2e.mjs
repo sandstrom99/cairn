@@ -1661,6 +1661,13 @@ row("backend/scripts/page.mjs, backend/convex/convex.config.ts", async () => {
   assert.equal(script.status, 200, `${src} is not served`);
   assert.match(script.type, /javascript/, `${src} is not served as JavaScript`);
   assert.ok(script.body.includes(url), "the bundle does not name the deployment that serves it");
+  // The Markdown renderer it loads beside itself, by `import()` (apps/web/src/Prose.tsx), is
+  // there too, so an issue's text is set rather than left as written.
+  const chunk = script.body.match(/import\(["'`]\.\/(Markdown-[\w-]+\.js)["'`]\)/)?.[1];
+  assert.ok(chunk, `${src} imports no Markdown renderer`);
+  const renderer = await get(src.replace(/[^/]+$/, chunk));
+  assert.equal(renderer.status, 200, `${chunk} is not served`);
+  assert.match(renderer.type, /javascript/, `${chunk} is not served as JavaScript`);
   // A file the build did not make is a 404, never the page standing in for it.
   const missing = await get("/assets/missing.js");
   assert.equal(missing.status, 404, "a missing asset is answered with something other than 404");

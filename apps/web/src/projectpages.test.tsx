@@ -8,8 +8,12 @@ import type { WaitingBlocker } from "./Overview.tsx";
 import { ProjectPage, ProjectsPage } from "./ProjectPages.tsx";
 import { plain } from "./plain.ts";
 import { NOTHING_FILED } from "./projects.ts";
+import { typesetting } from "./Prose.tsx";
 import type { Listed } from "./rows.tsx";
 import { text } from "./testing.tsx";
+
+// The page's passages are set once Markdown.tsx is in (Prose.tsx).
+await typesetting;
 
 const listed = (over: Partial<Listed>): Listed => ({
   id: "app-1",
