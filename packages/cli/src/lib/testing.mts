@@ -154,6 +154,7 @@ export function logEvent(over: Partial<LogEvent> = {}): LogEvent {
 /** What `cn brief` answers on a deployment where nothing is happening. */
 export function briefView(over: Partial<BriefView> = {}): BriefView {
   return {
+    projects: [],
     ready: { count: 0, top: [] },
     inProgress: [],
     followUps: [],

@@ -1489,9 +1489,10 @@ describe("briefLines", () => {
   const where = { deployment: "local", actor: "balder/claude" };
   const empty = briefView();
 
-  it("is the five lines of design §8", () => {
+  it("is the six lines of design §8", () => {
     const lines = briefLines(
       {
+        projects: ["app", "web"],
         ready: {
           count: 4,
           top: [
@@ -1520,6 +1521,7 @@ describe("briefLines", () => {
     );
     expect(lines).toEqual([
       "cairn · local · balder/claude",
+      "projects        app · web",
       'ready 4         cn-7 "the web window\'s first page" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2',
       'in progress     cn-6 "the brief and the plugin" balder/claude 2h',
       'follow-ups      cn-12 "record explicit changes on close" [cleanup] · cn-13 "confirm on a phone" [verify]',
@@ -1532,11 +1534,21 @@ describe("briefLines", () => {
     const lines = briefLines(empty, where, now);
     expect(lines).toEqual([
       "cairn · local · balder/claude",
+      "projects        none",
       "ready 0         none",
       "in progress     none",
       "follow-ups      none",
       "waiting on you  0",
     ]);
+    expect(lines.length).toBeLessThan(20);
+  });
+
+  it("prints no projects line when the deployment sends none, as one not yet pushed with it", () => {
+    const unpushed: Partial<BriefView> = briefView();
+    delete unpushed.projects;
+    const lines = briefLines(unpushed as BriefView, where, now);
+    expect(lines.some((line) => line.startsWith("projects"))).toBe(false);
+    expect(lines).toHaveLength(5);
     expect(lines.length).toBeLessThan(20);
   });
 
@@ -1560,9 +1572,9 @@ describe("briefLines", () => {
       where,
       now,
     );
-    expect(lines[2]).toContain("· +2 more");
-    expect(lines[2]?.split(" · ")).toHaveLength(6);
-    expect(lines[3]).toBe(
+    expect(lines[3]).toContain("· +2 more");
+    expect(lines[3]?.split(" · ")).toHaveLength(6);
+    expect(lines[4]).toBe(
       'follow-ups      cn-20 "confirm it" [verify] · cn-21 "confirm it" [verify] · cn-22 "confirm it" [verify] · +2 more',
     );
     expect(lines.length).toBeLessThan(20);
@@ -1602,7 +1614,7 @@ describe("briefLines", () => {
       now,
     );
     // Silence stays in hours for two days, where `1d` would hide how far past 24h it is.
-    expect(lines[2]).toBe(
+    expect(lines[3]).toBe(
       'in progress     cn-37 "a session beside the actor" balder/claude 5m · yours · cn-6 "the brief and the plugin" balder/claude 3d · silent 26h · cn-9 "forgotten in this very session" balder/claude 9d · silent 9d · yours',
     );
   });

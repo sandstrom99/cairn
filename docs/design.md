@@ -65,7 +65,7 @@ doing that.
 | Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (cn-87). |
 | Blocker channel | Pull-only: on request, and in-session when an agent hits one. The person answers in the session, and the agent ends it on their word. |
 | Reconcile | Revised 2026-09-22: no automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
-| Session start | A hook injects under 20 lines: counts plus the top of each queue. |
+| Session start | A hook injects under 20 lines: which projects there are, counts plus the top of each queue. |
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
 | Code hosts | None. A pull request, a commit, an artifact or a doc is a link on the issue (§3 "Links"); cairn reads nothing from and writes nothing to a code host, GitHub Issues included. |
@@ -617,6 +617,7 @@ no command at all.
 
 A hook injects **under 20 lines**:
 
+- the projects the deployment has, as their slugs
 - ready count, and the top 3 by priority
 - in progress, with actor and age, marked `yours` where the claim is this session's
 - the open follow-ups
@@ -640,6 +641,7 @@ returns the numbers and the heads; `cn brief` lays them out:
 
 ```
 cairn · acme · wsl/claude
+projects       app · web
 ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
 in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
 follow-ups     app-22 "confirm retry path on a device" [verify]
@@ -1256,7 +1258,7 @@ implementation.
 | Local or cloud deployment for the throwaway window | Settled 2026-09-29 (cn-92): a company's worklist is the development deployment of a Convex project of its own, `cairn-<name>` unless named otherwise. `#new:cloud` makes it with `convex dev --configure new --skip-push`, so no function runs there before `#secret -- new` has fenced it, and `#push:cloud` pushes to it with the login alone. A production deployment would need `convex deploy` and a deploy key, and buys a worklist nothing yet. The anonymous local deployment stays the development copy, and the throwaway stays the tests' (§11) |
 | Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Settled 2026-09-29 (bl-4): that secret stays the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
 | Who counts as the actor on a journal entry or a claim | Settled 2026-09-29 (bl-4): the argument `cn` sends (§12), taken on trust. There is no token to take it from instead |
-| Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo |
+| Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo. The brief's `projects` line names every project on the deployment, the section only the ones the repository maps, so the skill reads `cn project list` for work that fits none of its rows and asks when more than one could fit; `/cairn:init` drafts the section from the deployment's projects, the table mapping directories to slugs and the description staying the one place that says what a project is (cn-128, 2026-09-30) |
 | The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The session is the channel (§6) |
 | Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. With a page per deployment, no browser needs to know about more than one, so there is no picker (the next row) |

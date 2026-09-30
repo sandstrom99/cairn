@@ -1,6 +1,7 @@
 // brief.ts: the situation report a session opens with (docs/design.md §8), in one query.
-// Counts and the head of each queue: what is ready, what is in progress and by whom, the
-// open follow-ups, and how much waits on a person.
+// Which projects the deployment has, as their slugs, then counts and the head of each
+// queue: what is ready, what is in progress and by whom, the open follow-ups, and how
+// much waits on a person.
 //
 // **It carries state and never doctrine.** The rules live in the skill, which loads on
 // demand; a hook always loads, and beads' `bd prime` grew until it contradicted the skill
@@ -80,6 +81,7 @@ export const get = query({
     ];
 
     return {
+      projects: (await ctx.db.query("projects").withIndex("by_slug").collect()).map((p) => p.slug),
       ready: {
         count: tasks.length,
         top: tasks.slice(0, TOP).map((i) => ({

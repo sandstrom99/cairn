@@ -432,6 +432,12 @@ row("verbs/brief.mts", () => {
   const brief = pass("brief", "cn brief exited non-zero");
   assert.ok(lines(brief.stdout).length < 20, "cn brief is 20 lines or more");
   assert.match(lines(brief.stdout)[0], /^cairn · \S+ · \S+$/, "the brief's head carries more");
+  assert.equal(
+    lines(brief.stdout)[1],
+    "projects        cn",
+    "the brief's second line is not every project by slug",
+  );
+  assert.deepEqual(json("brief").projects, ["cn"], "cn brief --json does not carry projects");
   assert.equal(cn("brief --can web").status, 2, "cn brief --can web was not refused");
 });
 
