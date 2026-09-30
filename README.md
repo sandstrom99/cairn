@@ -59,14 +59,16 @@ _A demo worklist, for a fictional team building a tide-and-weather app._
 ```
 
 When a session starts in a repository wired to cairn, the plugin runs `cn brief` and
-puts its answer in front of the agent: how much is ready and the top of it, what is in
-progress and who holds it, the follow-ups still open, and how many waits
-are on a person. The agent starts from there without being briefed.
+puts its answer in front of the agent: which projects the deployment has, how much is
+ready and the top of it, what is in progress and who holds it, the follow-ups still
+open, and how many waits are on a person. The agent starts from there without being
+briefed.
 
 What a session opens with:
 
 ```text
 cairn · driftwood · harbor-mac/claude
+projects        api · app · web
 ready 3         web-1 "beta signup page with a waitlist" P1 · app-5 "alert settings: a wind threshold per boat" P2 · app-3 "offline banner overlaps the chart in landscape" P3
 in progress     app-1 "cache seven days of tide tables on the device" harbor-mac/claude just now · yours · api-3 "rate-limit the alert fan-out per sea area" ci-linux/claude just now
 follow-ups      app-9 "verify: vibrate pattern for gale alerts" [verify]
@@ -409,10 +411,13 @@ cairn, and in `.claude/settings.local.json`, this machine's alone, otherwise:
 }
 ```
 
-Then one `cn project new` for each thing the repository ships, and a `## cairn` section
-in its `CLAUDE.md`, or in `CLAUDE.local.md` beside a machine-local settings file, saying
-which project covers which part of the repository. The skill reads that section to pick
-`--project` for `cn create`. cairn's own `CLAUDE.md` ends with one.
+Then one `cn project new` for each thing the repository ships that the deployment does
+not have yet, and a `## cairn` section in its `CLAUDE.md`, or in `CLAUDE.local.md` beside
+a machine-local settings file, mapping the repository's directories to the deployment's
+projects, drafted from `cn project list`. What a project is lives on the project, as its
+description. The skill reads the section to pick `--project` for `cn create`, and
+`cn project list` for work that fits none of its rows. cairn's own `CLAUDE.md` ends with
+one.
 
 On a machine where every repository is one company's, install the plugin at user scope
 instead, and every session anywhere opens on the machine's default deployment:

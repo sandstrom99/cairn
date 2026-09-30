@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { DAY, HOUR } from "../lib/thresholds";
-import { actor, at, balder, other, raise, rawIssue, seed } from "./test.fixtures";
+import { actor, at, balder, fresh, other, raise, rawIssue, seed } from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
 
@@ -65,6 +65,15 @@ describe("brief.get", () => {
     ]);
 
     expect(brief.waiting).toBe(2);
+  });
+
+  it("names every project by slug, in slug order", async () => {
+    const t = fresh();
+    expect((await t.query(api.brief.get, {})).projects).toEqual([]);
+
+    await t.mutation(api.projects.create, { actor, slug: "tools", name: "the tools" });
+    await t.mutation(api.projects.create, { actor, slug: "app", name: "the app" });
+    expect((await t.query(api.brief.get, {})).projects).toEqual(["app", "tools"]);
   });
 
   it("frees what a resolved blocker held", async () => {

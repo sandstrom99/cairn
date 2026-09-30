@@ -367,10 +367,11 @@ const IN_PROGRESS_CAP = 5;
 const FOLLOW_UP_CAP = 3;
 
 /**
- * The situation report, at most five lines (docs/design.md §8):
+ * The situation report, at most six lines (docs/design.md §8):
  *
  * ```
  * cairn · acme · wsl/claude
+ * projects        admin · app · site · tools
  * ready 4         app-31 "retry on reconnect" P1 · app-40 "…" P2
  * in progress     app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
  * follow-ups      app-22 "confirm the retry path" [verify] · app-23 "…" [decide]
@@ -386,6 +387,13 @@ const FOLLOW_UP_CAP = 3;
  */
 export function briefLines(view: BriefView, where: BriefWhere, now: number = Date.now()): string[] {
   const lines = [`cairn · ${where.deployment} · ${where.actor}`];
+
+  // A deployment not yet pushed with the field sends no projects, and then there is no
+  // line, rather than a line saying there are none: the line prints the deployment's
+  // list, in the deployment's order.
+  const projects: string[] | undefined = view.projects;
+  if (projects !== undefined)
+    lines.push(`${label("projects")}${projects.length === 0 ? "none" : projects.join(" · ")}`);
 
   const ready = view.ready.top.map((i) => `${ref(i)} P${i.priority}`);
   lines.push(

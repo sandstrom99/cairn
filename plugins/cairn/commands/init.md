@@ -188,17 +188,22 @@ the repository named it.
    - A machine-local file has to be ignored by git. When `git check-ignore -q <file>`
      fails, add its path to the file `git rev-parse --git-path info/exclude` prints, never
      to the tracked `.gitignore`.
-3. **Projects.** Run `CAIRN_DEPLOYMENT=<name> cn project list` for what the deployment has.
-   Propose projects from the repository's layout, and keep them coarse: one per thing the
-   repository ships, not one per directory. An app and its backend are one project, and a
-   repository is often one project. A slug is one to sixteen lowercase letters and digits,
-   starting with a letter, not `ep` or `bl`. Every issue id carries it, so nothing changes a
-   slug: settle them with the person before creating any. Then run
-   `CAIRN_DEPLOYMENT=<name> cn project new <slug> --name "<what it covers>"` for each one
-   they keep that the deployment does not have yet.
+3. **Projects.** Run `CAIRN_DEPLOYMENT=<name> cn project list --json` for what the
+   deployment has: each project's slug, name and description. Draft the table from those
+   first, a row per project this repository's parts fall under, mapping its directories to
+   a slug that exists. Where no project fits a part, propose one, and keep them coarse:
+   one per thing the repository ships, not one per directory. An app and its backend are
+   one project, and a repository is often one project. A slug is one to sixteen lowercase
+   letters and digits, starting with a letter, not `ep` or `bl`. Every issue id carries it,
+   so nothing changes a slug: settle them with the person before creating any. Then run
+   `CAIRN_DEPLOYMENT=<name> cn project new <slug> --name "<what it covers>" --description "<what it is, and what does not belong>"`
+   for each one they keep that the deployment does not have yet. The description is the
+   one place that says what a project is; the table maps directories to it and does not
+   restate it.
 4. **The cairn section** goes in `CLAUDE.md` beside a tracked settings file, or in
    `CLAUDE.local.md` beside a machine-local one, ignored by git the same way and written
-   through a symlink the same way. The skill reads it to pick `--project`:
+   through a symlink the same way. The skill reads it to pick `--project`, and reads
+   `cn project list` for work that fits none of its rows:
 
    ```markdown
    ## cairn
@@ -208,7 +213,7 @@ the repository named it.
 
    | Project | Covers |
    |---|---|
-   | `<slug>` | `<dir>/`, `<dir>/`: <what it is> |
+   | `<slug>` | `<dir>/`, `<dir>/` |
    ```
 5. **Another tracker.** Look for one:
    - a `.beads/` directory;
