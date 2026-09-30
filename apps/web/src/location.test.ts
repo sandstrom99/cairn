@@ -20,6 +20,19 @@ describe("routeOf", () => {
     expect(routeOf("/app-14/edit")).toBeUndefined();
     expect(routeOf("/App-14")).toBeUndefined();
   });
+
+  it("reads /projects as the projects page, and a slug under it as that project's page", () => {
+    expect(routeOf("/projects")).toEqual({ page: "projects" });
+    expect(routeOf("/projects/")).toEqual({ page: "projects" });
+    expect(routeOf("/projects/cn")).toEqual({ page: "project", slug: "cn" });
+  });
+
+  it("knows a path under /projects that no slug could be", () => {
+    expect(routeOf("/projects/Cn")).toBeUndefined();
+    expect(routeOf("/projects/cn/x")).toBeUndefined();
+    expect(routeOf("/projects/ep-3")).toBeUndefined();
+    expect(routeOf(`/projects/${"a".repeat(17)}`)).toBeUndefined();
+  });
 });
 
 describe("isOurs", () => {
@@ -55,6 +68,8 @@ describe("titleOf", () => {
     expect(titleOf(routeOf("/cn-14"), 'cn-14 "fix connection retry"', "invyte")).toBe(
       'cn-14 "fix connection retry" · invyte',
     );
+    expect(titleOf(routeOf("/projects"), undefined, "invyte")).toBe("Projects · invyte");
+    expect(titleOf(routeOf("/projects/cn"), undefined, "invyte")).toBe("cn · invyte");
     expect(titleOf(routeOf("/"), undefined, "invyte")).toBe("invyte");
   });
 });

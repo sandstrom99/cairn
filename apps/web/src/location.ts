@@ -1,4 +1,4 @@
-// location.ts: which page this is. Four routes do not need a router: the path is the
+// location.ts: which page this is. Six routes do not need a router: the path is the
 // state, `history.pushState` changes it, and one listener on the document turns every
 // plain same-origin link into that instead of a page load. So components write `<a href>`
 // and nothing else: a link works before the script loads, opens in a new tab with a
@@ -10,20 +10,32 @@ export type Route =
   | { page: "overview" }
   | { page: "issues" }
   | { page: "log" }
+  | { page: "projects" }
+  | { page: "project"; slug: string }
   | { page: "item"; id: string };
 
 /** An id as cn mints one: a project slug, `ep` or `bl`, a dash and a number. */
 const ID = /^[a-z][a-z0-9]*-\d+$/;
 
+/** A project's slug, as the deployment takes one: 1 to 16 lowercase letters and digits, starting with a letter. */
+const SLUG = /^[a-z][a-z0-9]{0,15}$/;
+
 /** Whether a string is an id as cn mints one, which is lowercase: lowercase what was typed first. */
 export const isId = (text: string): boolean => ID.test(text);
 
-/** `/` is the overview, `/issues` and `/log` are themselves, and `/app-14` is that id's page. */
+/**
+ * `/` is the overview, `/issues`, `/log` and `/projects` are themselves, `/projects/<slug>` is
+ * that project's page, and `/app-14` is that id's page. A project's page is under
+ * `/projects/` because a slug may be `log` or `issues`, which are pages already.
+ */
 export function routeOf(pathname: string): Route | undefined {
   const path = pathname.replace(/\/+$/, "");
   if (path === "") return { page: "overview" };
   if (path === "/issues") return { page: "issues" };
   if (path === "/log") return { page: "log" };
+  if (path === "/projects") return { page: "projects" };
+  const project = path.match(/^\/projects\/([^/]+)$/);
+  if (project) return SLUG.test(project[1]!) ? { page: "project", slug: project[1]! } : undefined;
   const id = path.slice(1);
   return ID.test(id) ? { page: "item", id } : undefined;
 }

@@ -95,7 +95,7 @@ export function Sheet({ facts, children }: { facts: Fact[]; children?: ReactNode
 }
 
 /** Only http and https become an anchor: the deployment refuses the rest; this checks again. */
-const OPENABLE = /^https?:\/\//i;
+export const OPENABLE = /^https?:\/\//i;
 
 /**
  * An issue's links, one item each, each item the text of cn's `linkLine`: the label as the

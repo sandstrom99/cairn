@@ -1,16 +1,18 @@
 // Rail.tsx: the left column, glass. Which deployment this is, by the name the push recorded
-// with its host under it, where the page can go, and every open epic with the one dot that
-// says how it is doing. Below it, the fact a reader should not have to guess: this window
+// with its host under it, where the page can go, every project with its dot and its live
+// count, most pressing first, and every open epic with the one dot that says how it is
+// doing. Below it, the fact a reader should not have to guess: this window
 // reads, and what it reads with is a shared secret kept in this browser. The switch between
 // light and dark sits in the head, so it is there in the narrow layout too, where the footer
 // is not.
-import type { EpicLineView } from "@cairn/cli/views";
-import { Clock3, LayoutDashboard, List, Lock, Moon, Sun } from "lucide-react";
+import type { EpicLineView, ProjectView } from "@cairn/cli/views";
+import { Clock3, Layers, LayoutDashboard, List, Lock, Moon, Sun } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
+import { liveOf, orderProjects } from "./projects.ts";
 import { Ref } from "./Ref.tsx";
 import type { Theme } from "./theme.ts";
-import { Dot, epicWord, toneOf } from "./tone.tsx";
+import { Dot, epicWord, projectWord, toneOf } from "./tone.tsx";
 
 function Glyph() {
   return (
@@ -44,6 +46,7 @@ type Page = { href: string; label: string; icon: ComponentType<{ className?: str
 
 const PAGES: Page[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/projects", label: "Projects", icon: Layers },
   { href: "/issues", label: "Issues", icon: List },
   { href: "/log", label: "Log", icon: Clock3 },
 ];
@@ -52,8 +55,10 @@ export function Rail({
   name,
   host,
   epics,
+  projects,
   current = "/",
   epicId,
+  slug,
   theme,
   onToggleTheme,
   onForget,
@@ -65,19 +70,20 @@ export function Rail({
   name?: string;
   host: string;
   epics: EpicLineView[] | undefined;
+  /** Every project, for the Projects section; left out, the section is not there. */
+  projects?: ProjectView[];
   current?: string;
   /** The epic on screen, or the one the issue on screen belongs to. */
   epicId?: string;
+  /** The project on screen. */
+  slug?: string;
   /** Light or dark, and the switch between them in the head. */
   theme: Theme;
   onToggleTheme: () => void;
   /** Forgets the secret this browser keeps; the button shows only where it is given. */
   onForget?: () => void;
 }) {
-  const open = epics?.reduce(
-    (sum, { counts }) => sum + counts.open + counts.inProgress + counts.followUps,
-    0,
-  );
+  const open = epics?.reduce((sum, { counts }) => sum + liveOf(counts), 0);
   return (
     <aside
       aria-label="Deployment and pages"
@@ -113,7 +119,7 @@ export function Rail({
           <a
             key={href}
             href={href}
-            aria-current={href === current ? "page" : undefined}
+            aria-current={href === current || current.startsWith(`${href}/`) ? "page" : undefined}
             aria-label={label}
             className={cn(
               "flex h-9 items-center gap-[11px] rounded-[10px] px-2.5 font-medium text-slate hover:bg-lift/50 hover:text-ink",
@@ -129,7 +135,39 @@ export function Rail({
         ))}
       </nav>
 
-      <p className="mx-2.5 mt-[26px] mb-2 text-meta font-semibold text-slate narrow:hidden">
+      {projects !== undefined && projects.length > 0 && (
+        <>
+          <p className="mx-2.5 mt-[22px] mb-1.5 text-meta font-semibold text-slate narrow:hidden">
+            Projects
+          </p>
+          <ul className="narrow:hidden">
+            {orderProjects(projects).map((p) => {
+              const live = liveOf(p.counts);
+              return (
+                <li key={p.slug}>
+                  <a
+                    href={`/projects/${p.slug}`}
+                    title={p.name}
+                    aria-current={p.slug === slug ? "true" : undefined}
+                    className="flex h-[31px] items-center gap-[9px] rounded-[9px] px-2.5 text-row hover:bg-lift/50 aria-[current=true]:bg-lift aria-[current=true]:shadow-lift"
+                  >
+                    <Dot tone={toneOf(projectWord(p))} />
+                    <span className="font-mono">{p.slug}</span>
+                    {live > 0 && (
+                      <>
+                        {" "}
+                        <span className="ml-auto font-mono text-meta text-faint">{live}</span>
+                      </>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      <p className="mx-2.5 mt-[22px] mb-2 text-meta font-semibold text-slate narrow:hidden">
         Epics
       </p>
       <ul className="min-h-0 overflow-y-auto [scrollbar-width:thin] narrow:hidden">
