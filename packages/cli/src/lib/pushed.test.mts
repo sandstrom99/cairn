@@ -18,7 +18,7 @@ const cloud: Deployment = {
   source: "default",
 };
 const local: Deployment = { name: "CAIRN_URL", url: "http://127.0.0.1:3210", source: "CAIRN_URL" };
-const PUSH = "vp run @cairn/backend#push:cloud -- cairn";
+const PUSH = "vp run -F @cairn/backend push:cloud -- cairn";
 
 // What ConvexHttpClient threw, verbatim, calling a throwaway deployment on 2026-09-29.
 const VALIDATOR =
@@ -98,7 +98,7 @@ describe("pushFix", () => {
   it("names the deployment to push, or its URL where CAIRN_URL chose it", () => {
     expect(pushFix(cloud)).toBe(PUSH);
     expect(pushFix({ ...cloud, name: "northwind", source: "CAIRN_DEPLOYMENT" })).toBe(
-      "vp run @cairn/backend#push:cloud -- northwind",
+      "vp run -F @cairn/backend push:cloud -- northwind",
     );
     expect(pushFix(local)).toBe("push this checkout's functions to http://127.0.0.1:3210");
   });
@@ -153,7 +153,7 @@ describe("functionsCheck", () => {
       expect(functionsCheck(cloud, recorded, repo)).toEqual({
         check: "functions",
         ok: false,
-        line: `functions on cairn recorded as "${recorded}", not a commit: vp run @cairn/backend#push:cloud -- cairn`,
+        line: `functions on cairn recorded as "${recorded}", not a commit: vp run -F @cairn/backend push:cloud -- cairn`,
       });
   });
 

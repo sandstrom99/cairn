@@ -1,8 +1,8 @@
 // secret.mjs: the cloud deployment's `CAIRN_SECRET`, set from here and handed out once.
 //
-//   vp run @cairn/backend#secret -- new [<name>] [--op op://<vault>/<item>]      the first secret
-//   vp run @cairn/backend#secret -- rotate [<name>] [--op op://<vault>/<item>]   a fresh one in its place
-//   vp run @cairn/backend#secret -- revoke [<name>]                             one nobody holds
+//   vp run -F @cairn/backend secret -- new [<name>] [--op op://<vault>/<item>]      the first secret
+//   vp run -F @cairn/backend secret -- rotate [<name>] [--op op://<vault>/<item>]   a fresh one in its place
+//   vp run -F @cairn/backend secret -- revoke [<name>]                             one nobody holds
 //   import { changeSecret } from "./secret.mjs"                                 the e2e rows, on a throwaway
 //
 // The deployment is the one named, from `backend/.env.cloud.<name>.local`, or the only one
@@ -47,7 +47,7 @@ import { convexSync, holdEnvLocal, packageRoot, valueIn } from "./run-convex.mjs
 
 const ACTIONS = ["new", "rotate", "revoke"];
 const USAGE =
-  "usage: vp run @cairn/backend#secret -- new|rotate|revoke [<name>] [--op op://<vault>/<item>]";
+  "usage: vp run -F @cairn/backend secret -- new|rotate|revoke [<name>] [--op op://<vault>/<item>]";
 const NAME = "CAIRN_SECRET";
 const OP_REF = /^op:\/\/([^/]+)\/([^/]+)$/;
 

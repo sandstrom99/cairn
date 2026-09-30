@@ -154,7 +154,7 @@ describe("cn doctor", () => {
     expect(functionsFailed(cloud, missing, "/src/cairn")).toEqual({
       check: "functions",
       ok: false,
-      line: "cairn runs functions older than this cn: vp run @cairn/backend#push:cloud -- cairn",
+      line: "cairn runs functions older than this cn: vp run -F @cairn/backend push:cloud -- cairn",
     });
     expect(functionsFailed(cloud, new Error("fetch failed"), "/src/cairn")).toEqual({
       check: "functions",

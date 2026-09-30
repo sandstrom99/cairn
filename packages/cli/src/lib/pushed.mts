@@ -47,7 +47,7 @@ export const label = (dep: Deployment): string =>
 export const pushFix = (dep: Deployment): string =>
   dep.source === "CAIRN_URL"
     ? `push this checkout's functions to ${dep.url}`
-    : `vp run @cairn/backend#push:cloud -- ${dep.name}`;
+    : `vp run -F @cairn/backend push:cloud -- ${dep.name}`;
 
 /** Convex's words for a call to a function the deployment does not have. */
 const MISSING_FUNCTION = /Could not find public function for '([^']+)'/;

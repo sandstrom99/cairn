@@ -60,7 +60,7 @@ describe("explained", () => {
     const client = explained(throwing(extra), cairn, "/src/cairn");
     const thrown = await client.query(api.show.get, { id: "cn-1" }).catch((e: unknown) => e);
     expect((thrown as Error).message).toBe(
-      "cairn runs older functions than this cn (show:get has no `bogus`): vp run @cairn/backend#push:cloud -- cairn",
+      "cairn runs older functions than this cn (show:get has no `bogus`): vp run -F @cairn/backend push:cloud -- cairn",
     );
     expect((thrown as Error).cause).toBe(extra);
     await expect(

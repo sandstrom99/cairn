@@ -38,7 +38,7 @@ import { shipPage } from "./page.mjs";
 import { pushedFrom, recordPush } from "./pushed.mjs";
 import { convexStatus, holdEnvLocal, runConvex } from "./run-convex.mjs";
 
-const USAGE = "usage: vp run @cairn/backend#push:cloud [-- <name>], or #dev:cloud [-- <name>]";
+const USAGE = "usage: vp run -F @cairn/backend push:cloud [-- <name>], or dev:cloud [-- <name>]";
 
 // vp hands on the `--` that separates its own flags from the script's.
 const args = process.argv.slice(2).filter((arg) => arg !== "--");
