@@ -1622,7 +1622,7 @@ describe("briefLines", () => {
 
 describe("unjournaledLine", () => {
   const session = { name: "balder/claude", kind: "agent", session: "s-1" } as const;
-  const empty = briefView();
+  const empty: BriefView["inProgress"] = [];
   const held = (over: Partial<BriefView["inProgress"][number]> = {}) => ({
     id: "cn-38",
     title: "a Stop hook hands back one state line",
@@ -1631,24 +1631,23 @@ describe("unjournaledLine", () => {
     mine: true,
     ...over,
   });
-  const view = (...rows: BriefView["inProgress"]): BriefView => ({ ...empty, inProgress: rows });
 
   it("is nothing when this session holds nothing the deployment marked quiet", () => {
     expect(unjournaledLine(empty, now)).toBeUndefined();
     // Held and journaled inside the threshold: no mark, so no line.
-    expect(unjournaledLine(view(held({ lastJournal: ago(5 * MINUTE) })), now)).toBeUndefined();
+    expect(unjournaledLine([held({ lastJournal: ago(5 * MINUTE) })], now)).toBeUndefined();
     // Marked quiet, but somebody else's: not this session's to journal.
     expect(
-      unjournaledLine(view(held({ mine: false, unjournaledSince: ago(3 * HOUR) })), now),
+      unjournaledLine([held({ mine: false, unjournaledSince: ago(3 * HOUR) })], now),
     ).toBeUndefined();
-    expect(unjournaled(view(held({ mine: false, unjournaledSince: ago(3 * HOUR) })))).toEqual([]);
+    expect(unjournaled([held({ mine: false, unjournaledSince: ago(3 * HOUR) })])).toEqual([]);
   });
 
   it("names the claim and its last entry", () => {
     const at = ago(3 * HOUR);
     expect(
       unjournaledLine(
-        view(held({ claimedAt: ago(5 * HOUR), lastJournal: at, unjournaledSince: at })),
+        [held({ claimedAt: ago(5 * HOUR), lastJournal: at, unjournaledSince: at })],
         now,
       ),
     ).toBe('you hold cn-38 "a Stop hook hands back one state line", last journal 3h ago');
@@ -1658,11 +1657,11 @@ describe("unjournaledLine", () => {
     const claimedAt = ago(2 * HOUR);
     const line =
       'you hold cn-38 "a Stop hook hands back one state line", claimed 2h ago, nothing journaled since';
-    expect(unjournaledLine(view(held({ claimedAt, unjournaledSince: claimedAt })), now)).toBe(line);
+    expect(unjournaledLine([held({ claimedAt, unjournaledSince: claimedAt })], now)).toBe(line);
     // An entry older than the claim is not since it: the deployment marked the claim.
     expect(
       unjournaledLine(
-        view(held({ claimedAt, lastJournal: ago(9 * HOUR), unjournaledSince: claimedAt })),
+        [held({ claimedAt, lastJournal: ago(9 * HOUR), unjournaledSince: claimedAt })],
         now,
       ),
     ).toBe(line);
@@ -1672,11 +1671,11 @@ describe("unjournaledLine", () => {
     const at = ago(3 * HOUR);
     const claimedAt = ago(2 * HOUR);
     const line = unjournaledLine(
-      view(
+      [
         held({ lastJournal: at, unjournaledSince: at }),
         held({ id: "cn-40", title: "the other one", claimedAt, unjournaledSince: claimedAt }),
         held({ id: "cn-41", title: "fresh", claimedAt: ago(MINUTE) }),
-      ),
+      ],
       now,
     );
     expect(line).toBe(
