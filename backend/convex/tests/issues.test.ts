@@ -619,6 +619,27 @@ describe("issues.update", () => {
     });
   });
 
+  it("records a description change as the first line of each side, and the row keeps it whole", async () => {
+    const t = await seed();
+    const was = "the old description, all on one line ".repeat(3).slice(0, 100);
+    await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "a description that grows",
+      description: was,
+    });
+    const now = "what it is for now\nwhy it changed\nwhat it is not";
+    await t.mutation(api.issues.update, { actor, id: "cn-1", revision: 0, description: now });
+
+    const [event] = await eventsOf(t, "issue.update");
+    expect(event!.changes).toEqual({
+      description: { from: `${was.slice(0, 79).trimEnd()}…`, to: "what it is for now…" },
+    });
+    expect(await t.query(api.issues.list, {})).toMatchObject([{ id: "cn-1", description: now }]);
+    expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({ description: now });
+  });
+
   it("clears a deferUntil with null and leaves it alone when absent", async () => {
     const t = await withIssue();
     const when = Date.now() + 86_400_000;

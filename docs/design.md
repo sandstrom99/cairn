@@ -224,7 +224,14 @@ whole record stays on the issue, and a drop `status` and `droppedReason`; the he
 in `lib/lifecycle.ts`, one per move, each owning the patch it writes and what its event
 records, shared by every site that makes that move. Events written before 2026-09-20
 carry the raw patch for those four kinds, because nothing migrates an audit trail, so
-whatever renders `changes` reads both.
+whatever renders `changes` reads both. No string in `changes` runs past one line of 80
+characters: `record()` in `lib/events.ts` cuts every string, at any depth, to its first
+line, with `…` where more followed, so a description, a design, an acceptance list or a
+resolution's note travels in an event as its first line and stays whole only on the row,
+and the cut `journal.append` made of its own body moved there. Events written before
+2026-09-30 carry whole copies, a create's of every text field and an update's of both
+sides, which nothing migrates either; every reader already printed one line per field, so
+nothing shown changed.
 
 Whatever renders `changes` renders every kind as a line and none as JSON, settled
 2026-09-22 in `eventPieces` (`parts.mts`), which `cn log`, `cn show --history`, a stale

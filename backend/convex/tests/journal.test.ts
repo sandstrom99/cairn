@@ -40,14 +40,24 @@ describe("journal.append", () => {
     expect(after.lastActivity).toBeGreaterThan(before.lastActivity);
   });
 
-  it("records an event with no revision and the head of the body", async () => {
+  it("records an event with no revision and the body's first line, cut to 80", async () => {
     const t = await withIssue();
-    const body = "e".repeat(120);
+    const body = "the retry path works on the Pixel\nlogcat below\nno ANR in 20 runs";
     await t.mutation(api.journal.append, { actor, id: "cn-1", kind: "evidence", body });
+    await t.mutation(api.journal.append, {
+      actor,
+      id: "cn-1",
+      kind: "finding",
+      body: "e".repeat(120),
+    });
     const events = await eventsOf(t, "journal.append");
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(2);
     expect(events[0]!.revision).toBeUndefined();
-    expect(events[0]!.changes).toEqual({ kind: "evidence", body: "e".repeat(80) });
+    expect(events[0]!.changes).toEqual({
+      kind: "evidence",
+      body: "the retry path works on the Pixel…",
+    });
+    expect(events[1]!.changes).toEqual({ kind: "finding", body: `${"e".repeat(79)}…` });
   });
 
   it("takes an entry after a close, because evidence arrives late", async () => {
