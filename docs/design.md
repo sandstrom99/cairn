@@ -835,13 +835,19 @@ deployment's `CAIRN_PUSHED_FROM` (`backend/scripts/pushed.mjs`), with `-dirty` a
 where `backend/convex` held uncommitted changes, and `cn doctor` compares it with the
 checkout `cn` runs from, by git: commits, never working trees, and `backend/convex/tests`
 left out, so its last line says which side is behind and the one command that fixes it
-(cn-91, 2026-09-29). The bundle names the deployment and never a secret: a person pastes the
-secret once, into that origin's localStorage, and a reload does not ask again. The
-screen that asks is the page's front door and speaks the page's words: "needs its
-secret" to a browser that sent none, "refused the secret" to one that sent the wrong
-one, and "did not answer" only for a deployment that never did. It names no config
-file, variable or command, which are `cn`'s; the guard's line naming them is printed by
-`cn` alone (cn-85, 2026-09-28). `vp
+(cn-91, 2026-09-29). Beside it the push records the deployment's name as `CAIRN_NAME`,
+the `<name>` of `backend/.env.cloud.<name>.local` and what `cn init --name` calls it,
+which the rail's big word, with the host under it, and the tab title read
+(`deployment.name`): `Issues · invyte`, `cn-14 "…" · invyte`. Two tabs on two
+companies' pages no longer both read "cairn". A deployment the push never reached, the
+anonymous local one and a throwaway, has no name and reads `cairn` (cn-124). The
+bundle names the deployment and never a secret: a person pastes the secret once, into
+that origin's localStorage, and a reload does not ask again. The screen that asks is
+the page's front door and speaks the page's words: "needs its secret" to a browser
+that sent none, "refused the secret" to one that sent the wrong one, and "did not
+answer" only for a deployment that never did. It names no config file, variable or
+command, which are `cn`'s; the guard's line naming them is printed by `cn` alone
+(cn-85, 2026-09-28). `vp
 run dev:web` stays the loop for working on the page. Ruled out on 2026-09-24: one
 shared hosted page that asks for a URL and a secret, because every visitor would
 trust its host with a secret that can write, and one page would have to match every

@@ -1,8 +1,9 @@
 // deployment.ts: the one place the page asks the deployment anything. Live subscriptions,
 // each to a function cn calls: brief.get for the headline, epics.list for health and the
 // rail, blockers.list for what waits on a person, events.recent for the feed and the log,
-// issues.list for the lists and the jump bar. Nothing here calls a mutation: the window
-// reads. show.get is asked here too, through `useShown`, for the id on screen, and
+// issues.list for the lists and the jump bar; and deployment.name, which cn does not call,
+// for the rail's head and the tab title. Nothing here calls a mutation: the window reads.
+// show.get is asked here too, through `useShown`, for the id on screen, and
 // review.get through `useReview`, for an epic's page. undefined from any of them is the
 // subscription not having answered yet, never an empty list; unanswered is the deployment
 // not having answered at all.
@@ -45,9 +46,11 @@ export type Deployment = {
   destinations: Destination[];
   /** Whether WAIT has passed without the deployment ever opening its socket. */
   unanswered: boolean;
+  /** The deployment's own name as the push recorded it, or null where none is recorded. */
+  name: string | null | undefined;
 };
 
-/** The five subscriptions, the jump bar's destinations, and whether the deployment answered. */
+/** The six subscriptions, the jump bar's destinations, and whether the deployment answered. */
 export function useDeployment(secret: string | undefined, now: number): Deployment {
   const who: Who = secret === undefined ? {} : { secret };
   const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
@@ -55,6 +58,7 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
   const blockers = useQuery(api.blockers.list, who);
   const issues: Listed[] | undefined = useQuery(api.issues.list, who);
   const events = useHeld(useQuery(api.events.recent, { ...who, limit: LOG_LIMIT }));
+  const name = useQuery(api.deployment.name, who);
 
   const destinations = useMemo<Destination[]>(
     () => [
@@ -76,7 +80,7 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
   }, []);
   const unanswered = waited && !connection.hasEverConnected;
 
-  return { who, brief, epics, blockers, issues, events, destinations, unanswered };
+  return { who, brief, epics, blockers, issues, events, destinations, unanswered, name };
 }
 
 /**

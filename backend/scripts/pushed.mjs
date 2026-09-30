@@ -1,4 +1,5 @@
-// pushed.mjs: the commit a deployment's functions came from, recorded on the deployment.
+// pushed.mjs: the commit a deployment's functions came from, and the name they were pushed
+// under, recorded on the deployment.
 //
 //   import { pushedFrom, recordPush } from "./pushed.mjs"   `cloud.mjs` after the functions
 //                                                          land, and the e2e row against
@@ -9,6 +10,12 @@
 // fails with Convex's validator error and nothing says which side is behind. So each push
 // records `CAIRN_PUSHED_FROM` on the deployment it reached, `backend/convex/deployment.ts`
 // hands it back, and `cn doctor` compares it with the commit `cn` runs from.
+//
+// Beside it the push records `CAIRN_NAME`, the name it pushed under: the `<name>` of
+// `backend/.env.cloud.<name>.local`, which is what `cn init --name` called the deployment on
+// each machine, and what the page's rail and tab title read (`backend/convex/deployment.ts`).
+// A deployment the push never reached, the anonymous local one and a throwaway among them,
+// has neither.
 //
 // The value is `git rev-parse HEAD`, with `-dirty` after it when `convex/` carries changes
 // no commit holds, since then no commit names what was pushed. Outside a git checkout there
@@ -21,7 +28,8 @@
 import { execFileSync } from "node:child_process";
 import { convexSync, packageRoot } from "./run-convex.mjs";
 
-const NAME = "CAIRN_PUSHED_FROM";
+const PUSHED_KEY = "CAIRN_PUSHED_FROM";
+const NAME_KEY = "CAIRN_NAME";
 
 /** The commit `cwd`'s functions are, `-dirty` after it when `convex/` has changes; null outside git. */
 export function pushedFrom({ cwd = packageRoot } = {}) {
@@ -37,11 +45,17 @@ export function pushedFrom({ cwd = packageRoot } = {}) {
 }
 
 /**
- * Sets `CAIRN_PUSHED_FROM` to `value` on the deployment `env` and `cwd` reach, and returns
- * convex's exit status. Convex's own lines are held back unless it failed.
+ * Sets `CAIRN_PUSHED_FROM` to `value` on the deployment `env` and `cwd` reach, and
+ * `CAIRN_NAME` to `name` when one is given, leaving it as it is when not. Returns the first
+ * convex exit status that is not 0, or 0. Convex's own lines are held back unless it failed.
  */
-export function recordPush({ value, env = process.env, cwd = packageRoot }) {
-  const set = convexSync(["env", "set", NAME], { cwd, env, input: value });
-  if (set.status !== 0) process.stderr.write(`${set.stdout ?? ""}${set.stderr ?? ""}`);
-  return set.status ?? 1;
+export function recordPush({ value, name, env = process.env, cwd = packageRoot }) {
+  const set = (key, input) => {
+    const result = convexSync(["env", "set", key], { cwd, env, input });
+    if (result.status !== 0) process.stderr.write(`${result.stdout ?? ""}${result.stderr ?? ""}`);
+    return result.status ?? 1;
+  };
+  const status = set(PUSHED_KEY, value);
+  if (status !== 0 || name === undefined) return status;
+  return set(NAME_KEY, name);
 }

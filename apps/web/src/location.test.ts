@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { titleOf } from "./App.tsx";
 import { isOurs, routeOf } from "./location.ts";
 
 describe("routeOf", () => {
@@ -44,5 +45,16 @@ describe("isOurs", () => {
     );
     expect(isOurs(plain, { ...here, target: "_blank" }, "http://cairn.test")).toBe(false);
     expect(isOurs(plain, { ...here, download: true }, "http://cairn.test")).toBe(false);
+  });
+});
+
+describe("titleOf", () => {
+  it("names the page, then the deployment", () => {
+    expect(titleOf(routeOf("/issues"), undefined, "invyte")).toBe("Issues · invyte");
+    expect(titleOf(routeOf("/log"), undefined, "invyte")).toBe("Log · invyte");
+    expect(titleOf(routeOf("/cn-14"), 'cn-14 "fix connection retry"', "invyte")).toBe(
+      'cn-14 "fix connection retry" · invyte',
+    );
+    expect(titleOf(routeOf("/"), undefined, "invyte")).toBe("invyte");
   });
 });

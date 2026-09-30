@@ -1,8 +1,9 @@
-// Rail.tsx: the left column, glass. Which deployment this is, where the page can go, and
-// every open epic with the one dot that says how it is doing. Below it, the fact a reader
-// should not have to guess: this window reads, and what it reads with is a shared secret
-// kept in this browser. The switch between light and dark sits in the head, so it is there in
-// the narrow layout too, where the footer is not.
+// Rail.tsx: the left column, glass. Which deployment this is, by the name the push recorded
+// with its host under it, where the page can go, and every open epic with the one dot that
+// says how it is doing. Below it, the fact a reader should not have to guess: this window
+// reads, and what it reads with is a shared secret kept in this browser. The switch between
+// light and dark sits in the head, so it is there in the narrow layout too, where the footer
+// is not.
 import type { EpicLineView } from "@cairn/cli/views";
 import { Clock3, LayoutDashboard, List, Lock, Moon, Sun } from "lucide-react";
 import type { ComponentType } from "react";
@@ -48,6 +49,7 @@ const PAGES: Page[] = [
 ];
 
 export function Rail({
+  name,
   host,
   epics,
   current = "/",
@@ -56,6 +58,11 @@ export function Rail({
   onToggleTheme,
   onForget,
 }: {
+  /**
+   * The deployment's own name, recorded by the push; the product's until it answers or where
+   * none is recorded.
+   */
+  name?: string;
   host: string;
   epics: EpicLineView[] | undefined;
   current?: string;
@@ -82,7 +89,9 @@ export function Rail({
       <div className="flex items-center gap-2.5 py-1.5 pr-2 pl-1.5">
         <Glyph />
         <div className="min-w-0">
-          <div className="text-[0.96875rem] leading-tight font-[650] tracking-[-0.01em]">cairn</div>
+          <div className="text-[0.96875rem] leading-tight font-[650] tracking-[-0.01em]">
+            {name ?? "cairn"}
+          </div>
           <div className="truncate font-mono text-micro text-slate narrow:hidden">{host}</div>
         </div>
         <button

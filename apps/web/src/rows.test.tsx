@@ -427,3 +427,17 @@ describe("what the lines carry", () => {
     expect(folded).not.toContain("In progress");
   });
 });
+
+describe("the rail's head", () => {
+  it("reads the deployment's own name as the big word, with the host under it", () => {
+    expect(
+      text(<Rail name="invyte" host="h" epics={[]} theme="light" onToggleTheme={() => {}} />),
+    ).toMatch(/^invyte h /);
+  });
+
+  it("reads cairn where no name is recorded", () => {
+    expect(text(<Rail host="h" epics={[]} theme="light" onToggleTheme={() => {}} />)).toMatch(
+      /^cairn h /,
+    );
+  });
+});
