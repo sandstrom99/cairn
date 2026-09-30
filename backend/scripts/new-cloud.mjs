@@ -1,6 +1,6 @@
 // new-cloud.mjs: a company's Convex project and its development deployment, made from here.
 //
-//   vp run @cairn/backend#new:cloud -- <name> [--team <team>] [--project <project>]
+//   vp run -F @cairn/backend new:cloud -- <name> [--team <team>] [--project <project>]
 //   import { newCloud } from "./new-cloud.mjs"                   the e2e row, with a stand-in convex
 //
 // `<name>` is what `cn init` will call the deployment, and the project is `cairn-<name>`
@@ -50,7 +50,7 @@ import { parseArgs } from "node:util";
 import { convexStatus, holdEnvLocal, packageRoot } from "./run-convex.mjs";
 
 const USAGE =
-  "usage: vp run @cairn/backend#new:cloud -- <name> [--team <team>] [--project <project>]";
+  "usage: vp run -F @cairn/backend new:cloud -- <name> [--team <team>] [--project <project>]";
 /** A deployment's name as `cn init --name` takes it, and as clouds.mjs reads it from a file name. */
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 /** What convex's environment must not carry: each would pick a deployment, or a kind of one. */
@@ -172,7 +172,7 @@ export async function newCloud({
     err(`created ${name}: ${deployment} at ${url}, in backend/${envFile}`);
     if (status !== 0) err(`convex exited ${status} after creating it; the file is written`);
     err(
-      `next: vp run @cairn/backend#secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`,
+      `next: vp run -F @cairn/backend secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`,
     );
     return status === 0 ? 0 : 1;
   } finally {

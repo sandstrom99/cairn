@@ -115,7 +115,7 @@ export async function startThrowaway() {
       String(cloudPort),
       "--local-site-port",
       String(sitePort),
-      // `vp check` type-checks this tree already, and `@cairn/backend#verify` is the row
+      // `vp check` type-checks this tree already, and `vp run -F @cairn/backend verify` is the row
       // for Convex's own tsc; here it is a second of startup per run and nothing else.
       "--typecheck",
       "disable",

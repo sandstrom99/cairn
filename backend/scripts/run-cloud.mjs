@@ -3,8 +3,8 @@
 // (convex/pulse.ts), and `issueText:move`, which moves every issue's long text into its
 // own table (convex/issueText.ts).
 //
-//   vp run @cairn/backend#run:cloud -- <module:function> [<name>]
-//   vp run @cairn/backend#run:cloud -- pulse:rebuild cairn
+//   vp run -F @cairn/backend run:cloud -- <module:function> [<name>]
+//   vp run -F @cairn/backend run:cloud -- pulse:rebuild cairn
 //
 // Each is run once on each cloud deployment after the push that adds its table, and a
 // rerun only does the same again. The local deployment needs no script:
@@ -24,7 +24,9 @@ function main(argv) {
   // vp hands on the `--` that separates its own flags from the script's.
   const args = argv[0] === "--" ? argv.slice(1) : argv;
   if (args.length < 1 || args.length > 2) {
-    process.stderr.write("usage: vp run @cairn/backend#run:cloud -- <module:function> [<name>]\n");
+    process.stderr.write(
+      "usage: vp run -F @cairn/backend run:cloud -- <module:function> [<name>]\n",
+    );
     return 2;
   }
   const [fn, name] = args;

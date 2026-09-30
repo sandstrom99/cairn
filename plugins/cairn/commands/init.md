@@ -70,14 +70,14 @@ Otherwise offer to stand one up, and do it with them.
      With no `op` on PATH it is the file, and say so. Either way the secret never passes
      through this conversation. With a file, colleagues who join get it from the person
      through whatever they already share secrets with.
-4. From the checkout's root, run `vp run @cairn/backend#new:cloud -- <name> --project <project>`,
-   or `vp run @cairn/backend#new:cloud -- <name> --project <project> --team <team>` when a
+4. From the checkout's root, run `vp run -F @cairn/backend new:cloud -- <name> --project <project>`,
+   or `vp run -F @cairn/backend new:cloud -- <name> --project <project> --team <team>` when a
    team was named. It creates the project and its development deployment with nothing
    running on it yet, writes `backend/.env.cloud.<name>.local`, which binds this checkout's
    cloud commands to it, and leaves `backend/.env.local` as it was.
 5. The secret, in the place they chose. It is set on the deployment before any function
    exists there.
-   - In 1Password: `vp run @cairn/backend#secret -- new <name> --op "op://<vault>/cairn <name> deployment"`.
+   - In 1Password: `vp run -F @cairn/backend secret -- new <name> --op "op://<vault>/cairn <name> deployment"`.
      It stores the secret in a 1Password item with the URL beside it, and prints the
      `cn init --name …` line every machine sets up with. The secret itself is never
      printed. When `op` fails with `account is not signed in` or `authorization timeout`,
@@ -91,7 +91,7 @@ Otherwise offer to stand one up, and do it with them.
      that file: the secret would then be in this transcript. The `cn init --name …` line
      the script prints on stderr carries a placeholder for the secret command; the command
      is `cat ~/.config/cairn/<name>.secret`.
-6. `vp run @cairn/backend#push:cloud -- <name>`: the functions, then the page, which is
+6. `vp run -F @cairn/backend push:cloud -- <name>`: the functions, then the page, which is
    then at the deployment's URL with `.convex.cloud` changed to `.convex.site`, the region
    kept. `cn doctor` prints it as its `✓ page …` line.
 

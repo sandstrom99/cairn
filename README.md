@@ -244,7 +244,7 @@ give it, lowercase letters, digits and dashes:
 
 ```bash
 cd ~/.local/share/cairn
-vp run @cairn/backend#new:cloud -- acme
+vp run -F @cairn/backend new:cloud -- acme
 ```
 
 It creates the Convex project `cairn-acme` with its development deployment, and writes
@@ -262,7 +262,7 @@ machine yourself. Either way it is never on the terminal.
 With 1Password, the script creates the item with the fields `url` and `secret`:
 
 ```bash
-vp run @cairn/backend#secret -- new acme --op "op://<vault>/cairn acme deployment"
+vp run -F @cairn/backend secret -- new acme --op "op://<vault>/cairn acme deployment"
 ```
 
 It prints the `cn init --name acme …` line, its `--secret-cmd` reading the item: run it
@@ -292,7 +292,7 @@ variable.
 Then push the functions and the page:
 
 ```bash
-vp run @cairn/backend#push:cloud -- acme
+vp run -F @cairn/backend push:cloud -- acme
 ```
 
 The page is then at the deployment's URL with `.convex.cloud` changed to `.convex.site`,
@@ -300,17 +300,17 @@ the region kept: `https://happy-otter-123.eu-west-1.convex.site` for
 `https://happy-otter-123.eu-west-1.convex.cloud`. Dropping the region gives a 404.
 
 An install that keeps several deployments, one file each, pushes every one of them
-with a bare `vp run @cairn/backend#push:cloud`, so a backend change reaches every
+with a bare `vp run -F @cairn/backend push:cloud`, so a backend change reaches every
 company's worklist, and names one after `--` to push only that one.
 
 A bare `npx convex` in `backend/` rebinds `.env.local` to whatever it last talked to;
-the next `vp run @cairn/backend#…` puts it back and says so.
+the next `vp run -F @cairn/backend …` puts it back and says so.
 
 Rotating replaces the secret, and then each machine runs `cn init --refresh`, which runs
 the command it stored at setup again. With 1Password:
 
 ```bash
-vp run @cairn/backend#secret -- rotate acme --op "op://<vault>/cairn acme deployment"
+vp run -F @cairn/backend secret -- rotate acme --op "op://<vault>/cairn acme deployment"
 cn init --refresh
 ```
 
@@ -326,7 +326,7 @@ cn init --refresh
 Every other machine takes the new secret from you into its own file the same way, and
 runs `cn init --refresh`.
 
-Revoking is `vp run @cairn/backend#secret -- revoke acme`, which fences the deployment
+Revoking is `vp run -F @cairn/backend secret -- revoke acme`, which fences the deployment
 with a secret nobody holds until the next rotate. `convex env remove CAIRN_SECRET` would
 open it to anyone with the URL, so never that. One shared secret cannot shut out one
 machine: a rotate shuts out all of them, and each that should be back runs
@@ -448,7 +448,7 @@ the `cn init` that adds the missing one.
 
 `apps/web` is the window for a person: every row is one of `cn`'s lines, live
 over a subscription, with the deployment's activity beside it. It is read-only
-today. The deployment serves it itself: `vp run @cairn/backend#push:cloud` pushes
+today. The deployment serves it itself: `vp run -F @cairn/backend push:cloud` pushes
 the functions and then the page, built for that deployment, so it is at the
 deployment's URL with `.convex.cloud` changed to `.convex.site`, region and all, on any
 machine, a phone included. `cn doctor` prints it as its `✓ page …` line. It reads
@@ -468,7 +468,7 @@ CAIRN_SECRET=<the secret>
 vp run dev:web
 ```
 
-The dev server alone reads `CAIRN_SECRET`. A build, `vp run @cairn/web#build`,
+The dev server alone reads `CAIRN_SECRET`. A build, `vp run -F @cairn/web build`,
 never carries it: the built page asks for it once and keeps it in that browser's
 storage. With no `VITE_CAIRN_URL` the page talks to the anonymous local
 deployment on port 3210.
@@ -476,7 +476,7 @@ deployment on port 3210.
 ## Updating
 
 From inside the install, `git pull --ff-only && vp install` takes what has merged, and
-`vp run @cairn/backend#push:cloud` takes it to every deployment the install keeps. Do both
+`vp run -F @cairn/backend push:cloud` takes it to every deployment the install keeps. Do both
 together: a `cn` and the functions it calls move as one, and `cn doctor` says when a
 deployment runs functions older or newer than the `cn` asking.
 
@@ -494,9 +494,9 @@ Push `b673ae2`, the last commit that declares the field and carries the one-off 
 strips it, run the one-off, and push main:
 
 ```bash
-git checkout b673ae2 && vp install && vp run @cairn/backend#push:cloud -- acme
+git checkout b673ae2 && vp install && vp run -F @cairn/backend push:cloud -- acme
 (cd backend && npx convex run --env-file .env.cloud.acme.local patch:dropRequires)
-git checkout main && vp install && vp run @cairn/backend#push:cloud -- acme
+git checkout main && vp install && vp run -F @cairn/backend push:cloud -- acme
 ```
 
 The one-off answers `{ "issues": N, "stripped": N }`, and run again, `"stripped": 0`. It
@@ -507,7 +507,7 @@ changes nothing anyone reads, and it writes no event.
 A local deployment needs no Convex account. From the install, in a terminal of its own:
 
 ```bash
-cd ~/.local/share/cairn && vp run @cairn/backend#dev
+cd ~/.local/share/cairn && vp run -F @cairn/backend dev
 ```
 
 That runs an anonymous deployment at `http://127.0.0.1:3210` and pushes cairn's functions
@@ -533,7 +533,7 @@ and nothing is reported as working until it is green.
 ```bash
 vp config                          # once per clone: the pre-commit hook
 vp run verify                      # format, lint, types, every test: about a second
-vp run @cairn/backend#dev          # a local deployment, no account, in another terminal
+vp run -F @cairn/backend dev       # a local deployment, no account, in another terminal
 ```
 
 ## Why not beads

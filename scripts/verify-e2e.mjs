@@ -1994,7 +1994,7 @@ row("backend/scripts/new-cloud.mjs (files)", async () => {
     const made = (deployment, team, project) =>
       `# Deployment used by \`npx convex dev\`\nCONVEX_DEPLOYMENT=${deployment} # team: ${team}, project: ${project}\n\nCONVEX_URL=https://${deployment.slice(4)}.convex.cloud\n`;
     const next = (name) =>
-      `next: vp run @cairn/backend#secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`;
+      `next: vp run -F @cairn/backend secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`;
     const noLogin =
       "not logged in to Convex on this machine: npx convex login, from backend/, logs in; nothing created";
 

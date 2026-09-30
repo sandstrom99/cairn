@@ -2,7 +2,7 @@
 // event is counted into its project's pulse in the mutation that writes it (lib/events.ts),
 // so this is the backfill for a deployment that had events before the table did, and the
 // repair when the counts are doubted. Run it once after the push that adds the table:
-// `vp run @cairn/backend#run:cloud -- pulse:rebuild <name>` for a cloud deployment, and
+// `vp run -F @cairn/backend run:cloud -- pulse:rebuild <name>` for a cloud deployment, and
 // `node scripts/local.mjs run pulse:rebuild` from `backend/` for the local one.
 //
 // It is an internal mutation rather than one through lib/guard: nothing outside the

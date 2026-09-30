@@ -1,6 +1,6 @@
 // main.tsx: the entry point. Which deployment this bundle talks to is decided at build
 // time by VITE_CAIRN_URL, defaulting to the anonymous local deployment on 3210 — the same
-// one `vp run @cairn/backend#dev` pushes to. The secret is not decided here: it is pasted
+// one `vp run -F @cairn/backend dev` pushes to. The secret is not decided here: it is pasted
 // into the page and lives in the browser (secret.ts).
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { StrictMode } from "react";
