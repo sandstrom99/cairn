@@ -1,13 +1,12 @@
 // health.ts: the health line of docs/design.md §8 — what is moving, what is stuck, what
 // waits on a person — each a fact with a query behind it and never a percentage. It lives
 // here rather than in views.ts because it is a computation over a set of issues, an
-// epic's or a project's, not the shape of one document; so is a project's pulse.
-import type { Doc, Id } from "../_generated/dataModel";
+// epic's or a project's, not the shape of one document.
+import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { isMirror } from "./events";
 import { unresolvedBlockersOn } from "./graph";
 import { idOrder } from "./order";
-import { DAY, PULSE_DAYS, STUCK_AFTER_MS } from "./thresholds";
+import { STUCK_AFTER_MS } from "./thresholds";
 import { isLive } from "./validators";
 import { epicView } from "./views";
 
@@ -130,46 +129,4 @@ export async function epicHealth(
     lastActivity,
     health: await issueHealth(ctx, issues, now),
   };
-}
-
-/**
- * Each project's pulse (§8): for each of the last PULSE_DAYS days, oldest first, how many
- * events touched its issues and how many of those were `issue.close`, a drop not being a
- * close. It reads the window's events once across the table and counts an edge once, as
- * `cn log` does, skipping its mirror; an event that carries only a blocker or an epic
- * touches no issue and is not counted. A day is the 24 hours counted back from `now`, not
- * a calendar day, since cairn knows no time zone, and every project with an issue among
- * `issues` gets all PULSE_DAYS buckets, zeros included.
- */
-export async function pulses(
-  ctx: QueryCtx,
-  issues: Doc<"issues">[],
-  now: number,
-): Promise<Map<Id<"projects">, { events: number; closes: number }[]>> {
-  const out = new Map<Id<"projects">, { events: number; closes: number }[]>();
-  const byId = new Map<Id<"issues">, Doc<"issues">>();
-  for (const issue of issues) {
-    byId.set(issue._id, issue);
-    if (!out.has(issue.projectId))
-      out.set(
-        issue.projectId,
-        Array.from({ length: PULSE_DAYS }, () => ({ events: 0, closes: 0 })),
-      );
-  }
-
-  const events = await ctx.db
-    .query("events")
-    .withIndex("by_creation_time", (q) => q.gt("_creationTime", now - PULSE_DAYS * DAY))
-    .collect();
-  for (const e of events) {
-    if (e.issueId === undefined) continue;
-    const issue = byId.get(e.issueId);
-    if (issue === undefined || isMirror(e, issue)) continue;
-    const k = Math.floor(Math.max(0, now - e._creationTime) / DAY);
-    if (k >= PULSE_DAYS) continue;
-    const bucket = out.get(issue.projectId)![PULSE_DAYS - 1 - k]!;
-    bucket.events += 1;
-    if (e.kind === "issue.close") bucket.closes += 1;
-  }
-  return out;
 }

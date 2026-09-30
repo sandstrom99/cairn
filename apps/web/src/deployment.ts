@@ -3,11 +3,13 @@
 // rail, projects.list for the rail's Projects section and the Projects pages, blockers.list
 // for what waits on a person, events.recent for the feed, issues.list for the lists and the
 // jump bar; and deployment.name, which cn does not call, for the rail's head and the tab
-// title. The log page asks events.recent for more through `useLog`, while it is open.
-// Nothing here calls a mutation: the window reads. show.get is asked here too, through
-// `useShown`, for the id on screen, and review.get through `useReview`, for an epic's page.
-// undefined from any of them is the subscription not having answered yet, never an empty
-// list; unanswered is the deployment not having answered at all.
+// title. The log page asks events.recent for more through `useLog`, while it is open, and
+// the Projects routes ask projects.list once more through `usePulsed`, with each project's
+// pulse, which the rail's subscription leaves out. Nothing here calls a mutation: the
+// window reads. show.get is asked here too, through `useShown`, for the id on screen, and
+// review.get through `useReview`, for an epic's page. undefined from any of them is the
+// subscription not having answered yet, never an empty list; unanswered is the deployment
+// not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { JOURNAL_MAX, LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
 import type {
@@ -108,6 +110,15 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
  */
 export function useLog(who: Who): LogEvent[] | undefined {
   return useQuery(api.events.recent, { ...who, limit: LOG_LIMIT });
+}
+
+/**
+ * `projects.list` again, with each project's pulse: the same list `useDeployment` holds for
+ * the rail, subscribed only while a Projects route is on screen, so the rail on every other
+ * screen reads no pulse rows.
+ */
+export function usePulsed(who: Who, now: number): ProjectView[] | undefined {
+  return useHeld(useQuery(api.projects.list, { ...who, now, pulse: true }));
 }
 
 /**

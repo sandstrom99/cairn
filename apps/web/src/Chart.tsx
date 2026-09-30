@@ -206,7 +206,7 @@ export function Pulse({
   max,
   caps,
 }: {
-  pulse: ProjectView["pulse"];
+  pulse: NonNullable<ProjectView["pulse"]>;
   height: number;
   max: number;
   caps: string[];

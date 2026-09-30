@@ -2,10 +2,11 @@
 // corrupt an id: a slug that cannot be a prefix, one reserved for epics or blockers, and
 // a second project claiming a prefix that is already minting. Beside them is what
 // `projects.list` reads for each (docs/design.md §8): the epic's three health lines over
-// the project's issues, and its pulse of the last 28 days. Then `update`: the name, the
+// the project's issues, and, for a caller that asks, its pulse of the last 28 UTC days and
+// the rebuild that recounts it from the events. Then `update`: the name, the
 // description and the links, against a revision a project from before cn-125 reads as 0.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { DAY, PULSE_DAYS } from "../lib/thresholds";
 import {
   type Harness,
@@ -22,9 +23,12 @@ import {
 
 afterEach(() => vi.useRealTimers());
 
-/** A project as `cn project list` reads it, at `now` when the caller says. */
+/** A project as `cn project list` reads it, pulse included, at `now` when the caller says. */
 const projectOf = async (t: Harness, slug = "cn", now?: number) => {
-  const listed = await t.query(api.projects.list, now === undefined ? {} : { now });
+  const listed = await t.query(
+    api.projects.list,
+    now === undefined ? { pulse: true } : { now, pulse: true },
+  );
   const project = listed.find((p) => p.slug === slug);
   if (!project) throw new Error(`${slug} is not listed`);
   return project;
@@ -318,13 +322,13 @@ describe("project health", () => {
     await closeIssue(t, "cn-2");
     const now = Date.parse("2026-09-19T12:00:00Z");
 
-    const { pulse } = await projectOf(t, "cn", now);
+    const pulse = (await projectOf(t, "cn", now)).pulse!;
     expect(pulse).toHaveLength(PULSE_DAYS);
-    // Two creates and one edge, written on both ends, 51 hours back: day 2.
+    // Two creates and one edge, written on both ends, on 2026-09-17: two UTC days back.
     expect(pulse[PULSE_DAYS - 3]).toEqual({ events: 3, closes: 0 });
-    // The journal entry, 27 hours back: day 1.
+    // The journal entry, on 2026-09-18: yesterday.
     expect(pulse[PULSE_DAYS - 2]).toEqual({ events: 1, closes: 0 });
-    // The close, 3 hours back: the last 24 hours.
+    // The close, on 2026-09-19: today so far.
     expect(pulse[PULSE_DAYS - 1]).toEqual({ events: 1, closes: 1 });
     expect(pulse.slice(0, PULSE_DAYS - 3)).toEqual(EMPTY_PULSE.slice(3));
 
@@ -333,5 +337,58 @@ describe("project health", () => {
       (e) => e.issue?.id.startsWith("cn-") && e.at > now - PULSE_DAYS * DAY,
     );
     expect(pulse.reduce((sum, day) => sum + day.events, 0)).toBe(logged.length);
+  });
+
+  it("a row without pulse: true carries no pulse", async () => {
+    at("2026-09-17T09:00:00Z");
+    const t = await seed({ issues: ["work 1"] });
+    const now = Date.parse("2026-09-17T12:00:00Z");
+    const [project] = await t.query(api.projects.list, { now });
+    expect(project!.pulse).toBeUndefined();
+  });
+
+  it("events either side of a UTC midnight fall in different days", async () => {
+    at("2026-09-18T23:59:00Z");
+    const t = await seed({ issues: [] });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "late" });
+    at("2026-09-19T00:01:00Z");
+    await t.mutation(api.journal.append, { actor, id: "cn-1", kind: "finding", body: "early" });
+    const now = Date.parse("2026-09-19T12:00:00Z");
+
+    const pulse = (await projectOf(t, "cn", now)).pulse!;
+    expect(pulse[PULSE_DAYS - 2]).toEqual({ events: 1, closes: 0 });
+    expect(pulse[PULSE_DAYS - 1]).toEqual({ events: 1, closes: 0 });
+  });
+
+  it("rebuild recounts the pulse from the events", async () => {
+    at("2026-08-01T09:00:00Z");
+    const t = await seed({ issues: ["long ago"] });
+    at("2026-09-17T09:00:00Z");
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "first" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "second" });
+    at("2026-09-17T10:00:00Z");
+    await t.mutation(api.edges.add, { actor, from: "cn-2", to: "cn-3", type: "blocks" });
+    at("2026-09-18T09:00:00Z");
+    await t.mutation(api.journal.append, { actor, id: "cn-2", kind: "finding", body: "a finding" });
+    at("2026-09-19T09:00:00Z");
+    await closeIssue(t, "cn-2");
+    const now = Date.parse("2026-09-19T12:00:00Z");
+    const before = (await projectOf(t, "cn", now)).pulse;
+
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("pulse").collect()) await ctx.db.delete(row._id);
+    });
+    expect((await projectOf(t, "cn", now)).pulse).toEqual(EMPTY_PULSE);
+
+    // Every event on an issue but the edge's mirror is counted, cn-1's create of 2026-08-01
+    // included, which is stored though no window reads it: four days, so four rows.
+    const onIssues = (await rows(t, "events")).filter((e) => e.issueId !== undefined);
+    const first = await t.mutation(internal.pulse.rebuild, {});
+    expect((await projectOf(t, "cn", now)).pulse).toEqual(before);
+    expect(first).toEqual({ events: onIssues.length - 1, rows: 4 });
+
+    const again = await t.mutation(internal.pulse.rebuild, {});
+    expect(again).toEqual(first);
+    expect((await projectOf(t, "cn", now)).pulse).toEqual(before);
   });
 });

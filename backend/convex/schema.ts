@@ -143,4 +143,15 @@ export default defineSchema({
     .index("by_epic", ["epicId"])
     .index("by_blocker", ["blockerId"])
     .index("by_project", ["projectId"]),
+
+  // One row per project per UTC day: how many events touched its issues and how many of
+  // those were closes, written in the same transaction as the event (lib/events.ts), so a
+  // pulse is a read of 28 small rows per project rather than a count over every event of
+  // the last four weeks. `day` is Math.floor(ms / DAY), lib/pulse.ts.
+  pulse: defineTable({
+    projectId: v.id("projects"),
+    day: v.number(),
+    events: v.number(),
+    closes: v.number(),
+  }).index("by_project_day", ["projectId", "day"]),
 });

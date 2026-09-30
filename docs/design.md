@@ -725,11 +725,19 @@ Epics cut across projects, so an epic's health cannot say whether anything in
 issues, from the same `issueHealth` in `lib/health.ts`, and `cn project list`
 prints a block per project in the epic's shape; a project nothing has been filed
 under is its head alone, `admin "Invyte admin, the admin app"  nothing filed`.
-Beside them `projects.list` carries the project's pulse, which the page draws and
-the text lines do not print: for each of the last 28 days, oldest first, how many
-events touched its issues and how many of those were closes. A day is the 24
-hours counted back from the caller's clock, not a calendar day, since cairn knows
-no time zone (cn-126).
+Beside them the page draws the project's pulse, which the text lines do not
+print. `projects.list` carries it for a caller that sends `pulse: true`,
+`cn project list` and the page's Projects routes, and the rail's subscription on
+every other screen leaves it out. It is, for each of the last 28 UTC days, oldest
+first, how many events touched the project's issues and how many of those were
+closes, the last bucket being today so far. The count is one row per project per
+day in `pulse`, written in the same transaction as the event (`lib/events.ts`),
+so a pulse is 28 small rows per project rather than every event of four weeks,
+which on 2026-09-30 was half of everything the deployment read. It is a stored
+count, the one denormalisation here, and it cannot drift from what it summarises,
+since nothing moves a row but the event it counts. `pulse:rebuild`
+recounts it from the events, for a deployment that had events before the table
+did. Revised 2026-09-30 from days counted back from the caller's clock (cn-126).
 
 ### The web window
 
