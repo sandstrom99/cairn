@@ -18,6 +18,7 @@ import { mint } from "./ids";
 import { type Link, type LinkInput, editLinks } from "./links";
 import { checkPriority } from "./priority";
 import { applyRevision } from "./revision";
+import { type IssueText, textOf, writeText } from "./text";
 import type { FollowUpKind, IssueType } from "./validators";
 import type { VerificationInput } from "./verification";
 import { type IssueView, epicView, issueView } from "./views";
@@ -32,7 +33,7 @@ export function createdChanges<T extends { createdAt: number }>(view: T): Omit<T
   return copy as Omit<T, "createdAt">;
 }
 
-/** One line for the event; the whole record, output included, stays on the issue. */
+/** One line for the event; the whole record stays on the issue, its output in `issueText`. */
 function verificationSummary(proof: VerificationInput): string {
   if ("exitCode" in proof) return `${proof.command} (exit ${proof.exitCode})`;
   return `unverified: ${proof.unverified}`;
@@ -53,26 +54,27 @@ type NewIssue = {
   priority: number;
 };
 
+/** A just-created issue: its view, and the text it was created with, which no list carries. */
+export type CreatedIssue = IssueView & Pick<IssueText, "description" | "design" | "acceptance">;
+
 /**
- * Mints `<slug>-<n>`, inserts the row, records `issue.create`, returns the view. The epic
- * is not checked for being open: a follow-up lands beside its parent in whatever epic that
- * is, since residue outlives a close (§5). The open-epic rule is `openEpicArg`'s, for the
- * epic an argument names.
+ * Mints `<slug>-<n>`, inserts the row and its text, records `issue.create`, returns the
+ * view with the text beside it, so the event and the answer say what they said when the
+ * text lived on the row. The epic is not checked for being open: a follow-up lands beside
+ * its parent in whatever epic that is, since residue outlives a close (§5). The open-epic
+ * rule is `openEpicArg`'s, for the epic an argument names.
  */
 export async function insertIssue(
   ctx: MutationCtx,
   actor: Actor,
   fields: NewIssue,
-): Promise<IssueView> {
+): Promise<CreatedIssue> {
   const n = await mint(ctx, fields.project.slug);
   const _id = await ctx.db.insert("issues", {
     id: `${fields.project.slug}-${n}`,
     projectId: fields.project._id,
     epicId: fields.epicId,
     title: fields.title,
-    ...(fields.description === undefined ? {} : { description: fields.description }),
-    ...(fields.design === undefined ? {} : { design: fields.design }),
-    ...(fields.acceptance === undefined ? {} : { acceptance: fields.acceptance }),
     type: fields.type,
     ...(fields.followUpKind === undefined ? {} : { followUpKind: fields.followUpKind }),
     ...(fields.parentIssueId === undefined ? {} : { parentIssueId: fields.parentIssueId }),
@@ -82,16 +84,22 @@ export async function insertIssue(
     lastActivity: Date.now(),
     revision: 0,
   });
-  const view = await issueView(ctx, (await ctx.db.get(_id))!);
+  const text = {
+    ...(fields.description === undefined ? {} : { description: fields.description }),
+    ...(fields.design === undefined ? {} : { design: fields.design }),
+    ...(fields.acceptance === undefined ? {} : { acceptance: fields.acceptance }),
+  };
+  await writeText(ctx, _id, text);
+  const created: CreatedIssue = { ...(await issueView(ctx, (await ctx.db.get(_id))!)), ...text };
   await record(ctx, {
     kind: "issue.create",
     actor,
     issueId: _id,
     epicId: fields.epicId,
     revision: 0,
-    changes: createdChanges(view),
+    changes: createdChanges(created),
   });
-  return view;
+  return created;
 }
 
 /**
@@ -163,7 +171,10 @@ export async function releaseIssue(
 // Close and drop deliberately do not record `claimedBy` going away: ending an issue ends
 // its claim, and the claim event already named who held it.
 
-/** Closes an issue with its verification record, recording the one-line summary of it. */
+/**
+ * Closes an issue with its verification record, recording the one-line summary of it. The
+ * row keeps the record without the command's output, which goes to `issueText`.
+ */
 export async function closeIssue(
   ctx: MutationCtx,
   actor: Actor,
@@ -171,13 +182,18 @@ export async function closeIssue(
   proof: VerificationInput,
 ): Promise<Doc<"issues">> {
   const now = Date.now();
+  const stamp = { at: now, by: actor };
+  if ("exitCode" in proof) await writeText(ctx, doc._id, { output: proof.output });
   return await applyRevision(
     ctx,
     { table: "issues", doc },
     {
       status: "closed",
       closedAt: now,
-      verification: { ...proof, at: now, by: actor },
+      verification:
+        "exitCode" in proof
+          ? { command: proof.command, exitCode: proof.exitCode, ...stamp }
+          : { unverified: proof.unverified, ...stamp },
       claimedBy: undefined,
       claimedAt: undefined,
       lastActivity: now,
@@ -240,7 +256,9 @@ export type IssueEdit = {
  * The one `issue.update`: patches every field given, records each as `{ from, to }` and
  * stamps `lastActivity`. Refuses an empty edit. A link edit that changes nothing is not
  * one: the issue comes back as it was, with no revision and no event, so attaching a URL
- * it already carries is harmless.
+ * it already carries is harmless. The three text fields are written to `issueText`, and
+ * their `from` read from it, once and only when one is set; the row still takes the
+ * revision and the stamp, so an edit to the text is an edit to the issue.
  */
 export async function editIssue(
   ctx: MutationCtx,
@@ -249,18 +267,24 @@ export async function editIssue(
   edit: IssueEdit,
 ): Promise<Doc<"issues">> {
   const patch: Partial<Doc<"issues">> = {};
+  const text: Partial<IssueText> = {};
   const changes: Record<string, { from: unknown; to: unknown }> = {};
-  const set = <K extends "title" | "description" | "design" | "acceptance" | "priority">(
-    field: K,
-    to: Doc<"issues">[K],
-  ) => {
+  const set = <K extends "title" | "priority">(field: K, to: Doc<"issues">[K]) => {
     changes[field] = { from: doc[field], to };
     patch[field] = to;
   };
+  const was: IssueText =
+    edit.description !== undefined || edit.design !== undefined || edit.acceptance !== undefined
+      ? await textOf(ctx, doc)
+      : {};
+  const setText = (field: "description" | "design" | "acceptance", to: string) => {
+    changes[field] = { from: was[field], to };
+    text[field] = to;
+  };
   if (edit.title !== undefined) set("title", edit.title);
-  if (edit.description !== undefined) set("description", edit.description);
-  if (edit.design !== undefined) set("design", edit.design);
-  if (edit.acceptance !== undefined) set("acceptance", edit.acceptance);
+  if (edit.description !== undefined) setText("description", edit.description);
+  if (edit.design !== undefined) setText("design", edit.design);
+  if (edit.acceptance !== undefined) setText("acceptance", edit.acceptance);
   if (edit.priority !== undefined) set("priority", checkPriority(edit.priority));
   if (edit.deferUntil !== undefined) {
     // null clears the field; the change is recorded as null so the history reads as
@@ -279,10 +303,11 @@ export async function editIssue(
     if (links !== undefined) {
       patch.links = links.next;
       changes.links = links.change;
-    } else if (Object.keys(patch).length === 0) return doc;
+    } else if (Object.keys(changes).length === 0) return doc;
   }
-  if (Object.keys(patch).length === 0) throw invalid("nothing to update");
+  if (Object.keys(changes).length === 0) throw invalid("nothing to update");
 
+  await writeText(ctx, doc._id, text);
   // lastActivity is stamped by every write and is noise in a history line, so the
   // recorded changes are what the caller asked for and not the housekeeping beside it.
   patch.lastActivity = Date.now();

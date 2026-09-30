@@ -11,7 +11,7 @@ import type { QueryCtx } from "../_generated/server";
 import { edgesFrom, edgesTo, unresolvedBlockersOn } from "./graph";
 import { priorityOrder } from "./order";
 import { isLive } from "./validators";
-import { type Ref, issueView, ref } from "./views";
+import { type Ref, issueView, lookups, ref } from "./views";
 
 /** What holds an issue back. Ready is all three empty. */
 type Blocked = {
@@ -65,7 +65,8 @@ export async function readyIssues(ctx: QueryCtx, now: number = Date.now()) {
   for (const doc of open) if (isReady(await blockedBy(ctx, doc, now))) ready.push(doc);
   ready.sort(priorityOrder);
 
-  return await Promise.all(ready.map((doc) => issueView(ctx, doc)));
+  const seen = lookups();
+  return await Promise.all(ready.map((doc) => issueView(ctx, doc, seen)));
 }
 
 /**
@@ -89,5 +90,6 @@ export async function madeReadyBy(ctx: QueryCtx, closed: Doc<"issues">, now: num
       ready.push(doc);
   ready.sort(priorityOrder);
 
-  return await Promise.all(ready.map((doc) => issueView(ctx, doc)));
+  const seen = lookups();
+  return await Promise.all(ready.map((doc) => issueView(ctx, doc, seen)));
 }

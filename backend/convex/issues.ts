@@ -47,7 +47,7 @@ import {
   issueTypeValidator,
 } from "./lib/validators";
 import { verificationInputValidator } from "./lib/verification";
-import { type Ref, issueView, ref } from "./lib/views";
+import { type Ref, issueView, lookups, ref } from "./lib/views";
 
 /**
  * `claimed`, with the two fields narrowed: every caller has tested `claimedBy` first.
@@ -178,9 +178,10 @@ export const list = query({
     }
 
     rows.sort(priorityOrder);
+    const seen = lookups();
     return await Promise.all(
       rows.map(async (doc) => ({
-        ...(await issueView(ctx, doc)),
+        ...(await issueView(ctx, doc, seen)),
         ...(silentFor !== undefined ? { silentSince: doc.lastActivity } : {}),
         ...(args.blocked ? { blockedBy: holders.get(doc._id)! } : {}),
       })),
