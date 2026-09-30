@@ -2,12 +2,13 @@
 // each to a function cn calls: brief.get for the headline, epics.list for health and the
 // rail, projects.list for the rail's Projects section and the Projects pages, blockers.list
 // for what waits on a person, events.recent for the feed, issues.list for the lists and the
-// jump bar; and deployment.name, which cn does not call, for the rail's head and the tab
-// title. The log page asks events.recent for more through `useLog`, while it is open, and
-// the Projects routes ask projects.list once more through `usePulsed`, with each project's
-// pulse, which the rail's subscription leaves out. Nothing here calls a mutation: the
-// window reads. show.get is asked here too, through `useShown`, for the id on screen, and
-// review.get through `useReview`, for an epic's page. undefined from any of them is the
+// jump bar; deployment.name, which cn does not call, for the rail's head and the tab title;
+// and clock.next, which cn does not call either, through `useClock`, for the clock the
+// others carry. The log page asks events.recent for more through `useLog`, while it is
+// open, and the Projects routes ask projects.list once more through `usePulsed`, with each
+// project's pulse, which the rail's subscription leaves out. Nothing here calls a mutation:
+// the window reads. show.get is asked here too, through `useShown`, for the id on screen,
+// and review.get through `useReview`, for an epic's page. undefined from any of them is the
 // subscription not having answered yet, never an empty list; unanswered is the deployment
 // not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
@@ -29,6 +30,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useHeld } from "./held.ts";
 import type { Destination } from "./JumpBar.tsx";
+import { tick } from "./now.ts";
 import type { WaitingBlocker } from "./Overview.tsx";
 import type { Listed } from "./rows.tsx";
 
@@ -47,6 +49,44 @@ export const WAIT = 5_000;
 
 /** The secret a query carries, or nothing where there is none to send. */
 export type Who = { secret?: string };
+
+/** The `Who` for a secret: the secret, or nothing where there is none to send. */
+export const whoOf = (secret: string | undefined): Who => (secret === undefined ? {} : { secret });
+
+/**
+ * The clock the page's queries carry: the moment it loaded, advanced only when the
+ * deployment says a line would change. `clock.next` answers the earliest such moment after
+ * the clock it was sent; one timer waits for it, held while the tab is hidden and caught
+ * up when it is shown, and the clock then moves to the present. A tab left open sends a
+ * new clock a few times a day rather than once a minute. Design §10.
+ */
+export function useClock(who: Who): number {
+  const [now, setNow] = useState(() => Date.now());
+  const [visible, setVisible] = useState(() => !document.hidden);
+  const next = useQuery(api.clock.next, { ...who, now });
+
+  useEffect(() => {
+    const shown = () => setVisible(!document.hidden);
+    document.addEventListener("visibilitychange", shown);
+    return () => document.removeEventListener("visibilitychange", shown);
+  }, []);
+
+  useEffect(() => {
+    const step = tick(next, now, Date.now(), visible);
+    if (step === undefined) return;
+    if ("advance" in step) {
+      setNow(Date.now());
+      return;
+    }
+    // At or past the moment, never a hair before it: a timer that fires a millisecond early
+    // would send a clock the moment has not reached, and every query would rerun twice.
+    const moment = next ?? 0;
+    const timer = setTimeout(() => setNow(Math.max(Date.now(), moment)), step.delay);
+    return () => clearTimeout(timer);
+  }, [next, now, visible]);
+
+  return now;
+}
 
 /** Everything the page reads from the deployment, each `undefined` until it has answered. */
 export type Deployment = {
@@ -71,7 +111,7 @@ export type Deployment = {
  * and whether the deployment answered.
  */
 export function useDeployment(secret: string | undefined, now: number): Deployment {
-  const who: Who = secret === undefined ? {} : { secret };
+  const who = whoOf(secret);
   const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
   const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
   const projects = useHeld(useQuery(api.projects.list, { ...who, now }));

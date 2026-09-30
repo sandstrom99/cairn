@@ -24,7 +24,7 @@ import { query } from "./lib/guard";
 import { INBOX_ID } from "./lib/inbox";
 import { epicById } from "./lib/lookup";
 import { idOrder } from "./lib/order";
-import { CLAIM_SILENT_MS, INBOX_STALE_MS } from "./lib/thresholds";
+import { silentAt, staleAt } from "./lib/thresholds";
 import { nearIdentical } from "./lib/titles";
 import { epicFinished, isLive } from "./lib/validators";
 import { type End, type Ref, end, epicView, ref } from "./lib/views";
@@ -57,7 +57,7 @@ export const get = query({
     const inbox =
       epic.id === INBOX_ID
         ? live
-            .filter((doc) => now - doc._creationTime > INBOX_STALE_MS)
+            .filter((doc) => staleAt(doc._creationTime) <= now)
             .map((doc) => ({ id: doc.id, title: doc.title, createdAt: doc._creationTime }))
         : [];
 
@@ -80,7 +80,7 @@ export const get = query({
 
     // A claim with no activity past the brief's threshold. Nothing releases it; a person does.
     const silent = issues
-      .filter((doc) => doc.status === "in_progress" && now - doc.lastActivity > CLAIM_SILENT_MS)
+      .filter((doc) => doc.status === "in_progress" && silentAt(doc.lastActivity) <= now)
       .sort(idOrder)
       .map((doc) => ({
         id: doc.id,

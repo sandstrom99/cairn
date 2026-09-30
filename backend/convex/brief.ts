@@ -22,8 +22,9 @@ import type { QueryCtx } from "./_generated/server";
 import { type Actor, actorValidator, sameSession } from "./lib/actor";
 import { nowArg } from "./lib/clock";
 import { query } from "./lib/guard";
+import { lastJournaledAt } from "./lib/journal";
 import { readyIssues } from "./lib/readiness";
-import { CLAIM_SILENT_MS, JOURNAL_QUIET_MS } from "./lib/thresholds";
+import { quietAt, silentAt } from "./lib/thresholds";
 
 /**
  * The blockers in one unresolved status. Both lines over them are counts, so the order
@@ -42,25 +43,19 @@ const blockersWith = async (
 const TOP = 3;
 
 /**
- * When an issue was last journaled, and when its claim last had anything journaled
- * against it: the later of the claim and the newest entry, so a claim taken a minute ago
- * over an issue journaled hours ago starts quiet from the claim, not from the entry.
+ * When an issue was last journaled, and, once its claim reads quiet, since when nothing has
+ * been: the later of the claim and the newest entry, as lib/journal.ts reads them for
+ * `clock.next` too.
  */
 async function journalFacts(
   ctx: QueryCtx,
   doc: Doc<"issues">,
   now: number,
 ): Promise<{ lastJournal?: number; unjournaledSince?: number }> {
-  const newest = await ctx.db
-    .query("journal")
-    .withIndex("by_issue", (q) => q.eq("issueId", doc._id))
-    .order("desc")
-    .first();
-  const lastJournal = newest?._creationTime;
-  const since = Math.max(lastJournal ?? 0, doc.claimedAt ?? doc._creationTime);
+  const { lastJournal, since } = await lastJournaledAt(ctx, doc);
   return {
     ...(lastJournal === undefined ? {} : { lastJournal }),
-    ...(now - since > JOURNAL_QUIET_MS ? { unjournaledSince: since } : {}),
+    ...(quietAt(since) <= now ? { unjournaledSince: since } : {}),
   };
 }
 
@@ -75,7 +70,7 @@ async function heldRow(ctx: QueryCtx, doc: Doc<"issues">, actor: Actor | undefin
     claimedBy: doc.claimedBy,
     claimedAt: doc.claimedAt,
     mine: actor !== undefined && doc.claimedBy !== undefined && sameSession(doc.claimedBy, actor),
-    ...(now - doc.lastActivity > CLAIM_SILENT_MS ? { silentSince: doc.lastActivity } : {}),
+    ...(silentAt(doc.lastActivity) <= now ? { silentSince: doc.lastActivity } : {}),
     ...(await journalFacts(ctx, doc, now)),
   };
 }

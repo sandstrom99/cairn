@@ -1,7 +1,8 @@
 // thresholds.ts: the numbers `review.get`, the brief and epic health measure against
 // (docs/design.md §7, §12). They live here rather than beside any one reader because
-// lib/health.ts reads them for what is stuck, brief.ts for a silent claim and review.ts
-// for its lines: one constants module they all import, rather than any reading another.
+// lib/health.ts reads them for what is stuck, brief.ts for a silent claim, review.ts
+// for its lines and clock.ts for the next moment any of them turns: one constants module
+// they all import, rather than any reading another.
 
 export const HOUR = 60 * 60 * 1000;
 export const DAY = 24 * HOUR;
@@ -26,3 +27,31 @@ export const PULSE_DAYS = 28;
  * newest entry, is what the Stop hook hands back as one state line (§8).
  */
 export const JOURNAL_QUIET_MS = 1 * HOUR;
+
+// The moments each line above starts to hold. Every comparison is strict, silent strictly
+// longer than the limit, so the first millisecond a line holds is its start plus the limit
+// plus one. Each rule is spelled here once, as that moment: the queries read `moment <= now`
+// and `clock.next` hands the page the earliest moment still ahead, so the two cannot
+// disagree about when a line appears.
+
+/** The moment a claim reads silent: the brief's `silentSince` and review's silent line. */
+export const silentAt = (lastActivity: number): number => lastActivity + CLAIM_SILENT_MS + 1;
+/** The moment a claim reads quiet, `since` counted as the brief counts it: its `unjournaledSince`. */
+export const quietAt = (since: number): number => since + JOURNAL_QUIET_MS + 1;
+/** The moment an inbox item reads stale: review's inbox line. */
+export const staleAt = (createdAt: number): number => createdAt + INBOX_STALE_MS + 1;
+/**
+ * The moment an open, unclaimed issue nobody holds reads stuck: its deferral passed and its
+ * silence past its priority's limit, or undefined for a priority that is never stuck. The
+ * other conditions, open, unclaimed and held by no blocker, are not the clock's.
+ */
+export const stuckAt = (issue: {
+  priority: number;
+  lastActivity: number;
+  deferUntil?: number;
+}): number | undefined => {
+  const limit = STUCK_AFTER_MS[issue.priority];
+  return limit === undefined
+    ? undefined
+    : Math.max(issue.deferUntil ?? 0, issue.lastActivity + limit + 1);
+};

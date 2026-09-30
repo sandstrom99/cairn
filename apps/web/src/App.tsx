@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { readCollapsed, writeCollapsed } from "./column.ts";
 import { Unanswered } from "./Connect.tsx";
 import {
+  useClock,
   useDeployment,
   useLog,
   usePulsed,
@@ -28,6 +29,7 @@ import {
   useShown,
   WAIT,
   type Who,
+  whoOf,
 } from "./deployment.ts";
 import type { Listing } from "./Feed.tsx";
 import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
@@ -125,13 +127,18 @@ function Window({
     setCollapsed(!collapsed);
   };
   const route = routeOf(path);
+  // Two clocks: `asked` is the one the queries carry, which moves only when `clock.next` says
+  // a line would change, and `now` the display clock for ages, which ticks every minute and
+  // asks the deployment nothing.
+  const who = whoOf(secret);
+  const asked = useClock(who);
   const now = useMinute();
-  const { who, brief, epics, projects, blockers, issues, events, destinations, unanswered, name } =
-    useDeployment(secret, now);
+  const { brief, epics, projects, blockers, issues, events, destinations, unanswered, name } =
+    useDeployment(secret, asked);
   const id = route?.page === "item" ? route.id : undefined;
   const slug = route?.page === "project" ? route.slug : undefined;
-  const answer = useShown(who, id, now);
-  const review = useReview(who, id, now);
+  const answer = useShown(who, id, asked);
+  const review = useReview(who, id, asked);
   const error = answer instanceof Error ? answer : undefined;
   const { value: shown, stale } = useStale(answer instanceof Error ? undefined : answer, id);
 
@@ -192,10 +199,18 @@ function Window({
           </>
         )
       ) : route.page === "projects" ? (
-        <ProjectsLive who={who} now={now} projects={projects} issues={issues} blockers={blockers} />
+        <ProjectsLive
+          who={who}
+          asked={asked}
+          now={now}
+          projects={projects}
+          issues={issues}
+          blockers={blockers}
+        />
       ) : route.page === "project" ? (
         <ProjectsLive
           who={who}
+          asked={asked}
           now={now}
           slug={route.slug}
           projects={projects}
@@ -260,6 +275,7 @@ function LogLive({ who, events, now }: { who: Who; events: LogEvent[] | undefine
  */
 function ProjectsLive({
   who,
+  asked,
   now,
   projects,
   issues,
@@ -267,13 +283,16 @@ function ProjectsLive({
   slug,
 }: {
   who: Who;
+  /** The clock the pulse query carries, `useClock`'s. */
+  asked: number;
+  /** The display clock, for the ages the pages print. */
   now: number;
   projects: ProjectView[] | undefined;
   issues: Listed[] | undefined;
   blockers: WaitingBlocker[] | undefined;
   slug?: string;
 }) {
-  const pulsed = usePulsed(who, now);
+  const pulsed = usePulsed(who, asked);
   return slug === undefined ? (
     <ProjectsPage projects={pulsed ?? projects} issues={issues} blockers={blockers} now={now} />
   ) : (

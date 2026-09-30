@@ -1,11 +1,12 @@
 // held.ts: the last answer a live query gave, while the next one is on its way.
 //
 // `useQuery` answers `undefined` whenever its arguments change, until the deployment
-// replies. The page changes `now` once a minute (now.ts), so without this every list on it
-// would blink to "loading…" on the minute and back. Holding the previous answer across
-// that gap is the pattern Convex documents as a stable query: `undefined` still means the
-// first answer has not arrived, and never that a later one is pending. The lists hold
-// across a `now` tick with `useHeld`; the page for one id holds across an id change with
+// replies. The page changes the `now` its queries carry whenever `clock.next` says a line
+// would change, a few times a day (`useClock`, deployment.ts), so without this every list on
+// it would blink to "loading…" at each of those moments and back. Holding the previous
+// answer across that gap is the pattern Convex documents as a stable query: `undefined` still
+// means the first answer has not arrived, and never that a later one is pending. The lists
+// hold across a `now` change with `useHeld`; the page for one id holds across an id change with
 // `useStale`, which keeps the previous id's answer on screen, marked stale, until its own lands.
 import { useRef } from "react";
 
