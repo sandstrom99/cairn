@@ -21,12 +21,15 @@ export function Group({
   count,
   folded = false,
   id,
+  aside,
   className,
   children,
 }: {
   title: string;
   count?: number;
   folded?: boolean;
+  /** A word about the section, set small at the right of its title. */
+  aside?: ReactNode;
   /** Names the section to assistive tech, `aria-labelledby` on the section and `id` on the title. */
   id?: string;
   /** The margin above; `mt-8` unless given. */
@@ -39,18 +42,22 @@ export function Group({
       {count !== undefined && (
         <span className="ml-1 font-mono font-normal text-faint">{count}</span>
       )}
+      {aside !== undefined && (
+        <span className="ml-auto font-normal text-meta text-slate">{aside}</span>
+      )}
     </>
   );
+  const row = aside !== undefined && "flex items-baseline gap-3";
   if (folded)
     return (
       <details className={cn("group", className ?? "mt-8")}>
-        <summary className={cn(TITLE, "cursor-pointer hover:text-ink")}>{head}</summary>
+        <summary className={cn(TITLE, row, "cursor-pointer hover:text-ink")}>{head}</summary>
         <div className="mt-2.5">{children}</div>
       </details>
     );
   return (
     <section aria-labelledby={id} className={className ?? "mt-8"}>
-      <h2 id={id} className={cn(TITLE, "mb-2.5")}>
+      <h2 id={id} className={cn(TITLE, row, "mb-2.5")}>
         {head}
       </h2>
       {children}

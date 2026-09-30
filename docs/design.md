@@ -737,7 +737,8 @@ holds every row to that, which is how "the same health lines as `cn epic list`"
 is checked rather than hoped for. Ruled out: a mono dump of the lines with the
 references turned into links, which reads as a screenshot of a terminal.
 
-The screens are the Overview at `/`, Issues, one page per id (`/app-14`,
+The screens are the Overview at `/`, Projects at `/projects` with a page per
+project at `/projects/<slug>`, Issues, one page per id (`/app-14`,
 `/ep-3`, `/bl-2`) that renders what `cn show` prints, and the Log. Where the
 deployment will not answer, the page shows its line and a field for the secret.
 A picker for switching deployments in the page was planned here and taken out
@@ -811,7 +812,9 @@ the loop speaks plain language, and nothing on the page asks anyone to run or pa
 command, not a `cn` line and not a slash command. Copying commands would make the person
 the one steering their agents, which is another job.
 
-Four routes do not get a router. The path is the state, and one listener turns
+**Projects.** Added 2026-09-30 (cn-127), built to the mock Balder settled on cn-123, `https://claude.ai/artifact/4SNvUM8MESoyRAbGacedYo` at version `1790717059-c337`, the way `docs/mock/overview.html` was the Overview's. The rail gets a Projects item between Overview and Issues and, above Epics, a section with every project: its dot, its slug and its live count, the name on hover, most pressing first. `/projects` opens on a headline with one clause per project in the same order, waiting, then stuck, then moving, then quiet, then nothing filed, in the page's own words (`apps/web/src/projects.ts`, beside the brief's): `app waits on you. tools is moving, with 2 stuck. admin has nothing filed.` Under it the chart: one lane per project, every live issue a dot placed left to right by how long since it last moved, on a log scale with three days at the middle and 45 days at the right edge, and top to bottom by priority, with each priority's limit from `thresholds.ts` drawn as the zone a dot is in once it is stuck; moving, waiting and stuck are the dot's chroma, and open is hollow. Then a section per project: its `cn project list` block, the head line and the health rows typeset the way an epic's are on the Overview, with the description and the links as chips between the head and the rows, and under the rows the pulse `projects.list` carries, one bar a day for 28 days with the closes in ink at the foot, beside one dot per live issue under each epic. `/projects/<slug>` is one project with room: the chart alone, the pulse beside the epic strips, then Moving, Waiting on you, Stuck and Open, each row `cn list --silent 0d`'s line with a meter of its silence against its priority's limit, and the closes of the last four weeks folded. It lives under `/projects/` because a slug may be `log` or `issues`, which are pages already. The page reads what `projects.list`, `issues.list` and `blockers.list` answer and decides nothing they do not: an issue is stuck because its project's health names it, and waiting because a blocker on the list holds it.
+
+Six routes do not get a router. The path is the state, and one listener turns
 every plain same-origin link into `history.pushState`, so components write
 `<a href>` and nothing else: links work with a modifier held, render in a test
 with no router around them, and keep the live subscriptions when clicked

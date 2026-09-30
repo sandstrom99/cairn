@@ -19,10 +19,12 @@ type Props = {
   clip?: boolean;
   /** Set when the row around it is already the link. */
   plain?: boolean;
+  /** Where the link goes, when it is not the id's own page: a project's is `/projects/<slug>`. */
+  href?: string;
   className?: string;
 };
 
-export function Ref({ item, clip = false, plain = false, className }: Props) {
+export function Ref({ item, clip = false, plain = false, href, className }: Props) {
   const { id, title } = refParts(item);
   const body = (
     <>
@@ -43,7 +45,7 @@ export function Ref({ item, clip = false, plain = false, className }: Props) {
     );
   return (
     <a
-      href={`/${id}`}
+      href={href ?? `/${id}`}
       title={clip ? item.title : undefined}
       className={cn(
         classes,

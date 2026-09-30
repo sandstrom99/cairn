@@ -16,6 +16,7 @@ import type {
   IssueLineView,
   JournalEntry,
   LogEvent,
+  ProjectView,
   ShownBlocker,
   ShownIssue,
   Verification,
@@ -76,7 +77,7 @@ export type HealthRow =
 const STUCK_NAMED = 3;
 
 /** The health block in pieces: the epic, its counts as one run, and a row per fact. */
-type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
+export type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
 
 /** The counts as one run: `2 done · 0 open · 1 follow-up`. The health block and the review both head with it. */
 export const countsRun = (counts: EpicLineView["counts"]): string => {
@@ -106,6 +107,13 @@ export function healthParts(view: HealthView, now: number = Date.now()): HealthP
   for (const blocker of view.health.waiting)
     rows.push({ fact: "waiting", target: blocker, tail: `· owner ${blocker.owner}` });
   return { epic: view, counts: countsRun(view.counts), rows };
+}
+
+/** A project's block in pieces, as `cn project list` prints it: its head is the slug and name in the reference form, and a project nothing has been filed under has `nothing filed` for its counts and no rows. */
+export function projectParts(project: ProjectView, now: number = Date.now()): HealthParts {
+  const head = { id: project.slug, title: project.name };
+  if (project.filed === 0) return { epic: head, counts: "nothing filed", rows: [] };
+  return healthParts({ ...head, counts: project.counts, health: project.health }, now);
 }
 
 /** A reference with a word after it where the thing named is not what it was: `cn-6 "…" done`. */

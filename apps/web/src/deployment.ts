@@ -1,7 +1,8 @@
 // deployment.ts: the one place the page asks the deployment anything. Live subscriptions,
 // each to a function cn calls: brief.get for the headline, epics.list for health and the
-// rail, blockers.list for what waits on a person, events.recent for the feed and the log,
-// issues.list for the lists and the jump bar; and deployment.name, which cn does not call,
+// rail, projects.list for the rail's Projects section and the Projects pages, blockers.list
+// for what waits on a person, events.recent for the feed and the log, issues.list for the
+// lists and the jump bar; and deployment.name, which cn does not call,
 // for the rail's head and the tab title. Nothing here calls a mutation: the window reads.
 // show.get is asked here too, through `useShown`, for the id on screen, and
 // review.get through `useReview`, for an epic's page. undefined from any of them is the
@@ -9,7 +10,14 @@
 // not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
 import { JOURNAL_MAX, LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
-import type { BriefView, EpicLineView, LogEvent, ReviewView, Shown } from "@cairn/cli/views";
+import type {
+  BriefView,
+  EpicLineView,
+  LogEvent,
+  ProjectView,
+  ReviewView,
+  Shown,
+} from "@cairn/cli/views";
 import {
   type RequestForQueries,
   useConvexConnectionState,
@@ -39,6 +47,7 @@ export type Deployment = {
   who: Who;
   brief: BriefView | undefined;
   epics: EpicLineView[] | undefined;
+  projects: ProjectView[] | undefined;
   blockers: WaitingBlocker[] | undefined;
   issues: Listed[] | undefined;
   events: LogEvent[] | undefined;
@@ -50,11 +59,12 @@ export type Deployment = {
   name: string | null | undefined;
 };
 
-/** The six subscriptions, the jump bar's destinations, and whether the deployment answered. */
+/** The seven subscriptions, the jump bar's destinations, and whether the deployment answered. */
 export function useDeployment(secret: string | undefined, now: number): Deployment {
   const who: Who = secret === undefined ? {} : { secret };
   const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
   const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
+  const projects = useHeld(useQuery(api.projects.list, { ...who, now }));
   const blockers = useQuery(api.blockers.list, who);
   const issues: Listed[] | undefined = useQuery(api.issues.list, who);
   const events = useHeld(useQuery(api.events.recent, { ...who, limit: LOG_LIMIT }));
@@ -80,7 +90,7 @@ export function useDeployment(secret: string | undefined, now: number): Deployme
   }, []);
   const unanswered = waited && !connection.hasEverConnected;
 
-  return { who, brief, epics, blockers, issues, events, destinations, unanswered, name };
+  return { who, brief, epics, projects, blockers, issues, events, destinations, unanswered, name };
 }
 
 /**

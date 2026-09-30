@@ -9,6 +9,7 @@ import { type Referable, ref } from "./ref.mts";
 import { age, day, silence, since } from "./time.mts";
 import {
   type Fact,
+  type HealthRow,
   type LinkParts,
   blockerFacts,
   blockerParts,
@@ -23,6 +24,7 @@ import {
   linkFacts,
   logParts,
   named,
+  projectParts,
   refs,
   unjournaled,
 } from "./parts.mts";
@@ -122,15 +124,14 @@ export const freedLine = (issues: Referable[]): string => `  freed  ${refs(issue
  */
 export function healthLines(view: HealthView, now: number = Date.now()): string[] {
   const { epic, counts, rows } = healthParts(view, now);
-  return [
-    `${ref(epic)}  ${counts}`,
-    ...rows.map((row) =>
-      row.fact === "more"
-        ? `  ${fact("")}${row.tail}`
-        : `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`,
-    ),
-  ];
+  return [`${ref(epic)}  ${counts}`, ...rows.map(healthRowLine)];
 }
+
+/** One row of a health block, under the epic's or the project's head. */
+const healthRowLine = (row: HealthRow): string =>
+  row.fact === "more"
+    ? `  ${fact("")}${row.tail}`
+    : `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`;
 
 /**
  * A project's health block, as `cn project list` prints it (docs/design.md §8): its
@@ -139,9 +140,8 @@ export function healthLines(view: HealthView, now: number = Date.now()): string[
  * `admin "Invyte admin, the admin app"  nothing filed`.
  */
 export function projectLines(project: ProjectView, now: number = Date.now()): string[] {
-  const head = { id: project.slug, title: project.name };
-  if (project.filed === 0) return [`${ref(head)}  nothing filed`];
-  return healthLines({ ...head, counts: project.counts, health: project.health }, now);
+  const { epic, counts, rows } = projectParts(project, now);
+  return [`${ref(epic)}  ${counts}`, ...rows.map(healthRowLine)];
 }
 
 /**

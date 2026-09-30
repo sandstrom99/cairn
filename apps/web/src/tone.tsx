@@ -2,7 +2,7 @@
 // Chroma means state (index.css): moving is teal, stuck is amber, waiting is violet, and
 // still is grey with a hollow dot. Every dot and every coloured state word on the page is
 // set from here; a status word in a list column that carries no chroma is IssueRows' own.
-import type { EpicLineView } from "@cairn/cli/views";
+import type { EpicLineView, ProjectView } from "@cairn/cli/views";
 import { cn } from "@/lib/utils";
 
 export type Tone = "moving" | "stuck" | "waiting" | "still";
@@ -13,6 +13,9 @@ const TONE: Record<Tone, { dot: string; word: string }> = {
   waiting: { dot: "bg-waiting", word: "text-waiting-ink" },
   still: { dot: "shadow-hollow", word: "text-slate" },
 };
+
+/** The text class a tone sets a word in, alone: for a tinted word inside a sentence. */
+export const toneText = (tone: Tone): string => TONE[tone].word;
 
 /** The tone a state word carries: cn's three names are their own, and every other word is still. */
 export const toneOf = (word: string): Tone =>
@@ -30,9 +33,30 @@ export function epicWord(epic: EpicLineView & { status?: string }): string {
   return epic.status === undefined || epic.status === "open" ? "nothing moving" : epic.status;
 }
 
+/**
+ * The most pressing thing true of a project, as its word: waiting, stuck, moving; else
+ * "nothing filed" where nothing ever was, or "nothing moving".
+ */
+export function projectWord(project: ProjectView): string {
+  if (project.health.waiting.length > 0) return "waiting";
+  if (project.health.stuck.length > 0) return "stuck";
+  if (project.health.moving.length > 0) return "moving";
+  return project.filed === 0 ? "nothing filed" : "nothing moving";
+}
+
 /** The dot alone: the one chroma the rail shows per epic. */
-export function Dot({ tone, className }: { tone: Tone; className?: string }) {
-  return <i className={cn("size-2 shrink-0 rounded-full", TONE[tone].dot, className)} />;
+export function Dot({
+  tone,
+  className,
+  title,
+}: {
+  tone: Tone;
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <i className={cn("size-2 shrink-0 rounded-full", TONE[tone].dot, className)} title={title} />
+  );
 }
 
 /**

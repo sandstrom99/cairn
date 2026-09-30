@@ -12,11 +12,13 @@ import {
   historyLines,
   holdsLine,
   issueLine,
+  listLine,
   logLine,
+  projectLines,
 } from "@cairn/cli/lines";
 import { countsRun } from "@cairn/cli/parts";
 import { ref } from "@cairn/cli/ref";
-import { DAY, HOUR, agent, epic, issue, logEvent, now } from "@cairn/cli/testing";
+import { DAY, HOUR, agent, epic, issue, logEvent, now, project } from "@cairn/cli/testing";
 import type { HistoryEvent } from "@cairn/cli/views";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -27,6 +29,7 @@ import { JumpRow, withTyped } from "./JumpBar.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { Epics, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { squeeze } from "./plain.ts";
+import { ProjectHead, ProjectsPage } from "./ProjectPages.tsx";
 import { Rail } from "./Rail.tsx";
 import { IssueRows, type Listed } from "./rows.tsx";
 import { rows, text } from "./testing.tsx";
@@ -90,6 +93,8 @@ const underA: Listed = {
   claimedBy: undefined,
   epic: { id: "ep-7", title: "cn prints what it knows" },
   type: "task",
+  project: "cn",
+  lastActivity: now - HOUR,
 };
 const onA = logEvent({
   kind: "issue.claim",
@@ -128,6 +133,8 @@ const listed: Listed = {
   claimedBy: { name: "balder/claude" },
   epic: { id: "ep-4", title: "Humans in the loop" },
   type: "task",
+  project: "cn",
+  lastActivity: now - HOUR,
 };
 
 /** The same, as a row on its epic's own page, which does not repeat the epic. */
@@ -140,7 +147,21 @@ const done: Listed = {
   title: "the skeleton",
   status: "closed",
   claimedBy: undefined,
+  closedAt: now - DAY,
 };
+
+/** A project with busy's health, four live issues, and one nothing is filed under. */
+const filed = project({
+  slug: "cn",
+  name: "cairn: backend, cli, plugin",
+  filed: 7,
+  counts: { open: 2, inProgress: 1, closed: 3, dropped: 0, followUps: 1 },
+  health: busy.health,
+});
+const empty = project({ slug: "admin", name: "Invyte admin, the admin app" });
+
+/** `listed` as `cn list --silent` lists it, quiet two hours. */
+const quiet = { ...listed, silentSince: now - 2 * HOUR };
 
 /** The epic `listed` is under. */
 const parent = epic({
@@ -346,6 +367,39 @@ const PINS: Pin[] = [
     name: "the rail's epics",
     element: <Rail host="h" epics={[busy, still]} theme="light" onToggleTheme={() => {}} />,
     rows: [ref(busy), ref(still)],
+  },
+  {
+    name: "a project's head line on Projects",
+    element: <ProjectHead project={filed} now={now} />,
+    text: [projectLines(filed, now)[0]!],
+  },
+  {
+    name: "a project's section on Projects sets a health line to a row",
+    element: <ProjectsPage projects={[filed]} issues={[]} blockers={[]} now={now} />,
+    rows: projectLines(filed, now).slice(1),
+  },
+  {
+    name: "a project nothing is filed under",
+    element: <ProjectHead project={empty} now={now} />,
+    text: [projectLines(empty, now)[0]!],
+  },
+  {
+    name: "a project nothing is filed under has no row on Projects",
+    element: <ProjectsPage projects={[empty]} issues={[]} blockers={[]} now={now} />,
+    rows: [],
+  },
+  {
+    name: "a row of a list with its silence",
+    element: <IssueRows issues={[quiet]} now={now} meter="moving" />,
+    text: [listLine(quiet, now)],
+    rows: [listLine(quiet, now)],
+  },
+  {
+    name: "the rail's projects",
+    element: (
+      <Rail host="h" epics={[]} projects={[filed, empty]} theme="light" onToggleTheme={() => {}} />
+    ),
+    rows: ["cn 4", "admin"],
   },
   {
     name: "a row of the jump bar",

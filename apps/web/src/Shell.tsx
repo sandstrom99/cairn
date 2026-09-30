@@ -4,7 +4,7 @@
 // the column lists. The column is one `Column` the shell mounts once, in one place, and the
 // route says what it lists through `listing`; the log has none, and takes the width. The
 // column collapses to a strip on the reader's say, and main and the bar take the room.
-import type { EpicLineView } from "@cairn/cli/views";
+import type { EpicLineView, ProjectView } from "@cairn/cli/views";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Column, type ColumnState, type Listing } from "./Feed.tsx";
@@ -18,8 +18,10 @@ export function Shell({
   name,
   host,
   epics,
+  projects,
   current,
   epicId,
+  slug,
   waiting,
   listing,
   collapsed,
@@ -35,8 +37,12 @@ export function Shell({
   name?: string;
   host: string;
   epics: EpicLineView[] | undefined;
+  /** Every project, for the rail's Projects section. */
+  projects?: ProjectView[];
   current: string;
   epicId: string | undefined;
+  /** The project on screen, which the rail marks. */
+  slug?: string;
   waiting: boolean;
   /** What the column on the right lists, or nothing where the route has no column. */
   listing?: Listing;
@@ -60,8 +66,10 @@ export function Shell({
         name={name}
         host={host}
         epics={epics}
+        projects={projects}
         current={current}
         epicId={epicId}
+        slug={slug}
         theme={theme}
         onToggleTheme={onToggleTheme}
         onForget={onForget}

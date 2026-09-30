@@ -10,11 +10,12 @@ import {
   linkFacts,
   linkParts,
   logParts,
+  projectParts,
   proofParts,
   stateLine,
   stateParts,
 } from "./parts.mts";
-import { DAY, HOUR, MINUTE, ago, blocker, issue, now } from "./testing.mts";
+import { DAY, HOUR, MINUTE, agent, ago, blocker, issue, now, project } from "./testing.mts";
 
 describe("stateParts", () => {
   it("is one word and what it rests on, in the order the words matter", () => {
@@ -178,6 +179,30 @@ describe("the parts a line is joined from", () => {
       ["waiting", "bl-3", "· owner balder"],
     ]);
     expect(healthLines(view, now)).toHaveLength(1 + parts.rows.length);
+  });
+
+  it("gives a project as its slug and name, and its health as an epic's with the same counts", () => {
+    expect(projectParts(project(), now)).toEqual({
+      epic: { id: "app", title: "the app" },
+      counts: "nothing filed",
+      rows: [],
+    });
+    const counts = { open: 1, inProgress: 1, closed: 2, dropped: 0, followUps: 1 };
+    const health = {
+      moving: [
+        {
+          id: "app-4",
+          title: "the invite flow",
+          claimedBy: agent,
+          claimedAt: ago(HOUR),
+        },
+      ],
+      stuck: [{ id: "app-2", title: "the settings page", lastActivity: ago(9 * DAY) }],
+      waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+    };
+    expect(projectParts(project({ filed: 5, counts, health }), now)).toEqual(
+      healthParts({ id: "app", title: "the app", counts, health }, now),
+    );
   });
 
   it("gives a blocker as its reference, its kind and the rest, which joined are its line", () => {

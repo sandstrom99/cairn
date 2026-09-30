@@ -30,6 +30,7 @@ import { type Route, routeOf, useLinks, usePath } from "./location.ts";
 import { useMinute } from "./now.ts";
 import { Brief, Epics, Waiting } from "./Overview.tsx";
 import { Pending } from "./page.tsx";
+import { ProjectPage, ProjectsPage } from "./ProjectPages.tsx";
 import type { Listed } from "./rows.tsx";
 import { devSecret, readSecret, writeSecret } from "./secret.ts";
 import { Shell } from "./Shell.tsx";
@@ -117,9 +118,10 @@ function Window({
   };
   const route = routeOf(path);
   const now = useMinute();
-  const { who, brief, epics, blockers, issues, events, destinations, unanswered, name } =
+  const { who, brief, epics, projects, blockers, issues, events, destinations, unanswered, name } =
     useDeployment(secret, now);
   const id = route?.page === "item" ? route.id : undefined;
+  const slug = route?.page === "project" ? route.slug : undefined;
   const answer = useShown(who, id, now);
   const review = useReview(who, id, now);
   const error = answer instanceof Error ? answer : undefined;
@@ -155,6 +157,8 @@ function Window({
       name={name ?? undefined}
       host={host}
       epics={epics}
+      projects={projects}
+      slug={slug}
       current={path}
       epicId={epicId}
       waiting={(brief?.waiting ?? 0) > 0}
@@ -179,6 +183,16 @@ function Window({
             <Epics epics={epics} events={events} issues={issues} now={now} />
           </>
         )
+      ) : route.page === "projects" ? (
+        <ProjectsPage projects={projects} issues={issues} blockers={blockers} now={now} />
+      ) : route.page === "project" ? (
+        <ProjectPage
+          slug={route.slug}
+          projects={projects}
+          issues={issues}
+          blockers={blockers}
+          now={now}
+        />
       ) : route.page === "issues" ? (
         <IssuesPage issues={issues} />
       ) : route.page === "log" ? (
@@ -210,11 +224,15 @@ export const titleOf = (
 ): string =>
   route?.page === "item" && named
     ? `${named} · ${deployment}`
-    : route?.page === "issues"
-      ? `Issues · ${deployment}`
-      : route?.page === "log"
-        ? `Log · ${deployment}`
-        : deployment;
+    : route?.page === "projects"
+      ? `Projects · ${deployment}`
+      : route?.page === "project"
+        ? `${route.slug} · ${deployment}`
+        : route?.page === "issues"
+          ? `Issues · ${deployment}`
+          : route?.page === "log"
+            ? `Log · ${deployment}`
+            : deployment;
 
 /** The page for one id, set back while the answer it shows is the previous id's. */
 function ItemPage({
