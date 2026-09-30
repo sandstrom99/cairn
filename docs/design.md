@@ -113,9 +113,9 @@ issues        id                string        app-14
               projectId         Id<projects>
               epicId            Id<epics>     required, always
               title             string
-              description?      string
-              design?           string        HOW; may change during implementation
-              acceptance?       string        WHAT; stable across sessions
+              description?      string        these three live in issueText; a row from before
+              design?           string          2026-09-30 carries them until issueText:move
+              acceptance?       string
               type              task | follow-up
               followUpKind?     verify | decide | cleanup       required iff type = follow-up
               parentIssueId?    Id<issues>    the issue whose residue this is
@@ -126,12 +126,19 @@ issues        id                string        app-14
               claimedAt?        number
               lastActivity      number        stamped by claim, update, close and every journal append
               deferUntil?       number
-              verification?     { command, exitCode, output, at, by } | { unverified, at, by }
+              verification?     { command, exitCode, output?, at, by } | { unverified, at, by }   output as above
               droppedReason?    string
               closedAt?         number
               revision          number
               index by_public_id [id], by_epic [epicId, status], by_project [projectId, status],
                     by_status [status, priority], by_parent [parentIssueId]
+
+issueText     issueId           Id<issues>    one row per issue: its long text, apart from the row every list reads
+              description?      string
+              design?           string        HOW; may change during implementation
+              acceptance?       string        WHAT; stable across sessions
+              output?           string        the proof's output; the rest of the record stays on the issue
+              index by_issue [issueId]
 
 edges         from              Id<issues>
               to                Id<issues>
@@ -281,6 +288,15 @@ one over 64 KiB.
 how a "tested on device" update disappears, and `--append-notes` dropped 3 of 16
 writes on top of it. The journal replaces it and cannot lose an entry, because
 an append is an insert.
+
+**From 2026-09-30 the three fields and the proof's output live in `issueText`**, one
+row per issue, beside the issue rather than on it. Convex bills a read for the whole
+document, and every list read the text to print one line: on `cairn` that day the text
+was 85% of an issue row's bytes, and 114 of its 136 issues were closed ones every list
+read anyway. `show.get` and `search.find` read the text, the mutations that set it
+write it there, and `issueText:move` moved the rows written before; until it has run
+on a deployment, the readers fall back to the row's own fields. `cn list --json` and `cn ready --json` no longer
+carry the three fields, which only `cn show` ever printed.
 
 ### Journal entry kinds
 
@@ -735,9 +751,9 @@ day in `pulse`, written in the same transaction as the event (`lib/events.ts`),
 so a pulse is 28 small rows per project rather than every event of four weeks,
 which on 2026-09-30 was half of everything the deployment read. It is a stored
 count, the one denormalisation here, and it cannot drift from what it summarises,
-since nothing moves a row but the event it counts. `pulse:rebuild`
-recounts it from the events, for a deployment that had events before the table
-did. Revised 2026-09-30 from days counted back from the caller's clock (cn-126).
+since nothing moves a row but the event it counts. `pulse:rebuild`, run on a cloud
+deployment through `vp run @cairn/backend#run:cloud`, recounts it from the events,
+for a deployment that had events before the table did. Revised 2026-09-30 from days counted back from the caller's clock (cn-126).
 
 ### The web window
 

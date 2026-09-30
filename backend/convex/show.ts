@@ -10,6 +10,10 @@
 // edge into a finished issue holds nothing back and stays, and a dropped follow-up is not
 // work left. `stuck` is this issue being among its epic's stuck issues, so `cn show` and
 // the page say it from the one rule.
+//
+// It is the one read that carries the issue's long text, its description, design,
+// acceptance and the proof's output, from `issueText` (lib/text.ts); every list leaves it
+// out and reads the small row alone.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -28,6 +32,7 @@ import { epicHealth, stuckOf } from "./lib/health";
 import { JOURNAL_HEAD, JOURNAL_MAX } from "./lib/limits";
 import { blockerById, epicById, issueById } from "./lib/lookup";
 import { priorityOrder } from "./lib/order";
+import { textOf } from "./lib/text";
 import { isLive } from "./lib/validators";
 import { type End, blockerView, end, issueView, ref } from "./lib/views";
 
@@ -56,6 +61,8 @@ async function issue(
   now?: number,
 ) {
   const view = await issueView(ctx, doc);
+  const text = await textOf(ctx, doc);
+  const proof = view.verification;
   const siblings = await issuesIn(ctx, doc.epicId);
   const entries = await ctx.db
     .query("journal")
@@ -72,6 +79,12 @@ async function issue(
   return {
     kind: "issue" as const,
     ...view,
+    description: text.description,
+    design: text.design,
+    acceptance: text.acceptance,
+    // The proof prints its output tail, which the row leaves to `issueText`.
+    verification:
+      proof !== undefined && "command" in proof ? { ...proof, output: text.output } : proof,
     stuck: (await stuckOf(ctx, siblings, now ?? Date.now())).some((i) => i._id === doc._id),
     journal: entries.map((e) => ({
       author: e.author,

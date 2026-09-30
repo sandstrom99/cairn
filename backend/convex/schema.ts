@@ -58,6 +58,9 @@ export default defineSchema({
     projectId: v.id("projects"),
     epicId: v.id("epics"),
     title: v.string(),
+    // Rows written before 2026-09-30 carried their text here until `issueText:move` ran on
+    // the deployment, and the readers fall back to these until then (lib/text.ts). Nothing
+    // writes them now, and a later change drops the fields.
     description: v.optional(v.string()),
     design: v.optional(v.string()),
     acceptance: v.optional(v.string()),
@@ -82,6 +85,19 @@ export default defineSchema({
     .index("by_project", ["projectId", "status"])
     .index("by_status", ["status", "priority"])
     .index("by_parent", ["parentIssueId"]),
+
+  // The long text of an issue, one row per issue, apart from the row every list reads:
+  // description, design, acceptance and the proof's output, which only `show.get`,
+  // `search.find` and the mutations that edit them read. On 2026-09-30 this text was 85% of
+  // an issue row's bytes, and every list paid for it to print one line (§3).
+  issueText: defineTable({
+    issueId: v.id("issues"),
+    description: v.optional(v.string()),
+    design: v.optional(v.string()),
+    acceptance: v.optional(v.string()),
+    /** The proof's output tail; the rest of the verification record stays on the issue. */
+    output: v.optional(v.string()),
+  }).index("by_issue", ["issueId"]),
 
   // One direction only: `blocked-by` is a `blocks` row read through by_to.
   edges: defineTable({

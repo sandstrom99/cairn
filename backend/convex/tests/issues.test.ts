@@ -619,7 +619,7 @@ describe("issues.update", () => {
     });
   });
 
-  it("records a description change as the first line of each side, and the row keeps it whole", async () => {
+  it("records a description change as the first line of each side, and show.get keeps it whole", async () => {
     const t = await seed();
     const was = "the old description, all on one line ".repeat(3).slice(0, 100);
     await t.mutation(api.issues.create, {
@@ -636,7 +636,8 @@ describe("issues.update", () => {
     expect(event!.changes).toEqual({
       description: { from: `${was.slice(0, 79).trimEnd()}…`, to: "what it is for now…" },
     });
-    expect(await t.query(api.issues.list, {})).toMatchObject([{ id: "cn-1", description: now }]);
+    // A list row carries no text (lib/text.ts); the whole description is show.get's alone.
+    expect((await t.query(api.issues.list, {}))[0]).not.toHaveProperty("description");
     expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({ description: now });
   });
 
@@ -795,11 +796,16 @@ describe("issues.close", () => {
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     const { issue, followUp } = await closeIssue(t, "cn-1", 1);
     expect(followUp).toBeUndefined();
+    // The answer is the row's record; the output is `issueText`'s, which `show.get` reads.
+    const { output, ...record } = ran;
     expect(issue).toMatchObject({
       status: "closed",
       revision: 2,
-      verification: { ...ran, by: actor },
+      verification: { ...record, by: actor },
     });
+    expect(issue.verification).not.toHaveProperty("output");
+    const shown = await t.query(api.show.get, { id: "cn-1" });
+    expect(shown).toMatchObject({ verification: { ...record, output, by: actor } });
     expect(issue.verification?.at).toEqual(expect.any(Number));
     expect(issue.closedAt).toEqual(expect.any(Number));
     expect(issue.claimedBy).toBeUndefined();

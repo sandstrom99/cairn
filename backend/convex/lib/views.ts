@@ -2,11 +2,16 @@
 // `_id`: the public id is the id, and `_creationTime` comes back as `createdAt`. Every
 // mention of an issue or epic travels as a Ref, id and title together, because the
 // reference form `app-14 "fix connection retry"` is the only way either is ever printed.
-import type { Doc } from "../_generated/dataModel";
+//
+// Nothing a list returns carries an issue's long text: its description, design, acceptance
+// and the proof's output live in `issueText` (lib/text.ts), and `show.get` adds them to the
+// one issue it answers, so a list reads the small row alone.
+import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { notFound } from "./errors";
 import { issuesHeldBy } from "./graph";
 import { type IssueStatus, isLive } from "./validators";
+import { withoutOutput } from "./verification";
 
 export type Ref = { id: string; title: string };
 
@@ -21,9 +26,36 @@ export type End = Ref & { status: IssueStatus };
 
 export const end = (doc: Doc<"issues">): End => ({ ...ref(doc), status: doc.status });
 
-export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
-  const project = await ctx.db.get(doc.projectId);
-  const epic = await ctx.db.get(doc.epicId);
+/**
+ * The projects and epics a query has read, one per query and shared by every row it
+ * views, so a hundred rows under three epics read three epics, not a hundred. Each holds
+ * the read itself rather than its answer, because rows viewed under one `Promise.all` all
+ * ask before the first read has come back.
+ */
+export type Lookups = {
+  projects: Map<Id<"projects">, Promise<Doc<"projects"> | null>>;
+  epics: Map<Id<"epics">, Promise<Doc<"epics"> | null>>;
+};
+
+export const lookups = (): Lookups => ({ projects: new Map(), epics: new Map() });
+
+/** The document behind `id`, read once per lookup whatever number of rows ask for it. */
+function once<T extends "projects" | "epics">(
+  ctx: QueryCtx,
+  seen: Map<Id<T>, Promise<Doc<T> | null>>,
+  id: Id<T>,
+): Promise<Doc<T> | null> {
+  let read = seen.get(id);
+  if (read === undefined) {
+    read = ctx.db.get(id);
+    seen.set(id, read);
+  }
+  return read;
+}
+
+export async function issueView(ctx: QueryCtx, doc: Doc<"issues">, seen: Lookups = lookups()) {
+  const project = await once(ctx, seen.projects, doc.projectId);
+  const epic = await once(ctx, seen.epics, doc.epicId);
   if (!project || !epic) throw notFound(doc.id);
   const parent = doc.parentIssueId ? await ctx.db.get(doc.parentIssueId) : null;
   return {
@@ -31,9 +63,6 @@ export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
     project: project.slug,
     epic: ref(epic),
     title: doc.title,
-    description: doc.description,
-    design: doc.design,
-    acceptance: doc.acceptance,
     type: doc.type,
     followUpKind: doc.followUpKind,
     parent: parent ? end(parent) : undefined,
@@ -44,7 +73,8 @@ export async function issueView(ctx: QueryCtx, doc: Doc<"issues">) {
     claimedAt: doc.claimedAt,
     lastActivity: doc.lastActivity,
     deferUntil: doc.deferUntil,
-    verification: doc.verification,
+    // A row the move has not reached still carries the output; a list never does.
+    verification: doc.verification === undefined ? undefined : withoutOutput(doc.verification),
     droppedReason: doc.droppedReason,
     closedAt: doc.closedAt,
     revision: doc.revision,

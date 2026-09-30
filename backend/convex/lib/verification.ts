@@ -26,7 +26,9 @@ export const verificationValidator = v.union(
   v.object({
     command: v.string(),
     exitCode: v.number(),
-    output: v.string(),
+    // The output lives in `issueText` (lib/text.ts); a row closed before 2026-09-30 still
+    // carries it here until `issueText:move` has run on the deployment.
+    output: v.optional(v.string()),
     at: v.number(),
     by: actorValidator,
   }),
@@ -36,3 +38,15 @@ export const verificationValidator = v.union(
     by: actorValidator,
   }),
 );
+
+export type Verification = Infer<typeof verificationValidator>;
+
+/**
+ * The record as the issue row keeps it: the command arm without its output, which lives in
+ * `issueText` (lib/text.ts), so no list that reads the row carries the proof's tail.
+ */
+export function withoutOutput(proof: Verification): Verification {
+  if (!("command" in proof)) return proof;
+  const { command, exitCode, at, by } = proof;
+  return { command, exitCode, at, by };
+}
