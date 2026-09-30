@@ -6,7 +6,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { unresolvedBlockersOn } from "./graph";
 import { idOrder } from "./order";
-import { STUCK_AFTER_MS } from "./thresholds";
+import { stuckAt } from "./thresholds";
 import { isLive } from "./validators";
 import { epicView } from "./views";
 
@@ -23,14 +23,8 @@ export async function stuckOf(
   now: number,
 ): Promise<Doc<"issues">[]> {
   const silent = issues.filter((i) => {
-    const limit = STUCK_AFTER_MS[i.priority];
-    return (
-      i.status === "open" &&
-      i.claimedBy === undefined &&
-      (i.deferUntil === undefined || i.deferUntil <= now) &&
-      limit !== undefined &&
-      now - i.lastActivity > limit
-    );
+    const at = stuckAt(i);
+    return i.status === "open" && i.claimedBy === undefined && at !== undefined && at <= now;
   });
   const stuck: Doc<"issues">[] = [];
   for (const i of silent) {

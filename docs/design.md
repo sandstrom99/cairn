@@ -1017,12 +1017,20 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
   functions; nothing is written twice.
 - **Every mutation takes `actor`**, and on a mutable field `revision`. The actor is an
   argument `cn` fills in, taken on trust (§13).
-- **A subscriber sends its own clock.** Convex re-runs a subscribed query when data it
-  read changes, never because time passed, so the stuck line and a `deferUntil` would go
-  stale on a page left open. Every public query that reads the clock takes an optional
-  `now` (`lib/clock.ts`): `cn` asks once and leaves it out, the page sends the current time
-  rounded down to the minute, so it re-asks once a minute and the query cache holds in
-  between. Nothing validates it; a wrong `now` misleads only the caller that sent it.
+- **A subscriber sends the clock it loaded with.** Convex re-runs a subscribed query when
+  data it read changes, never because time passed, so the stuck line and a `deferUntil`
+  would go stale on a page left open. Every public query that reads the clock takes an
+  optional `now` (`lib/clock.ts`); `cn` asks once and leaves it out. The page sends the
+  clock it loaded with, and asks `clock.next` for the earliest moment after it at which any
+  line drawn from the clock would change with no write: the next stuck, silent, quiet,
+  deferral, nudge or inbox moment, or the next UTC midnight, when the pulse's buckets roll.
+  It sets one timer for that moment, held while the tab is hidden; when it fires the page
+  advances its clock to the present and every query reruns once. Each threshold is spelled
+  once, as its moment, in `lib/thresholds.ts`, which the predicates and `clock.next` share,
+  so a line cannot appear at a moment the timer did not wait for. Nothing validates `now`;
+  a wrong one misleads only the caller that sent it. Revised 2026-09-30 from a clock
+  rounded down to the minute, which reran every clock-reading query 1,440 times a day per
+  open tab, hidden or not, for lines that change on hours and days.
 - **The deployment is where anything decides.** `ready` computes, `close`
   validates, `review` reads, `create` hands back candidate epics. `cn` parses
   arguments, runs the one command `cn close` proves with, and formats through

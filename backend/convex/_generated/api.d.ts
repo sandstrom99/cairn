@@ -10,6 +10,7 @@
 
 import type * as blockers from "../blockers.js";
 import type * as brief from "../brief.js";
+import type * as clock from "../clock.js";
 import type * as deployment from "../deployment.js";
 import type * as edges from "../edges.js";
 import type * as epics from "../epics.js";
@@ -26,6 +27,7 @@ import type * as lib_guard from "../lib/guard.js";
 import type * as lib_health from "../lib/health.js";
 import type * as lib_ids from "../lib/ids.js";
 import type * as lib_inbox from "../lib/inbox.js";
+import type * as lib_journal from "../lib/journal.js";
 import type * as lib_lifecycle from "../lib/lifecycle.js";
 import type * as lib_limits from "../lib/limits.js";
 import type * as lib_links from "../lib/links.js";
@@ -57,6 +59,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   blockers: typeof blockers;
   brief: typeof brief;
+  clock: typeof clock;
   deployment: typeof deployment;
   edges: typeof edges;
   epics: typeof epics;
@@ -73,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "lib/health": typeof lib_health;
   "lib/ids": typeof lib_ids;
   "lib/inbox": typeof lib_inbox;
+  "lib/journal": typeof lib_journal;
   "lib/lifecycle": typeof lib_lifecycle;
   "lib/limits": typeof lib_limits;
   "lib/links": typeof lib_links;

@@ -30,6 +30,7 @@ import { projectBySlug } from "../lib/lookup";
 import { idOrder, priorityOrder } from "../lib/order";
 import { checkPriority } from "../lib/priority";
 import { applyRevision, expectRevision } from "../lib/revision";
+import { DAY, STUCK_AFTER_MS, stuckAt } from "../lib/thresholds";
 import { isLive } from "../lib/validators";
 import { epicView } from "../lib/views";
 import {
@@ -98,6 +99,29 @@ describe("isLive", () => {
     expect(isLive({ status: "in_progress" })).toBe(true);
     expect(isLive({ status: "closed" })).toBe(false);
     expect(isLive({ status: "dropped" })).toBe(false);
+  });
+});
+
+describe("stuckAt", () => {
+  it("is undefined for P3 and P4, which are never stuck", () => {
+    expect(stuckAt({ priority: 3, lastActivity: 0 })).toBeUndefined();
+    expect(stuckAt({ priority: 4, lastActivity: 0 })).toBeUndefined();
+  });
+
+  it("is the first millisecond past the priority's limit with no deferral", () => {
+    const lastActivity = 17 * DAY;
+    expect(stuckAt({ priority: 1, lastActivity })).toBe(lastActivity + STUCK_AFTER_MS[1]! + 1);
+  });
+
+  it("is the later of that and the deferral with one", () => {
+    const lastActivity = 17 * DAY;
+    const limit = STUCK_AFTER_MS[0]!;
+    expect(stuckAt({ priority: 0, lastActivity, deferUntil: lastActivity + 2 * DAY })).toBe(
+      lastActivity + 2 * DAY,
+    );
+    expect(stuckAt({ priority: 0, lastActivity, deferUntil: lastActivity })).toBe(
+      lastActivity + limit + 1,
+    );
   });
 });
 
