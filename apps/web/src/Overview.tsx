@@ -135,14 +135,17 @@ export function Epics({
       {listed.length > 0 && (
         <Group title="Nothing moving" id="nothing-moving">
           <ul className="paper divide-y divide-hair">
-            {listed.map(({ epic, counts }) => (
+            {listed.map(({ view, counts }) => (
               <RowLink
-                key={epic.id}
-                href={`/${epic.id}`}
+                key={view.id}
+                href={`/${view.id}`}
                 className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 narrow:grid-cols-1"
               >
-                <Ref item={epic} plain className="decoration-faint underline-offset-[3px]" />{" "}
-                <Run text={counts} className="text-small text-slate" />
+                <Ref item={view} plain className="decoration-faint underline-offset-[3px]" />{" "}
+                <span className="inline-flex items-center gap-2.5">
+                  <CountBar counts={view.counts} text={counts} />
+                  <Run text={counts} className="text-small text-slate" />
+                </span>
               </RowLink>
             ))}
           </ul>
@@ -170,11 +173,43 @@ function EpicSection({
         <h2 className="text-title font-[620] tracking-[-0.012em]">
           <Ref item={view} />
         </h2>{" "}
-        <Run text={counts} className="ml-auto text-small text-slate narrow:ml-0" />
+        <span className="ml-auto inline-flex items-center gap-2.5 narrow:ml-0">
+          <CountBar counts={view.counts} text={counts} />
+          <Run text={counts} className="text-small text-slate" />
+        </span>
       </div>
       {view.description && <Lead text={view.description} href={`/${view.id}`} />}
       {children}
     </section>
+  );
+}
+
+/**
+ * The counts beside their text, as a bar: done in ink, open pale, follow-ups hatched, each
+ * segment its share of the three the text names, with a hair between. Lightness only, since
+ * chroma means state (index.css). The bar adds no text to the line and carries the text as
+ * its title; an epic with nothing counted is one hairline.
+ */
+function CountBar({ counts, text }: { counts: EpicLineView["counts"]; text: string }) {
+  const parts = [
+    { n: counts.closed, className: "bg-ink" },
+    { n: counts.open + counts.inProgress, className: "bg-ink/22" },
+    { n: counts.followUps, className: "hatch" },
+  ].filter((p) => p.n > 0);
+  return (
+    <span className="inline-flex h-[5px] w-[72px] shrink-0 gap-0.5" title={text} aria-hidden="true">
+      {parts.length === 0 ? (
+        <b className="w-full rounded-sm bg-ink/8" />
+      ) : (
+        parts.map((p) => (
+          <b
+            key={p.className}
+            className={cn("rounded-sm", p.className)}
+            style={{ flexGrow: p.n, flexBasis: 0 }}
+          />
+        ))
+      )}
+    </span>
   );
 }
 

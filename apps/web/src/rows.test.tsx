@@ -445,6 +445,27 @@ describe("a row is one of cn's lines", () => {
 });
 
 describe("what the lines carry", () => {
+  it("draws an epic's counts as a bar beside the text, each segment its share, the text its title", () => {
+    const markup = renderToStaticMarkup(<Epics epics={[busy]} events={[]} issues={[]} now={now} />);
+    const bar = markup.match(
+      /<span[^>]*title="5 done · 2 open · 1 follow-up"[^>]*>(.*?)<\/span>/,
+    )?.[1];
+    expect(bar).toBeDefined();
+    expect([...bar!.matchAll(/flex-grow:(\d+)/g)].map((m) => m[1])).toEqual(["5", "2", "1"]);
+    expect(bar).toContain("hatch");
+  });
+
+  it("draws an epic with nothing counted as one hairline", () => {
+    const markup = renderToStaticMarkup(
+      <Epics epics={[still]} events={[]} issues={[]} now={now} />,
+    );
+    const bar = markup.match(
+      /<span[^>]*title="0 done · 0 open · 0 follow-ups"[^>]*>(.*?)<\/span>/,
+    )?.[1];
+    expect(bar).toMatch(/^<b [^>]*><\/b>$/);
+    expect(bar).not.toContain("flex-grow");
+  });
+
   it("reads a journal entry as its kind and first line", () => {
     expect(text(<FeedEvent event={noted} now={now} />)).toContain(
       "finding: the counter row is created on first use…",
