@@ -13,7 +13,7 @@
 // is placed in percent (placeDots) and its tooltip is CSS (index.css, `.pt`).
 import { STUCK_AFTER_MS } from "@cairn/backend/convex/lib/thresholds.js";
 import { type Referable, ref } from "@cairn/cli/ref";
-import type { ProjectView } from "@cairn/cli/views";
+import type { EpicLineView, ProjectView } from "@cairn/cli/views";
 import { type CSSProperties, Fragment } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -446,5 +446,34 @@ export function Track({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The counts beside their text, as a bar: done in ink, open pale, follow-ups hatched, each
+ * segment its share of the three the text names, with a hair between. Lightness only, since
+ * chroma means state (index.css). The bar adds no text to the line and carries the text as
+ * its title; an epic with nothing counted is one hairline.
+ */
+export function CountBar({ counts, text }: { counts: EpicLineView["counts"]; text: string }) {
+  const parts = [
+    { n: counts.closed, className: "bg-ink" },
+    { n: counts.open + counts.inProgress, className: "bg-ink/22" },
+    { n: counts.followUps, className: "hatch" },
+  ].filter((p) => p.n > 0);
+  return (
+    <span className="inline-flex h-[5px] w-[72px] shrink-0 gap-0.5" title={text} aria-hidden="true">
+      {parts.length === 0 ? (
+        <b className="w-full rounded-sm bg-ink/8" />
+      ) : (
+        parts.map((p) => (
+          <b
+            key={p.className}
+            className={cn("rounded-sm", p.className)}
+            style={{ flexGrow: p.n, flexBasis: 0 }}
+          />
+        ))
+      )}
+    </span>
   );
 }

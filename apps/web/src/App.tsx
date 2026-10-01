@@ -15,7 +15,7 @@
 // id is an answer the page reads (Lost), since show.get is asked through `useQueries`, which
 // hands its error back rather than throwing it.
 import { ref } from "@cairn/cli/ref";
-import type { LogEvent, ProjectView, ReviewView, Shown } from "@cairn/cli/views";
+import type { EpicLineView, LogEvent, ProjectView, ReviewView, Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Band } from "./Band.tsx";
@@ -241,6 +241,8 @@ function Window({
               issues={issues}
               review={review}
               blockers={blockers}
+              epics={epics}
+              projects={projects}
               now={now}
             />
           )}
@@ -342,6 +344,8 @@ function ItemPage({
   issues,
   review,
   blockers,
+  epics,
+  projects,
   now,
 }: {
   shown: Shown;
@@ -350,6 +354,8 @@ function ItemPage({
   /** `cn review` of the epic on screen, when it is an epic. */
   review: ReviewView | undefined;
   blockers: WaitingBlocker[] | undefined;
+  epics: EpicLineView[] | undefined;
+  projects: ProjectView[] | undefined;
   now: number;
 }) {
   return (
@@ -373,6 +379,7 @@ function ItemPage({
         <IssuePage
           issue={shown}
           siblings={(issues ?? []).filter((i) => i.epic.id === shown.epic.id)}
+          around={{ epics, projects, issues }}
           now={now}
         />
       )}

@@ -1,12 +1,12 @@
 // ItemPages.tsx: the page for one id, `/cn-26`, `/ep-4`, `/bl-2`: what `cn show` prints,
-// with room. An issue is its state, its facts, then everything written into it in full
-// where the brief has a first line, the output its proof stored, and its whole journal.
+// with room. An issue is its facts set by kind (Facts.tsx), then everything written into it
+// in full where the brief has a first line, as one document, and its whole journal.
 // An epic is its track, a cell per issue beside the closes of four weeks, what is stuck or
 // waiting, and every issue under it, the finished ones too. A blocker is what it waits for
 // and what it holds.
 //
 // Nothing here asks the deployment anything; App.tsx does, and these render what came
-// back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
+// back. Nothing here words a state or a proof either: `issueFacts` and `healthParts` do,
 // and the page sets their pieces (sheet.test.tsx). The ask menu's lines come from prompts.ts.
 import { JOURNAL_MAX } from "@cairn/backend/convex/lib/limits.js";
 import {
@@ -16,37 +16,47 @@ import {
   journalParts,
   linkFacts,
   proofParts,
-  stateParts,
 } from "@cairn/cli/parts";
 import type { ReviewView, ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
 import type { Referable } from "@cairn/cli/ref";
 import { Track } from "./Chart.tsx";
+import { type Around, Document, IssueFacts } from "./Facts.tsx";
 import type { WaitingBlocker } from "./Overview.tsx";
 import { Group } from "./page.tsx";
 import { closesOf, heldBy, trackOf } from "./projects.ts";
 import { blockerPrompts, epicPrompts, issuePrompts } from "./prompts.ts";
 import { Prose } from "./Prose.tsx";
-import { Refs, Run } from "./Ref.tsx";
+import { Run } from "./Ref.tsx";
 import { Groups, HealthRows, type Listed } from "./rows.tsx";
-import { Crumbs, Heading, Neighbours, Passage, Sheet, State } from "./Sheet.tsx";
+import { Crumbs, Heading, Neighbours, Sheet, State } from "./Sheet.tsx";
 import { epicWord } from "./tone.tsx";
 
 export function IssuePage({
   issue,
   siblings,
+  around = {},
   now,
 }: {
   issue: ShownIssue;
   /** Every issue of the same epic, in the order the epic lists them. */
   siblings: Referable[];
+  /** The open epics, the projects and every issue, for what the tiles and chips add beside cn's facts. */
+  around?: Around;
   now: number;
 }) {
   const at = siblings.findIndex((s) => s.id === issue.id);
   const before = at > 0 ? siblings[at - 1] : undefined;
   const after = at >= 0 ? siblings[at + 1] : undefined;
   const where = at >= 0 ? `${at + 1} of ${siblings.length}` : "";
-  const state = stateParts(issue, now);
   const output = issue.verification && proofParts(issue.verification, now).output;
+  const written: [string, string | undefined][] = [
+    ["description", issue.description],
+    ["design", issue.design],
+    ["acceptance", issue.acceptance],
+  ];
+  const passages = written.flatMap(([label, text]) =>
+    text ? [{ label, body: <Prose text={text} /> }] : [],
+  );
 
   return (
     <article>
@@ -54,40 +64,9 @@ export function IssuePage({
         <Neighbours compact before={before} after={after} where={where} />
       </Crumbs>
       <Heading item={issue} prompts={issuePrompts(issue, now)} />
-      <State word={state.word}>
-        {state.refs ? (
-          <>
-            {state.tail} <Refs items={state.refs} />
-          </>
-        ) : (
-          state.tail
-        )}
-      </State>
 
-      <Sheet facts={issueFacts(issue, now)}>
-        {issue.description && (
-          <Passage label="description">
-            <Prose text={issue.description} />
-          </Passage>
-        )}
-        {issue.design && (
-          <Passage label="design">
-            <Prose text={issue.design} />
-          </Passage>
-        )}
-        {issue.acceptance && (
-          <Passage label="acceptance">
-            <Prose text={issue.acceptance} />
-          </Passage>
-        )}
-        {output !== undefined && output.trim() !== "" && (
-          <Passage label="output">
-            <pre className="max-h-72 overflow-auto font-mono text-micro whitespace-pre-wrap text-code">
-              {output}
-            </pre>
-          </Passage>
-        )}
-      </Sheet>
+      <IssueFacts facts={issueFacts(issue, now)} output={output} around={around} now={now} />
+      <Document passages={passages} />
 
       {issue.journal.length > 0 && (
         <Group title="Journal">
