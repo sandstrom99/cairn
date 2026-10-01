@@ -1,7 +1,8 @@
 // brief.ts: the situation report a session opens with (docs/design.md §8), in one query.
 // Which projects the deployment has, as their slugs, then counts and the head of each
 // queue: what is ready, what is in progress and by whom, the open follow-ups, and how
-// much waits on a person.
+// much waits on a person. The ready heads carry what `cn ready`'s line prints, and `top`
+// says how many: the brief's own three unless asked, the page asking for `UP_NEXT`.
 //
 // **It carries state and never doctrine.** The rules live in the skill, which loads on
 // demand; a hook always loads, and beads' `bd prime` grew until it contradicted the skill
@@ -76,8 +77,8 @@ async function heldRow(ctx: QueryCtx, doc: Doc<"issues">, actor: Actor | undefin
 }
 
 export const get = query({
-  args: { actor: v.optional(actorValidator), ...nowArg },
-  handler: async (ctx, { actor, now = Date.now() }) => {
+  args: { actor: v.optional(actorValidator), top: v.optional(v.number()), ...nowArg },
+  handler: async (ctx, { actor, now = Date.now(), top = TOP }) => {
     const ready = await readyIssues(ctx, now);
     const tasks = ready.filter((i) => i.type === "task");
     const followUps = ready.filter((i) => i.type === "follow-up");
@@ -96,10 +97,13 @@ export const get = query({
       projects: (await ctx.db.query("projects").withIndex("by_slug").collect()).map((p) => p.slug),
       ready: {
         count: tasks.length,
-        top: tasks.slice(0, TOP).map((i) => ({
+        top: tasks.slice(0, top).map((i) => ({
           id: i.id,
           title: i.title,
           priority: i.priority,
+          status: i.status,
+          epic: i.epic,
+          revision: i.revision,
         })),
       },
       inProgress: await Promise.all(

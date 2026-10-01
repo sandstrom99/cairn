@@ -18,7 +18,17 @@ import {
 } from "@cairn/cli/lines";
 import { countsRun } from "@cairn/cli/parts";
 import { ref } from "@cairn/cli/ref";
-import { DAY, HOUR, agent, epic, issue, logEvent, now, project } from "@cairn/cli/testing";
+import {
+  DAY,
+  HOUR,
+  agent,
+  briefView,
+  epic,
+  issue,
+  logEvent,
+  now,
+  project,
+} from "@cairn/cli/testing";
 import type { HistoryEvent } from "@cairn/cli/views";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -27,7 +37,7 @@ import { FeedEvent, HistoryEntry } from "./Feed.tsx";
 import { EpicPage, JournalEntry } from "./ItemPages.tsx";
 import { JumpRow, withTyped } from "./JumpBar.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
-import { Epics, Waiting, type WaitingBlocker } from "./Overview.tsx";
+import { Epics, UpNext, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { squeeze } from "./plain.ts";
 import { ProjectHead, ProjectsPage } from "./ProjectPages.tsx";
 import { typesetting } from "./Prose.tsx";
@@ -146,10 +156,23 @@ const listed: Listed = {
   type: "task",
   project: "cn",
   lastActivity: now - HOUR,
+  revision: 3,
 };
 
 /** The same, as a row on its epic's own page, which does not repeat the epic. */
 const { epic: _, ...bare } = listed;
+
+/** Two ready issues as the brief heads them, for Up next: open, unclaimed, by priority. */
+const ready1 = {
+  id: "cn-27",
+  title: "the overview lists what is ready",
+  status: "open" as const,
+  priority: 1,
+  epic: { id: "ep-4", title: "Humans in the loop" },
+  revision: 0,
+};
+const ready2 = { ...ready1, id: "cn-28", title: "the overview at scale", priority: 2 };
+const upNext = [ready1, ready2].map((row) => issueLine(row));
 
 /** A finished one, folded away on the issues page. */
 const done: Listed = {
@@ -322,6 +345,12 @@ const PINS: Pin[] = [
     text: ["Waiting on you", blockerLine(waitingBlocker, now), holdsLine(waitingBlocker.issues)],
   },
   {
+    name: "up next: the ready count beside the title, and cn ready's lines as rows",
+    element: <UpNext view={briefView({ ready: { count: 7, top: [ready1, ready2] } })} />,
+    text: ["Up next 7", ...upNext],
+    rows: upNext,
+  },
+  {
     name: "a row of a list of issues",
     element: <IssueRows issues={[listed]} />,
     text: [issueLine(listed)],
@@ -445,6 +474,10 @@ describe("a row is one of cn's lines", () => {
 });
 
 describe("what the lines carry", () => {
+  it("draws nothing under Up next with nothing ready", () => {
+    expect(renderToStaticMarkup(<UpNext view={briefView()} />)).toBe("");
+  });
+
   it("draws an epic's counts as a bar beside the text, each segment its share, the text its title", () => {
     const markup = renderToStaticMarkup(<Epics epics={[busy]} events={[]} issues={[]} now={now} />);
     const bar = markup.match(

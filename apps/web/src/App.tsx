@@ -39,7 +39,7 @@ import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { type Route, routeOf, useLinks, usePath } from "./location.ts";
 import { useMinute } from "./now.ts";
-import { Brief, Epics, Waiting, type WaitingBlocker } from "./Overview.tsx";
+import { Brief, Epics, UpNext, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { Pending } from "./page.tsx";
 import { ProjectPage, ProjectsPage } from "./ProjectPages.tsx";
 import type { Listed } from "./rows.tsx";
@@ -197,6 +197,7 @@ function Window({
             <Brief view={brief} />
             <BandLive who={who} asked={asked} projects={projects} />
             <Waiting blockers={blockers ?? []} now={now} />
+            <UpNext view={brief} />
             <Epics epics={epics} events={events} issues={issues} now={now} />
           </>
         )

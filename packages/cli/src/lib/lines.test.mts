@@ -1488,6 +1488,12 @@ describe("briefLines", () => {
   const claude = { name: "balder/claude", kind: "agent" } as const;
   const where = { deployment: "local", actor: "balder/claude" };
   const empty = briefView();
+  /** What a ready head carries past its id, title and priority, which the brief's line does not print. */
+  const head = {
+    status: "open",
+    epic: { id: "ep-1", title: "Create to close" },
+    revision: 0,
+  } as const;
 
   it("is the six lines of design §8", () => {
     const lines = briefLines(
@@ -1496,9 +1502,9 @@ describe("briefLines", () => {
         ready: {
           count: 4,
           top: [
-            { id: "cn-7", title: "the web window's first page", priority: 1 },
-            { id: "cn-8", title: "the deployment story", priority: 2 },
-            { id: "cn-9", title: "the web view", priority: 2 },
+            { id: "cn-7", title: "the web window's first page", priority: 1, ...head },
+            { id: "cn-8", title: "the deployment story", priority: 2, ...head },
+            { id: "cn-9", title: "the web view", priority: 2, ...head },
           ],
         },
         inProgress: [
