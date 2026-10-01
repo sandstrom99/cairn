@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
 import { typesetting } from "./Prose.tsx";
+import { facts } from "./testing.tsx";
 
 // The page's passages are set once Markdown.tsx is in (Prose.tsx).
 await typesetting;
@@ -63,26 +64,50 @@ const factsOf = (text: string): string =>
 const page = (shown: ShownIssue): string =>
   plain(renderToStaticMarkup(<IssuePage issue={shown} siblings={[]} now={now} />));
 
-/** The one line of state at the top of the page. */
-const stateOf = (shown: ShownIssue): string => {
-  const markup = renderToStaticMarkup(<IssuePage issue={shown} siblings={[]} now={now} />);
-  return plain(markup.slice(markup.indexOf("</header>"), markup.indexOf('<div class="paper')));
-};
+/** Every one of cn's labelled lines as the page sets it, in the page's order. */
+const factsOn = (shown: ShownIssue): string[] =>
+  facts(<IssuePage issue={shown} siblings={[]} now={now} />);
+
+/** The state the status tile leads with: the status fact's first piece. */
+const stateOf = (shown: ShownIssue): string =>
+  factsOn(shown)
+    .find((f) => f.startsWith("status "))!
+    .split(" · ")[0]!
+    .replace(/^status /, "");
 
 describe("an issue's page", () => {
   const markup = renderToStaticMarkup(<IssuePage issue={held} siblings={[]} now={now} />);
 
-  it("sets cn show's labelled lines as its table, in cn's words and order", () => {
-    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
-    expect(plain(table)).toBe(factsOf(brief(held, now)));
+  it("sets each of cn show's labelled lines once, in cn's words and order", () => {
+    expect(factsOn(held).join(" ")).toBe(factsOf(brief(held, now)));
     // Every finished issue it names carries cn's word after its reference: a blocking
     // edge's finished end, the parent and a follow-up alike.
-    expect(plain(table)).toContain('blocked by cn-23 "the skeleton" done, cn-24 "the feed"');
-    expect(plain(table)).toContain('parent cn-20 "the web window" done');
-    expect(plain(table)).toContain('follow-ups cn-27 "verify: the read-only window" dropped');
+    expect(factsOn(held)).toContain('blocked by cn-23 "the skeleton" done, cn-24 "the feed"');
+    expect(factsOn(held)).toContain('parent cn-20 "the web window" done');
+    expect(factsOn(held)).toContain('follow-ups cn-27 "verify: the read-only window" dropped');
   });
 
-  it("opens with the state line cn's status line opens with, for every state", () => {
+  it("sets its epic, project and status as tiles, adding the epic's counts and the project's word beside cn's facts", () => {
+    const around = {
+      epics: [
+        epic({
+          id: "ep-4",
+          title: "Humans in the loop",
+          counts: { open: 1, inProgress: 1, closed: 3, dropped: 0, followUps: 0 },
+        }),
+      ],
+    };
+    const tiled = renderToStaticMarkup(
+      <IssuePage issue={held} siblings={[]} around={around} now={now} />,
+    );
+    expect(plain(tiled)).toContain('epic ep-4 "Humans in the loop" 3 done · 2 open · 0 follow-ups');
+    expect(tiled).toContain('href="/projects/cn"');
+    expect(facts(<IssuePage issue={held} siblings={[]} around={around} now={now} />)).toEqual(
+      factsOn(held),
+    );
+  });
+
+  it("leads its status tile with the state cn's status line opens with, for every state", () => {
     const states: ShownIssue[] = [
       held,
       { ...held, status: "open", claimedBy: undefined, claimedAt: undefined },
@@ -104,12 +129,17 @@ describe("an issue's page", () => {
         droppedReason: "no",
       },
     ];
-    expect(states.map(stateOf)).toEqual(states.map((s) => squeeze(stateLine(stateParts(s, now)))));
+    expect(states.map(stateOf)).toEqual(
+      states.map((s) => {
+        const state = stateParts(s, now);
+        return squeeze(state.refs ? state.word : stateLine(state));
+      }),
+    );
     expect(states.map(stateOf)).toEqual([
       "moving wsl/claude 2h",
-      'blocked by cn-24 "the feed"',
+      "blocked",
       "stuck silent 9d",
-      'waiting on bl-4 "name the day"',
+      "waiting",
       "deferred until 2026-09-30",
       "open",
       "closed 1h ago",
@@ -129,7 +159,7 @@ describe("an issue's page", () => {
     expect(markup).toContain('aria-label="Say to your agent"');
   });
 
-  it("links what the state names", () => {
+  it("links what it waits on, beside the rest of its neighbourhood", () => {
     const waiting = {
       ...held,
       status: "open" as const,
@@ -137,7 +167,8 @@ describe("an issue's page", () => {
       waitingOn: [{ id: "bl-4", title: "name the day" }],
     };
     const markup = renderToStaticMarkup(<IssuePage issue={waiting} siblings={[]} now={now} />);
-    expect(markup.slice(0, markup.indexOf("<dl"))).toContain('href="/bl-4"');
+    expect(markup).toContain('href="/bl-4"');
+    expect(factsOn(waiting)).toContain('waiting on bl-4 "name the day"');
   });
 
   it("steps to the issue before and the one after, in the epic's order", () => {
@@ -201,9 +232,10 @@ describe("an issue's page", () => {
       `links           doc · https://example.com/doc · by ${agent.name} 2h ago\n                https://example.com/pr/7 · by ${agent.name} 1h ago`,
     );
     const markup = renderToStaticMarkup(<IssuePage issue={linked} siblings={[]} now={now} />);
-    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
-    expect(plain(table)).toBe(factsOf(text));
-    const items = table.match(/<li>.*?<\/li>/g) ?? [];
+    expect(factsOn(linked).join(" ")).toBe(factsOf(text));
+    const from = markup.indexOf('data-fact="links"');
+    const table = markup.slice(from, markup.indexOf("</ul>", from));
+    const items = table.match(/<li\b[^>]*>.*?<\/li>/g) ?? [];
     expect(items.map(plain)).toEqual(linked.links!.map((link) => linkLine(linkParts(link, now))));
     for (const url of ["https://example.com/doc", "https://example.com/pr/7"])
       expect(table).toContain(`href="${url}" target="_blank" rel="noreferrer"`);

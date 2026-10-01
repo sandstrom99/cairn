@@ -26,3 +26,25 @@ export function rows(element: ReactElement): string[] {
   }
   return out;
 }
+
+/** The text of every element carrying `data-fact`, in order: each one of cn's labelled lines as the page sets it. */
+export function facts(element: ReactElement): string[] {
+  const markup = renderToStaticMarkup(element);
+  const out: string[] = [];
+  for (const open of markup.matchAll(/<(\w+)[^>]*\bdata-fact="[^"]*"[^>]*>/g)) {
+    const tag = open[1]!;
+    const pattern = new RegExp(`<${tag}\\b|</${tag}>`, "g");
+    pattern.lastIndex = open.index + open[0].length;
+    let depth = 1;
+    let end = markup.length;
+    for (let m = pattern.exec(markup); m; m = pattern.exec(markup)) {
+      depth += m[0].startsWith("</") ? -1 : 1;
+      if (depth === 0) {
+        end = m.index;
+        break;
+      }
+    }
+    out.push(plain(markup.slice(open.index, end)));
+  }
+  return out;
+}

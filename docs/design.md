@@ -831,18 +831,25 @@ epics stand and the rest are a list; Up next is five rows and a count; the band 
 one grid on the page, and everything else is one column, because the page is read top
 to bottom and the order of what it says matters more than filling the width.
 
-A page for one id is `cn show` with room. An issue opens with its state,
-`stateParts`, the head of the brief's status line: `moving balder/claude 2h`,
-`waiting on bl-4 "…"`, `blocked by` the ends still live, `stuck silent 9d`,
-`deferred until 2026-10-01`, `closed 2h ago`, `dropped 2h ago`, or `open`. Then
-the brief's labelled lines as a table, `issueFacts`, the proof a close stored
-and the reason a drop gave among them, every finished issue it names marked
-`done` or `dropped`, a `blocks` edge's finished end among them rather than the
-edge dropped (§7), and the links fact last, each link in cn's words with its
-label, or its URL, an anchor that opens in a new tab (§3, "Links"); then
-everything written into it printed whole where the brief keeps a
-first line and set as the Markdown it is (§3), the
-output the proof carries among that, then its whole journal where the brief carries the five newest (`show.get`
+A page for one id is `cn show` with room. An issue sets the brief's labelled lines,
+`issueFacts`, by what each is rather than as one table (cn-146, 2026-10-01; until then
+a state line opened the page and every fact was a row of one label-and-value table).
+Each fact keeps cn's words and cn's order, in an element of its own carrying
+`data-fact`; what the page adds beside one sits outside it. Its epic, project and
+status are three tiles: the epic's reference with its count bar and counts where it is
+open, the project's slug with its name and its word, and the status line led by the
+state, `stateParts`' head (`moving balder/claude 2h`, `waiting`, `blocked`,
+`stuck silent 9d`, `deferred until 2026-10-01`, `closed 2h ago`, `dropped 2h ago`,
+`open`) in its tone, the priority a badge and the rest small. The proof a close stored,
+the command in mono and its exit code a badge, or the reason a drop gave, is a card,
+with the output the proof carries folded under it. Its edges are a neighbourhood, a row
+per kind and a chip per issue named with its state's dot, every finished one marked
+`done` or `dropped`, a `blocks` edge's finished end among them rather than the edge
+dropped (§7), and `waiting on` and `blocked by` named there, once. The links are a list,
+each link in cn's words with its label, or its URL, an anchor that opens in a new tab
+(§3, "Links"). Then everything written into it, printed whole where the brief keeps a
+first line and set as the Markdown it is (§3), as one document at the column's width,
+then its whole journal where the brief carries the five newest (`show.get`
 takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for
 a journal that long), with its own history in the column where the Overview has
 the feed. An epic is its health and every issue under it, the finished ones

@@ -19,6 +19,12 @@ export default defineConfig(({ command, mode }) => ({
   // `@/` is src/, the alias shadcn's generated components import through. tsconfig.json
   // names it a second time for the type check.
   resolve: { alias: { "@": `${import.meta.dirname}/src` } },
+  // The first screen's script is about 500 kB, 155 kB gzipped, most of it react-dom, convex
+  // and tailwind-merge; the Markdown renderer, once a quarter of it, already loads
+  // beside it (cn-98). The page grows a little with each view, and splitting it further
+  // buys a person nothing they would notice, so the warning sits above it rather than firing
+  // on every build (cn-146).
+  build: { chunkSizeWarningLimit: 600 },
   define: {
     __CAIRN_DEV_SECRET__: JSON.stringify(
       command === "serve" && mode !== "test"

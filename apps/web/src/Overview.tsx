@@ -16,6 +16,7 @@ import type { Referable } from "@cairn/cli/ref";
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { headline, underline } from "./brief.ts";
+import { CountBar } from "./Chart.tsx";
 import { Group } from "./page.tsx";
 import { Ref, Refs, Run } from "./Ref.tsx";
 import { HealthRows, IssueRows, type Listed, RowLink } from "./rows.tsx";
@@ -191,35 +192,6 @@ function EpicSection({
       {view.description && <Lead text={view.description} href={`/${view.id}`} />}
       {children}
     </section>
-  );
-}
-
-/**
- * The counts beside their text, as a bar: done in ink, open pale, follow-ups hatched, each
- * segment its share of the three the text names, with a hair between. Lightness only, since
- * chroma means state (index.css). The bar adds no text to the line and carries the text as
- * its title; an epic with nothing counted is one hairline.
- */
-function CountBar({ counts, text }: { counts: EpicLineView["counts"]; text: string }) {
-  const parts = [
-    { n: counts.closed, className: "bg-ink" },
-    { n: counts.open + counts.inProgress, className: "bg-ink/22" },
-    { n: counts.followUps, className: "hatch" },
-  ].filter((p) => p.n > 0);
-  return (
-    <span className="inline-flex h-[5px] w-[72px] shrink-0 gap-0.5" title={text} aria-hidden="true">
-      {parts.length === 0 ? (
-        <b className="w-full rounded-sm bg-ink/8" />
-      ) : (
-        parts.map((p) => (
-          <b
-            key={p.className}
-            className={cn("rounded-sm", p.className)}
-            style={{ flexGrow: p.n, flexBasis: 0 }}
-          />
-        ))
-      )}
-    </span>
   );
 }
 
