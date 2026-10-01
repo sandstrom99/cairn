@@ -279,6 +279,14 @@
       var(--color-paper);
   }
 
+  /* ---------- the count bar: the follow-ups' segment, hatched ---------- */
+  .hatch {
+    background: repeating-linear-gradient(
+      135deg,
+      --alpha(var(--color-ink) / 60%) 0 1.5px,
+      --alpha(var(--color-ink) / 12%) 1.5px 4px
+    );
+  }
   /* ---------- the chart: every issue a dot ---------- */
 
   .pt {

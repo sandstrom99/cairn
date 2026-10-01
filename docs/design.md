@@ -801,7 +801,11 @@ rows, set small: the cut `cn show` gives an issue's fields, `…` after it where
 more follows, and that mark a link to the epic's page, where the whole text is
 set. The whole description stood there until 2026-10-01, when an epic that was a
 wayfinder map made the overview that map and put the rows below the fold
-(cn-140). With no epic showing a row, the two epics with the newest
+(cn-140). The head line's counts carry a bar beside their text, done in ink, open
+pale and follow-ups hatched, each its share of the three numbers the text names,
+lightness only since chroma means state; the "Nothing moving" rows carry it too,
+which is where ten epics read as progress at a glance. The bar adds no text to the
+line (cn-142, 2026-10-01). With no epic showing a row, the two epics with the newest
 `lastActivity` stand where the live ones would, each its head line, its
 description's first line and the newest log line that landed in it, so the page
 still says what the deployment has been doing; "Nothing moving" lists the rest,
