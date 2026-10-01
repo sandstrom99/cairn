@@ -1,8 +1,9 @@
 // ItemPages.tsx: the page for one id, `/cn-26`, `/ep-4`, `/bl-2`: what `cn show` prints,
 // with room. An issue is its state, its facts, then everything written into it in full
 // where the brief has a first line, the output its proof stored, and its whole journal.
-// An epic is its health and every issue under it, the finished ones too. A blocker is
-// what it waits for and what it holds.
+// An epic is its track, a cell per issue beside the closes of four weeks, what is stuck or
+// waiting, and every issue under it, the finished ones too. A blocker is what it waits for
+// and what it holds.
 //
 // Nothing here asks the deployment anything; App.tsx does, and these render what came
 // back. Nothing here words a state or a proof either: `stateParts` and `issueFacts` do,
@@ -19,7 +20,10 @@ import {
 } from "@cairn/cli/parts";
 import type { ReviewView, ShownBlocker, ShownEpic, ShownIssue } from "@cairn/cli/views";
 import type { Referable } from "@cairn/cli/ref";
+import { Track } from "./Chart.tsx";
+import type { WaitingBlocker } from "./Overview.tsx";
 import { Group } from "./page.tsx";
+import { closesOf, heldBy, trackOf } from "./projects.ts";
 import { blockerPrompts, epicPrompts, issuePrompts } from "./prompts.ts";
 import { Prose } from "./Prose.tsx";
 import { Refs, Run } from "./Ref.tsx";
@@ -133,16 +137,22 @@ export function EpicPage({
   epic,
   issues,
   review,
+  blockers,
   now,
 }: {
   epic: ShownEpic;
   issues: Listed[];
+  /** The blockers on the list, for which of the epic's issues one holds; undefined until they answer. */
+  blockers?: WaitingBlocker[];
   /** `cn review` of this epic, for the ask menu's line about a mess; undefined until it answers. */
   review?: ReviewView;
   now: number;
 }) {
   const { counts, rows } = healthParts(epic, now);
   const links = linkFacts(epic.links, now);
+  // What is moving is the track's moving cells and the In progress group; the rows keep what
+  // nothing else on the page says, the stuck and the waiting.
+  const pressing = rows.filter((row) => row.fact !== "moving");
   return (
     <article>
       <Crumbs />
@@ -151,9 +161,10 @@ export function EpicPage({
         <Run text={counts} />
       </State>
 
-      {rows.length > 0 && (
+      <Track cells={trackOf(issues, epic, heldBy(blockers ?? []))} closes={closesOf(issues, now)} />
+      {pressing.length > 0 && (
         <div className="mt-6">
-          <HealthRows rows={rows} />
+          <HealthRows rows={pressing} />
         </div>
       )}
       {links.length > 0 && (

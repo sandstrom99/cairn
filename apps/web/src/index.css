@@ -322,8 +322,9 @@
     outline: none;
   }
 
-  /* The dot's tooltip: the issue in the reference form and its state, from data-tip; no script. */
-  .pt::after {
+  /* The dot's tooltip, and a track cell's: the issue in the reference form and its state, from data-tip; no script. */
+  .pt::after,
+  .cell::after {
     content: attr(data-tip);
     position: absolute;
     left: 50%;
@@ -353,13 +354,15 @@
   }
 
   /* Near either edge the tooltip hangs from the dot's side, so it stays over the card and out from under the rail. */
-  .pt[data-edge="start"]::after {
+  .pt[data-edge="start"]::after,
+  .cell[data-edge="start"]::after {
     left: 0;
     transform: none;
     transform-origin: 0 100%;
   }
 
-  .pt[data-edge="end"]::after {
+  .pt[data-edge="end"]::after,
+  .cell[data-edge="end"]::after {
     left: auto;
     right: 0;
     transform: none;
@@ -371,8 +374,30 @@
     transform: scale(calc(1 / 1.45));
   }
 
+  /* ---------- the track: an epic's issues, a cell each ---------- */
+
+  .cell {
+    position: relative;
+    transition: box-shadow 120ms ease;
+  }
+
+  .cell:hover,
+  .cell:focus-visible {
+    z-index: 2;
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-paper),
+      0 0 0 3.5px var(--color-ink);
+  }
+
+  .cell:hover::after,
+  .cell:focus-visible::after {
+    opacity: 1;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .pt {
+    .pt,
+    .cell {
       transition: none;
     }
   }

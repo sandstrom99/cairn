@@ -5,9 +5,9 @@
 import { DAY, HOUR, agent, ago, now, project } from "@cairn/cli/testing";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Chart, Meter, Pulse, Strips } from "./Chart.tsx";
+import { Chart, Meter, Pulse, Strips, Track } from "./Chart.tsx";
 import { plain } from "./plain.ts";
-import { type Mark, STUCK_RULE } from "./projects.ts";
+import { type Cell, type Mark, STUCK_RULE } from "./projects.ts";
 import type { Listed } from "./rows.tsx";
 
 const listed = (over: Partial<Listed>): Listed => ({
@@ -146,5 +146,40 @@ describe("Meter", () => {
     );
     expect(markup).not.toContain("<i");
     expect(markup).not.toContain("<li");
+  });
+});
+
+describe("Track", () => {
+  const quiet = Array.from({ length: 28 }, () => ({ events: 0, closes: 0 }));
+  const cells: Cell[] = [
+    { issue: listed({ id: "app-2", status: "closed" }), mark: "done", followUp: false },
+    { issue: listed({ id: "app-1", status: "in_progress" }), mark: "moving", followUp: false },
+    { issue: listed({ id: "app-3" }), mark: "stuck", followUp: false },
+    { issue: listed({ id: "app-4" }), mark: "open", followUp: false },
+    { issue: listed({ id: "app-5", type: "follow-up" }), mark: "open", followUp: true },
+  ];
+
+  it("draws a cell per issue, each a link with its reference and mark as its tooltip", () => {
+    const markup = renderToStaticMarkup(<Track cells={cells} closes={quiet} />);
+    expect(count(markup, 'class="cell ')).toBe(5);
+    expect(markup.indexOf('href="/app-2"')).toBeLessThan(markup.indexOf('href="/app-1"'));
+    expect(markup).toContain('data-tip="app-1 &quot;the app&quot; · moving"');
+    expect(markup).toContain('data-tip="app-5 &quot;the app&quot; · follow-up, open"');
+    expect(markup).toMatch(/class="cell [^"]*hatch"/);
+    expect(markup).not.toContain("<li");
+  });
+
+  it("names what each fill means and how many closed in four weeks", () => {
+    const closes = quiet.map((d, k) => (k === 27 ? { events: 2, closes: 2 } : d));
+    expect(plain(renderToStaticMarkup(<Track cells={cells} closes={closes} />))).toBe(
+      "1 done 1 moving 1 stuck 1 open 1 follow-up 2 closed in 4 weeks 4 weeks ago today",
+    );
+    expect(plain(renderToStaticMarkup(<Track cells={cells} closes={quiet} />))).toContain(
+      "no closes in 4 weeks",
+    );
+  });
+
+  it("draws nothing for an epic with no issue", () => {
+    expect(renderToStaticMarkup(<Track cells={[]} closes={quiet} />)).toBe("");
   });
 });

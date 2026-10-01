@@ -370,12 +370,13 @@ const PINS: Pin[] = [
     rows: [issueLine(listed), issueLine(done)],
   },
   {
-    name: "an epic's page: its state, then its issues without the epic",
+    name: "an epic's page: its state, its track, then its issues without the epic",
     element: <EpicPage epic={parent} issues={[listed]} now={now} />,
     text: [
       "Overview",
       `${parent.id} Copy reference ? ${parent.title}`,
       `${epicWord(parent)} ${countsRun(parent.counts)}`,
+      "1 moving no closes in 4 weeks 4 weeks ago today",
       "In progress 1",
       issueLine(bare),
     ],
