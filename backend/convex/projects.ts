@@ -4,9 +4,9 @@
 // (docs/design.md §13). The slug never changes, because the ids carry it; the name, the
 // description and the links change against a revision (§3, §9). `list` reads each one's
 // health the way an epic's is read, and its pulse (§8) only for a caller that sends
-// `pulse: true`, `cn project list` and the page's Projects routes: the page's rail
-// subscribes to the list on every screen and leaves the pulse out, so it reads no pulse
-// rows. `ep` and `bl` are reserved: epics and blockers mint from the same counters
+// `pulse: true`, `cn project list` and the page's Overview and Projects routes: the page's
+// rail subscribes to the list on every screen and leaves the pulse out, so it reads no
+// pulse rows. `ep` and `bl` are reserved: epics and blockers mint from the same counters
 // mechanism and would collide.
 import { v } from "convex/values";
 import { actorValidator } from "./lib/actor";

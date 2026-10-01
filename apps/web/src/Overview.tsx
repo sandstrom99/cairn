@@ -1,5 +1,6 @@
 // Overview.tsx: what the page opens on. The brief as a headline, what waits on a person
-// where there is any, then every open epic with its health.
+// where there is any, then every open epic with its health. The band of projects between
+// the headline and what waits is Band.tsx's.
 //
 // Every row here is one of cn's lines, typeset. The pieces come from the `…Parts`
 // functions in @cairn/cli's parts.mts, the same ones the lines themselves are joined

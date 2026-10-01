@@ -209,7 +209,7 @@ export function Pulse({
   pulse: NonNullable<ProjectView["pulse"]>;
   height: number;
   max: number;
-  caps: string[];
+  caps?: string[];
 }) {
   const last = pulse.length - 1;
   return (
@@ -245,11 +245,13 @@ export function Pulse({
           );
         })}
       </div>
-      <div className="mt-1.5 flex justify-between text-micro text-faint">
-        {caps.map((cap) => (
-          <span key={cap}>{cap}</span>
-        ))}
-      </div>
+      {caps !== undefined && (
+        <div className="mt-1.5 flex justify-between text-micro text-faint">
+          {caps.map((cap) => (
+            <span key={cap}>{cap}</span>
+          ))}
+        </div>
+      )}
     </>
   );
 }

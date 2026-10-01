@@ -784,6 +784,17 @@ said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
 
+Between the headline and what waits, a band: one tile per project in the order
+`orderProjects` gives, most pressing first; its dot and slug, a link to
+`/projects/<slug>`, its word as `projectWord` says it, the pulse `projects.list`
+carries drawn as Projects draws it, closes in ink and every bar against the most
+events any project had in a day, and under it `N live` with `N closed` in the 28 days,
+which a project with nothing filed leaves off, its word having said so. The words are the page's own, the ones Projects already
+uses, like the chart's legend; the band prints no cn line. The Overview subscribes to
+the list with the pulse while it is on screen, as the Projects routes do, and draws
+every day quiet until that answer lands. Added 2026-10-01 (cn-141), built to the mock
+on ep-17.
+
 Under the headline, each epic with a health row is its `cn epic list` block,
 with the first line of the epic's description between the head line and the
 rows, set small: the cut `cn show` gives an issue's fields, `…` after it where
