@@ -133,7 +133,7 @@ const components: Components = {
 
 export function Markdown({ text, className }: { text: string; className?: string }) {
   return (
-    <div className={cn("grid max-w-[68ch] gap-2.5 text-body break-words", className)}>
+    <div className={cn("grid gap-2.5 text-body break-words", className)}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {text}
       </ReactMarkdown>
