@@ -9,7 +9,7 @@
 //
 // Nothing here holds state or asks the deployment anything, so a test renders it to a
 // string. The queries are in App.tsx.
-import { blockerParts, healthParts, logParts } from "@cairn/cli/parts";
+import { blockerParts, firstLine, healthParts, logParts } from "@cairn/cli/parts";
 import type { BlockerLineView, BriefView, EpicLineView, LogEvent } from "@cairn/cli/views";
 import type { Referable } from "@cairn/cli/ref";
 import { Fragment, type ReactNode } from "react";
@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { headline, underline } from "./brief.ts";
 import { Group } from "./page.tsx";
 import { Ref, Refs, Run } from "./Ref.tsx";
-import { Prose } from "./Prose.tsx";
 import { HealthRows, type Listed, RowLink } from "./rows.tsx";
 import { StateWord } from "./tone.tsx";
 
@@ -152,7 +151,7 @@ export function Epics({
   );
 }
 
-/** One epic's block: its head line as `cn epic list` prints it, its description under it the way `cn show` has it, then what the caller lists. */
+/** One epic's block: its head line as `cn epic list` prints it, the first line of its description under it, then what the caller lists. */
 function EpicSection({
   view,
   counts,
@@ -172,13 +171,31 @@ function EpicSection({
         </h2>{" "}
         <Run text={counts} className="ml-auto text-small text-slate narrow:ml-0" />
       </div>
-      {view.description && (
-        <div className="mx-0.5 mb-2.5">
-          <Prose text={view.description} className="text-small text-slate" />
-        </div>
-      )}
+      {view.description && <Lead text={view.description} href={`/${view.id}`} />}
       {children}
     </section>
+  );
+}
+
+/**
+ * The first line of an epic's description, the cut `cn show` gives an issue's fields: the
+ * line as written, `…` after it where more follows, and that mark a link to the epic's page,
+ * where the whole text is set. An epic that is a map stays one line here, so its rows are
+ * what the block shows.
+ */
+function Lead({ text, href }: { text: string; href: string }) {
+  const line = firstLine(text);
+  // firstLine marks a cut with `…`; a first line that ends in one of its own is not cut.
+  const cut = line.endsWith("…") && line !== firstLine(text.split("\n", 1)[0] ?? "");
+  return (
+    <p className="mx-0.5 mb-2.5 max-w-[68ch] text-small break-words text-slate">
+      {cut ? line.slice(0, -1) : line}
+      {cut && (
+        <a href={href} className="text-faint hover:text-ink">
+          …
+        </a>
+      )}
+    </p>
   );
 }
 

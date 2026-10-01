@@ -78,6 +78,13 @@ const still = epic({ id: "ep-0", title: "Inbox" });
 /** `busy` with a description, which stands between its head line and its rows. */
 const described = { ...busy, id: "ep-5", description: "what this epic is for" };
 
+/** `busy` with a description that is a map: a heading, then the rest. The block shows its first line. */
+const mapped = {
+  ...busy,
+  id: "ep-8",
+  description: "## The wayfinder map\n\nThe epic is the map; its open issues are the tickets.",
+};
+
 /** Three epics with nothing moving, touched an hour, a day and two days ago. */
 const a = epic({
   id: "ep-7",
@@ -279,6 +286,16 @@ const PINS: Pin[] = [
       ...healthLines(described, now).slice(1),
     ],
     rows: healthLines(described, now).slice(1),
+  },
+  {
+    name: "an epic's health block, a description of more than a line cut to its first",
+    element: <Epics epics={[mapped]} events={[]} issues={[]} now={now} />,
+    text: [
+      healthLines(mapped, now)[0]!,
+      "The wayfinder map…",
+      ...healthLines(mapped, now).slice(1),
+    ],
+    rows: healthLines(mapped, now).slice(1),
   },
   {
     name: "an epic with nothing moving stands as the latest, its first line alone",
