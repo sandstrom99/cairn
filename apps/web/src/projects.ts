@@ -16,13 +16,23 @@ import { type Tone, projectWord } from "./tone.tsx";
 
 /**
  * The pulse a project is drawn with before the list that carries pulses has answered: the
- * rail's list leaves it out, and until the Projects routes' own subscription lands, every
- * day reads quiet.
+ * rail's list leaves it out, and until the Overview's or the Projects routes' own
+ * subscription lands, every day reads quiet.
  */
 export const NO_PULSE: { events: number; closes: number }[] = Array.from(
   { length: PULSE_DAYS },
   () => ({ events: 0, closes: 0 }),
 );
+
+/** The events or the closes of a pulse, over its 28 days. */
+export const pulseTotal = (
+  pulse: NonNullable<ProjectView["pulse"]>,
+  of: "events" | "closes",
+): number => pulse.reduce((total, day) => total + day[of], 0);
+
+/** The most events any one day of the pulse had, the height every bar beside it is drawn against. */
+export const pulseMost = (pulse: NonNullable<ProjectView["pulse"]>): number =>
+  Math.max(0, ...pulse.map((d) => d.events));
 
 /** What a project has live: open and in progress, and the follow-ups beside them. */
 export const liveOf = (

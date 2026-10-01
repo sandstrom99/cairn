@@ -18,6 +18,7 @@ import { ref } from "@cairn/cli/ref";
 import type { LogEvent, ProjectView, ReviewView, Shown } from "@cairn/cli/views";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Band } from "./Band.tsx";
 import { readCollapsed, writeCollapsed } from "./column.ts";
 import { Unanswered } from "./Connect.tsx";
 import {
@@ -194,6 +195,7 @@ function Window({
         ) : (
           <>
             <Brief view={brief} />
+            <BandLive who={who} asked={asked} projects={projects} />
             <Waiting blockers={blockers ?? []} now={now} />
             <Epics epics={epics} events={events} issues={issues} now={now} />
           </>
@@ -270,8 +272,9 @@ function LogLive({ who, events, now }: { who: Who; events: LogEvent[] | undefine
 
 /**
  * The Projects page, or one project's page with `slug`, drawn from the list with each
- * project's pulse, which only these two routes subscribe to. Until that answer lands the
- * rail's list, which carries no pulse, draws the page, so it is never blank for the pulse.
+ * project's pulse, which these two routes subscribe to, and the Overview for its band. Until
+ * that answer lands the rail's list, which carries no pulse, draws the page, so it is never
+ * blank for the pulse.
  */
 function ProjectsLive({
   who,
@@ -304,6 +307,24 @@ function ProjectsLive({
       now={now}
     />
   );
+}
+
+/**
+ * The band on the Overview, drawn from the list with each project's pulse, which the overview
+ * subscribes to while it is on screen as the Projects routes do; until that answer lands the
+ * rail's list, which carries no pulse, draws the tiles with every day quiet.
+ */
+function BandLive({
+  who,
+  asked,
+  projects,
+}: {
+  who: Who;
+  asked: number;
+  projects: ProjectView[] | undefined;
+}) {
+  const pulsed = usePulsed(who, asked);
+  return <Band projects={pulsed ?? projects} />;
 }
 
 /** The page for one id, set back while the answer it shows is the previous id's. */
