@@ -785,12 +785,16 @@ nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
 
 Under the headline, each epic with a health row is its `cn epic list` block,
-with the epic's description between the head line and the rows the way `cn show`
-prints it, set small. With no epic showing a row, the two epics with the newest
+with the first line of the epic's description between the head line and the
+rows, set small: the cut `cn show` gives an issue's fields, `…` after it where
+more follows, and that mark a link to the epic's page, where the whole text is
+set. The whole description stood there until 2026-10-01, when an epic that was a
+wayfinder map made the overview that map and put the rows below the fold
+(cn-140). With no epic showing a row, the two epics with the newest
 `lastActivity` stand where the live ones would, each its head line, its
-description and the newest log line that landed in it, so the page still says
-what the deployment has been doing; "Nothing moving" lists the rest, and an epic
-shown above is not listed again. `lastActivity` on an `epics.list` row is the
+description's first line and the newest log line that landed in it, so the page
+still says what the deployment has been doing; "Nothing moving" lists the rest,
+and an epic shown above is not listed again. `lastActivity` on an `epics.list` row is the
 newest write to the epic or to any issue under it, as the issues stamp it, the
 same notion of activity the stuck line measures against, so an edge or a blocker
 on its own moves nothing. Added 2026-09-24.
