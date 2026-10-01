@@ -310,6 +310,30 @@ describe("a blocker's page", () => {
 });
 
 describe("an epic's page", () => {
+  it("keeps the stuck and waiting rows, and leaves what is moving to the track and In progress", () => {
+    const busy = epic({
+      id: "ep-4",
+      title: "Humans in the loop",
+      counts: { open: 1, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
+      health: {
+        moving: [
+          {
+            id: "cn-26",
+            title: "apps/web, the read-only window",
+            claimedBy: agent,
+            claimedAt: now - 2 * HOUR,
+          },
+        ],
+        stuck: [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY }],
+        waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
+      },
+    });
+    const markup = renderToStaticMarkup(<EpicPage epic={busy} issues={[]} now={now} />);
+    expect(markup).not.toContain('href="/cn-26"');
+    expect(markup).toContain('href="/cn-10"');
+    expect(markup).toContain('href="/bl-4"');
+  });
+
   it("sets its links as cn's lines, each an anchor, and none where it has none", () => {
     const planned = epic({
       id: "ep-12",

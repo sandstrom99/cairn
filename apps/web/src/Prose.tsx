@@ -17,11 +17,7 @@ type Passage = { text: string; className?: string };
 
 /** The passage as written: what shows until the renderer is in, or if it never is. */
 export function Written({ text, className }: Passage) {
-  return (
-    <div className={cn("max-w-[68ch] text-body break-words whitespace-pre-wrap", className)}>
-      {text}
-    </div>
-  );
+  return <div className={cn("text-body break-words whitespace-pre-wrap", className)}>{text}</div>;
 }
 
 let typeset: ((passage: Passage) => ReactNode) | undefined;

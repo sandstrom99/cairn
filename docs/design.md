@@ -847,7 +847,15 @@ takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for
 a journal that long), with its own history in the column where the Overview has
 the feed. An epic is its health and every issue under it, the finished ones
 included, which is more than `cn show ep-3` lists and is what a person opening
-an epic came for. Getting around is the point of the page: every reference
+an epic came for. It opens on its track (cn-145, 2026-10-01): one cell per issue its
+counts count, the done tasks first in the order they closed, then the live ones moving,
+waiting, stuck and open, then the live follow-ups hatched, each cell in its state's
+chroma and a link with the reference form as its tooltip; a legend in the page's words
+under it, and beside that the epic's closes a day over 28 UTC days, counted from each
+issue's `closedAt` and drawn as a project's pulse is. Its health rows follow, the stuck
+and the waiting alone, since what is moving is the track's and the In progress group's.
+A passage on any of these pages takes the column's width, as the sheet around it does;
+it stopped at 68 characters until cn-144. Getting around is the point of the page: every reference
 anywhere is a link, an issue names its epic above its title and steps to the
 issue before and after it in the epic's order, the rail marks the epic on
 screen, and one button copies the reference form,

@@ -10,6 +10,7 @@ import {
   clauseOf,
   clauseText,
   closedIn,
+  closesOf,
   countsLine,
   heldBy,
   markOf,
@@ -19,6 +20,7 @@ import {
   stateLine,
   subline,
   tipOf,
+  trackOf,
   xOf,
 } from "./projects.ts";
 import type { Listed } from "./rows.tsx";
@@ -267,6 +269,61 @@ describe("markOf", () => {
     expect(markOf(listed({ id: "app-2" }), p, held)).toBe("stuck");
     expect(markOf(listed(), p, held)).toBe("open");
     expect(held.get("app-9")).toEqual({ id: "bl-1", title: "PostHog project settings" });
+  });
+});
+
+describe("trackOf", () => {
+  const ep = { health: { stuck: [{ id: "app-6", title: "the export" }] } };
+  const held = new Map([["app-5", { id: "bl-1", title: "PostHog project settings" }]]);
+  const issues = [
+    listed({ id: "app-1" }),
+    listed({ id: "app-2", status: "closed", closedAt: ago(DAY) }),
+    listed({ id: "app-3", status: "in_progress", claimedBy: agent }),
+    listed({ id: "app-4", status: "closed", closedAt: ago(3 * DAY) }),
+    listed({ id: "app-5" }),
+    listed({ id: "app-6" }),
+    listed({ id: "app-7", status: "dropped" }),
+    listed({ id: "app-8", type: "follow-up" }),
+    listed({ id: "app-9", type: "follow-up", status: "closed", closedAt: ago(HOUR) }),
+    listed({ id: "app-10", type: "follow-up", status: "in_progress", claimedBy: agent }),
+  ];
+
+  it("draws a cell for every issue the counts count: done as they closed, then moving, waiting, stuck, open, then the follow-ups", () => {
+    const cells = trackOf(issues, ep, held);
+    expect(cells.map((c) => [c.issue.id, c.mark, c.followUp])).toEqual([
+      ["app-4", "done", false],
+      ["app-2", "done", false],
+      ["app-3", "moving", false],
+      ["app-5", "waiting", false],
+      ["app-6", "stuck", false],
+      ["app-1", "open", false],
+      ["app-10", "moving", true],
+      ["app-8", "open", true],
+    ]);
+  });
+
+  it("draws nothing for an epic with nothing in it", () => {
+    expect(trackOf([], ep, held)).toEqual([]);
+  });
+});
+
+describe("closesOf", () => {
+  it("counts each close on its UTC day, today last, and nothing older than 28 days", () => {
+    const pulse = closesOf(
+      [
+        listed({ id: "app-1", status: "closed", closedAt: now }),
+        listed({ id: "app-2", status: "closed", closedAt: now }),
+        listed({ id: "app-3", status: "closed", closedAt: now - 2 * DAY }),
+        listed({ id: "app-4", status: "closed", closedAt: now - 40 * DAY }),
+        listed({ id: "app-5", status: "closed" }),
+        listed({ id: "app-6" }),
+      ],
+      now,
+    );
+    expect(pulse).toHaveLength(28);
+    expect(pulse[27]).toEqual({ events: 2, closes: 2 });
+    expect(pulse[25]).toEqual({ events: 1, closes: 1 });
+    expect(pulse.reduce((n, d) => n + d.closes, 0)).toBe(3);
   });
 });
 

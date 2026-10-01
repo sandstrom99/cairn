@@ -3,7 +3,8 @@
 // thresholds.ts drawn as the zone a dot is in once it is stuck; the pulse is the 28 days
 // `projects.list` carries, a bar a day with the closes in ink at its foot; the strips are
 // one dot per live issue under each epic; the meter is one issue's silence against its
-// limit. Each draws what the deployment answered and decides nothing: a dot's colour is the
+// limit. The track is an epic's page's drawing: a cell per issue, done to open, beside the
+// pulse of its closes. Each draws what the deployment answered and decides nothing: a dot's colour is the
 // mark projects.ts read off the project's health and the blockers.
 //
 // None of them is a row, so none holds an `li`, and none holds cn's words except in a
@@ -13,9 +14,19 @@
 import { STUCK_AFTER_MS } from "@cairn/backend/convex/lib/thresholds.js";
 import { type Referable, ref } from "@cairn/cli/ref";
 import type { ProjectView } from "@cairn/cli/views";
-import type { CSSProperties } from "react";
+import { type CSSProperties, Fragment } from "react";
 import { cn } from "@/lib/utils";
-import { type Mark, STUCK_RULE, TICKS, placeDots, tipOf, toneOfMark, xOf } from "./projects.ts";
+import {
+  type Cell,
+  type Mark,
+  STUCK_RULE,
+  TICKS,
+  placeDots,
+  pulseTotal,
+  tipOf,
+  toneOfMark,
+  xOf,
+} from "./projects.ts";
 import { Ref } from "./Ref.tsx";
 import type { Listed } from "./rows.tsx";
 import { Dot, type Tone, projectWord, toneOf } from "./tone.tsx";
@@ -247,8 +258,11 @@ export function Pulse({
       </div>
       {caps !== undefined && (
         <div className="mt-1.5 flex justify-between text-micro text-faint">
-          {caps.map((cap) => (
-            <span key={cap}>{cap}</span>
+          {caps.map((cap, k) => (
+            <Fragment key={cap}>
+              {k > 0 && " "}
+              <span>{cap}</span>
+            </Fragment>
           ))}
         </div>
       )}
@@ -344,5 +358,93 @@ export function Meter({
         />
       )}
     </span>
+  );
+}
+
+/** A cell's fill: done in ink, a live issue in its mark's chroma, open pale and an open follow-up hatched. */
+const CELL: Record<Cell["mark"], string> = {
+  done: "bg-ink",
+  moving: "bg-moving",
+  waiting: "bg-waiting",
+  stuck: "bg-stuck",
+  open: "bg-ink/14",
+};
+const cellFill = ({ mark, followUp }: Pick<Cell, "mark" | "followUp">): string =>
+  followUp && mark === "open" ? "hatch" : CELL[mark];
+
+/** The legend's entries, in the track's order, each drawn as its cell is. */
+const KEYS: { word: string; one?: string; of: (c: Cell) => boolean; fill: string }[] = [
+  { word: "done", of: (c) => c.mark === "done", fill: CELL.done },
+  { word: "moving", of: (c) => !c.followUp && c.mark === "moving", fill: CELL.moving },
+  { word: "waiting", of: (c) => !c.followUp && c.mark === "waiting", fill: CELL.waiting },
+  { word: "stuck", of: (c) => !c.followUp && c.mark === "stuck", fill: CELL.stuck },
+  { word: "open", of: (c) => !c.followUp && c.mark === "open", fill: CELL.open },
+  { word: "follow-ups", one: "follow-up", of: (c) => c.followUp, fill: "hatch" },
+];
+
+/** What a cell's tooltip says after the reference: its mark, and that it is a follow-up. */
+const cellWord = ({ mark, followUp }: Cell): string => (followUp ? `follow-up, ${mark}` : mark);
+
+/**
+ * An epic at a glance: a cell per issue its counts count, in trackOf's order, each a link to
+ * the issue with the reference form as its tooltip, and under it a legend and the epic's
+ * closes over the last four weeks. Nothing where the epic has no issue to draw.
+ */
+export function Track({
+  cells,
+  closes,
+}: {
+  cells: Cell[];
+  closes: NonNullable<ProjectView["pulse"]>;
+}) {
+  if (cells.length === 0) return null;
+  const n = cells.length;
+  const closed = pulseTotal(closes, "closes");
+  const keys = KEYS.map((k) => ({ ...k, count: cells.filter(k.of).length })).filter(
+    (k) => k.count > 0,
+  );
+  return (
+    // overflow-visible over .paper's hidden, so a cell's tooltip can stand above the card.
+    <div className="paper mt-6 grid gap-3.5 overflow-visible px-[18px] pt-4 pb-3.5 narrow:px-3">
+      <div className={cn("flex h-4", n > 60 ? "gap-px" : "gap-[3px]")}>
+        {cells.map((cell, k) => (
+          <a
+            key={cell.issue.id}
+            href={`/${cell.issue.id}`}
+            aria-label={`${ref(cell.issue)} · ${cellWord(cell)}`}
+            data-tip={`${ref(cell.issue)} · ${cellWord(cell)}`}
+            data-edge={k < n * 0.2 ? "start" : k >= n * 0.8 ? "end" : undefined}
+            className={cn("cell min-w-px flex-1 rounded-[3px]", cellFill(cell))}
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_196px] items-start gap-x-8 gap-y-3 narrow:grid-cols-1">
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-small text-slate">
+          {keys.map(({ word, one, count, fill }, k) => (
+            <Fragment key={word}>
+              {k > 0 && " "}
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <i className={cn("size-2 shrink-0 rounded-[2px]", fill)} aria-hidden="true" />
+                <span>
+                  <span className="font-[550] text-ink">{count}</span>{" "}
+                  {count === 1 && one ? one : word}
+                </span>
+              </span>
+            </Fragment>
+          ))}
+        </p>
+        <div title="closes a day, the last 28 days">
+          <p className="mb-1.5 text-meta text-slate">
+            {closed === 0 ? "no closes in 4 weeks" : `${closed} closed in 4 weeks`}
+          </p>
+          <Pulse
+            pulse={closes}
+            height={24}
+            max={Math.max(0, ...closes.map((d) => d.closes))}
+            caps={["4 weeks ago", "today"]}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

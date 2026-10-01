@@ -69,12 +69,64 @@ export const closedIn = (issues: Listed[], slug: string, now: number): Listed[] 
     )
     .sort((a, b) => b.closedAt! - a.closedAt!);
 
-/** What a live issue is: claimed is moving, held is waiting, named in its project's health is stuck. */
-export function markOf(issue: Listed, project: ProjectView, held: Map<string, Referable>): Mark {
+/** What a live issue is: claimed is moving, held is waiting, named in its project's or its epic's health is stuck. */
+export function markOf(
+  issue: Listed,
+  owner: { health: { stuck: Referable[] } },
+  held: Map<string, Referable>,
+): Mark {
   if (issue.status === "in_progress") return "moving";
   if (held.has(issue.id)) return "waiting";
-  if (project.health.stuck.some((s) => s.id === issue.id)) return "stuck";
+  if (owner.health.stuck.some((s) => s.id === issue.id)) return "stuck";
   return "open";
+}
+
+/** One cell of an epic's track: a done task, or a live issue in its mark, a follow-up set apart. */
+export type Cell = { issue: Listed; mark: Mark | "done"; followUp: boolean };
+
+const MARK_ORDER: Record<Mark, number> = { moving: 0, waiting: 1, stuck: 2, open: 3 };
+
+/**
+ * An epic's issues as its track draws them: a cell for every issue its counts count, the
+ * done tasks first in the order they closed, then the live tasks moving, waiting, stuck and
+ * open, then the live follow-ups the same way, each group in the order given. A dropped
+ * issue and a finished follow-up are in no count, so they are no cell.
+ */
+export function trackOf(
+  issues: Listed[],
+  epic: { health: { stuck: Referable[] } },
+  held: Map<string, Referable>,
+): Cell[] {
+  const live = (i: Listed) => i.status === "open" || i.status === "in_progress";
+  const byMark = (followUp: boolean): Cell[] =>
+    issues
+      .filter((i) => live(i) && (i.type === "follow-up") === followUp)
+      .map((issue) => ({ issue, mark: markOf(issue, epic, held), followUp }))
+      .sort((a, b) => MARK_ORDER[a.mark as Mark] - MARK_ORDER[b.mark as Mark]);
+  const done = issues
+    .filter((i) => i.type !== "follow-up" && i.status === "closed")
+    .sort((a, b) => (a.closedAt ?? 0) - (b.closedAt ?? 0))
+    .map((issue): Cell => ({ issue, mark: "done", followUp: false }));
+  return [...done, ...byMark(false), ...byMark(true)];
+}
+
+/**
+ * The closes among these issues on each of the last PULSE_DAYS UTC days, oldest first and
+ * today last, the days a project's pulse is bucketed by, as a pulse whose every event is a
+ * close: an epic keeps no pulse of its own, and each issue carries when it closed.
+ */
+export function closesOf(issues: Listed[], now: number): NonNullable<ProjectView["pulse"]> {
+  const today = Math.floor(now / DAY);
+  const pulse = Array.from({ length: PULSE_DAYS }, () => ({ events: 0, closes: 0 }));
+  for (const issue of issues) {
+    if (issue.status !== "closed" || issue.closedAt === undefined) continue;
+    const back = today - Math.floor(issue.closedAt / DAY);
+    if (back < 0 || back >= PULSE_DAYS) continue;
+    const day = pulse[PULSE_DAYS - 1 - back]!;
+    day.events += 1;
+    day.closes += 1;
+  }
+  return pulse;
 }
 
 const RANK: Record<string, number> = {

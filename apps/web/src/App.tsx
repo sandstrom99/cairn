@@ -235,7 +235,14 @@ function Window({
           ) : shown === undefined ? (
             <Pending>Reading {route.id}…</Pending>
           ) : (
-            <ItemPage shown={shown} stale={stale} issues={issues} review={review} now={now} />
+            <ItemPage
+              shown={shown}
+              stale={stale}
+              issues={issues}
+              review={review}
+              blockers={blockers}
+              now={now}
+            />
           )}
         </Gate>
       )}
@@ -334,6 +341,7 @@ function ItemPage({
   stale,
   issues,
   review,
+  blockers,
   now,
 }: {
   shown: Shown;
@@ -341,6 +349,7 @@ function ItemPage({
   issues: Listed[] | undefined;
   /** `cn review` of the epic on screen, when it is an epic. */
   review: ReviewView | undefined;
+  blockers: WaitingBlocker[] | undefined;
   now: number;
 }) {
   return (
@@ -355,6 +364,7 @@ function ItemPage({
           epic={shown}
           issues={(issues ?? []).filter((i) => i.epic.id === shown.id)}
           review={review}
+          blockers={blockers}
           now={now}
         />
       ) : shown.kind === "blocker" ? (
