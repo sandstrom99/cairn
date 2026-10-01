@@ -641,7 +641,7 @@ no command at all.
 A hook injects **under 20 lines**:
 
 - the projects the deployment has, as their slugs
-- ready count, and the top 3 by priority
+- ready count, and the top 3 by priority, carrying what `cn ready`'s line prints; the page asks for five
 - in progress, with actor and age, marked `yours` where the claim is this session's
 - the open follow-ups
 - waiting-on-you as a **count only**
@@ -795,6 +795,16 @@ the list with the pulse while it is on screen, as the Projects routes do, and dr
 every day quiet until that answer lands. Added 2026-10-01 (cn-141), built to the mock
 on ep-17.
 
+Then "Up next": the first five of `cn ready`, each row `issueLine` typeset, with the
+ready count beside the title, so the headline's count has something behind it on the
+page. The rows are the heads `brief.get` already carries, five when the page asks
+(`top`, `UP_NEXT` in `limits.ts`) and three for `cn brief`, which prints the same text
+as before; the overview never subscribes to `ready.list` a second time, since the brief
+computes readiness once per write for the headline already. Nothing where nothing is
+ready. An issue row prints the revision as the line does, `r3`, pale and mono between
+who holds it and the silence, which the rows had left out until this slice, since no
+pin carried one. Added 2026-10-01 (cn-143).
+
 Under the headline, each epic with a health row is its `cn epic list` block,
 with the first line of the epic's description between the head line and the
 rows, set small: the cut `cn show` gives an issue's fields, `…` after it where
@@ -813,6 +823,13 @@ and an epic shown above is not listed again. `lastActivity` on an `epics.list` r
 newest write to the epic or to any issue under it, as the issues stamp it, the
 same notion of activity the stuck line measures against, so an edge or a blocker
 on its own moves nothing. Added 2026-09-24.
+
+What the overview lists at scale, settled 2026-10-01 on ep-17 after invyte's worklist
+of sixty issues and ten epics: an epic's text is one line; only an epic with a health
+row shows rows, and the stuck ones are capped at three named; with nothing live, two
+epics stand and the rest are a list; Up next is five rows and a count; the band is the
+one grid on the page, and everything else is one column, because the page is read top
+to bottom and the order of what it says matters more than filling the width.
 
 A page for one id is `cn show` with room. An issue opens with its state,
 `stateParts`, the head of the brief's status line: `moving balder/claude 2h`,

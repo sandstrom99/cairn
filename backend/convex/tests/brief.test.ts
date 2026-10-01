@@ -52,7 +52,16 @@ describe("brief.get", () => {
 
     // cn-1 and cn-3 are held by blockers; cn-4 is claimed; the follow-ups are not tasks.
     expect(brief.ready.count).toBe(1);
-    expect(brief.ready.top).toEqual([{ id: "cn-2", title: "b", priority: 0 }]);
+    expect(brief.ready.top).toMatchObject([
+      {
+        id: "cn-2",
+        title: "b",
+        priority: 0,
+        status: "open",
+        epic: { id: "ep-1", title: "Create to close" },
+        revision: 0,
+      },
+    ]);
 
     expect(brief.inProgress).toEqual([
       { id: "cn-4", title: "d", claimedBy: other, claimedAt: expect.any(Number), mine: false },
@@ -91,6 +100,12 @@ describe("brief.get", () => {
     const brief = await t.query(api.brief.get, {});
     expect(brief.ready.count).toBe(4);
     expect(brief.ready.top.map((i) => i.id)).toEqual(["cn-1", "cn-2", "cn-3"]);
+    expect((await t.query(api.brief.get, { top: 5 })).ready.top.map((i) => i.id)).toEqual([
+      "cn-1",
+      "cn-2",
+      "cn-3",
+      "cn-4",
+    ]);
   });
 
   it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {

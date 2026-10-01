@@ -1,5 +1,5 @@
 // deployment.ts: the one place the page asks the deployment anything. Live subscriptions,
-// each to a function cn calls: brief.get for the headline, epics.list for health and the
+// each to a function cn calls: brief.get for the headline and Up next, epics.list for health and the
 // rail, projects.list for the rail's Projects section and the Projects pages, blockers.list
 // for what waits on a person, events.recent for the feed, issues.list for the lists and the
 // jump bar; deployment.name, which cn does not call, for the rail's head and the tab title;
@@ -12,7 +12,7 @@
 // from any of them is the subscription not having answered yet, never an empty list;
 // unanswered is the deployment not having answered at all.
 import { api } from "@cairn/backend/convex/_generated/api.js";
-import { JOURNAL_MAX, LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
+import { JOURNAL_MAX, LOG_LIMIT, UP_NEXT } from "@cairn/backend/convex/lib/limits.js";
 import type {
   BriefView,
   EpicLineView,
@@ -112,7 +112,7 @@ export type Deployment = {
  */
 export function useDeployment(secret: string | undefined, now: number): Deployment {
   const who = whoOf(secret);
-  const brief = useHeld(useQuery(api.brief.get, { ...who, now }));
+  const brief = useHeld(useQuery(api.brief.get, { ...who, now, top: UP_NEXT }));
   const epics = useHeld(useQuery(api.epics.list, { ...who, now }));
   const projects = useHeld(useQuery(api.projects.list, { ...who, now }));
   const blockers = useQuery(api.blockers.list, who);

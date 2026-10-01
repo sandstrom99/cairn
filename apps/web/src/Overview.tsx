@@ -1,6 +1,6 @@
 // Overview.tsx: what the page opens on. The brief as a headline, what waits on a person
-// where there is any, then every open epic with its health. The band of projects between
-// the headline and what waits is Band.tsx's.
+// where there is any, up next, the first of what is ready, then every open epic with its
+// health. The band of projects between the headline and what waits is Band.tsx's.
 //
 // Every row here is one of cn's lines, typeset. The pieces come from the `…Parts`
 // functions in @cairn/cli's parts.mts, the same ones the lines themselves are joined
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { headline, underline } from "./brief.ts";
 import { Group } from "./page.tsx";
 import { Ref, Refs, Run } from "./Ref.tsx";
-import { HealthRows, type Listed, RowLink } from "./rows.tsx";
+import { HealthRows, IssueRows, type Listed, RowLink } from "./rows.tsx";
 import { StateWord } from "./tone.tsx";
 
 export function Brief({ view }: { view: BriefView }) {
@@ -55,6 +55,16 @@ export function Waiting({ blockers, now }: { blockers: WaitingBlocker[]; now: nu
 }
 
 export type WaitingBlocker = BlockerLineView & { issues: Referable[] };
+
+/** `cn ready`, as the first rows of it: the ready count beside the title, and the heads the brief carries as rows. Nothing where nothing is ready. */
+export function UpNext({ view }: { view: BriefView }) {
+  if (view.ready.count === 0) return null;
+  return (
+    <Group title="Up next" id="up-next" count={view.ready.count} className="mt-10">
+      <IssueRows issues={view.ready.top} />
+    </Group>
+  );
+}
 
 function BlockerRow({ blocker, now }: { blocker: WaitingBlocker; now: number }) {
   const { target, kind, tail } = blockerParts(blocker, now);

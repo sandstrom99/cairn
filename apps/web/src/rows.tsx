@@ -86,7 +86,7 @@ export function IssueRows({
 }
 
 function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; meter?: Tone }) {
-  const { target, priority, status, epic, claimedBy } = issueParts(issue);
+  const { target, priority, status, epic, claimedBy, revision } = issueParts(issue);
   const silentSince = now === undefined ? undefined : issue.silentSince;
   const silent = silentSince === undefined ? undefined : age(silentSince, now);
   return (
@@ -128,12 +128,18 @@ function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; me
           <Ref item={epic} plain clip className="col-start-2 row-start-2 text-small text-slate" />
         </>
       )}
-      {(claimedBy || silent) && (
+      {(claimedBy || revision || silent) && (
         <span className="col-start-4 row-start-1 text-small text-slate narrow:col-start-2 narrow:row-start-4">
           {claimedBy && (
             <>
               <span className="unseen"> · </span>
               {claimedBy}
+            </>
+          )}
+          {revision && (
+            <>
+              {/* cn's `r3`, between who holds it and the silence, as the line has it: the token a retry carries. */}{" "}
+              <span className="font-mono text-meta text-faint">{revision}</span>
             </>
           )}
           {silent && (
@@ -223,12 +229,20 @@ const GROUPS: { title: string; pick: (issue: Listed) => boolean; folded: boolean
 ];
 
 /** A row on an epic's own page does not repeat the epic, the way `cn show ep-3` does not. */
-const withoutEpic = ({ id, title, status, priority, claimedBy }: Listed): IssueLineView => ({
+const withoutEpic = ({
   id,
   title,
   status,
   priority,
   claimedBy,
+  revision,
+}: Listed): IssueLineView => ({
+  id,
+  title,
+  status,
+  priority,
+  claimedBy,
+  revision,
 });
 
 /** The issues in their groups, a titled list each, empty groups left out. */
