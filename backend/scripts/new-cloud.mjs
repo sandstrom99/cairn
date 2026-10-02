@@ -33,8 +33,11 @@
 // rest pass through.
 //
 // convex writes the deployment it made into `.env.local` in its working directory, with a
-// `# team: <t>, project: <p>` comment on the same line. The script reads the deployment and
-// its URL from there, writes the cloud file, and puts `.env.local` back byte for byte, or
+// `# team: <t>, project: <p>` comment on the same line, and its URL under the name it picks
+// for the framework it detects in package.json: `VITE_CONVEX_URL` here, since vitest brings
+// vite, and `CONVEX_URL` in a package it sees no framework in. The script reads both,
+// writes the cloud file with `CONVEX_URL`, which clouds.mjs and the rest read, and puts
+// `.env.local` back byte for byte, or
 // removes it when there was none, whichever way convex ends: convexStatus hands SIGINT and
 // SIGTERM to convex while it runs, and a listener replaces node's default exit, so this
 // process outlives convex and its `finally` restores the file.
@@ -69,11 +72,22 @@ const DROPPED = [
 const tokenIn = (text, name) =>
   text?.match(new RegExp(`^\\s*${name}\\s*=\\s*["']?([^\\s"'#]+)`, "m"))?.[1];
 
+/**
+ * The URL's name as convex writes it, `CONVEX_URL` or prefixed for a detected framework,
+ * `VITE_CONVEX_URL` in this package (node_modules/convex/dist/cjs/cli/lib/envvars.js).
+ * The `…CONVEX_SITE_URL` beside it is the HTTP actions URL and never matches this.
+ */
+const URL_NAME = "(?:[A-Z0-9]+_)*CONVEX_URL";
+
 /** The `team: <t>, project: <p>` convex writes after `CONVEX_DEPLOYMENT` on its line. */
 const commentIn = (text) => text?.match(/^\s*CONVEX_DEPLOYMENT\s*=.*?#\s*(team: .+?)\s*$/m)?.[1];
 
 /** An env file's text, or undefined with no file. */
 const textOf = (file) => (existsSync(file) ? readFileSync(file, "utf8") : undefined);
+
+/** What comes after the deployment exists: its secret, which fences it before any push. */
+const nextLine = (name) =>
+  `next: vp run -F @cairn/backend secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`;
 
 /** Whether this machine is logged in to Convex, the way convex itself decides it. */
 function loggedIn(env) {
@@ -156,9 +170,15 @@ export async function newCloud({
       err(`convex created nothing (exit ${status}); nothing written`);
       return 1;
     }
-    const url = tokenIn(written, "CONVEX_URL");
+    const url = tokenIn(written, URL_NAME);
     if (url === undefined) {
-      err(`convex made ${deployment} but wrote no CONVEX_URL; nothing written`);
+      err(
+        `convex made ${deployment} but wrote no URL beside it; backend/${envFile} is not written`,
+      );
+      err(
+        `finish by hand, since running this again would make a second project: write backend/${envFile} with CONVEX_DEPLOYMENT=${deployment} and CONVEX_URL=<its URL, from https://dashboard.convex.dev>, then run the next: line`,
+      );
+      err(nextLine(name));
       return 1;
     }
     const comment = commentIn(written);
@@ -171,9 +191,7 @@ export async function newCloud({
     writeFileSync(cloudFile, lines.map((line) => `${line}\n`).join(""));
     err(`created ${name}: ${deployment} at ${url}, in backend/${envFile}`);
     if (status !== 0) err(`convex exited ${status} after creating it; the file is written`);
-    err(
-      `next: vp run -F @cairn/backend secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`,
-    );
+    err(nextLine(name));
     return status === 0 ? 0 : 1;
   } finally {
     restore();
