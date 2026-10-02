@@ -31,14 +31,18 @@
 // --refresh takes a rotated secret onto this machine. It re-runs the command the
 // deployment stores, or the --secret-cmd given, which then replaces the stored one: that
 // is how a machine set up before commands were kept takes its first. It checks that the
-// deployment accepts what the command printed, and rewrites that deployment's secret and
-// nothing else. --name is the deployment; when absent, the one CAIRN_DEPLOYMENT names,
-// then the file's default. CAIRN_SECRET plays no part: the file is what gets fixed.
+// deployment accepts what the command printed. --name is the deployment; when absent, the
+// one CAIRN_DEPLOYMENT names, then the file's default. CAIRN_SECRET plays no part: the file
+// is what gets fixed. It rewrites that deployment's secret in `secrets/<name>` and its
+// command in the file, moves a secret an older cn cached in the file to its own, and
+// changes nothing else.
 //
 // It checks before it writes. The deployment has to answer, and where a secret was found
 // it has to be accepted; a check that fails writes nothing and says what to fix. What it
 // writes is `~/.config/cairn/config.json`, or `$XDG_CONFIG_HOME/cairn/config.json` where
-// that is set, mode 600, because the secret is in it.
+// that is set, which names the deployment and the command and never the secret, and
+// `~/.config/cairn/secrets/<name>`, which is the secret alone; both mode 600. The file is
+// what an agent reads to see how a machine is set up, so nothing in it is a secret.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { maybe, onlyFlags } from "../lib/flags.mts";
@@ -47,9 +51,11 @@ import {
   type CairnConfig,
   configPath,
   readConfig,
+  removeSecret,
   withDeployment,
-  withSecret,
+  withSecretCmd,
   writeConfig,
+  writeSecret,
 } from "../lib/config.mts";
 import { ping } from "../lib/ping.mts";
 import { captureStdout } from "../lib/run.mts";
@@ -222,7 +228,8 @@ async function refresh(parsed: { name?: string; command?: string }): Promise<num
   ok(
     `secret accepted (from ${parsed.command === undefined ? "the stored command" : "--secret-cmd"})`,
   );
-  ok(`wrote ${writeConfig(withSecret(existing, name, { secret, secretCmd: command }))} (mode 600)`);
+  ok(`wrote ${writeSecret(name, secret)} (mode 600)`);
+  ok(`wrote ${writeConfig(withSecretCmd(existing, name, command))} (mode 600)`);
   return 0;
 }
 
@@ -236,11 +243,11 @@ export async function run(argv: string[]): Promise<number> {
   // init does not guess at it. This is the one verb that reads the file itself rather
   // than through the session, because it is about to write it.
   const existing = readConfig();
-  const build = (secret?: string): CairnConfig =>
-    withDeployment(existing, {
+  let next: CairnConfig;
+  try {
+    next = withDeployment(existing, {
       name: parsed.name,
       url: parsed.url,
-      ...maybe("secret", secret),
       ...maybe(
         "secretCmd",
         parsed.secret.from === "--secret-cmd" ? parsed.secret.command : undefined,
@@ -248,8 +255,6 @@ export async function run(argv: string[]): Promise<number> {
       ...maybe("host", parsed.host),
       makeDefault: parsed.makeDefault,
     });
-  try {
-    build();
   } catch (e) {
     bad((e as Error).message);
     return 1;
@@ -263,7 +268,6 @@ export async function run(argv: string[]): Promise<number> {
   } else if (parsed.secret.from === "CAIRN_SECRET") {
     secret = parsed.secret.value;
   }
-  const next = build(secret);
 
   // The check is `cn doctor`'s ping against a deployment that is not in the file yet, so
   // what gets written is a deployment that answered once. The secret is struck from the
@@ -282,6 +286,10 @@ export async function run(argv: string[]): Promise<number> {
   ok(`${parsed.name} → ${parsed.url} answered: ${answer.projects} project(s)`);
   if (secret !== undefined) ok(`secret accepted (from ${parsed.secret.from})`);
 
+  // The secret lands first, so a config naming a deployment never exists without its
+  // secret beside it. An open deployment set up under a name that once had one drops it.
+  if (secret !== undefined) ok(`wrote ${writeSecret(parsed.name, secret)} (mode 600)`);
+  else removeSecret(parsed.name);
   ok(`wrote ${writeConfig(next)} (mode 600)`);
   if (next.default !== parsed.name)
     say(

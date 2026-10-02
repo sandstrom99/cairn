@@ -10,12 +10,13 @@ wired to it. Work out which are done, say so in a line each, and do the rest in 
 You run every command. The person names things, finishes a browser login and unlocks
 their password manager, and nothing else: never ask them to run or paste a command.
 
-Run `cn doctor` first. Everything below that is not `cn` runs from the cairn checkout,
-the directory `cn` is installed from: `readlink -f "$(command -v cn)"` prints
-`<checkout>/packages/cli/bin/cn`. With no `cn` on PATH at all, install it with the person
-the way the checkout's README says under "1. Install `cn`", in the checkout that
-`claude plugin marketplace list` shows as the `cairn` source, and ask before writing
-anything outside it.
+Run `cn doctor` first. It says everything about this machine's setup that you need; never
+read `~/.config/cairn` yourself, since the secrets are under it. Everything below that is
+not `cn` runs from the cairn checkout, the directory `cn` is installed from:
+`readlink -f "$(command -v cn)"` prints `<checkout>/packages/cli/bin/cn`. With no `cn` on
+PATH at all, install it with the person the way the checkout's README says under
+"1. Install `cn`", in the checkout that `claude plugin marketplace list` shows as the
+`cairn` source, and ask before writing anything outside it.
 
 The repository is the one this session is in, unless the arguments or the person name
 another. The cairn checkout is wired already, so from there it is always another: ask
@@ -134,8 +135,8 @@ it, and run the same `cn init` again. A secret that worked and is now refused me
 deployment's secret was rotated: run `cn init --refresh`, not a new `cn init`, and it
 re-runs the command this machine stored and rewrites that one secret. A name that is
 taken means this machine is already set up for that deployment: read `cn doctor` before
-anything else. Never read or edit the config file by hand. It holds the secrets, and
-`cn doctor` says everything in it that you need.
+anything else. Never read or edit `~/.config/cairn` by hand: `secrets/` holds the secrets,
+and `cn doctor` says everything in the config that you need.
 
 ## 3. The repository
 
@@ -241,7 +242,7 @@ the repository named it.
 
 The last reply names every file written, each marked tracked or machine-local: the
 settings file, the cairn section, `info/exclude` when it changed, and this machine's own,
-meaning the marketplace in `~/.claude` and the config `cn init` wrote. It also names the
-projects created, and any tracker found, left on or turned off, and for one left on, which
-gets new work. Sessions already open in
-the repository keep what they started with until they restart.
+meaning the marketplace in `~/.claude` and the config and the secret file `cn init` wrote.
+It also names the projects created, and any tracker found, left on or turned off, and for
+one left on, which gets new work. Sessions already open in the repository keep what they
+started with until they restart.

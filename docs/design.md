@@ -1325,16 +1325,20 @@ Added when the solution was mapped, 2026-09-17:
   through; a `duplicates` edge between them is the answer given (§7).
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
-  `{ "default": "acme", "deployments": { "acme": { "url": …, "secret": … } } }`.
+  `{ "default": "acme", "deployments": { "acme": { "url": …, "secretCmd": … } } }`.
   A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the
   arguments before the handler, so nothing downstream sees it. A deployment with none set
-  checks nothing, which is what keeps the anonymous local one open. `cn` sends it from the
-  deployment's `secret` in the config, or `CAIRN_SECRET` in the shell, which wins. It
-  fences a deployment; it does not tell actors apart, which stays §13. It is set by
-  `vp run -F @cairn/backend secret`, one operation each for `new`, `rotate` and `revoke`,
-  which hands the value to 1Password or to stdout and never to stderr. `revoke`
+  checks nothing, which is what keeps the anonymous local one open. `cn` sends it from
+  `~/.config/cairn/secrets/<name>`, which `cn init` writes beside the config and never
+  into it, since the config is the file an agent reads to see how a machine is set up and
+  must hold nothing that cannot be printed (2026-10-02, cn-152, after two secrets reached
+  a transcript that way); a secret an older cn cached in the file is read until
+  `cn init --refresh` moves it, and `cn doctor` names the move; `CAIRN_SECRET` in the
+  shell wins. It fences a deployment; it does not tell actors apart, which stays §13. It
+  is set by `vp run -F @cairn/backend secret`, one operation each for `new`, `rotate` and
+  `revoke`, which hands the value to 1Password or to stdout and never to stderr. `revoke`
   fences the deployment with a secret nobody holds rather than removing it, since a
   deployment with none is open; and a shared secret cannot revoke one machine, only all
   of them, which is the price of running on trust (§13). `cn init` keeps the command
@@ -1352,10 +1356,10 @@ implementation.
 
 | Open question | Current lean |
 |---|---|
-| How a session resolves repo → project → deployment | Settled 2026-09-29 (cn-89): `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL and secret from there. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
+| How a session resolves repo → project → deployment | Settled 2026-09-29 (cn-89): `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL from there and its secret from `secrets/<name>` beside it. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
 | Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | Settled 2026-09-29 (cn-92): a company's worklist is the development deployment of a Convex project of its own, `cairn-<name>` unless named otherwise. `#new:cloud` makes it with `convex dev --configure new --skip-push`, so no function runs there before `#secret -- new` has fenced it, and `#push:cloud` pushes to it with the login alone. A production deployment would need `convex deploy` and a deploy key, and buys a worklist nothing yet. The anonymous local deployment stays the development copy, and the throwaway stays the tests' (§11) |
-| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secret` in the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Settled 2026-09-29 (bl-4): that secret stays the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
+| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secrets/<name>` beside the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Settled 2026-09-29 (bl-4): that secret stays the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
 | Who counts as the actor on a journal entry or a claim | Settled 2026-09-29 (bl-4): the argument `cn` sends (§12), taken on trust. There is no token to take it from instead |
 | Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo. The brief's `projects` line names every project on the deployment, the section only the ones the repository maps, so the skill reads `cn project list` for work that fits none of its rows and asks when more than one could fit; `/cairn:init` drafts the section from the deployment's projects, the table mapping directories to slugs and the description staying the one place that says what a project is (cn-128, 2026-09-30) |
 | The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |

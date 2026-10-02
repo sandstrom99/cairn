@@ -17,7 +17,7 @@ const cloud = {
   url: "https://tidy-otter-1.convex.cloud",
   source: "default" as const,
   secret: "s3cret/+=",
-  secretSource: "config" as const,
+  secretSource: "file" as const,
 };
 
 describe("cn doctor", () => {
@@ -39,9 +39,12 @@ describe("cn doctor", () => {
     const fromConfig = deploymentCheck(cloud);
     expect(fromConfig.ok).toBe(true);
     expect(fromConfig.line).toBe(
-      "deployment cairn → https://tidy-otter-1.convex.cloud (from default, secret from config)",
+      "deployment cairn → https://tidy-otter-1.convex.cloud (from default, secret from secrets/cairn)",
     );
     expect(fromConfig.line).not.toContain("s3cret");
+    expect(deploymentCheck({ ...cloud, secretSource: "config" }).line).toBe(
+      "deployment cairn → https://tidy-otter-1.convex.cloud (from default, secret from config.json; cn init --refresh --name cairn moves it to secrets/cairn)",
+    );
     expect(deploymentCheck({ ...cloud, secretSource: "env" }).line).toContain(
       "secret from CAIRN_SECRET",
     );
@@ -72,7 +75,7 @@ describe("cn doctor", () => {
 
   it("names CAIRN_DEPLOYMENT when that is what chose the deployment", () => {
     expect(deploymentCheck({ ...cloud, name: "northwind", source: "CAIRN_DEPLOYMENT" }).line).toBe(
-      "deployment northwind → https://tidy-otter-1.convex.cloud (from CAIRN_DEPLOYMENT, secret from config)",
+      "deployment northwind → https://tidy-otter-1.convex.cloud (from CAIRN_DEPLOYMENT, secret from secrets/northwind)",
     );
   });
 

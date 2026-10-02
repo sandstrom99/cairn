@@ -365,7 +365,8 @@ cn takes the OS hostname up to its first dot, lowercased, so a Mac called
 `Harbors-MacBook-Pro.local` is `harbors-macbook-pro`, which already carries it. The command
 checks before it writes: the deployment has to answer and accept the secret, or nothing
 is written and the line says what to fix. What it writes is
-`~/.config/cairn/config.json`, mode 600, with the secret and the command beside it.
+`~/.config/cairn/config.json`, which names the deployment and the command and never the
+secret, and `~/.config/cairn/secrets/acme`, which is the secret alone; both mode 600.
 
 `cn doctor` is green when it shows the deployment answering and
 `✓ secret accepted by acme`. Its `✓ page …` line is where this deployment's page is,

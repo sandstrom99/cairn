@@ -61,8 +61,10 @@ whatever you share secrets with. The secret is the one `CAIRN_SECRET` set on the
 deployment, so a machine already logged in to Convex can also read it back with
 `npx convex env get CAIRN_SECRET --deployment <deployment>` from `backend/`.
 
-The file `cn init` writes is `~/.config/cairn/config.json`, and it is the copy `cn` reads
-on every call — `op` is not on that path, because one read costs seconds:
+The files `cn init` writes are `~/.config/cairn/config.json` and
+`~/.config/cairn/secrets/cairn`, the secret on its own, and together they are the copy
+`cn` reads on every call — `op` is not on that path, because one read costs seconds. The
+config carries no secret, so reading it to see how a machine is set up prints none:
 
 ```json
 {
@@ -70,7 +72,6 @@ on every call — `op` is not on that path, because one read costs seconds:
   "deployments": {
     "cairn": {
       "url": "https://<deployment>.convex.cloud",
-      "secret": "…",
       "secretCmd": "op read \"op://Personal/cairn dev deployment/secret\""
     }
   }

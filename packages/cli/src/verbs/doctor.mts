@@ -10,7 +10,8 @@
 //
 // Where the deployment is fenced by a secret (docs/design.md §12), the ping is what
 // proves the secret this machine holds is the one the deployment wants, and the line
-// after it says so. Doctor names where a secret came from and never prints it.
+// after it says so. Doctor names where a secret came from and never prints it; a secret an
+// older cn cached in config.json is named with the refresh that moves it.
 //
 // Where the ping answered, the last line is the functions: the commit `#push:cloud`
 // recorded on the deployment (`deployment.pushedFrom`) against the commit this cn runs
@@ -83,9 +84,14 @@ export function nodeCheck(version: string): Check {
  */
 export function deploymentCheck(dep: Deployment | null): Check {
   if (!dep) return { check: "deployment", ok: false, line: noDeploymentMessage() };
-  const secret = dep.secretSource
-    ? `secret from ${dep.secretSource === "env" ? "CAIRN_SECRET" : "config"}`
-    : "no secret";
+  const secret =
+    dep.secretSource === "env"
+      ? "secret from CAIRN_SECRET"
+      : dep.secretSource === "file"
+        ? `secret from secrets/${dep.name}`
+        : dep.secretSource === "config"
+          ? `secret from config.json; cn init --refresh --name ${dep.name} moves it to secrets/${dep.name}`
+          : "no secret";
   return {
     check: "deployment",
     ok: true,
