@@ -12,8 +12,8 @@
 //                                      env of its Claude settings
 //   ~/.config/cairn/config.json        { "default": "acme", "host": "wsl",
 //                                        "deployments": { "acme": { "url": "https://….convex.cloud",
-//                                                                   "secret": "…",
 //                                                                   "secretCmd": "op read …" } } }
+//   ~/.config/cairn/secrets/<name>     that deployment's secret, one file each, mode 600
 //
 // A CAIRN_DEPLOYMENT the file lacks is an error naming the deployments it has, never a
 // fall back to the default: the repository asked for one worklist, and writing to another
@@ -23,24 +23,24 @@
 // file is which deployment to talk to. A file written before capabilities went (cn-118)
 // may still hold `can`; it loads, and nothing reads it.
 //
-// `secret` is the deployment's one shared secret, sent on every call and checked by
-// `lib/guard.ts` in the deployment (docs/design.md §12). `CAIRN_SECRET` in the shell wins
-// over the file, the same way `CAIRN_URL` does, so a hook or a one-off run can carry it.
-// A deployment with no `CAIRN_SECRET` set on it checks nothing, which is what keeps the
-// anonymous local deployment open. It fences a deployment, not an actor: actors are taken
-// on trust (§13). `secretCmd` is the command `cn init --secret-cmd` ran to get it, kept beside
-// it so `cn init --refresh` can run it again once the deployment's secret is rotated; it
-// is a command, not a secret.
+// The secret is the deployment's one shared secret, sent on every call and checked by
+// `lib/guard.ts` in the deployment (docs/design.md §12). It is in `secrets/<name>`, not
+// the file: the file is what an agent reads to see how a machine is set up, so it holds
+// nothing that cannot be printed. A `secret` key still in the file was cached by a cn from
+// before; it is read until `cn init --refresh` moves it, and never written again.
+// `CAIRN_SECRET` in the shell wins over both, as `CAIRN_URL` does. A deployment with no
+// `CAIRN_SECRET` set on it checks nothing, which keeps the anonymous local one open; it
+// fences a deployment, not an actor (§13). `secretCmd` is a command, not a secret.
 //
-// The file is written by `cn init`, by `cn init --refresh` for one deployment's secret, and
-// by hand, and by nothing else. What `cn init` guarantees is here, in `withDeployment`,
-// `withSecret` and `writeConfig`: it is checked before it is written — the deployment
-// answers and takes the secret, or the file is untouched — it adds a deployment and never
-// replaces one, `--refresh` changes that one deployment's secret and nothing else, and
-// the file lands mode 600 in a 700 directory, because the secret is in it.
+// The file is written by `cn init`, by `cn init --refresh`, and by hand. What `cn init`
+// guarantees is here, in `withDeployment`, `withSecretCmd` and `writeConfig`: checked
+// before written, a deployment added and never replaced, `--refresh` changing one
+// deployment's secret and command. `writeConfig` strips any `secret` it is handed into
+// `secrets/<name>`, so the file never carries one once cn has written it; it still lands
+// 600 in a 700 directory, because it names where the secrets are and what prints them.
 //
-// $XDG_CONFIG_HOME replaces ~/.config when set. The file is read by `readConfig`, once per
-// call, in lib/session.mts, and handed to everything that derives a fact from it.
+// $XDG_CONFIG_HOME replaces ~/.config. `readConfig` reads the file once per call, in
+// lib/session.mts; `resolveDeployment` also reads `secrets/<name>`, so it takes env.
 
 import {
   chmodSync,
@@ -54,7 +54,12 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-type DeploymentConfig = { url: string; secret?: string; secretCmd?: string };
+type DeploymentConfig = {
+  url: string;
+  secretCmd?: string;
+  /** A secret an older cn cached in the file: read until `cn init --refresh` moves it to secrets/<name>, never written. */
+  secret?: string;
+};
 export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
@@ -69,12 +74,69 @@ export type Deployment = {
   source: "CAIRN_URL" | "CAIRN_DEPLOYMENT" | "default";
   /** The shared secret to send, when this machine has one for the deployment. */
   secret?: string;
-  secretSource?: "env" | "config";
+  /** env is CAIRN_SECRET, file is secrets/<name>, config is a secret still cached in config.json. */
+  secretSource?: "env" | "file" | "config";
 };
+
+/** `$XDG_CONFIG_HOME/cairn`, or `~/.config/cairn`. */
+export const configDir = (env: NodeJS.ProcessEnv = process.env): string =>
+  join(env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cairn");
 
 /** `$XDG_CONFIG_HOME/cairn/config.json`, or `~/.config/cairn/config.json`. */
 export const configPath = (env: NodeJS.ProcessEnv = process.env): string =>
-  join(env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cairn", "config.json");
+  join(configDir(env), "config.json");
+
+/** Where this machine keeps one deployment's secret: `secrets/<name>` beside the config. */
+export const secretPath = (name: string, env: NodeJS.ProcessEnv = process.env): string =>
+  join(configDir(env), "secrets", name);
+
+/** What a deployment is called; anything else in a hand-edited file is never a path. */
+const NAME = /^[a-z0-9][a-z0-9-]*$/;
+
+/** The secret this machine keeps for `name`, or undefined when there is none. */
+export function readSecret(name: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  if (!NAME.test(name)) return undefined;
+  const file = secretPath(name, env);
+  if (!existsSync(file)) return undefined;
+  const text = readFileSync(file, "utf8");
+  return text.trim() === "" ? undefined : text.replace(/\r?\n$/, "");
+}
+
+/** `secretPath`, refusing a name that would make it anything but a file in `secrets/`. */
+function secretFile(name: string, env: NodeJS.ProcessEnv): string {
+  if (!NAME.test(name))
+    throw new Error(
+      `${name} is not a deployment name cn keeps a secret for: lowercase letters, digits and dashes`,
+    );
+  return secretPath(name, env);
+}
+
+/** Writes one deployment's secret 600 in a 700 directory, atomically, and returns its path. */
+export function writeSecret(
+  name: string,
+  secret: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const file = secretFile(name, env);
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  const temp = `${file}.tmp-${process.pid}`;
+  try {
+    writeFileSync(temp, `${secret}\n`, { mode: 0o600 });
+    renameSync(temp, file);
+    // A rename carries the new file's mode, but an older file at the path may have been
+    // looser, and what just landed is a secret.
+    chmodSync(file, 0o600);
+  } catch (e) {
+    rmSync(temp, { force: true });
+    throw e;
+  }
+  return file;
+}
+
+/** Removes one deployment's secret, if this machine keeps one. */
+export function removeSecret(name: string, env: NodeJS.ProcessEnv = process.env): void {
+  rmSync(secretFile(name, env), { force: true });
+}
 
 /** The config file parsed, or null when there is none. A malformed file throws by path. */
 export function readConfig(env: NodeJS.ProcessEnv = process.env): CairnConfig | null {
@@ -91,8 +153,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): CairnConfig | 
 type NewDeployment = {
   name: string;
   url: string;
-  secret?: string;
-  /** The command that printed `secret`, for `cn init --refresh` to run again. */
+  /** The command that printed the secret, for `cn init --refresh` to run again. */
   secretCmd?: string;
   host?: string;
   makeDefault: boolean;
@@ -100,7 +161,7 @@ type NewDeployment = {
 
 /** `existing` with the deployment added. Pure; throws Error when the name is taken. */
 export function withDeployment(existing: CairnConfig | null, input: NewDeployment): CairnConfig {
-  const { name, url, secret, secretCmd, host, makeDefault } = input;
+  const { name, url, secretCmd, host, makeDefault } = input;
   const deployments = existing?.deployments ?? {};
   const taken = deployments[name];
   // The same refusal whether or not the url matches: which of the two the machine meant
@@ -120,7 +181,6 @@ export function withDeployment(existing: CairnConfig | null, input: NewDeploymen
       ...deployments,
       [name]: {
         url,
-        ...(secret === undefined ? {} : { secret }),
         ...(secretCmd === undefined ? {} : { secretCmd }),
       },
     },
@@ -128,39 +188,53 @@ export function withDeployment(existing: CairnConfig | null, input: NewDeploymen
 }
 
 /**
- * `existing` with one deployment's `secret` and `secretCmd` replaced and everything else as
- * it was, for `cn init --refresh`. Pure; throws Error when the file has no such deployment.
+ * `existing` with one deployment's `secretCmd` replaced, a secret still cached on it
+ * dropped, and everything else as it was, for `cn init --refresh`. Pure; throws Error
+ * when the file has no such deployment.
  */
-export function withSecret(
-  existing: CairnConfig,
-  name: string,
-  next: { secret: string; secretCmd: string },
-): CairnConfig {
+export function withSecretCmd(existing: CairnConfig, name: string, secretCmd: string): CairnConfig {
   const deployments = existing.deployments ?? {};
   const dep = deployments[name];
   if (!dep)
     throw new Error(
       `${name} is not a deployment in the config; it has ${Object.keys(deployments).join(", ")}`,
     );
+  const { secret: _cached, ...kept } = dep;
   return {
     ...existing,
-    deployments: {
-      ...deployments,
-      [name]: { ...dep, secret: next.secret, secretCmd: next.secretCmd },
-    },
+    deployments: { ...deployments, [name]: { ...kept, secretCmd } },
   };
 }
 
-/** Writes the config 600 in a 700 directory, atomically, and returns its path. */
+/**
+ * Writes the config 600 in a 700 directory, atomically, and returns its path. A `secret`
+ * it is handed goes to `secrets/<name>` first and never into the file.
+ */
 export function writeConfig(config: CairnConfig, env: NodeJS.ProcessEnv = process.env): string {
   const file = configPath(env);
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  // A secrets file that holds a secret wins over one cached inline: a refresh wrote it,
+  // so it is the newer of the two.
+  const stripped: CairnConfig = config.deployments
+    ? {
+        ...config,
+        deployments: Object.fromEntries(
+          Object.entries(config.deployments).map(([name, dep]) => {
+            const { secret, ...kept } = dep;
+            if (secret !== undefined && readSecret(name, env) === undefined)
+              writeSecret(name, secret, env);
+            return [name, kept];
+          }),
+        ),
+      }
+    : config;
   const temp = `${file}.tmp-${process.pid}`;
   try {
-    writeFileSync(temp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+    writeFileSync(temp, `${JSON.stringify(stripped, null, 2)}\n`, { mode: 0o600 });
     renameSync(temp, file);
     // A rename carries the new file's mode, but an older file at the path may have been
-    // looser and this is the case that matters: the secret is in what just landed.
+    // looser, and what the file names is nobody else's: where the secrets are and the
+    // commands that print them.
     chmodSync(file, 0o600);
   } catch (e) {
     rmSync(temp, { force: true });
@@ -172,6 +246,17 @@ export function writeConfig(config: CairnConfig, env: NodeJS.ProcessEnv = proces
 /** The one sentence every verb and `cn doctor` say when nothing resolves. */
 export function noDeploymentMessage(): string {
   return "no deployment: run `cn init` to set this machine up (cn init --help), or set CAIRN_URL";
+}
+
+/** The secret this machine holds for a deployment in the file, and where it came from. */
+function secretOf(
+  name: string,
+  dep: DeploymentConfig,
+  env: NodeJS.ProcessEnv,
+): Pick<Deployment, "secret" | "secretSource"> {
+  const kept = readSecret(name, env);
+  if (kept !== undefined) return { secret: kept, secretSource: "file" };
+  return dep.secret ? { secret: dep.secret, secretSource: "config" } : {};
 }
 
 /** The deployment to use, from the environment or the config as read, or null when nothing names one. */
@@ -202,8 +287,13 @@ export function resolveDeployment(
       );
     }
     if (!dep.url) throw new Error(`${configPath(env)}: deployment "${named}" has no url`);
-    const fromConfig = dep.secret ? { secret: dep.secret, secretSource: "config" as const } : {};
-    return { name: named, url: dep.url, source: "CAIRN_DEPLOYMENT", ...fromConfig, ...fromEnv };
+    return {
+      name: named,
+      url: dep.url,
+      source: "CAIRN_DEPLOYMENT",
+      ...secretOf(named, dep, env),
+      ...fromEnv,
+    };
   }
   if (!cfg) return null;
   // A hand-edited file can lack the key altogether; that is a file with no deployments.
@@ -215,6 +305,5 @@ export function resolveDeployment(
   if (!dep)
     throw new Error(`${configPath(env)}: default "${name}" names no deployment in the file`);
   if (!dep.url) throw new Error(`${configPath(env)}: deployment "${name}" has no url`);
-  const fromConfig = dep.secret ? { secret: dep.secret, secretSource: "config" as const } : {};
-  return { name, url: dep.url, source: "default", ...fromConfig, ...fromEnv };
+  return { name, url: dep.url, source: "default", ...secretOf(name, dep, env), ...fromEnv };
 }

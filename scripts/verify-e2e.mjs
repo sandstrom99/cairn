@@ -13,9 +13,10 @@
 // `backend/scripts/throwaway.mjs` starts that deployment on OS-chosen ports with its own
 // state directory and deletes both afterwards. The target is only ever the deployment
 // this script started — never the worklist, never the local dev copy on 3210 — and `cn`
-// runs with XDG_CONFIG_HOME pointed at a temp directory, so ~/.config/cairn/config.json
-// cannot be read even if CAIRN_URL went missing. The `cn init` row is the one that writes
-// a config at all, and it writes into a second temp directory it starts empty.
+// runs with XDG_CONFIG_HOME pointed at a temp directory, so ~/.config/cairn, config.json
+// and secrets/ alike, cannot be read even if CAIRN_URL went missing. The `cn init` row is
+// the one that writes a config at all, and it writes into a second temp directory it
+// starts empty.
 //
 // A call is written the way it is typed: `cn("claim cn-2")`, with quotes holding a title
 // together; `pass(line, why)` is the call that has to exit 0, and `json(line)` a read
@@ -1316,8 +1317,16 @@ row("verbs/init.mts", () => {
   assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
   assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), {
     default: "e2e",
-    deployments: { e2e: { url, secret: "s3cret", secretCmd: "echo s3cret" } },
+    deployments: { e2e: { url, secretCmd: "echo s3cret" } },
   });
+  const secretsDir = join(cold, "cairn", "secrets");
+  assert.equal(
+    readFileSync(join(secretsDir, "e2e"), "utf8"),
+    "s3cret\n",
+    "the secret was not kept",
+  );
+  assert.equal(statSync(join(secretsDir, "e2e")).mode & 0o777, 0o600, "the secret is not mode 600");
+  assert.equal(statSync(secretsDir).mode & 0o777, 0o700, "secrets/ is not mode 700");
 
   // The file alone is enough from here: nothing in the environment names a deployment.
   const doctored = pass("doctor", "cn doctor failed on the config cn init just wrote", viaFile);
@@ -1325,8 +1334,13 @@ row("verbs/init.mts", () => {
   assert.match(doctored.out, /from default/, "cn doctor does not name the default as the source");
   assert.match(
     doctored.out,
+    /from default, secret from secrets\/e2e/,
+    "cn doctor does not name secrets/e2e as where the secret came from",
+  );
+  assert.match(
+    doctored.out,
     /^✓ secret accepted by e2e$/m,
-    "the secret the file holds was not taken",
+    "the secret the machine holds was not taken",
   );
 
   const written = readFileSync(config, "utf8");
@@ -1343,6 +1357,10 @@ row("verbs/init.mts", () => {
   assert.ok(
     !("secretCmd" in both.deployments.other),
     "a deployment with no secret command got a secretCmd key",
+  );
+  assert.ok(
+    !existsSync(join(secretsDir, "other")),
+    "a deployment with no secret got a secret file",
   );
 
   const dead = cn("init --name dead --url http://127.0.0.1:9", viaFile);
@@ -1407,19 +1425,21 @@ row("verbs/init.mts", () => {
 row("lib/config.mts", () => {
   // A machine with two deployments, the default one dead, the way a machine that works
   // for two companies holds both: CAIRN_DEPLOYMENT is how a repository picks the other.
-  // The throwaway has no secret set yet, so it takes the one the file holds.
+  // The throwaway has no secret set yet, so it takes the one secrets/e2e holds.
   const named = mkdtempSync(join(tmpdir(), "cairn-e2e-named-"));
   const empty = mkdtempSync(join(tmpdir(), "cairn-e2e-empty-"));
   const config = join(named, "cairn", "config.json");
+  const secretFile = join(named, "cairn", "secrets", "e2e");
   const both = {
     default: "dead",
     deployments: {
       dead: { url: "http://127.0.0.1:9" },
-      e2e: { url, secret: "s3cret", secretCmd: "echo s3cret" },
+      e2e: { url, secretCmd: "echo s3cret" },
     },
   };
-  mkdirSync(join(named, "cairn"));
+  mkdirSync(join(named, "cairn", "secrets"), { recursive: true, mode: 0o700 });
   writeFileSync(config, JSON.stringify(both), { mode: 0o600 });
+  writeFileSync(secretFile, "s3cret\n", { mode: 0o600 });
   const viaFile = { xdg: named, viaConfig: true };
   const missing =
     "CAIRN_DEPLOYMENT is nope, and this machine has no deployment by that name (it has dead, e2e): cn init --name nope sets it up (cn init --help)";
@@ -1438,7 +1458,9 @@ row("lib/config.mts", () => {
     const byName = cn("doctor", { ...viaFile, deployment: "e2e" });
     assert.equal(byName.status, 0, "cn doctor failed on the deployment CAIRN_DEPLOYMENT names");
     assert.ok(
-      byName.stdout.includes(`deployment e2e → ${url} (from CAIRN_DEPLOYMENT, secret from config)`),
+      byName.stdout.includes(
+        `deployment e2e → ${url} (from CAIRN_DEPLOYMENT, secret from secrets/e2e)`,
+      ),
       "cn doctor does not read CAIRN_DEPLOYMENT as what chose the deployment",
     );
     assert.match(
@@ -1505,6 +1527,7 @@ row("lib/config.mts", () => {
       both,
       "cn init --refresh changed more than the named deployment's secret",
     );
+    assert.equal(readFileSync(secretFile, "utf8"), "s3cret\n", "the refreshed secret is not kept");
 
     // No config at all: the line says there is none.
     const bare = cn("doctor", { xdg: empty, viaConfig: true, deployment: "nope" });
@@ -1907,12 +1930,15 @@ row("verbs/init.mts (refresh)", () => {
     const d = rotated.out[0];
     writeFileSync(heldFile, d);
 
-    // A machine set up before commands were stored, and before capabilities went (cn-118):
-    // a secret, no command beside it, and a `can` that loads and that nothing reads.
+    // A machine set up before commands were stored, before secrets/ (so the secret is
+    // cached in the file, as a cn from before wrote it), and before capabilities went
+    // (cn-118): no command beside the secret, and a `can` that loads and nothing reads.
     const before = { default: "e2e", can: ["web"], deployments: { e2e: { url, secret: "stale" } } };
     mkdirSync(join(warm, "cairn"), { recursive: true });
     writeFileSync(config, `${JSON.stringify(before, null, 2)}\n`, { mode: 0o600 });
     const original = bytes();
+    const secretsDir = join(warm, "cairn", "secrets");
+    const secretFile = join(secretsDir, "e2e");
 
     assert.equal(cn("ready", viaFile).status, 1, "the stale secret is taken");
     const doctored = cn("doctor", viaFile);
@@ -1922,6 +1948,13 @@ row("verbs/init.mts (refresh)", () => {
       /^✗ e2e refused the secret this machine holds: cn init --refresh --name e2e takes the current one$/m,
       "cn doctor does not name cn init --refresh for a refused secret",
     );
+    assert.match(
+      doctored.out,
+      /secret from config\.json; cn init --refresh --name e2e moves it to secrets\/e2e/,
+      "cn doctor does not name the refresh that moves a secret cached in the file",
+    );
+    assert.equal(bytes(), original, "a read rewrote the config");
+    assert.ok(!existsSync(secretsDir), "a read wrote secrets/");
 
     const bare = cn("init --refresh", viaFile);
     assert.equal(bare.status, 1, "cn init --refresh with no command anywhere passed");
@@ -1940,10 +1973,13 @@ row("verbs/init.mts (refresh)", () => {
     assert.ok(!first.out.includes(d), "cn init --refresh printed the secret");
     assert.deepEqual(
       JSON.parse(bytes()),
-      { ...before, deployments: { e2e: { url, secret: d, secretCmd: command } } },
-      "cn init --refresh changed more than the secret and its command",
+      { ...before, deployments: { e2e: { url, secretCmd: command } } },
+      "cn init --refresh changed more than the command, or left the secret in the file",
     );
     assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
+    assert.equal(readFileSync(secretFile, "utf8"), `${d}\n`, "the secret did not land");
+    assert.equal(statSync(secretFile).mode & 0o777, 0o600, "the secret is not mode 600");
+    assert.equal(statSync(secretsDir).mode & 0o777, 0o700, "secrets/ is not mode 700");
     pass("ready", "the refreshed config is not answered", viaFile);
 
     // The next rotation: the stored command alone takes it.
@@ -1955,7 +1991,12 @@ row("verbs/init.mts (refresh)", () => {
     pass("init --refresh", "cn init --refresh did not run the stored command", viaFile);
     const refreshed = JSON.parse(bytes()).deployments.e2e;
     assert.equal(refreshed.secretCmd, command, "the stored command changed");
-    assert.ok(refreshed.secret === e, "the stored command's secret was not written");
+    assert.ok(!("secret" in refreshed), "the refresh wrote a secret into the file");
+    assert.equal(
+      readFileSync(secretFile, "utf8"),
+      `${e}\n`,
+      "the stored command's secret was not written",
+    );
     pass("ready", "the refreshed config is not answered", viaFile);
     const healthy = pass("doctor", "cn doctor failed after cn init --refresh", viaFile);
     assert.match(healthy.out, /^✓ secret accepted by e2e$/m, "the refreshed secret is not taken");
@@ -1963,10 +2004,12 @@ row("verbs/init.mts (refresh)", () => {
     // A command that prints the wrong secret writes nothing.
     writeFileSync(heldFile, "wrong");
     const kept = bytes();
+    const keptSecret = readFileSync(secretFile, "utf8");
     const wrong = cn("init --refresh", viaFile);
     assert.equal(wrong.status, 1, "cn init --refresh wrote a secret the deployment refused");
     assert.match(wrong.out, /nothing written/, "the refusal does not say nothing was written");
     assert.equal(bytes(), kept, "a refused secret was written anyway");
+    assert.equal(readFileSync(secretFile, "utf8"), keptSecret, "a refused secret was kept anyway");
   } finally {
     rmSync(warm, { recursive: true, force: true });
   }
