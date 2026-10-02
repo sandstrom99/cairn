@@ -1991,8 +1991,11 @@ row("backend/scripts/new-cloud.mjs (files)", async () => {
     const original =
       "CONVEX_DEPLOYMENT=anonymous:anonymous-backend\nCONVEX_URL=http://127.0.0.1:3210\n";
     /** What convex 1.46 leaves in `.env.local` once it has made a deployment. */
-    const made = (deployment, team, project) =>
-      `# Deployment used by \`npx convex dev\`\nCONVEX_DEPLOYMENT=${deployment} # team: ${team}, project: ${project}\n\nCONVEX_URL=https://${deployment.slice(4)}.convex.cloud\n`;
+    // convex names the URL after the framework it detects in package.json's dependencies,
+    // `VITE_CONVEX_URL` in backend/ since vitest brings vite, and `CONVEX_URL` where it
+    // sees none; the HTTP actions URL lands beside it under `…CONVEX_SITE_URL` either way.
+    const made = (deployment, team, project, key = "VITE_CONVEX_URL") =>
+      `# Deployment used by \`npx convex dev\`\nCONVEX_DEPLOYMENT=${deployment} # team: ${team}, project: ${project}\n\n${key}=https://${deployment.slice(4)}.convex.cloud\n${key.replace(/CONVEX_URL$/, "CONVEX_SITE_URL")}=https://${deployment.slice(4)}.convex.site\n`;
     const next = (name) =>
       `next: vp run -F @cairn/backend secret -- new ${name} --op "op://<vault>/cairn ${name} deployment"`;
     const noLogin =
@@ -2157,12 +2160,18 @@ row("backend/scripts/new-cloud.mjs (files)", async () => {
     ]);
 
     rmSync(envLocal);
+    // A package convex sees no framework in gets a bare CONVEX_URL, read the same way.
     const fresh = await attempt(
       { name: "fresh" },
-      { write: made("dev:fresh-fox-1", "acme", "cairn-fresh") },
+      { write: made("dev:fresh-fox-1", "acme", "cairn-fresh", "CONVEX_URL") },
     );
     assert.equal(fresh.code, 0, `the creation with no .env.local did not pass`);
     assert.ok(existsSync(cloudFile("fresh")), "the creation with no .env.local wrote no file");
+    assert.match(
+      readFileSync(cloudFile("fresh"), "utf8"),
+      /^CONVEX_URL=https:\/\/fresh-fox-1\.convex\.cloud$/m,
+      "a bare CONVEX_URL was not read",
+    );
     assert.ok(!existsSync(envLocal), "an .env.local that was not there was left behind");
 
     writeFileSync(envLocal, original);
@@ -2170,7 +2179,9 @@ row("backend/scripts/new-cloud.mjs (files)", async () => {
     assert.equal(noUrl.code, 1, "a deployment with no URL passed");
     assert.deepEqual(noUrl.lines, [
       "creating Convex project cairn-nourl for nourl",
-      "convex made dev:no-url-1 but wrote no CONVEX_URL; nothing written",
+      "convex made dev:no-url-1 but wrote no URL beside it; backend/.env.cloud.nourl.local is not written",
+      "finish by hand, since running this again would make a second project: write backend/.env.cloud.nourl.local with CONVEX_DEPLOYMENT=dev:no-url-1 and CONVEX_URL=<its URL, from https://dashboard.convex.dev>, then run the next: line",
+      next("nourl"),
     ]);
     assert.ok(!existsSync(cloudFile("nourl")), "a deployment with no URL got a file");
 

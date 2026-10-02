@@ -74,7 +74,10 @@ Otherwise offer to stand one up, and do it with them.
    or `vp run -F @cairn/backend new:cloud -- <name> --project <project> --team <team>` when a
    team was named. It creates the project and its development deployment with nothing
    running on it yet, writes `backend/.env.cloud.<name>.local`, which binds this checkout's
-   cloud commands to it, and leaves `backend/.env.local` as it was.
+   cloud commands to it, and leaves `backend/.env.local` as it was. When it says convex
+   made the deployment but wrote no URL beside it, the deployment exists: write the file
+   as its lines say and go on to step 5, and never run it again, which would make a
+   second project.
 5. The secret, in the place they chose. It is set on the deployment before any function
    exists there.
    - In 1Password: `vp run -F @cairn/backend secret -- new <name> --op "op://<vault>/cairn <name> deployment"`.
