@@ -2,14 +2,16 @@
 //
 //   cn search <text> [--project <slug>] [--status open|in_progress|closed|dropped] [--json]
 //
-// One line per issue whose title, description, a link's URL or label, or a journal entry
-// contains the text, case aside, in priority then age order, each marked with the field it
-// was found in: `· in title`, `· in description`, `· in links` or `· in journal`, the first
-// of those that holds it. Every status is searched unless --status narrows it, because
-// what you are about to file may have been done or dropped already. The text is the words
-// after the verb joined by one space, so `cn search connection retry` and
-// `cn search "connection retry"` are the same search. Run it before `cn create`; a hit is
-// the issue to build on, not a second one to file.
+// One line per issue whose title or a link's URL or label contains the text, case aside,
+// or whose description or a journal entry holds every word of it, each found from the
+// start of a word, so `retr` finds `retry` in a description and `etry` does not. Lines are
+// in priority then age order, each marked with the field it was found in: `· in title`,
+// `· in description`, `· in links` or `· in journal`, the first of those that holds it.
+// Every status is searched unless --status narrows it, because what you are about to file
+// may have been done or dropped already. The text is the words after the verb joined by
+// one space, so `cn search connection retry` and `cn search "connection retry"` are the
+// same search. Run it before `cn create`; a hit is the issue to build on, not a second one
+// to file.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { ISSUE_STATUSES, maybe, oneOf } from "../lib/flags.mts";

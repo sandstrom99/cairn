@@ -1,10 +1,10 @@
-// text.ts: the one place the `issueText` table is read and written. An issue's long text,
+// text.ts: the one place the `issueText` table is written. An issue's long text,
 // its description, design, acceptance and the proof's output, lives there, one row per
 // issue, apart from the row every list reads (docs/design.md §3, "The three content
 // fields"): Convex bills a read for the whole document, and every list used to pay for the
-// text to print one line. `show.get` and `search.find` read it through `textOf`, the
-// mutations that set it write it through `writeText`, and `issueText:move` carries the
-// rows written before 2026-09-30 across through `moveText`.
+// text to print one line. `show.get` reads it through `textOf`, `search.find` through its
+// search index, the mutations that set it write it through `writeText`, and
+// `issueText:move` carries the rows written before 2026-09-30 across through `moveText`.
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { withoutOutput } from "./verification";

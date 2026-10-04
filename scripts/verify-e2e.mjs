@@ -612,6 +612,13 @@ row("verbs/search.mts", () => {
   };
   one("first", 'cn-1 "scratch: first" P2 open', "title");
   one("paragraph", 'cn-1 "scratch: first"', "description");
+  one("paragr", 'cn-1 "scratch: first"', "description");
+  one("paragraph second", 'cn-1 "scratch: first"', "description");
+  const partly = cn("search aragraph second");
+  assert.equal(partly.stdout, "", "a word matched whole let another answer from inside a word");
+  const inside = cn("search aragraph");
+  assert.equal(inside.status, 0, "a search for the inside of a word did not exit 0");
+  assert.equal(inside.stdout, "", "a description answered for the inside of a word");
   one("FINDING", 'cn-2 "scratch: second" P1 in_progress', "journal");
   one("example.com/d", 'cn-2 "scratch: second" P1 in_progress', "links");
   assert.deepEqual(

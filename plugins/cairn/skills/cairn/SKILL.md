@@ -109,7 +109,7 @@ an issue.
 | `cn brief` | the session-start report, under 20 lines | `brief.get` |
 | `cn ready` | what can be started, by priority | `ready.list` |
 | `cn list` | issues by project, epic, status, or `--mine`; `--silent 3d` for what nobody has touched, `--blocked` for what a live edge holds | `issues.list` |
-| `cn search <text>` | the issues whose title, description, a link's URL or label, or a journal entry holds the text, across every status, each marked with the field; run before `cn create` | `search.find` |
+| `cn search <text>` | the issues whose title or a link's URL or label holds the text, or whose description or a journal entry holds every word of it from a word's start, across every status, each marked with the field; run before `cn create` | `search.find` |
 | `cn show <id> [--history]` | the brief: reference, epic, status, who, since when, neighbours, journal | `show.get` |
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line; `--link <url>` or `--link '[label](url)'` puts a link on it, and repeats | `issues.create` |
@@ -144,7 +144,8 @@ refuses one it does not: `cn ready ios` is a usage error, since nothing filters 
   When the work leaves something behind that someone will want to find again, put it on
   the issue as a link: `cn update <id> --revision N --link '[label](url)'`. An epic's plan
   doc and a decision blocker's options go on the epic and the blocker the same way.
-  `cn search <text>` before `cn create`: what you are about to file may already be there,
+  `cn search <text>` before `cn create`, with one or two distinctive words rather than a
+  phrase, since it searches by word: what you are about to file may already be there,
   open or closed, and then the answer is that issue, not a second one. `--project` on
   `cn create` is the project the repository's `## cairn` section, in its `CLAUDE.md` or
   `CLAUDE.local.md`, gives for the part the work touches. The brief's `projects` line

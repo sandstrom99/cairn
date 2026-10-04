@@ -1,7 +1,8 @@
-// A search is one substring rule, case aside, over title, description, each link's URL and
-// label, and every journal body. Each case below is a way it could quietly answer less than the list holds: a field
-// it forgot to read, a case it did not fold, an order that disagrees with `cn list`, or a
-// filter that let the wrong status through.
+// A search has two rules, case aside: a title or a link's URL or label holds the text as one
+// substring, and a description or journal body holds every word of it, each found from its
+// start. Each case below is a way it could quietly answer less than the list holds, or more:
+// a field it forgot to read, a case it did not fold, a word it let go missing, an order that
+// disagrees with `cn list`, or a filter that let the wrong status through.
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import { type Harness, actor, seed } from "./test.fixtures";
@@ -102,6 +103,40 @@ describe("search.find", () => {
     await expect(t.query(api.issues.list, { project: "nope" })).rejects.toThrow(
       /no such project nope/,
     );
+  });
+
+  it("matches a title by any substring, and a description or journal entry only from the start of a word", async () => {
+    const t = await seed({ issues: ["fix connection retry"] });
+    await described(t, "the socket layer", "a retry loop with no backoff");
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "logs" });
+    await finding(t, "cn-3", "the retry storm");
+
+    expect(await find(t, { text: "etry" })).toEqual([{ id: "cn-1", matched: "title" }]);
+    expect(await find(t, { text: "retr" })).toEqual([
+      { id: "cn-1", matched: "title" },
+      { id: "cn-2", matched: "description" },
+      { id: "cn-3", matched: "journal" },
+    ]);
+  });
+
+  it("requires every word in a description or a journal entry, in any order", async () => {
+    const t = await seed();
+    await described(t, "the socket layer", "a retry loop with no backoff");
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "logs" });
+    await finding(t, "cn-2", "the push loop with no timeout");
+
+    expect(await find(t, { text: "backoff retry" })).toEqual([
+      { id: "cn-1", matched: "description" },
+    ]);
+    expect(await find(t, { text: "retry missing" })).toEqual([]);
+    expect(await find(t, { text: "etry loop" })).toEqual([]);
+    expect(await find(t, { text: "timeout push" })).toEqual([{ id: "cn-2", matched: "journal" }]);
+    expect(await find(t, { text: "push missing" })).toEqual([]);
+  });
+
+  it("holds a title to the whole text", async () => {
+    const t = await seed({ issues: ["fix connection retry"] });
+    expect(await find(t, { text: "retry connection" })).toEqual([]);
   });
 
   it("answers nothing for an empty text, whitespace, or a text nothing holds", async () => {
