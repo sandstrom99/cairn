@@ -65,8 +65,8 @@ export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
   host?: string;
-  /** What this machine has turned on; a setting that is off is absent (lib/settings.mts). */
-  settings?: Record<string, boolean>;
+  /** Each setting's state; a setting that is off is absent (lib/settings.mts). */
+  settings?: Record<string, unknown>;
   deployments: Record<string, DeploymentConfig>;
 };
 

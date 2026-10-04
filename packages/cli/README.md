@@ -114,7 +114,7 @@ src/lib/
                  and which positionals a verb takes, onlyId and onlyFlags
   session.mts    what one call is: the config read once, and the deployment and actor from it
   config.mts     which deployment: CAIRN_URL, then CAIRN_DEPLOYMENT, then ~/.config/cairn/config.json's default
-  settings.mts   what the machine has turned on: the settings cn knows, and the config's `settings` read and changed
+  settings.mts   what the machine has turned on: the settings cn knows, the states each takes, and the config's `settings` read and changed
   client.mts     the typed Convex client and the generated `api`; connect() is the session with its client
   actor.mts      who cn says is acting: CAIRN_ACTOR, else <host>/<user>, with CAIRN_SESSION beside it
   ping.mts       one projects.list as the proof a deployment answers and takes the secret, for doctor and init

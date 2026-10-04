@@ -1,18 +1,30 @@
 ---
 name: next-session
-description: Leave the worklist for the next session. Use at the end of a session whose cairn work has closed, when the session's opening brief has a `settings` line naming `next-session` - then do it unprompted, right after the last `cn close`, before the final reply. Also use when the person asks for the prompt a fresh session should open with ("what should the next session pick up", "write the next prompt"), whatever the settings say. Do not use when the brief has no such line and nobody asked. Reads what the close unblocked, picks the next chunk, and leaves a paste-ready prompt in the reply and on the worklist.
+description: Leave the worklist for the next session, at the end of a session whose cairn work has closed. What to do is the state on the `settings` line of the brief the session opened with. `next-session auto` - use this skill unprompted, right after the last `cn close` and before the final reply. `next-session offer` - do not write anything yet; end the final reply with one sentence offering to write the next session's prompt, and use this skill when the person says yes. No `next-session` on that line, or no `settings` line - do not use it and do not offer. Whatever the line says, use it when the person asks for the prompt a fresh session should open with ("what should the next session pick up", "write the next prompt"). Reads what the close unblocked, picks the next chunk, and leaves a paste-ready prompt in the reply and on the worklist.
 ---
 
 # Leaving the worklist for the next session
 
 A session that ends with "done" leaves the next one to be started by hand: somebody reads
-the worklist, decides what is next and types a prompt. With `next-session` on, a session
-does that itself as its last act, so a series of sessions carries on from the worklist,
-with a person watching or without one.
+the worklist, decides what is next and types a prompt. This is a session doing that as its
+last act, so a series of sessions carries on from the worklist, with a person in the
+conversation or with nobody attending. How far it goes is the person's choice, `cn setting
+next-session`, and it reaches a session as the state on the brief's `settings` line.
 
-**When.** The brief's `settings` line names `next-session`, and this session's work has
-closed: every issue it claimed is closed, dropped or released, and it holds nothing. Or
-the person asks for the next session's prompt in their own words, which needs no setting.
+**The states.** All three apply once this session's work has closed: every issue it
+claimed is closed, dropped or released, and it holds nothing.
+
+- **`next-session auto`**: write the prompt and record it, unprompted, as below. This is
+  for sessions nobody is watching, so do not ask first.
+- **`next-session offer`**: write and record nothing. End the final reply with one plain
+  sentence that names what is next and offers, as `app-35 "retry on reconnect" is ready
+  next. Want me to write the prompt for the next session?`, and do the rest when the
+  person says yes. When nothing is ready, say that and offer nothing. It is a
+  conversation: one sentence, once, and a no is an answer.
+- **No `next-session` on the line, or no line**: off. Do not write it and do not offer.
+
+Whatever the state, when the person asks for the next session's prompt in their own
+words, write it.
 
 **When not.** The session still holds a claim: that is a `handoff` entry on the issue,
 as always, and nothing more. Or it touched nothing on the worklist.

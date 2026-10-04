@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { UsageError } from "../lib/cli.mts";
 import { tempConfig, tempHome } from "../lib/testing.mts";
 import { header } from "./index.mts";
-import { SETTINGS } from "../lib/settings.mts";
+import { SETTINGS, statesOf } from "../lib/settings.mts";
 import { parse, run, settingLines } from "./setting.mts";
 
 const config = { default: "acme", deployments: { acme: { url: "https://x.convex.cloud" } } };
@@ -30,52 +30,65 @@ afterEach(() => {
 });
 
 describe("cn setting", () => {
-  it("lists with nothing, and sets with a name and on or off", () => {
+  it("lists with nothing, and sets with a name and a state", () => {
     expect(parse([])).toEqual({ action: "list", json: false });
     expect(parse(["--json"])).toEqual({ action: "list", json: true });
-    expect(parse(["next-session", "on"])).toEqual({
+    expect(parse(["next-session", "auto"])).toEqual({
       action: "set",
       setting: "next-session",
-      on: true,
+      state: "auto",
     });
-    expect(parse(["next-session", "off"])).toMatchObject({ on: false });
   });
 
-  it("refuses a name alone, a word that is not on or off, a third word, and --json on a set", () => {
+  it("refuses a name alone, a third word, and --json on a set", () => {
     expect(() => parse(["next-session"])).toThrow(UsageError);
-    expect(() => parse(["next-session", "yes"])).toThrow(UsageError);
-    expect(() => parse(["next-session", "on", "now"])).toThrow(UsageError);
-    expect(() => parse(["next-session", "on", "--json"])).toThrow(/--json goes with the list/);
+    expect(() => parse(["next-session", "auto", "now"])).toThrow(UsageError);
+    expect(() => parse(["next-session", "auto", "--json"])).toThrow(/--json goes with the list/);
   });
 
-  it("prints one line per setting, on or off, with what it does", () => {
-    expect(settingLines([{ name: "next-session", on: false, summary: "x" }])).toEqual([
-      "next-session  off  x",
+  it("prints one line per setting: its state, what it does and the states it takes", () => {
+    const row = { name: "next-session", states: ["off", "offer", "auto"], summary: "x" };
+    expect(settingLines([{ ...row, state: "off" }])).toEqual([
+      "next-session  off  x (off, offer, auto)",
     ]);
-    expect(settingLines([{ name: "next-session", on: true, summary: "x" }])).toEqual([
-      "next-session  on   x",
+    expect(settingLines([{ ...row, state: "offer" }])).toEqual([
+      "next-session  offer  x (off, offer, auto)",
     ]);
   });
 
-  it("names every setting in its header, which is its --help", () => {
-    for (const s of SETTINGS) expect(header("setting")).toContain(s.name);
+  it("names every setting and every state in its header, which is its --help", () => {
+    for (const s of SETTINGS) {
+      expect(header("setting")).toContain(s.name);
+      for (const state of s.states) expect(header("setting")).toContain(state.state);
+    }
   });
 
   it("lists every setting as off on a machine with no config", () => {
     const listed = under({ XDG_CONFIG_HOME: tempHome() }, ["--json"]);
     expect(listed.code).toBe(0);
     expect(JSON.parse(listed.out)).toEqual(
-      SETTINGS.map((s) => ({ name: s.name, on: false, summary: s.summary })),
+      SETTINGS.map((s) => ({
+        name: s.name,
+        state: "off",
+        states: statesOf(s.name),
+        summary: s.summary,
+      })),
     );
   });
 
-  it("turns one on in the file, 600, and off again leaves what the file held", () => {
+  it("puts one in a state in the file, moves it, and off again leaves what the file held", () => {
     const env = tempConfig(config);
-    const on = under(env, ["next-session", "on"]);
-    expect(on).toMatchObject({ code: 0, out: "next-session on" });
-    expect(JSON.parse(readFileSync(on.file, "utf8"))).toEqual({
+    const offer = under(env, ["next-session", "offer"]);
+    expect(offer).toMatchObject({ code: 0, out: "next-session offer" });
+    expect(JSON.parse(readFileSync(offer.file, "utf8"))).toEqual({
       ...config,
-      settings: { "next-session": true },
+      settings: { "next-session": "offer" },
+    });
+    vi.restoreAllMocks();
+    const auto = under(env, ["next-session", "auto"]);
+    expect(auto).toMatchObject({ code: 0, out: "next-session auto" });
+    expect(JSON.parse(readFileSync(auto.file, "utf8")).settings).toEqual({
+      "next-session": "auto",
     });
     vi.restoreAllMocks();
     const off = under(env, ["next-session", "off"]);
@@ -92,13 +105,21 @@ describe("cn setting", () => {
   });
 
   it("refuses a name that is not a setting, naming the ones there are", () => {
-    const refused = under(tempConfig(config), ["nope", "on"]);
+    const refused = under(tempConfig(config), ["nope", "auto"]);
     expect(refused.code).toBe(1);
     expect(refused.err).toBe("✗ nope is not a setting; there is next-session");
   });
 
+  it("refuses a state the setting does not take, naming the ones it does", () => {
+    const refused = under(tempConfig(config), ["next-session", "on"]);
+    expect(refused.code).toBe(1);
+    expect(refused.err).toBe(
+      "✗ next-session is off, offer, auto, not on; cn setting --help says what each does",
+    );
+  });
+
   it("refuses to set on a machine with no config, naming cn init", () => {
-    const refused = under({ XDG_CONFIG_HOME: tempHome() }, ["next-session", "on"]);
+    const refused = under({ XDG_CONFIG_HOME: tempHome() }, ["next-session", "auto"]);
     expect(refused.code).toBe(1);
     expect(refused.err).toMatch(/no config at .* to keep a setting in: cn init/);
   });

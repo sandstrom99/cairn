@@ -26,11 +26,11 @@
 //
 // The actor is a fact, never a failure: the name a claim will carry and the session beside
 // it (lib/actor.mts), so a `--mine` that finds nothing can be read back to where the name
-// came from. The settings this machine has on (`cn setting`) are a fact too, on a line
-// that is there only when one is.
+// came from. The settings this machine has set (`cn setting`) are a fact too, each with
+// its state, on a line that is there only when one is not off.
 //
 // --json is the same checks as rows, `{ check, ok, line }`, named node, api, deployment,
-// page where the deployment is a cloud one, actor, settings where one is on, then ping
+// page where the deployment is a cloud one, actor, settings where one is not off, then ping
 // where a deployment resolved, secret where one was held and taken, and functions where
 // the ping answered.
 //
@@ -52,7 +52,7 @@ import {
   label,
 } from "../lib/pushed.mts";
 import { session } from "../lib/session.mts";
-import { settingsOn } from "../lib/settings.mts";
+import { settingsSet } from "../lib/settings.mts";
 
 export const name = "doctor";
 export const summary = "whether this machine can run cn against a deployment";
@@ -134,12 +134,18 @@ export function actorCheck(me: Actor): Check {
   };
 }
 
-/** The settings this machine has on (`cn setting`); no line when none is. */
+/** The settings this machine has set (`cn setting`), each with its state; no line when all are off. */
 export function settingsCheck(config: CairnConfig | null): Check[] {
-  const on = settingsOn(config);
-  return on.length === 0
+  const set = settingsSet(config);
+  return set.length === 0
     ? []
-    : [{ check: "settings", ok: true, line: `settings ${on.join(", ")}` }];
+    : [
+        {
+          check: "settings",
+          ok: true,
+          line: `settings ${set.map((s) => `${s.name} ${s.state}`).join(", ")}`,
+        },
+      ];
 }
 
 /** The ping read as checks: answered, and the secret taken where one was held; or why not. */
