@@ -303,9 +303,10 @@ carry the three fields, which only `cn show` ever printed.
 **`search.find` reads descriptions and journal bodies through text indexes**, not by
 reading every row. A scan read every description and the whole journal on each call,
 0.7 to 0.9 MB a call on deployments of 130 to 160 issues measured 2026-10-04, and an
-agent searches before every create. The index finds a row by any word of the text, the
-last as a prefix, and `search.find` then holds the row to every word, each found from
-its start. Titles and links stay one substring rule over the issue rows the call reads
+agent searches before every create. The index is asked for the text's longest word
+alone, as a prefix, and `search.find` then holds each row it finds to every word, each
+found from its start: asked for every word, the index answered for any of them, and a
+common one read half the journal, 744 KB for a text nothing held. Titles and links stay one substring rule over the issue rows the call reads
 anyway, so the page's jump bar agrees on a title.
 
 ### Journal entry kinds
