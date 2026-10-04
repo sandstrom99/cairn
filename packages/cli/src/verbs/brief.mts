@@ -5,7 +5,8 @@
 //
 // Under 20 lines: which projects the deployment has, then the counts and the head of each
 // queue — what is ready, what is in progress and who holds it, the open follow-ups, how
-// much waits on a person. State, and never rules: the rules are in the skill, which loads
+// much waits on a person, and last the settings this machine has on (`cn setting`), a line
+// that is not there when none is. State, and never rules: the rules are in the skill, which loads
 // on demand, and a hook always loads.
 //
 // With no deployment configured it prints nothing and exits 0, so the SessionStart hook
@@ -29,6 +30,7 @@ import { api, connectTo } from "../lib/client.mts";
 import { briefLines, unjournaledLine } from "../lib/lines.mts";
 import { unjournaled } from "../lib/parts.mts";
 import { session } from "../lib/session.mts";
+import { settingsOn } from "../lib/settings.mts";
 
 export const name = "brief";
 export const summary =
@@ -47,7 +49,7 @@ export async function run(argv: string[]): Promise<number> {
   const parsed = parse(argv);
   // Nothing configured is not an error here: a hook on a machine without cairn is silent.
   // A deployment that is configured and does not answer throws, like every other verb.
-  const { deployment, actor: me } = session();
+  const { config, deployment, actor: me } = session();
   if (!deployment) return 0;
 
   const client = connectTo(deployment);
@@ -63,6 +65,11 @@ export async function run(argv: string[]): Promise<number> {
   }
   // The actor goes along so the deployment can mark which claims are this session's.
   const view = await client.query(api.brief.get, { actor: me });
-  answer(parsed.json, view, (v) => briefLines(v, { deployment: deployment.name, actor: me.name }));
+  // What the machine has turned on rides beside what the deployment said: the last line,
+  // and `settings` under --json.
+  const settings = settingsOn(config);
+  answer(parsed.json, { ...view, settings }, (v) =>
+    briefLines(v, { deployment: deployment.name, actor: me.name, settings }),
+  );
   return 0;
 }

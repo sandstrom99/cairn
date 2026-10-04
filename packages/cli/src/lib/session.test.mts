@@ -104,7 +104,7 @@ describe("no verb reads the config for itself", () => {
       });
       expect({ file, reads: named.includes("readConfig") }).toEqual({
         file,
-        reads: file === "init.mts",
+        reads: file === "init.mts" || file === "setting.mts",
       });
     }
   });

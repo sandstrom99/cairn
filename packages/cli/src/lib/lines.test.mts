@@ -1549,6 +1549,15 @@ describe("briefLines", () => {
     expect(lines.length).toBeLessThan(20);
   });
 
+  it("ends with the settings the machine has on, and has no such line when none is", () => {
+    expect(briefLines(empty, { ...where, settings: [] }, now)).toEqual(
+      briefLines(empty, where, now),
+    );
+    const lines = briefLines(empty, { ...where, settings: ["next-session"] }, now);
+    expect(lines.at(-1)).toBe("settings        next-session");
+    expect(lines).toHaveLength(7);
+  });
+
   it("prints no projects line when the deployment sends none, as one not yet pushed with it", () => {
     const unpushed: Partial<BriefView> = briefView();
     delete unpushed.projects;

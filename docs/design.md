@@ -646,6 +646,8 @@ A hook injects **under 20 lines**:
 - the open follow-ups
 - waiting-on-you as a **count only**
 - a claim silent past the threshold, marked `silent 26h`
+- the settings this machine has on (§12), as their names, on a last line that is not
+  there when none is
 
 Scenario 1 answers without a tool call; scenario 2 starts warm. With `cn` on
 PATH and no deployment configured the hook prints two lines pointing at
@@ -1143,6 +1145,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping; `deployment.pushedFrom`, as the functions line | query |
 | `cn init --name … --url … [--secret-cmd …] [--host …] [--default]` · `cn init --refresh [--name …] [--secret-cmd …]` | `projects.list`, as the check; then it writes this machine's config, or, with `--refresh`, rewrites one deployment's secret from its stored command | query, local |
+| `cn setting` · `cn setting <name> on\|off` | none: it reads this machine's config, or writes one setting into it (§12) | local |
 
 Every read verb takes `--json`. Every list line starts with the reference form.
 On a stale-write error every write verb prints the events since the caller's
@@ -1327,6 +1330,20 @@ Added when the solution was mapped, 2026-09-17:
 - **The deployment config** grows two fields, both machine-local:
   `{ "default": "acme", "deployments": { "acme": { "url": …, "secretCmd": … } } }`.
   A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
+- **Settings are per machine, and off until turned on** (2026-10-04, cn-153). A setting
+  is behaviour beyond the worklist, the next-session handoff being the first, that some
+  people want cairn to drive and others do not, so nobody's sessions change until they
+  ask. It lives in the machine's config, `"settings": { "next-session": true }`, beside
+  the deployments and above any one of them: a way of working is a person's, and should
+  not need each repository or each company's worklist to carry it. So there is no
+  per-repository setting and no environment variable over the file, which would be one,
+  and a setting kept on the deployment, a company's policy, waits for a real one. A
+  setting that is off is absent from the file. `cn setting` lists them and turns one on
+  or off, and the person asks for that in their own words. cn stores a setting and prints
+  it and never acts on one: `cn brief` ends with the names that are on, `cn doctor` names
+  them, and the skill says what a session does on reading a name there, so the behaviour
+  reaches any harness that runs `cn`. Claude Code's plugin options (`userConfig`) are not
+  the store, since a `cn` run outside Claude Code would never see them.
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the
   arguments before the handler, so nothing downstream sees it. A deployment with none set
