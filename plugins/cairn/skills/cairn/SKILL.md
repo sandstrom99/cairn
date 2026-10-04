@@ -40,8 +40,11 @@ functions than this `cn`: pushing a company's deployment is the person's, so say
 them rather than running it.
 
 Where the brief ends with a `settings` line, it names what this machine's person has
-turned on: behaviour beyond the worklist that is theirs to choose, and off until they do.
-A name that is not on that line is off, and what it would do is not done. When the person
+turned on, each with the state it is in: behaviour beyond the worklist that is theirs to
+choose, and off until they do. A name that is not on that line is off, and what it would
+do is not done. `next-session` is the first: a session whose work has closed leaves the
+prompt the next one opens with, offering first under `offer` and unprompted under `auto`
+("A session's shape", End). When the person
 asks to turn one on or off, or what there is to turn on, in whatever words, run
 `cn setting` yourself and say what changed in a sentence; they never edit the file.
 
@@ -123,7 +126,7 @@ an issue.
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |
-| `cn setting` · `cn setting <name> on\|off` | what this machine has turned on, and turning one on or off; machine-wide, kept in the config, off until asked for | none, local |
+| `cn setting` · `cn setting <name> <state>` | what this machine has turned on, and putting a setting in a state: `off`, or one of the setting's own, as `next-session` takes `offer` and `auto`; machine-wide, kept in the config, off until asked for | none, local |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right
@@ -152,7 +155,12 @@ refuses one it does not: `cn ready ios` is a usage error, since nothing filters 
   with `cn create`.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
-  `cn release <id>` when it is not, so the next session can take it.
+  `cn release <id>` when it is not, so the next session can take it. Where the brief's
+  `settings` line names `next-session` and the work has closed, there is one more step.
+  Under `next-session auto`, load the plugin's `next-session` skill and leave the next
+  session's opening prompt in the reply and on the worklist. Under `next-session offer`,
+  end the reply with one sentence offering to, and do it when the person says yes.
+  Without that name on the line, do it only when the person asks for it.
 - **Someone else's claim.** Leave it, and say who holds it and since when. Nothing
   refuses releasing, closing or dropping it, so the judgement is yours: do it only when
   the person asks, or when it is plainly this work's own claim under an old name, as

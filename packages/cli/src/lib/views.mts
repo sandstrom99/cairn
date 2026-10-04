@@ -31,7 +31,11 @@ export type ProjectView = FunctionReturnType<typeof api.projects.list>[number];
 export type BriefView = FunctionReturnType<typeof api.brief.get>;
 
 /** Where this session is, for the brief's first line. */
-export type BriefWhere = { deployment: string; actor: string; settings?: readonly string[] };
+export type BriefWhere = {
+  deployment: string;
+  actor: string;
+  settings?: readonly { name: string; state: string }[];
+};
 
 /** Enough of an issue to print one line of a list. */
 export type IssueLineView = Referable & {

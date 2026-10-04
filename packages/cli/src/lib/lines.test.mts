@@ -1549,12 +1549,16 @@ describe("briefLines", () => {
     expect(lines.length).toBeLessThan(20);
   });
 
-  it("ends with the settings the machine has on, and has no such line when none is", () => {
+  it("ends with the settings the machine has set, and has no such line when none is", () => {
     expect(briefLines(empty, { ...where, settings: [] }, now)).toEqual(
       briefLines(empty, where, now),
     );
-    const lines = briefLines(empty, { ...where, settings: ["next-session"] }, now);
-    expect(lines.at(-1)).toBe("settings        next-session");
+    const lines = briefLines(
+      empty,
+      { ...where, settings: [{ name: "next-session", state: "auto" }] },
+      now,
+    );
+    expect(lines.at(-1)).toBe("settings        next-session auto");
     expect(lines).toHaveLength(7);
   });
 

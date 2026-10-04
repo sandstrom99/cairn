@@ -20,3 +20,10 @@ needs, as `verify: the retry path on an iPhone`.
 
 A `ready` line under the answer is an issue this close unblocked: it is the next thing to
 pick, and no `cn ready` is needed first.
+
+Where the brief this session opened with has a `settings` line naming `next-session`, and
+this close leaves the session holding nothing, the state beside the name says what is
+left to do. `next-session auto`: load the plugin's `next-session` skill before the final
+reply. `next-session offer`: end the reply with one sentence offering to write the next
+session's prompt, and load the skill when the person says yes. With no such name on the
+line, neither.

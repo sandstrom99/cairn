@@ -385,6 +385,7 @@ the config, never a URL or a secret. `cn doctor` says whether `CAIRN_URL`,
 
 The repo root is a Claude Code plugin marketplace
 (`.claude-plugin/marketplace.json`) listing `plugins/cairn`: the `cairn` skill,
+the `next-session` skill, which does nothing until `cn setting next-session offer` or `auto`,
 a SessionStart hook that opens every session with `cn brief`, the under-20-line
 situation report, a Stop hook that hands back one line when a session stops
 holding a claim it has not journaled, and `/cairn:ready`, `/cairn:pick`,

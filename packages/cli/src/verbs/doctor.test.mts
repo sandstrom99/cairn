@@ -145,12 +145,12 @@ describe("cn doctor", () => {
     );
   });
 
-  it("names the settings that are on, and has no line when none is", () => {
+  it("names the settings that are set, with their state, and has no line when none is", () => {
     const config = { deployments: {} };
     expect(settingsCheck(null)).toEqual([]);
     expect(settingsCheck(config)).toEqual([]);
-    expect(settingsCheck({ ...config, settings: { "next-session": true } })).toEqual([
-      { check: "settings", ok: true, line: "settings next-session" },
+    expect(settingsCheck({ ...config, settings: { "next-session": "offer" } })).toEqual([
+      { check: "settings", ok: true, line: "settings next-session offer" },
     ]);
   });
 
