@@ -9,6 +9,7 @@ that hold the skill's rules in a real session; those stay in the repo.
 ```
 .claude-plugin/plugin.json   the manifest
 skills/cairn/SKILL.md        the language: the reference rule, the verbs, the boundaries
+skills/next-session/SKILL.md how a session whose work has closed leaves the next one's opening prompt; it fires only where `cn setting next-session` is on, or when the person asks
 hooks/session-start.sh       `cn brief`, and the session id into CLAUDE_ENV_FILE; two lines with nothing configured, one when the deployment does not answer, and cn's own line when the config does not resolve
 hooks/stop.sh                `cn brief --unjournaled` as hook feedback, once per stop; silent when nothing is held quiet
 commands/                    /cairn:ready, /cairn:pick, /cairn:handoff, /cairn:close, /cairn:review, /cairn:init

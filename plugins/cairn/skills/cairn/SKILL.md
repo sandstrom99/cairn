@@ -41,7 +41,9 @@ them rather than running it.
 
 Where the brief ends with a `settings` line, it names what this machine's person has
 turned on: behaviour beyond the worklist that is theirs to choose, and off until they do.
-A name that is not on that line is off, and what it would do is not done. When the person
+A name that is not on that line is off, and what it would do is not done. `next-session`
+is the first: a session whose work has closed ends by writing the prompt the next one
+opens with ("A session's shape", End). When the person
 asks to turn one on or off, or what there is to turn on, in whatever words, run
 `cn setting` yourself and say what changed in a sentence; they never edit the file.
 
@@ -152,7 +154,11 @@ refuses one it does not: `cn ready ios` is a usage error, since nothing filters 
   with `cn create`.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
-  `cn release <id>` when it is not, so the next session can take it.
+  `cn release <id>` when it is not, so the next session can take it. Where the brief's
+  `settings` line names `next-session` and the work has closed, there is one more step:
+  load the plugin's `next-session` skill and leave the next session's opening prompt in
+  the reply and on the worklist. Without that name on the line, do it only when the
+  person asks for it.
 - **Someone else's claim.** Leave it, and say who holds it and since when. Nothing
   refuses releasing, closing or dropping it, so the judgement is yours: do it only when
   the person asks, or when it is plainly this work's own claim under an old name, as

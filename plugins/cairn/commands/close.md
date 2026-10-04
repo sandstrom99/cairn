@@ -20,3 +20,7 @@ needs, as `verify: the retry path on an iPhone`.
 
 A `ready` line under the answer is an issue this close unblocked: it is the next thing to
 pick, and no `cn ready` is needed first.
+
+Where the brief this session opened with has a `settings` line naming `next-session`, and
+this close leaves the session holding nothing, load the plugin's `next-session` skill
+before the final reply. With no such line, do not.

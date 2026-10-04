@@ -714,6 +714,25 @@ the model chose to leave alone cannot hold the turn open, and it exits 0
 whatever happens. The same rule as the start: state, never doctrine. What to do
 about the line is the skill's.
 
+**The next session's prompt.** Added 2026-10-04 (cn-154), behind the setting
+`next-session` (§12) and so off unless a person turned it on. A session whose work has
+closed, holding nothing, ends by reading what its closes unblocked and the head of
+`cn ready`, choosing the next chunk, and writing the prompt a fresh session opens with:
+in its reply, and as a `handoff` entry on the last issue it closed, opening `Next: …`,
+where a session or a loop that starts cold finds it. With nothing ready it writes no
+prompt and records that instead, which is where a loop stops. This is the worklist
+knowing how it is left for whoever comes next, and what lets a series of sessions run
+for a long time with nobody attending. The procedure is a skill of its own in the plugin,
+`next-session`, loaded on demand; the trigger is the brief's `settings` line, which its
+description names, so nothing here is a hook and a harness that only runs `cn` can read
+the same line. It is its own skill because a session that closes through `/cairn:close`
+never loads the cairn skill: the first trial, with the rule there alone, closed its issue
+and left no prompt. What cairn carries is only that: the chunk, what
+it builds on, and the person's own rules for the work repeated in their words. How a
+person runs sessions, in parallel, under an orchestrator, with skills of their own, is
+theirs (decided the same day), and the prompt takes it from how they opened the session
+and adds none of it.
+
 ### Epic health
 
 Not a percentage. A percentage hides everything that matters — an epic at 95%
