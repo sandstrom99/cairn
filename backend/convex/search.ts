@@ -2,13 +2,13 @@
 // URL and label hold it as one substring, case aside, read from the issue rows, so the
 // page's jump bar agrees on a title. Descriptions and journal bodies go through text
 // indexes, since scanning them read every description and the whole journal on each call:
-// an index finds a row by any word of the text, the last as a prefix, and `holdsAll` then
+// an index finds a row by the text's longest word, as a prefix, and `holdsAll` then
 // requires every word, so neither field answers for a text it holds only in part.
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { issuesWhere } from "./lib/graph";
 import { query } from "./lib/guard";
-import { SEARCH_HITS, SEARCH_TERMS } from "./lib/limits";
+import { SEARCH_HITS } from "./lib/limits";
 import { projectBySlug } from "./lib/lookup";
 import { priorityOrder } from "./lib/order";
 import { issueStatusValidator } from "./lib/validators";
@@ -29,11 +29,16 @@ export const find = query({
     // everything, so the query answers nothing rather than the whole deployment.
     if (needle === "") return [];
     const words = needle.split(/\s+/);
-    // Convex splits on punctuation itself; cutting to its term limit keeps the query valid.
-    const terms = (needle.match(/[\p{L}\p{N}]+/gu) ?? []).slice(0, SEARCH_TERMS).join(" ");
+    // The index answers for any term it is given, and a row has to hold every word anyway,
+    // so it is asked for one: the longest, the likeliest to be rare. Given them all, a
+    // common word like `this` read half the journal.
+    const terms = (needle.match(/[\p{L}\p{N}]+/gu) ?? []).reduce(
+      (longest, term) => (term.length > longest.length ? term : longest),
+      "",
+    );
     const has = (s: string | undefined) => s !== undefined && s.toLowerCase().includes(needle);
-    // The index answers for any one word, so each word is held to a word's start here too:
-    // without it `etry loop` would find "a retry loop" through `loop` alone.
+    // Each word is held to a word's start here, as the index holds the one it was asked
+    // for: without it `etry loop` would find "a retry loop" through `loop` alone.
     const startsWord = (text: string, w: string) => {
       for (let i = text.indexOf(w); i !== -1; i = text.indexOf(w, i + 1))
         if (i === 0 || !/[\p{L}\p{N}]/u.test(text[i - 1])) return true;
