@@ -39,6 +39,12 @@ doctor's last line, or a verb that failed, names `#push:cloud`, the deployment r
 functions than this `cn`: pushing a company's deployment is the person's, so say that to
 them rather than running it.
 
+Where the brief ends with a `settings` line, it names what this machine's person has
+turned on: behaviour beyond the worklist that is theirs to choose, and off until they do.
+A name that is not on that line is off, and what it would do is not done. When the person
+asks to turn one on or off, or what there is to turn on, in whatever words, run
+`cn setting` yourself and say what changed in a sentence; they never edit the file.
+
 ## How work is named in a reply
 
 Two rules. The first is the floor and must not slip; the second is what lets a reply
@@ -117,6 +123,7 @@ an issue.
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |
+| `cn setting` · `cn setting <name> on\|off` | what this machine has turned on, and turning one on or off; machine-wide, kept in the config, off until asked for | none, local |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right

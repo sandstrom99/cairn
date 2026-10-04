@@ -28,6 +28,7 @@ import * as release from "./release.mts";
 import * as resolve from "./resolve.mts";
 import * as review from "./review.mts";
 import * as search from "./search.mts";
+import * as setting from "./setting.mts";
 import * as show from "./show.mts";
 import * as update from "./update.mts";
 import * as wait from "./wait.mts";
@@ -67,4 +68,5 @@ export const VERBS: Verb[] = [
   project,
   doctor,
   init,
+  setting,
 ];

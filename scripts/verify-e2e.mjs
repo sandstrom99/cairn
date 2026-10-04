@@ -1546,6 +1546,100 @@ row("lib/config.mts", () => {
   }
 });
 
+row("verbs/setting.mts", () => {
+  // A machine set up for one deployment, the way `cn init` leaves it: a setting is the
+  // machine's, so it is read from the file whichever way a call names its deployment.
+  const set = mkdtempSync(join(tmpdir(), "cairn-e2e-setting-"));
+  const empty = mkdtempSync(join(tmpdir(), "cairn-e2e-empty-"));
+  const config = join(set, "cairn", "config.json");
+  const before = { default: "e2e", deployments: { e2e: { url } } };
+  mkdirSync(join(set, "cairn"), { recursive: true, mode: 0o700 });
+  writeFileSync(config, `${JSON.stringify(before, null, 2)}\n`, { mode: 0o600 });
+  const viaFile = { xdg: set, viaConfig: true };
+  const settingsLine = (text) => text.split("\n").filter((line) => line.startsWith("settings"));
+  try {
+    // Nothing on: the list says so, and neither the brief nor doctor has a line for it.
+    const listed = pass("setting", "cn setting exited non-zero with nothing on", viaFile);
+    assert.match(listed.stdout, /^next-session {2}off {2}\S/, "a setting never set is not off");
+    const quiet = pass("brief", "cn brief failed through the file", viaFile);
+    assert.deepEqual(settingsLine(quiet.stdout), [], "the brief has a settings line with none on");
+    assert.ok(
+      !cn("doctor", viaFile).stdout.includes("settings"),
+      "cn doctor names settings with none on",
+    );
+
+    // Turned on: one line back, the file carrying it beside what it held, still 600.
+    const on = pass("setting next-session on", "turning a setting on was refused", viaFile);
+    assert.equal(on.stdout, "next-session on\n", "the answer is not the setting and its state");
+    assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), {
+      ...before,
+      settings: { "next-session": true },
+    });
+    assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
+    assert.match(
+      pass("setting", "cn setting exited non-zero", viaFile).stdout,
+      /^next-session {2}on {3}\S/,
+      "the list does not read the setting as on",
+    );
+    const loud = pass("brief", "cn brief failed with a setting on", viaFile);
+    assert.equal(
+      loud.stdout.trimEnd().split("\n").at(-1),
+      "settings        next-session",
+      "the brief does not end with the settings that are on",
+    );
+    assert.deepEqual(json("brief", viaFile).settings, ["next-session"]);
+    assert.equal(
+      pass("brief", "cn brief failed under CAIRN_URL", { xdg: set })
+        .stdout.trimEnd()
+        .split("\n")
+        .at(-1),
+      "settings        next-session",
+      "a setting is not read when CAIRN_URL names the deployment",
+    );
+    assert.match(
+      cn("doctor", viaFile).stdout,
+      /^✓ actor .*\n✓ settings next-session$/m,
+      "cn doctor does not name the setting after the actor",
+    );
+
+    // What is already on is not written again.
+    const bytes = readFileSync(config, "utf8");
+    pass("setting next-session on", "turning on what is on was refused", viaFile);
+    assert.equal(readFileSync(config, "utf8"), bytes, "turning on what is on rewrote the file");
+
+    // What is not a setting, and what is not a way to ask.
+    const unknown = cn("setting nope on", viaFile);
+    assert.equal(unknown.status, 1, "a name that is not a setting was taken");
+    assert.equal(unknown.out, "✗ nope is not a setting; there is next-session\n");
+    assert.equal(cn("setting next-session", viaFile).status, 2, "a name alone was taken");
+    assert.equal(
+      cn("setting next-session on --json", viaFile).status,
+      2,
+      "--json was taken on a set",
+    );
+    assert.equal(readFileSync(config, "utf8"), bytes, "a refused call moved the file");
+
+    // Turned off: the file holds what it held, and the brief's line is gone.
+    const off = pass("setting next-session off", "turning a setting off was refused", viaFile);
+    assert.equal(off.stdout, "next-session off\n");
+    assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), before);
+    assert.deepEqual(
+      settingsLine(pass("brief", "cn brief failed after the setting went off", viaFile).stdout),
+      [],
+      "the brief still names a setting that is off",
+    );
+
+    // A machine with no config has nothing to keep one in.
+    const bare = cn("setting next-session on", { xdg: empty, viaConfig: true });
+    assert.equal(bare.status, 1, "a setting was taken on a machine with no config");
+    assert.match(bare.out, /no config at .* to keep a setting in: cn init/);
+    assert.ok(!existsSync(join(empty, "cairn")), "a refused setting wrote a config");
+  } finally {
+    rmSync(set, { recursive: true, force: true });
+    rmSync(empty, { recursive: true, force: true });
+  }
+});
+
 row("backend/scripts/clouds.mjs", () => {
   // The files a checkout keeps, one per company it pushes, built here rather than read from
   // backend/, so the row never sees the real deployment's file and cannot reach it.

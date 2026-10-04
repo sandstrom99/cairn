@@ -19,8 +19,9 @@
 // fall back to the default: the repository asked for one worklist, and writing to another
 // is worse than failing.
 //
-// `host` is this machine's name in an actor (lib/actor.mts); everything else about the
-// file is which deployment to talk to. A file written before capabilities went (cn-118)
+// `host` is this machine's name in an actor (lib/actor.mts), and `settings` is what the
+// machine has turned on, whichever deployment a call goes to (lib/settings.mts);
+// everything else about the file is which deployment to talk to. A file written before capabilities went (cn-118)
 // may still hold `can`; it loads, and nothing reads it.
 //
 // The secret is the deployment's one shared secret, sent on every call and checked by
@@ -32,7 +33,7 @@
 // `CAIRN_SECRET` set on it checks nothing, which keeps the anonymous local one open; it
 // fences a deployment, not an actor (§13). `secretCmd` is a command, not a secret.
 //
-// The file is written by `cn init`, by `cn init --refresh`, and by hand. What `cn init`
+// The file is written by `cn init`, by `cn init --refresh`, by `cn setting`, and by hand. What `cn init`
 // guarantees is here, in `withDeployment`, `withSecretCmd` and `writeConfig`: checked
 // before written, a deployment added and never replaced, `--refresh` changing one
 // deployment's secret and command. `writeConfig` strips any `secret` it is handed into
@@ -64,6 +65,8 @@ export type CairnConfig = {
   default?: string;
   /** What this machine calls itself in an actor name; the OS hostname when absent. */
   host?: string;
+  /** What this machine has turned on; a setting that is off is absent (lib/settings.mts). */
+  settings?: Record<string, boolean>;
   deployments: Record<string, DeploymentConfig>;
 };
 

@@ -10,6 +10,7 @@ import {
   pageUrl,
   parse,
   pingChecks,
+  settingsCheck,
 } from "./doctor.mts";
 
 const cloud = {
@@ -142,6 +143,15 @@ describe("cn doctor", () => {
     expect(actorCheck({ name: "wsl/balder", kind: "human" }).line).toBe(
       "actor wsl/balder (human), no session",
     );
+  });
+
+  it("names the settings that are on, and has no line when none is", () => {
+    const config = { deployments: {} };
+    expect(settingsCheck(null)).toEqual([]);
+    expect(settingsCheck(config)).toEqual([]);
+    expect(settingsCheck({ ...config, settings: { "next-session": true } })).toEqual([
+      { check: "settings", ok: true, line: "settings next-session" },
+    ]);
   });
 
   it("reads a deployment without deployment.pushedFrom as running older functions", () => {

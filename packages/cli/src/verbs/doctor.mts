@@ -26,11 +26,13 @@
 //
 // The actor is a fact, never a failure: the name a claim will carry and the session beside
 // it (lib/actor.mts), so a `--mine` that finds nothing can be read back to where the name
-// came from.
+// came from. The settings this machine has on (`cn setting`) are a fact too, on a line
+// that is there only when one is.
 //
 // --json is the same checks as rows, `{ check, ok, line }`, named node, api, deployment,
-// page where the deployment is a cloud one, actor, then ping where a deployment
-// resolved, secret where one was held and taken, and functions where the ping answered.
+// page where the deployment is a cloud one, actor, settings where one is on, then ping
+// where a deployment resolved, secret where one was held and taken, and functions where
+// the ping answered.
 //
 // The `deployment <name> → <url> (…)` line is read by the SessionStart hook
 // (plugins/cairn/hooks/session-start.sh) to name a deployment that did not answer, so
@@ -40,7 +42,7 @@ import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyFlags } from "../lib/flags.mts";
 import type { Actor } from "../lib/actor.mts";
 import { answer, checkLine, errorData, redacted } from "../lib/cli.mts";
-import { type Deployment, noDeploymentMessage } from "../lib/config.mts";
+import { type CairnConfig, type Deployment, noDeploymentMessage } from "../lib/config.mts";
 import type { Ping } from "../lib/ping.mts";
 import {
   type Check,
@@ -50,6 +52,7 @@ import {
   label,
 } from "../lib/pushed.mts";
 import { session } from "../lib/session.mts";
+import { settingsOn } from "../lib/settings.mts";
 
 export const name = "doctor";
 export const summary = "whether this machine can run cn against a deployment";
@@ -131,6 +134,14 @@ export function actorCheck(me: Actor): Check {
   };
 }
 
+/** The settings this machine has on (`cn setting`); no line when none is. */
+export function settingsCheck(config: CairnConfig | null): Check[] {
+  const on = settingsOn(config);
+  return on.length === 0
+    ? []
+    : [{ check: "settings", ok: true, line: `settings ${on.join(", ")}` }];
+}
+
 /** The ping read as checks: answered, and the secret taken where one was held; or why not. */
 export function pingChecks(dep: Deployment | null, ping: Ping): Check[] {
   if (ping.answered) {
@@ -192,8 +203,13 @@ export async function run(argv: string[]): Promise<number> {
     });
   }
 
-  const { deployment, actor } = session();
-  checks.push(deploymentCheck(deployment), ...pageCheck(deployment), actorCheck(actor));
+  const { config, deployment, actor } = session();
+  checks.push(
+    deploymentCheck(deployment),
+    ...pageCheck(deployment),
+    actorCheck(actor),
+    ...settingsCheck(config),
+  );
 
   // The ping needs the generated api, so it loads the way the api check did: a machine
   // where codegen has not run gets that line, not a crash before any line.

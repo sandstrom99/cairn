@@ -7,8 +7,8 @@
 // call: once to resolve the deployment, once for the actor's host, and once more inside
 // connect(). The file is read here, once, and both facts are derived from that one read:
 // which deployment (lib/config.mts) and who is acting (lib/actor.mts). Each keeps its own
-// rule and its own test; this is where they meet. `cn init` reads the file itself, since
-// it is about to write it, and it is the one verb that does.
+// rule and its own test; this is where they meet. `cn init` and `cn setting` read the file
+// themselves, since each is about to write it, and they are the two verbs that do.
 //
 // `deployment` is null when nothing names one, because `cn brief` is silent then rather
 // than failing: a hook on a machine without cairn costs nothing. A verb that needs the

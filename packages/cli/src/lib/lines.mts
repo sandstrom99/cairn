@@ -427,6 +427,11 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
   );
 
   lines.push(`${label("waiting on you")}${view.waiting}`);
+
+  // The machine's, not the deployment's: no line when nothing is on, so a machine that
+  // turned nothing on opens exactly as before.
+  if (where.settings !== undefined && where.settings.length > 0)
+    lines.push(`${label("settings")}${where.settings.join(" · ")}`);
   return lines;
 }
 
