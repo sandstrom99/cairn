@@ -139,6 +139,7 @@ issueText     issueId           Id<issues>    one row per issue: its long text, 
               acceptance?       string        WHAT; stable across sessions
               output?           string        the proof's output; the rest of the record stays on the issue
               index by_issue [issueId]
+              searchIndex search_description [description]
 
 edges         from              Id<issues>
               to                Id<issues>
@@ -170,6 +171,7 @@ journal       issueId           Id<issues>
               kind              finding | decision | handoff | evidence | question
               body              string
               index by_issue [issueId]                       ← insert only, never updated
+              searchIndex search_body [body]
 
 events        kind              string        issue.create, issue.claim, edge.add, blocker.resolve, …
               actor             actor
@@ -297,6 +299,14 @@ read anyway. `show.get` and `search.find` read the text, the mutations that set 
 write it there, and `issueText:move` moved the rows written before; until it has run
 on a deployment, the readers fall back to the row's own fields. `cn list --json` and `cn ready --json` no longer
 carry the three fields, which only `cn show` ever printed.
+
+**`search.find` reads descriptions and journal bodies through text indexes**, not by
+reading every row. A scan read every description and the whole journal on each call,
+0.7 to 0.9 MB a call on deployments of 130 to 160 issues measured 2026-10-04, and an
+agent searches before every create. The index finds a row by any word of the text, the
+last as a prefix, and `search.find` then holds the row to every word, each found from
+its start. Titles and links stay one substring rule over the issue rows the call reads
+anyway, so the page's jump bar agrees on a title.
 
 ### Journal entry kinds
 
@@ -1150,7 +1160,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn brief --unjournaled` | `brief.unjournaled`: the in-progress rows this session holds, with the brief's marks, for the Stop hook; the one flag that picks a function, since the hook runs at the end of every turn and the brief walks every open issue to answer it | query |
 | `cn ready` | `ready.list` | query |
 | `cn list [--project] [--epic] [--status] [--mine] [--silent] [--blocked]` | `issues.list`; `--silent <duration>` is what nobody has touched for that long and `--blocked` what a live `blocks` edge holds, both over live issues unless `--status` says otherwise, each row then carrying its silence or its holders | query |
-| `cn search <text> [--project] [--status]` | `search.find`: the issues whose title, description, a link's URL or label, or a journal entry holds the text, case aside, each with the field it was found in | query |
+| `cn search <text> [--project] [--status]` | `search.find`: the issues whose title or a link's URL or label holds the text, case aside, or whose description or a journal entry holds every word of it, each word found from its start, each issue with the field it was found in | query |
 | `cn show <id> [--history]` | `show.get`: issue, epic or blocker by prefix | query |
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
 | `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14] [--link <url>…]` | `issues.create` | mutation |

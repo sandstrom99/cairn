@@ -128,6 +128,14 @@ describe("issueText", () => {
     expect(await t.run((ctx) => textOf(ctx, doc))).toEqual({ ...TEXT, output: "all green" });
   });
 
+  it("search matches a description the row still carries, before the move reaches it", async () => {
+    const t = await fromBefore();
+    const found = await t.query(api.search.find, { text: "second" });
+    expect(found.map(({ id, matched }) => ({ id, matched }))).toEqual([
+      { id: "cn-1", matched: "description" },
+    ]);
+  });
+
   it("moves a row's text into the table once, and show.get answers the same", async () => {
     const t = await fromBefore();
     const before = await t.query(api.show.get, { id: "cn-1" });

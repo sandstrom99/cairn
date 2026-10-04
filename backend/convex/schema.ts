@@ -97,7 +97,9 @@ export default defineSchema({
     acceptance: v.optional(v.string()),
     /** The proof's output tail; the rest of the verification record stays on the issue. */
     output: v.optional(v.string()),
-  }).index("by_issue", ["issueId"]),
+  })
+    .index("by_issue", ["issueId"])
+    .searchIndex("search_description", { searchField: "description" }),
 
   // One direction only: `blocked-by` is a `blocks` row read through by_to.
   edges: defineTable({
@@ -143,7 +145,9 @@ export default defineSchema({
     author: actorValidator,
     kind: journalKindValidator,
     body: v.string(),
-  }).index("by_issue", ["issueId"]),
+  })
+    .index("by_issue", ["issueId"])
+    .searchIndex("search_body", { searchField: "body" }),
 
   events: defineTable({
     kind: v.string(),
