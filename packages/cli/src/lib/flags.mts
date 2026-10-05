@@ -45,6 +45,7 @@ export const JOURNAL_KINDS = [
   "handoff",
   "evidence",
   "question",
+  "next",
 ] as const satisfies readonly JournalKind[];
 
 /** `{ epic: "ep-1" }` or `{}`: an absent option is an absent key, never an undefined one. */

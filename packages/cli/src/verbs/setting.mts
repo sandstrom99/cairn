@@ -13,12 +13,8 @@
 // that are not off, each with its state, on its last line, and the skill says what a
 // session does when it reads one there. `cn doctor` names them too.
 //
-// The settings, and the states each takes besides `off`:
-//
-//   next-session   a session whose work has closed leaves the prompt the next one opens
-//                  with
-//       offer      it offers to, in a sentence, and writes it when the person says yes
-//       auto       it writes it unprompted, for sessions that run with nobody attending
+// There is no setting yet, so the list prints nothing and every name is refused. What is
+// here is where the first one arrives.
 //
 // A person asks for one in their own words and the agent runs this; nobody edits the
 // file. A name that is not a setting exits 1 naming the ones there are, and a state the
@@ -29,7 +25,7 @@
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { UsageError, answer, fail } from "../lib/cli.mts";
 import { configPath, readConfig, writeConfig } from "../lib/config.mts";
-import { SETTINGS, isSetting, settingsSet, statesOf, withSetting } from "../lib/settings.mts";
+import { SETTINGS, type Setting, settingsSet, statesOf, withSetting } from "../lib/settings.mts";
 
 export const name = "setting";
 export const summary = "what this machine has turned on, and putting a setting in a state";
@@ -61,27 +57,28 @@ export function settingLines(rows: Row[]): string[] {
   );
 }
 
-export function run(argv: string[]): number {
+export function run(argv: string[], settings: readonly Setting[] = SETTINGS): number {
   const parsed = parse(argv);
   const existing = readConfig();
-  const set = new Map(settingsSet(existing).map((s) => [s.name, s.state]));
+  const set = new Map(settingsSet(existing, settings).map((s) => [s.name, s.state]));
 
   if (parsed.action === "list") {
-    const rows: Row[] = SETTINGS.map((s) => ({
+    const rows: Row[] = settings.map((s) => ({
       name: s.name,
       state: set.get(s.name) ?? "off",
-      states: statesOf(s.name),
+      states: statesOf(s),
       summary: s.summary,
     }));
     answer(parsed.json, rows, settingLines);
     return 0;
   }
 
-  if (!isSetting(parsed.setting))
+  const setting = settings.find((s) => s.name === parsed.setting);
+  if (setting === undefined)
     return fail(
-      `${parsed.setting} is not a setting; there is ${SETTINGS.map((s) => s.name).join(", ")}`,
+      `${parsed.setting} is not a setting; there is ${settings.map((s) => s.name).join(", ") || "none yet"}`,
     );
-  const states = statesOf(parsed.setting);
+  const states = statesOf(setting);
   if (!states.includes(parsed.state))
     return fail(
       `${parsed.setting} is ${states.join(", ")}, not ${parsed.state}; cn setting --help says what each does`,

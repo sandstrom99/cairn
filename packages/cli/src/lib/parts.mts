@@ -472,6 +472,7 @@ export type Fact = {
   text?: string;
   refs?: Named[];
   links?: LinkParts[];
+  next?: NextParts[];
 };
 
 /** One link on an issue, an epic or a blocker: the three store the same shape. */
@@ -498,6 +499,42 @@ export const linkFacts = (
   links === undefined || links.length === 0
     ? []
     : [{ label: "links", links: links.map((link) => linkParts(link, now)) }];
+
+/** One direction on an issue or an epic: the two carry the same shape. */
+type ShownNext = NonNullable<ShownIssue["next"]>[number];
+
+/**
+ * A direction in pieces: the finished issue that left it, unless that is the issue being
+ * read; its first line, marked where more follows, as a description's is; and who left it
+ * when. The whole of it is in `--json` and in that issue's journal.
+ */
+export type NextParts = { from?: Referable; text: string; by: string };
+
+const nextParts = (
+  direction: ShownNext,
+  self: string | undefined,
+  now: number = Date.now(),
+): NextParts => ({
+  ...(direction.from.id === self
+    ? {}
+    : { from: { id: direction.from.id, title: direction.from.title } }),
+  text: firstLine(direction.body),
+  by: `by ${direction.by.name} ${since(direction.at, now)}`,
+});
+
+/**
+ * The `next` fact, or none when no finished work left a direction here. `self` is the id
+ * being read, whose own direction names no issue. Read as `?? []`: a deployment not yet
+ * pushed with the field sends none.
+ */
+export const nextFacts = (
+  directions: readonly ShownNext[] | undefined,
+  self: string | undefined,
+  now: number = Date.now(),
+): Fact[] =>
+  directions === undefined || directions.length === 0
+    ? []
+    : [{ label: "next", next: directions.map((d) => nextParts(d, self, now)) }];
 
 /** The one word for where an issue stands. */
 type StateWord =
@@ -625,6 +662,9 @@ export function issueFacts(shown: ShownIssue, now: number = Date.now()): Fact[] 
     ["waiting on", shown.waitingOn],
   ];
   for (const [name, items] of named) if (items.length > 0) facts.push({ label: name, refs: items });
+  // Where finished work pointed from here: this issue's own once it is finished, its
+  // parent's and that of each issue that blocked it, newest first.
+  facts.push(...nextFacts(shown.next, shown.id, now));
   facts.push(...linkFacts(shown.links, now));
   return facts;
 }

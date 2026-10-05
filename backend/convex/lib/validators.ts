@@ -86,6 +86,7 @@ export const journalKindValidator = v.union(
   v.literal("handoff"),
   v.literal("evidence"),
   v.literal("question"),
+  v.literal("next"),
 );
 
 /** One of `journalKindValidator`'s literals. */

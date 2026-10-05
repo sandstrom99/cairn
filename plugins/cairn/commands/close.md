@@ -21,9 +21,8 @@ needs, as `verify: the retry path on an iPhone`.
 A `ready` line under the answer is an issue this close unblocked: it is the next thing to
 pick, and no `cn ready` is needed first.
 
-Where the brief this session opened with has a `settings` line naming `next-session`, and
-this close leaves the session holding nothing, the state beside the name says what is
-left to do. `next-session auto`: load the plugin's `next-session` skill before the final
-reply. `next-session offer`: end the reply with one sentence offering to write the next
-session's prompt, and load the skill when the person says yes. With no such name on the
-line, neither.
+When you have an opinion on where this work should go from here, leave it on the same
+close with `--next "<direction>"`, or `--next @-` and a heredoc: a plain sentence first,
+since `cn show` prints that line on this issue, on each issue it blocked or spawned, and on
+the epic. It is optional, and it is for whoever picks the work up after you: what to take
+first and why, what you would not do again. Say nothing when there is nothing to say.

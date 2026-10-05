@@ -128,11 +128,6 @@ const commands = readdirSync(join(ROOT, "plugins", "cairn", "commands")).filter(
 /** Each document, and whether its prose is read as instructions too: the plugin's is. */
 const DOCS: [string, () => string, boolean][] = [
   ["SKILL.md", () => read("plugins", "cairn", "skills", "cairn", "SKILL.md"), true],
-  [
-    "next-session/SKILL.md",
-    () => read("plugins", "cairn", "skills", "next-session", "SKILL.md"),
-    true,
-  ],
   ...commands.map((f): [string, () => string, boolean] => [
     `commands/${f}`,
     () => read("plugins", "cairn", "commands", f),

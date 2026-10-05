@@ -327,6 +327,24 @@ describe("closedLines", () => {
     ]);
   });
 
+  it("prints the first line of the direction the close left, under the follow-up and over what it freed", () => {
+    const followUp = { ...closed, id: "cn-8", title: "verify: the same title", status: "open" };
+    const ready = { ...closed, id: "cn-9", title: "the reader", status: "open", revision: 0 };
+    expect(
+      closedLines({
+        issue: closed,
+        followUp,
+        next: "the reader first\n\nit shares the codec",
+        madeReady: [ready],
+      }),
+    ).toEqual([
+      'cn-6 "the same title" P2 closed  ep-2 "scratch: review" r3',
+      '  follow-up  cn-8 "verify: the same title" P2 open  ep-2 "scratch: review" r3',
+      "  next       the reader first…",
+      '  ready      cn-9 "the reader" P2 open  ep-2 "scratch: review" r0',
+    ]);
+  });
+
   it("prints the follow-up the same mutation made under it, and the epic's offer last", () => {
     expect(
       closedLines({
@@ -772,6 +790,63 @@ describe("brief", () => {
       'ep-1 "Create to close"  0 done · 0 open · 0 follow-ups · revision 3',
       `links           plan · https://example.com/plan · by ${agent.name} 2h ago`,
       "the plan",
+    ]);
+  });
+
+  it("prints the directions finished work left: an issue's own bare, a neighbour's by name, before its links", () => {
+    const writer = { id: "cn-1", title: "the writer", status: "closed" as const };
+    const own = { from: writer, body: "the reader first\n\nit shares the codec", by: agent };
+    const closed = issue({
+      id: "cn-1",
+      title: "the writer",
+      status: "closed",
+      closedAt: ago(HOUR),
+      next: [{ ...own, at: ago(HOUR) }],
+      links: [{ url: "https://example.com/d", by: agent, at: ago(HOUR) }],
+    });
+    const lines = brief(closed, now).split("\n");
+    const at = lines.indexOf(`next            the reader first… · by ${agent.name} 1h ago`);
+    expect(at).toBeGreaterThan(0);
+    expect(lines[at + 1]).toMatch(/^links {11}https:/);
+
+    const reader = issue({
+      id: "cn-2",
+      blockedBy: [writer],
+      parent: { id: "cn-3", title: "the codec", status: "closed" },
+      next: [
+        { ...own, at: ago(HOUR) },
+        {
+          from: { id: "cn-3", title: "the codec", status: "closed" },
+          body: "one line",
+          by: human,
+          at: ago(DAY),
+        },
+      ],
+    });
+    expect(brief(reader, now)).toContain(
+      [
+        `next            cn-1 "the writer": the reader first… · by ${agent.name} 1h ago`,
+        `                cn-3 "the codec": one line · by ${human.name} 1d ago`,
+      ].join("\n"),
+    );
+    expect(brief(issue(), now)).not.toContain("next ");
+  });
+
+  it("prints an epic's directions under its links, each by the issue that left it", () => {
+    const shown = epic({
+      links: [{ url: "https://example.com/plan", by: agent, at: ago(HOUR) }],
+      next: [
+        {
+          from: { id: "cn-1", title: "the writer", status: "closed" },
+          body: "the reader first",
+          by: agent,
+          at: ago(HOUR),
+        },
+      ],
+    });
+    expect(brief(shown, now).split("\n").slice(1)).toEqual([
+      `links           https://example.com/plan · by ${agent.name} 1h ago`,
+      `next            cn-1 "the writer": the reader first · by ${agent.name} 1h ago`,
     ]);
   });
 
@@ -1555,10 +1630,10 @@ describe("briefLines", () => {
     );
     const lines = briefLines(
       empty,
-      { ...where, settings: [{ name: "next-session", state: "auto" }] },
+      { ...where, settings: [{ name: "hand-on", state: "auto" }] },
       now,
     );
-    expect(lines.at(-1)).toBe("settings        next-session auto");
+    expect(lines.at(-1)).toBe("settings        hand-on auto");
     expect(lines).toHaveLength(7);
   });
 

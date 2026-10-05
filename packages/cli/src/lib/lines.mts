@@ -11,6 +11,7 @@ import {
   type Fact,
   type HealthRow,
   type LinkParts,
+  type NextParts,
   blockerFacts,
   blockerParts,
   countsRun,
@@ -22,6 +23,7 @@ import {
   issueParts,
   journalParts,
   linkFacts,
+  nextFacts,
   logParts,
   named,
   projectParts,
@@ -224,13 +226,14 @@ const followUpLine = (issue: IssueLineView): string =>
 
 /**
  * The lines of a close: the issue as it now stands, then under it the follow-up the same
- * mutation spawned, each open issue the close was the last thing holding as a `ready`
+ * mutation spawned, the first line of the direction it left, each open issue the close was the last thing holding as a `ready`
  * line, so the next pick is on the screen without a `cn ready`, and the offer to close
  * the epic when this was its last issue.
  */
 export function closedLines(view: ClosedView): string[] {
   const lines = [issueLine(view.issue)];
   if (view.followUp) lines.push(followUpLine(view.followUp));
+  if (view.next !== undefined) lines.push(`  ${answer("next")}${firstLine(view.next)}`);
   for (const ready of view.madeReady) lines.push(madeReadyLine(ready));
   if (view.epicDone) lines.push(epicDoneLine(view.epicDone));
   return lines;
@@ -307,13 +310,22 @@ export const linkLine = ({ label, url, by }: LinkParts): string =>
   [label, url, by].filter(Boolean).join(" · ");
 
 /**
- * One labelled line of `cn show`, its label padded to the column. A fact with links is a
- * line per link, the label on the first and the column held on the rest.
+ * One direction as `cn show` prints it: `cn-31 "the writer": the reader first… · by
+ * balder/claude 2h ago`, and without the reference on the issue that left it.
  */
-const factLine = ({ label: name, code, text, refs: items, links }: Fact): string =>
-  links
-    ? links.map((link, i) => `${label(i === 0 ? name : "")}${linkLine(link)}`).join("\n")
+const nextLine = ({ from, text, by }: NextParts): string =>
+  `${from ? `${ref(from)}: ` : ""}${text} · ${by}`;
+
+/**
+ * One labelled line of `cn show`, its label padded to the column. A fact with links or
+ * directions is a line per one, the label on the first and the column held on the rest.
+ */
+const factLine = ({ label: name, code, text, refs: items, links, next }: Fact): string => {
+  const rows = links?.map(linkLine) ?? next?.map(nextLine);
+  return rows
+    ? rows.map((row, i) => `${label(i === 0 ? name : "")}${row}`).join("\n")
     : `${label(name)}${code ? `${code} ` : ""}${items ? refs(items) : (text ?? "")}`;
+};
 
 /** One journal entry as `cn show` prints it: `  2h wsl/claude finding: what turned out true`. */
 const journalLine = (e: JournalEntry, now: number = Date.now()): string => {
@@ -329,6 +341,7 @@ export function brief(shown: Shown, now: number = Date.now()): string {
     const [head, ...health] = healthLines(shown, now);
     const lines = [`${head} · revision ${shown.revision}`, ...health];
     lines.push(...linkFacts(shown.links, now).map(factLine));
+    lines.push(...nextFacts(shown.next, undefined, now).map(factLine));
     if (shown.description) lines.push(shown.description);
     lines.push(...shown.issues.map((i) => `  ${issueLine(i)}`));
     return lines.join("\n");

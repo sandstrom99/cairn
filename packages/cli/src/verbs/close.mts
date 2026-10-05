@@ -3,6 +3,7 @@
 //   cn close <id> --revision N --run '<command>'
 //   cn close <id> --revision N --unverified '<why>'
 //                 [--follow-up <title> --kind verify|decide|cleanup [--priority 0-4]]
+//                 [--next <direction>]
 //
 // --run runs the command here and records it: the command, its exit status and the last
 // 40 lines it wrote, with a ten-minute timeout. The agent never types the output in, so
@@ -25,12 +26,22 @@
 // says the epic can close and prints the `cn epic close` line. It is an offer; the close
 // of the epic is yours to run.
 //
-// Under the closed issue's line come the follow-up it spawned, each open issue this close
+// --next leaves a direction: where you would take this work from here, in a sentence or a
+// few, while what you learned doing it is still in hand. It is optional, and it is an
+// opinion for whoever comes after, never an instruction: it may name issues or none. It
+// lands in the same mutation as a `next` journal entry on the closed issue, and `cn show`
+// prints its first line on this issue, on each issue this one blocked or spawned, and on
+// the epic, so open with a plain sentence. `@-` reads it from stdin and `@path` from a
+// file. Work the direction names that no issue holds is a --follow-up, not a direction.
+// One thought of after the close goes in with `cn journal <id> --kind next`.
+//
+// Under the closed issue's line come the follow-up it spawned, the first line of the
+// direction it left, each open issue this close
 // was the last thing holding as a `ready` line, the way `cn ready` prints it, and the
 // `cn epic close` line when it was the epic's last task.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
-import { FOLLOW_UP_KINDS, maybe, oneOf, onlyId, priority, revision } from "../lib/flags.mts";
+import { FOLLOW_UP_KINDS, maybe, oneOf, onlyId, priority, revision, text } from "../lib/flags.mts";
 import { UsageError, say, warn } from "../lib/cli.mts";
 import { api, connect } from "../lib/client.mts";
 import { closedLines } from "../lib/lines.mts";
@@ -39,7 +50,7 @@ import { runCommand } from "../lib/run.mts";
 export const name = "close";
 export const summary = "finish an issue, with a command that proves it";
 export const spec = {
-  value: ["revision", "run", "unverified", "follow-up", "kind", "priority"],
+  value: ["revision", "run", "unverified", "follow-up", "kind", "priority", "next"],
 } as const satisfies ArgSpec;
 
 /** How much of a failed run belongs on the screen beside the refusal. */
@@ -60,6 +71,7 @@ type Parsed = {
   revision: number;
   proof: Proof;
   followUp?: FollowUp;
+  next?: string;
 };
 
 const USAGE = "cn close <id> --revision N --run '<command>' | --unverified <why>";
@@ -100,7 +112,19 @@ export function parse(argv: string[]): Parsed {
           ...maybe("priority", priority(opts.priority)),
         };
 
-  return { action: "close", id, revision: rev, proof, ...maybe("followUp", followUp) };
+  // Read before the command runs, so a direction that cannot be read stops the close
+  // before it proves anything.
+  const next = text(opts.next, "--next")?.trim();
+  if (next === "") throw new UsageError("--next needs the direction itself");
+
+  return {
+    action: "close",
+    id,
+    revision: rev,
+    proof,
+    ...maybe("followUp", followUp),
+    ...maybe("next", next),
+  };
 }
 
 export async function run(argv: string[]): Promise<number> {
@@ -119,6 +143,7 @@ export async function run(argv: string[]): Promise<number> {
       revision: parsed.revision,
       verification,
       ...maybe("followUp", followUp),
+      ...maybe("next", parsed.next),
     });
     console.log(closedLines(closed).join("\n"));
     return 0;

@@ -760,9 +760,15 @@ row("verbs/close.mts", () => {
   );
 
   // The last thing holding cn-3 closes, and the answer says so the way cn ready would.
+  const direction = "scratch: the phone first\n\nand a second paragraph";
   const freed = pass(
-    `close cn-1 --revision ${revisionOf("cn-1")} --run 'echo proof'`,
+    `close cn-1 --revision ${revisionOf("cn-1")} --run 'echo proof' --next @-`,
     "the second cn close cn-1 was refused",
+    { input: direction },
+  );
+  assert.ok(
+    lines(freed.stdout).includes("  next       scratch: the phone first…"),
+    "the close did not print the first line of the direction it left",
   );
   assert.ok(
     lines(freed.stdout).some((l) =>
@@ -782,6 +788,31 @@ row("verbs/close.mts", () => {
     "the finished ends of the two edges are not both marked done",
   );
   assert.ok(ids(json("ready")).includes("cn-3"), "a finished blocker held cn-3 out of ready");
+
+  // The direction the close left is read where the next reader looks: on the closed issue
+  // bare, and by name on the issue it blocked and on the epic. It is whole in --json.
+  const left = "scratch: the phone first… · by e2e/claude just now";
+  assert.ok(
+    lines(cn("show cn-1").out).includes(`next            ${left}`),
+    "cn show does not print the closed issue's own direction",
+  );
+  for (const id of ["cn-3", "ep-1"])
+    assert.ok(
+      lines(cn(`show ${id}`).out).includes(`next            cn-1 "scratch: first": ${left}`),
+      `cn show ${id} does not print the direction cn-1 left`,
+    );
+  assert.equal(json("show cn-3").next[0].body, direction, "--json does not carry it whole");
+  assert.deepEqual(json("show cn-2").next, [], "an issue nothing pointed at carries a direction");
+  assert.equal(
+    cn("show cn-1").out.match(/^ {2}just now e2e\/claude next: scratch: the phone first$/m)?.length,
+    1,
+    "the direction is not a next entry in the closed issue's journal",
+  );
+
+  // A direction is what a finished issue leaves: a live one refuses the kind.
+  const live = cn("journal cn-3 --kind next 'scratch: too early'");
+  assert.equal(live.status, 1, "a next entry was taken on a live issue");
+  assert.match(live.out, /cn-3 is open; a next entry is left on a finished issue/);
 });
 
 row("verbs/log.mts", () => {
@@ -1554,121 +1585,46 @@ row("lib/config.mts", () => {
 });
 
 row("verbs/setting.mts", () => {
-  // A machine set up for one deployment, the way `cn init` leaves it: a setting is the
-  // machine's, so it is read from the file whichever way a call names its deployment.
+  // A machine set up for one deployment, whose file carries a setting an older cn wrote:
+  // cn has no setting of its own yet, so the name reads as off and is left where it is.
   const set = mkdtempSync(join(tmpdir(), "cairn-e2e-setting-"));
-  const empty = mkdtempSync(join(tmpdir(), "cairn-e2e-empty-"));
   const config = join(set, "cairn", "config.json");
-  const before = { default: "e2e", deployments: { e2e: { url } } };
+  const held = {
+    default: "e2e",
+    deployments: { e2e: { url } },
+    settings: { "next-session": "auto" },
+  };
   mkdirSync(join(set, "cairn"), { recursive: true, mode: 0o700 });
-  writeFileSync(config, `${JSON.stringify(before, null, 2)}\n`, { mode: 0o600 });
+  writeFileSync(config, `${JSON.stringify(held, null, 2)}\n`, { mode: 0o600 });
+  const bytes = readFileSync(config, "utf8");
   const viaFile = { xdg: set, viaConfig: true };
-  const settingsLine = (text) => text.split("\n").filter((line) => line.startsWith("settings"));
   try {
-    // Nothing on: the list says so, and neither the brief nor doctor has a line for it.
-    const listed = pass("setting", "cn setting exited non-zero with nothing on", viaFile);
-    assert.match(
-      listed.stdout,
-      /^next-session {2}off {2}\S.* \(off, offer, auto\)$/m,
-      "a setting never set is not off",
-    );
+    // Nothing to list, and neither the brief nor doctor has a line for it.
+    const listed = pass("setting", "cn setting exited non-zero with no setting", viaFile);
+    assert.equal(listed.stdout, "", "cn setting printed a setting it does not have");
+    assert.deepEqual(json("setting", viaFile), [], "cn setting --json is not an empty list");
     const quiet = pass("brief", "cn brief failed through the file", viaFile);
-    assert.deepEqual(settingsLine(quiet.stdout), [], "the brief has a settings line with none on");
+    assert.ok(
+      !quiet.stdout.split("\n").some((line) => line.startsWith("settings")),
+      "the brief has a settings line for a name that is not a setting",
+    );
+    assert.deepEqual(json("brief", viaFile).settings, [], "brief --json names a setting");
     assert.ok(
       !cn("doctor", viaFile).stdout.includes("settings"),
-      "cn doctor names settings with none on",
+      "cn doctor names a setting that is not one",
     );
 
-    // Put in a state, then moved to another: one line back each time, the file carrying
-    // the state beside what it held, still 600.
-    const offered = pass("setting next-session offer", "a state was refused", viaFile);
-    assert.equal(
-      offered.stdout,
-      "next-session offer\n",
-      "the answer is not the setting and its state",
-    );
-    assert.equal(
-      pass("brief", "cn brief failed with a setting set", viaFile)
-        .stdout.trimEnd()
-        .split("\n")
-        .at(-1),
-      "settings        next-session offer",
-      "the brief does not end with the setting and its state",
-    );
-    const on = pass("setting next-session auto", "moving a setting was refused", viaFile);
-    assert.equal(on.stdout, "next-session auto\n", "the answer is not the setting and its state");
-    assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), {
-      ...before,
-      settings: { "next-session": "auto" },
-    });
-    assert.equal(statSync(config).mode & 0o777, 0o600, "the config is not mode 600");
-    assert.match(
-      pass("setting", "cn setting exited non-zero", viaFile).stdout,
-      /^next-session {2}auto {2}\S/,
-      "the list does not read the setting's state",
-    );
-    const loud = pass("brief", "cn brief failed with a setting on", viaFile);
-    assert.equal(
-      loud.stdout.trimEnd().split("\n").at(-1),
-      "settings        next-session auto",
-      "the brief does not end with the settings that are on",
-    );
-    assert.deepEqual(json("brief", viaFile).settings, [{ name: "next-session", state: "auto" }]);
-    assert.equal(
-      pass("brief", "cn brief failed under CAIRN_URL", { xdg: set })
-        .stdout.trimEnd()
-        .split("\n")
-        .at(-1),
-      "settings        next-session auto",
-      "a setting is not read when CAIRN_URL names the deployment",
-    );
-    assert.match(
-      cn("doctor", viaFile).stdout,
-      /^✓ actor .*\n✓ settings next-session auto$/m,
-      "cn doctor does not name the setting after the actor",
-    );
-
-    // The state it is already in is not written again.
-    const bytes = readFileSync(config, "utf8");
-    pass("setting next-session auto", "the state it is in was refused", viaFile);
-    assert.equal(readFileSync(config, "utf8"), bytes, "the state it is in rewrote the file");
-
-    // What is not a setting, and what is not a way to ask.
-    const unknown = cn("setting nope auto", viaFile);
-    assert.equal(unknown.status, 1, "a name that is not a setting was taken");
-    assert.equal(unknown.out, "✗ nope is not a setting; there is next-session\n");
-    const noState = cn("setting next-session on", viaFile);
-    assert.equal(noState.status, 1, "a state the setting does not take was taken");
-    assert.equal(
-      noState.out,
-      "✗ next-session is off, offer, auto, not on; cn setting --help says what each does\n",
-    );
-    assert.equal(cn("setting next-session", viaFile).status, 2, "a name alone was taken");
-    assert.equal(
-      cn("setting next-session auto --json", viaFile).status,
-      2,
-      "--json was taken on a set",
-    );
-    assert.equal(readFileSync(config, "utf8"), bytes, "a refused call moved the file");
-
-    // Turned off: the file holds what it held, and the brief's line is gone.
-    const off = pass("setting next-session off", "turning a setting off was refused", viaFile);
-    assert.equal(off.stdout, "next-session off\n");
-    assert.deepEqual(JSON.parse(readFileSync(config, "utf8")), before);
-    assert.deepEqual(
-      settingsLine(pass("brief", "cn brief failed after the setting went off", viaFile).stdout),
-      [],
-      "the brief still names a setting that is off",
-    );
-
-    // A machine with no config has nothing to keep one in.
-    const bare = cn("setting next-session auto", { xdg: empty, viaConfig: true });
-    assert.equal(bare.status, 1, "a setting was taken on a machine with no config");
-    assert.match(bare.out, /no config at .* to keep a setting in: cn init/);
-    assert.ok(!existsSync(join(empty, "cairn")), "a refused setting wrote a config");
+    // Every name is refused, and what is not a way to ask is a usage error.
+    for (const name of ["next-session", "nope"]) {
+      const unknown = cn(`setting ${name} auto`, viaFile);
+      assert.equal(unknown.status, 1, `${name} was taken as a setting`);
+      assert.equal(unknown.out, `✗ ${name} is not a setting; there is none yet\n`);
+    }
+    assert.equal(cn("setting nope", viaFile).status, 2, "a name alone was taken");
+    assert.equal(cn("setting nope auto --json", viaFile).status, 2, "--json was taken on a set");
+    assert.equal(readFileSync(config, "utf8"), bytes, "a call moved the file");
   } finally {
     rmSync(set, { recursive: true, force: true });
-    rmSync(empty, { recursive: true, force: true });
   }
 });
 
