@@ -149,9 +149,17 @@ describe("cn doctor", () => {
     const config = { deployments: {} };
     expect(settingsCheck(null)).toEqual([]);
     expect(settingsCheck(config)).toEqual([]);
-    expect(settingsCheck({ ...config, settings: { "next-session": "offer" } })).toEqual([
-      { check: "settings", ok: true, line: "settings next-session offer" },
+    const handOn = {
+      name: "hand-on",
+      summary: "a stand-in",
+      states: [{ state: "offer", does: "" }],
+    };
+    const set = { ...config, settings: { "hand-on": "offer" } };
+    expect(settingsCheck(set, [handOn])).toEqual([
+      { check: "settings", ok: true, line: "settings hand-on offer" },
     ]);
+    // cn has no setting of its own yet, so a name in the file is another cn's and no line.
+    expect(settingsCheck(set)).toEqual([]);
   });
 
   it("reads a deployment without deployment.pushedFrom as running older functions", () => {

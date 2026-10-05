@@ -1,7 +1,7 @@
 // Facts.tsx: an issue's facts set by what they are, rather than as one table. Its epic,
 // project and status are three tiles; its proof, or the reason it was dropped, a card with
 // the output folded under it; its edges a neighbourhood, a row per kind and a chip per issue
-// named; its links a list; and its description, design and acceptance one document at the
+// named; the directions finished work left for it a list; its links a list; and its description, design and acceptance one document at the
 // column's width.
 //
 // Every fact is `issueFacts`', in cn's words and cn's order: each is set in its own element
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { CountBar } from "./Chart.tsx";
 import { Ref, Run } from "./Ref.tsx";
 import type { Listed } from "./rows.tsx";
-import { OPENABLE } from "./Sheet.tsx";
+import { NextList, OPENABLE } from "./Sheet.tsx";
 import { Dot, type Tone, projectWord, toneOf, toneText } from "./tone.tsx";
 
 /** What the page holds beside the issue: the open epics, the projects and every issue, each undefined until it answers. */
@@ -55,6 +55,7 @@ export function IssueFacts({
   const record = facts.filter((f) => RECORD.has(f.label));
   const edges = facts.filter((f) => !TILES.has(f.label) && !RECORD.has(f.label) && f.refs);
   const links = of("links");
+  const next = of("next");
   return (
     <>
       <div className="mt-6 grid grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,1.3fr)] gap-3 narrow:grid-cols-2">
@@ -64,6 +65,12 @@ export function IssueFacts({
       </div>
       {record.length > 0 && <Record facts={record} output={output} />}
       {edges.length > 0 && <Neighbourhood facts={edges} issues={around.issues} />}
+      {next?.next && (
+        <div data-fact="next" className="paper mt-3 px-4 pt-2.5 pb-2">
+          <Label>next</Label>
+          <NextList items={next.next} className="text-row" />
+        </div>
+      )}
       {links?.links && <Links fact={links} />}
     </>
   );

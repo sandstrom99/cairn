@@ -78,6 +78,24 @@ const stateOf = (shown: ShownIssue): string =>
 describe("an issue's page", () => {
   const markup = renderToStaticMarkup(<IssuePage issue={held} siblings={[]} now={now} />);
 
+  it("sets the directions finished work left as cn's lines, the issue's own and a neighbour's", () => {
+    const writer = { id: "cn-23", title: "the skeleton", status: "closed" as const };
+    const pointed = issue({
+      ...held,
+      status: "closed",
+      closedAt: now - HOUR,
+      next: [
+        { from: { ...held, status: "closed" }, body: "the feed next", by: agent, at: now - HOUR },
+        { from: writer, body: "rows first\n\nthen the feed", by: agent, at: now - DAY },
+      ],
+    });
+    expect(brief(pointed, now)).toContain(
+      `next            the feed next · by ${agent.name} 1h ago\n` +
+        `                cn-23 "the skeleton": rows first… · by ${agent.name} 1d ago`,
+    );
+    expect(factsOn(pointed).join(" ")).toBe(factsOf(brief(pointed, now)));
+  });
+
   it("sets each of cn show's labelled lines once, in cn's words and order", () => {
     expect(factsOn(held).join(" ")).toBe(factsOf(brief(held, now)));
     // Every finished issue it names carries cn's word after its reference: a blocking
@@ -364,6 +382,25 @@ describe("an epic's page", () => {
     expect(markup).not.toContain('href="/cn-26"');
     expect(markup).toContain('href="/cn-10"');
     expect(markup).toContain('href="/bl-4"');
+  });
+
+  it("sets the directions its finished issues left as cn's lines, under its links", () => {
+    const pointed = epic({
+      next: [
+        {
+          from: { id: "cn-1", title: "the writer", status: "closed" },
+          body: "the reader first\n\nit shares the codec",
+          by: agent,
+          at: now - 2 * HOUR,
+        },
+      ],
+    });
+    const line = `cn-1 "the writer": the reader first… · by ${agent.name} 2h ago`;
+    expect(brief(pointed, now)).toContain(`next            ${line}`);
+    const markup = renderToStaticMarkup(<EpicPage epic={pointed} issues={[]} now={now} />);
+    const table = markup.slice(markup.indexOf("<dl"), markup.indexOf("</dl>"));
+    expect(plain(table)).toBe(`next ${line}`);
+    expect(table).toContain('href="/cn-1"');
   });
 
   it("sets its links as cn's lines, each an anchor, and none where it has none", () => {

@@ -1,6 +1,6 @@
 // cn journal — record what happened, in the issue's own history.
 //
-//   cn journal <id> --kind finding|decision|handoff|evidence|question <body…>
+//   cn journal <id> --kind finding|decision|handoff|evidence|question|next <body…>
 //
 // An append is an insert: it takes no revision, it cannot conflict, and it always lands.
 // It stamps the issue's lastActivity, so a long claim heartbeats for free.
@@ -10,6 +10,11 @@
 //   handoff    where this stands for whoever picks it up next
 //   evidence   proof from somewhere cn could not run: a device, another machine
 //   question   what has to be answered before this can finish
+//   next       where the work goes from here, left on a finished issue
+//
+// `next` is the direction `cn close --next` leaves, for one thought of after the close. A
+// live issue refuses it: where a live one stands is a `handoff`. `cn show` prints the
+// newest on the issue, on each issue it blocked or spawned, and on its epic.
 //
 // Proof that ran elsewhere goes in as `evidence` and the close points at it with
 // --unverified; proof cn can run itself goes in `cn close --run`.

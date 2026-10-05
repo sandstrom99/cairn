@@ -98,12 +98,14 @@ export type HealthView = Pick<EpicLineView, "id" | "title" | "counts" | "health"
 export type JournalEntry = { at: number; author: { name: string }; kind: string; body: string };
 
 /**
- * What `cn close` answers: the issue, the follow-up where one was made, the epic's offer,
- * and the open issues the close was the last thing holding.
+ * What `cn close` answers: the issue, the follow-up where one was made, the direction
+ * where one was left, the epic's offer, and the open issues the close was the last thing
+ * holding.
  */
 export type ClosedView = {
   issue: IssueLineView;
   followUp?: IssueLineView;
+  next?: string;
   epicDone?: Referable & { revision: number };
   madeReady: IssueLineView[];
 };

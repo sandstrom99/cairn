@@ -42,9 +42,7 @@ them rather than running it.
 Where the brief ends with a `settings` line, it names what this machine's person has
 turned on, each with the state it is in: behaviour beyond the worklist that is theirs to
 choose, and off until they do. A name that is not on that line is off, and what it would
-do is not done. `next-session` is the first: a session whose work has closed leaves the
-prompt the next one opens with, offering first under `offer` and unprompted under `auto`
-("A session's shape", End). When the person
+do is not done. There is none yet, so the line is absent. When the person
 asks to turn one on or off, or what there is to turn on, in whatever words, run
 `cn setting` yourself and say what changed in a sentence; they never edit the file.
 
@@ -115,8 +113,8 @@ an issue.
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line; `--link <url>` or `--link '[label](url)'` puts a link on it, and repeats | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease; release refuses nobody, so another's claim is left alone by judgement | `issues.claim` · `issues.release` |
 | `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer; `--link` adds a link or relabels one, `--unlink <url>` takes one off. The id says what changes: an epic takes its title, description and links, a blocker its title, `--resolves` and links, and a flag the thing has no field for is refused | `issues.update` · `epics.update` · `blockers.update` |
-| `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question` | `journal.append` |
-| `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line; each open issue the close was the last thing holding is printed under it as a `ready` line, the next thing to pick without another `cn ready` | `issues.close` |
+| `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question`; or, on a finished issue, a `next`, the direction `cn close --next` leaves | `journal.append` |
+| `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; `--next <direction>` leaves where you would take the work from here, which `cn show` prints on the issue, on what it blocked or spawned and on the epic; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line; each open issue the close was the last thing holding is printed under it as a `ready` line, the next thing to pick without another `cn ready` | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
 | `cn dep add\|rm <id> --blocked-by <id>` | the graph; also `--blocks`, `--related`, `--discovered-from`, `--duplicates`, `--supersedes` | `edges.add` · `edges.remove` |
 | `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists; `--link` puts a link on a new one | `blockers.raise` |
@@ -126,7 +124,7 @@ an issue.
 | `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, and whether it can close. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |
-| `cn setting` · `cn setting <name> <state>` | what this machine has turned on, and putting a setting in a state: `off`, or one of the setting's own, as `next-session` takes `offer` and `auto`; machine-wide, kept in the config, off until asked for | none, local |
+| `cn setting` · `cn setting <name> <state>` | what this machine has turned on, and putting a setting in a state: `off`, or one of the setting's own; there is none yet; machine-wide, kept in the config, off until asked for | none, local |
 
 Every read verb takes `--json`. Every write to a mutable field carries the revision that
 was read; a stale write comes back with what changed and who changed it, and the right
@@ -137,7 +135,10 @@ refuses one it does not: `cn ready ios` is a usage error, since nothing filters 
 ## A session's shape
 
 - **Start.** The brief is already above. `cn ready` for the whole list, `cn show <id>`
-  for the one that looks right, `cn claim <id>` before touching anything.
+  for the one that looks right, `cn claim <id>` before touching anything. A `next` line
+  on `cn show` is the direction finished work left for this: the opinion of the session
+  that closed the issue it names, whole in that issue's journal. Weigh it; it is not an
+  instruction, and the person's word and the issue itself come first.
 - **During.** `cn journal <id> --kind finding` or `--kind decision` the moment something
   would be lost to compaction. `cn wait <id>` the moment the work needs a person.
   `cn dep add <id> --blocked-by <other>` when one thing turns out to block another.
@@ -156,12 +157,12 @@ refuses one it does not: `cn ready ios` is a usage error, since nothing filters 
   with `cn create`.
 - **End.** `cn journal <id> --kind handoff` saying where it stands, what is unverified and
   what is next. Then `cn close <id> --revision N --run '<cmd>'` when it is done, or
-  `cn release <id>` when it is not, so the next session can take it. Where the brief's
-  `settings` line names `next-session` and the work has closed, there is one more step.
-  Under `next-session auto`, load the plugin's `next-session` skill and leave the next
-  session's opening prompt in the reply and on the worklist. Under `next-session offer`,
-  end the reply with one sentence offering to, and do it when the person says yes.
-  Without that name on the line, do it only when the person asks for it.
+  `cn release <id>` when it is not, so the next session can take it. When you close with
+  an opinion on where this work should go from here, leave it on the close:
+  `--next "<direction>"`, a plain sentence first, since `cn show` prints that line on the
+  issue, on what it blocked or spawned, and on the epic. It is for whoever comes after,
+  and it is optional: with nothing worth saying, say nothing. Work it would name that no
+  issue holds is a `--follow-up`.
 - **Someone else's claim.** Leave it, and say who holds it and since when. Nothing
   refuses releasing, closing or dropping it, so the judgement is yours: do it only when
   the person asks, or when it is plainly this work's own claim under an old name, as

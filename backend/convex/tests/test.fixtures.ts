@@ -92,7 +92,7 @@ export const closeIssue = (
   t: Harness,
   id: string,
   revision = 0,
-  extra: Partial<Pick<CloseArgs, "actor" | "verification" | "followUp">> = {},
+  extra: Partial<Pick<CloseArgs, "actor" | "verification" | "followUp" | "next">> = {},
 ) => t.mutation(api.issues.close, { actor, id, revision, verification: ran, ...extra });
 
 /** The fields of a new blocker, as `cn wait --kind approval --owner balder …` sends them. */

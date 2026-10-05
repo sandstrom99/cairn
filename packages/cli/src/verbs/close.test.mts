@@ -21,6 +21,19 @@ describe("cn close", () => {
     });
   });
 
+  it("takes a direction beside the proof, trimmed, and refuses an empty one", () => {
+    const close = ["cn-2", "--revision", "2", "--run", "vp run verify"];
+    expect(parse([...close, "--next", " the reader first\n"])).toEqual({
+      action: "close",
+      id: "cn-2",
+      revision: 2,
+      proof: { run: "vp run verify" },
+      next: "the reader first",
+    });
+    expect(() => parse([...close, "--next", "  "])).toThrow(/--next needs the direction itself/);
+    expect(() => parse([...close, "--next", "@no-such-file.md"])).toThrow(UsageError);
+  });
+
   it("takes the follow-up beside the proof", () => {
     expect(
       parse([

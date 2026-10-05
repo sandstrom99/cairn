@@ -20,6 +20,7 @@ import type { Actor } from "./lib/actor";
 import { nowArg } from "./lib/clock";
 import { claimed, epicRequired, invalid } from "./lib/errors";
 import { createFollowUp } from "./lib/followUp";
+import { appendEntry } from "./lib/journal";
 import { mutation, query } from "./lib/guard";
 import { hasChild, issuesIn, issuesWhere } from "./lib/graph";
 import { INBOX_ID, openEpicArg } from "./lib/inbox";
@@ -276,6 +277,10 @@ export const update = mutation({
  *
  * Beside them, `madeReady` is every open issue this close was the last thing holding, as
  * the ready row `cn ready` would print (lib/readiness.ts). It is read, never stored.
+ *
+ * The direction: `next` is where the closer would take the work from here, in their words.
+ * It lands as a `next` journal entry on the closed issue in the same mutation, and
+ * `show.get` reads it beside whatever the issue blocked or spawned (lib/journal.ts).
  */
 export const close = mutation({
   args: {
@@ -290,11 +295,14 @@ export const close = mutation({
         priority: v.optional(v.number()),
       }),
     ),
+    next: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const doc = await issueById(ctx, args.id);
     await expectRevision(ctx, { table: "issues", doc }, args.revision);
     if (!isLive(doc)) throw invalid(`${doc.id} is already ${doc.status}`);
+    if (args.next !== undefined && args.next.trim() === "")
+      throw invalid("--next needs the direction itself; leave it out when there is none");
 
     const proof = args.verification;
     if ("exitCode" in proof && proof.exitCode !== 0)
@@ -305,6 +313,10 @@ export const close = mutation({
       throw invalid("an unverified close needs a reason");
 
     const closed = await closeIssue(ctx, args.actor, doc, proof);
+    const next =
+      args.next === undefined
+        ? undefined
+        : (await appendEntry(ctx, args.actor, closed, "next", args.next)).body;
 
     // The residue is created in the same mutation, so a parent never closes without it.
     const followUp = args.followUp
@@ -329,7 +341,7 @@ export const close = mutation({
         : undefined;
     const madeReady = await madeReadyBy(ctx, closed);
 
-    return { issue: await issueView(ctx, closed), followUp, epicDone, madeReady };
+    return { issue: await issueView(ctx, closed), followUp, epicDone, madeReady, next };
   },
 });
 

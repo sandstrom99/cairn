@@ -147,6 +147,7 @@ export default defineSchema({
     body: v.string(),
   })
     .index("by_issue", ["issueId"])
+    .index("by_issue_kind", ["issueId", "kind"])
     .searchIndex("search_body", { searchField: "body" }),
 
   events: defineTable({

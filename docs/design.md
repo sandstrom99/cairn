@@ -311,9 +311,11 @@ anyway, so the page's jump bar agrees on a title.
 
 ### Journal entry kinds
 
-`finding`, `decision`, `handoff`, `evidence`, `question`. Every entry carries an
+`finding`, `decision`, `handoff`, `evidence`, `question`, `next`. Every entry carries an
 author and a timestamp, and every append stamps the issue's `lastActivity`. Where
-§9 says "comments", it means these: there is no second table.
+§9 says "comments", it means these: there is no second table. `next` is the one kind
+with a status: it is the direction a finished issue leaves (§4, Close), and a live issue
+refuses it, since where a live one stands is a `handoff`.
 
 ### Links
 
@@ -454,6 +456,29 @@ never closes without its residue existing. The answer also carries the open issu
 this close was the last thing holding, each as a ready row, and `cn close` prints
 them under the closed issue so an agent's loop continues without a second
 `cn ready`. Nothing is stored for it: the edge stays, and reads `done` (§7).
+
+**The direction a close leaves.** Added 2026-10-05 (cn-159). The session that just
+finished a piece of work has the strongest opinion on where that branch of work goes
+next, and it is gone a moment later. `cn close --next "<direction>"` keeps it: free text,
+optional, naming issues or none, written in the close's own mutation as a `next` journal
+entry on the closed issue; `cn journal <id> --kind next` adds one thought of afterwards.
+It is read where the next reader already looks, and nowhere else is it stored: `cn show`
+prints the newest one's first line on the issue itself, on each issue it blocked, on its
+follow-ups, and on the epic, which names the three newest among its finished issues.
+The brief carries none, since nothing says when a direction has been taken and a line
+there would go stale. It is an opinion and never an edge: readiness, order and priority
+do not move for it. Work it names that no issue holds is a follow-up.
+
+This replaced the `next-session` skill and setting of the day before (cn-153, cn-154),
+under which a closing session wrote the next session's opening prompt, the person's own
+rules repeated in it, and ended its reply with it or with an offer to. That was cairn
+running a person's sessions: what a prompt says, how many issues a session takes and how
+a reply ends are a way of working, and a way of working is theirs. cairn is what such a
+way of working is built on, so it keeps the one thing only the worklist can keep, the
+direction, and a person's own skill or loop turns that into whatever opens their next
+session. It is on the close and not on a hook because the close is the moment the work
+is finished whatever harness runs `cn`: Claude Code's Stop fires at every turn and
+cannot tell, and its SessionEnd fires when nothing is left to write with.
 
 **Edit an epic.** An epic's title, description and links are edited with
 `cn update ep-N` against its revision, as an issue's are, while it is open; ep-0,
@@ -724,29 +749,6 @@ model. The hook honours `stop_hook_active`, so it fires once per stop and a line
 the model chose to leave alone cannot hold the turn open, and it exits 0
 whatever happens. The same rule as the start: state, never doctrine. What to do
 about the line is the skill's.
-
-**The next session's prompt.** Added 2026-10-04 (cn-154), behind the setting
-`next-session` (§12) and so off unless a person turned it on. It has two states past
-off, because a person in the conversation and a loop nobody watches want different
-things: under `offer` the session ends its reply with one sentence offering to write the
-prompt and writes it on a yes, so the exchange stays a conversation; under `auto` it
-does it unprompted. Either way, a session whose work has
-closed, holding nothing, ends by reading what its closes unblocked and the head of
-`cn ready`, choosing the next chunk, and writing the prompt a fresh session opens with:
-in its reply, and as a `handoff` entry on the last issue it closed, opening `Next: …`,
-where a session or a loop that starts cold finds it. With nothing ready it writes no
-prompt and records that instead, which is where a loop stops. This is the worklist
-knowing how it is left for whoever comes next, and what lets a series of sessions run
-for a long time with nobody attending. The procedure is a skill of its own in the plugin,
-`next-session`, loaded on demand; the trigger is the brief's `settings` line, which its
-description names, so nothing here is a hook and a harness that only runs `cn` can read
-the same line. It is its own skill because a session that closes through `/cairn:close`
-never loads the cairn skill: the first trial, with the rule there alone, closed its issue
-and left no prompt. What cairn carries is only that: the chunk, what
-it builds on, and the person's own rules for the work repeated in their words. How a
-person runs sessions, in parallel, under an orchestrator, with skills of their own, is
-theirs (decided the same day), and the prompt takes it from how they opened the session
-and adds none of it.
 
 ### Epic health
 
@@ -1168,7 +1170,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
 | `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--resolves] [--link] [--unlink]` | `issues.update`, `epics.update` or `blockers.update`, by the id: an epic takes its title, description and links, a blocker its title, `--resolves` and links | mutation |
 | `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
-| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --priority 1]` | `issues.close` | mutation |
+| `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --priority 1] [--next <direction>]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
 | `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
 | `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
@@ -1365,23 +1367,27 @@ Added when the solution was mapped, 2026-09-17:
   `{ "default": "acme", "deployments": { "acme": { "url": …, "secretCmd": … } } }`.
   A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
 - **Settings are per machine, and off until turned on** (2026-10-04, cn-153). A setting
-  is behaviour beyond the worklist, the next-session handoff being the first, that some
+  is behaviour beyond the worklist that some
   people want cairn to drive and others do not, so nobody's sessions change until they
-  ask. It lives in the machine's config, `"settings": { "next-session": "offer" }`, beside
+  ask. It lives in the machine's config, `"settings": { "<name>": "<state>" }`, beside
   the deployments and above any one of them: a way of working is a person's, and should
   not need each repository or each company's worklist to carry it. So there is no
   per-repository setting and no environment variable over the file, which would be one,
   and a setting kept on the deployment, a company's policy, waits for a real one. A
   setting has states: `off`, where every one starts and which is absence from the file,
-  and the setting's own past it, which say how far the person wants cairn to go, as
-  `next-session` takes `offer` and `auto` (2026-10-04: a plain on would have made every
-  session either silent or automatic, and a person in the conversation wants to be
-  asked). `cn setting` lists them and puts one in a state, and the person asks for that
+  and the setting's own past it, which say how far the person wants cairn to go
+  (2026-10-04: a plain on would make a session either silent or automatic, and a person
+  in the conversation may want to be asked first). `cn setting` lists them and puts one in a state, and the person asks for that
   in their own words. cn stores a setting and prints it and never acts on one: `cn brief`
   ends with each name that is not off and its state, `cn doctor` names them, and the
   skill says what a session does on reading one there, so the behaviour
   reaches any harness that runs `cn`. Claude Code's plugin options (`userConfig`) are not
-  the store, since a `cn` run outside Claude Code would never see them.
+  the store, since a `cn` run outside Claude Code would never see them. There is no
+  setting yet (2026-10-05, cn-159): the first, `next-session`, went when what it gated
+  turned out to be a person's way of working and the part that was the worklist's moved
+  into `cn close --next` (§4), which nothing gates. The system stays for the next one,
+  which has to pass the same test: how the worklist is left and read, never how sessions
+  are run. A name an older cn wrote into the file is kept and reads as off.
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the
   arguments before the handler, so nothing downstream sees it. A deployment with none set

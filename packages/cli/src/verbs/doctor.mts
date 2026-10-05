@@ -52,7 +52,7 @@ import {
   label,
 } from "../lib/pushed.mts";
 import { session } from "../lib/session.mts";
-import { settingsSet } from "../lib/settings.mts";
+import { SETTINGS, type Setting, settingsSet } from "../lib/settings.mts";
 
 export const name = "doctor";
 export const summary = "whether this machine can run cn against a deployment";
@@ -135,8 +135,11 @@ export function actorCheck(me: Actor): Check {
 }
 
 /** The settings this machine has set (`cn setting`), each with its state; no line when all are off. */
-export function settingsCheck(config: CairnConfig | null): Check[] {
-  const set = settingsSet(config);
+export function settingsCheck(
+  config: CairnConfig | null,
+  settings: readonly Setting[] = SETTINGS,
+): Check[] {
+  const set = settingsSet(config, settings);
   return set.length === 0
     ? []
     : [

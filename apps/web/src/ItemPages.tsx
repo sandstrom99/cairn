@@ -14,6 +14,7 @@ import {
   healthParts,
   issueFacts,
   journalParts,
+  nextFacts,
   linkFacts,
   proofParts,
 } from "@cairn/cli/parts";
@@ -128,7 +129,8 @@ export function EpicPage({
   now: number;
 }) {
   const { counts, rows } = healthParts(epic, now);
-  const links = linkFacts(epic.links, now);
+  // The epic's links and where its finished issues pointed, as `cn show` prints them under the health.
+  const links = [...linkFacts(epic.links, now), ...nextFacts(epic.next, undefined, now)];
   // What is moving is the track's moving cells and the In progress group; the rows keep what
   // nothing else on the page says, the stuck and the waiting.
   const pressing = rows.filter((row) => row.fact !== "moving");

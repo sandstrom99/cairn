@@ -63,6 +63,7 @@ export function issue(over: Partial<ShownIssue> = {}): ShownIssue {
     journal: [],
     blocks: [],
     blockedBy: [],
+    next: [],
     related: [],
     discoveredFrom: [],
     duplicates: [],
@@ -90,6 +91,7 @@ export function epic(over: Partial<ShownEpic> = {}): ShownEpic {
     counts: { open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
     health: { moving: [], stuck: [], waiting: [] },
     issues: [],
+    next: [],
     ...over,
   };
 }

@@ -11,6 +11,10 @@
 // work left. `stuck` is this issue being among its epic's stuck issues, so `cn show` and
 // the page say it from the one rule.
 //
+// `next` is the direction finished work left for whoever reads this (lib/journal.ts): on an
+// issue, its own once it is finished, its parent's and that of each issue that blocked it;
+// on an epic, the `NEXT_HEAD` newest among its finished issues. Newest first either way.
+//
 // It is the one read that carries the issue's long text, its description, design,
 // acceptance and the proof's output, from `issueText` (lib/text.ts); every list leaves it
 // out and reads the small row alone.
@@ -29,7 +33,8 @@ import {
 } from "./lib/graph";
 import { query } from "./lib/guard";
 import { epicHealth, stuckOf } from "./lib/health";
-import { JOURNAL_HEAD, JOURNAL_MAX } from "./lib/limits";
+import { directionsFrom } from "./lib/journal";
+import { JOURNAL_HEAD, JOURNAL_MAX, NEXT_HEAD } from "./lib/limits";
 import { blockerById, epicById, issueById } from "./lib/lookup";
 import { priorityOrder } from "./lib/order";
 import { textOf } from "./lib/text";
@@ -75,6 +80,11 @@ async function issue(
     .query("issues")
     .withIndex("by_parent", (q) => q.eq("parentIssueId", doc._id))
     .collect();
+  const blockers = await docsOf(
+    ctx,
+    incoming.filter((e) => e.type === "blocks").map((e) => e.from),
+  );
+  const parent = doc.parentIssueId ? await ctx.db.get(doc.parentIssueId) : null;
 
   return {
     kind: "issue" as const,
@@ -96,10 +106,8 @@ async function issue(
       ctx,
       outgoing.filter((e) => e.type === "blocks").map((e) => e.to),
     ),
-    blockedBy: await endsOf(
-      ctx,
-      incoming.filter((e) => e.type === "blocks").map((e) => e.from),
-    ),
+    blockedBy: blockers.map(end),
+    next: await directionsFrom(ctx, [doc, ...(parent ? [parent] : []), ...blockers]),
     // `related` is symmetric, so it reads both ways; the other three name a direction
     // and are the edges from this issue, the way `cn dep add` wrote them.
     related: await endsOf(ctx, [
@@ -132,6 +140,7 @@ async function epic(ctx: QueryCtx, doc: Doc<"epics">, now?: number) {
     kind: "epic" as const,
     ...(await epicHealth(ctx, doc, rows, now)),
     issues: live.map((i) => ({ id: i.id, title: i.title, status: i.status, priority: i.priority })),
+    next: (await directionsFrom(ctx, rows)).slice(0, NEXT_HEAD),
   };
 }
 

@@ -5,7 +5,7 @@
 //
 // The facts are `issueFacts` and `blockerFacts` from @cairn/cli, the ones `cn show` prints,
 // so the table says what the brief says, in its words and its order (sheet.test.tsx).
-import type { Fact, LinkParts } from "@cairn/cli/parts";
+import type { Fact, LinkParts, NextParts } from "@cairn/cli/parts";
 import { type Referable, ref } from "@cairn/cli/ref";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
@@ -73,13 +73,15 @@ export function Sheet({ facts, children }: { facts: Fact[]; children?: ReactNode
   return (
     <div className="paper mt-6 divide-y divide-hair">
       <dl className="divide-y divide-hair">
-        {facts.map(({ label, code, text, refs, links }) => (
+        {facts.map(({ label, code, text, refs, links, next }) => (
           <div key={label} className={LINE}>
             <dt className="text-small text-slate">{label}</dt>{" "}
             <dd className="text-row">
               {code && <code className="font-mono">{code} </code>}
               {links ? (
                 <LinkList items={links} />
+              ) : next ? (
+                <NextList items={next} />
               ) : refs ? (
                 <Refs items={refs} />
               ) : (
@@ -126,6 +128,29 @@ function LinkList({ items }: { items: LinkParts[] }) {
           </li>
         );
       })}
+    </ul>
+  );
+}
+
+/**
+ * The directions finished work left, one item each, each item the text of cn's `nextLine`:
+ * the issue that left it where that is another, its first line, then who left it.
+ */
+export function NextList({ items, className }: { items: NextParts[]; className?: string }) {
+  return (
+    <ul className={className}>
+      {items.map(({ from, text, by }, i) => (
+        // The directions of one answer never reorder, so the index is a stable key.
+        <li key={i} className="py-0.5">
+          {from && (
+            <>
+              <Ref item={from} />:{" "}
+            </>
+          )}
+          {text}
+          <span className="text-slate"> · {by}</span>
+        </li>
+      ))}
     </ul>
   );
 }
