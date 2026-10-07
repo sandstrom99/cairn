@@ -1,6 +1,6 @@
 // actor.ts: who did it. Stored inline wherever it appears rather than as a table,
 // because it is an argument `cn` fills in, taken on trust (docs/design.md §13):
-// `balder-wsl/claude` with kind agent, `balder-wsl/balder` with kind human.
+// `harbor-wsl/claude` with kind agent, `harbor-wsl/harbor` with kind human.
 //
 // `session` is the Claude Code session the call came from, when it came from one: the
 // SessionStart hook exports the session id and `cn` sends it. Every Claude session on a

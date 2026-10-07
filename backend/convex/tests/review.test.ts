@@ -95,7 +95,7 @@ describe("review.get", () => {
       {
         id: "bl-1",
         title: "App Store review",
-        owner: "balder",
+        owner: "harbor",
         nudgeAt: Date.UTC(2026, 8, 3),
         holds: [{ id: "cn-1", title: "the lifecycle" }],
       },

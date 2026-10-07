@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { actor, shortHost } from "./actor.mts";
 
-const sys = { hostname: () => "wsl", username: () => "balder" };
+const sys = { hostname: () => "wsl", username: () => "harbor" };
 
 /** A config that sets `host`; the file is read once elsewhere and handed in as this. */
 const withHost = (host: string) => ({ host, deployments: {} });
 
 describe("actor", () => {
   it("is the user on this host, as a human", () => {
-    expect(actor({}, null, sys)).toEqual({ name: "wsl/balder", kind: "human" });
+    expect(actor({}, null, sys)).toEqual({ name: "wsl/harbor", kind: "human" });
   });
 
   it("is claude on this host when CLAUDECODE is set", () => {
@@ -25,18 +25,18 @@ describe("actor", () => {
 
   it("takes a chosen host as given, never cut or lowercased", () => {
     const mac = { ...sys, hostname: () => "Harbors-Mac-mini.local" };
-    expect(actor({ CAIRN_HOST: "Build.Box" }, null, mac).name).toBe("Build.Box/balder");
-    expect(actor({}, withHost("Studio.Mac"), mac).name).toBe("Studio.Mac/balder");
+    expect(actor({ CAIRN_HOST: "Build.Box" }, null, mac).name).toBe("Build.Box/harbor");
+    expect(actor({}, withHost("Studio.Mac"), mac).name).toBe("Studio.Mac/harbor");
   });
 
   it("takes the host from CAIRN_HOST", () => {
-    expect(actor({ CAIRN_HOST: "runner" }, null, sys).name).toBe("runner/balder");
+    expect(actor({ CAIRN_HOST: "runner" }, null, sys).name).toBe("runner/harbor");
   });
 
   it("takes the host from the config, under CAIRN_HOST and over the machine's", () => {
-    expect(actor({}, withHost("mac"), sys).name).toBe("mac/balder");
+    expect(actor({}, withHost("mac"), sys).name).toBe("mac/harbor");
     expect(actor({ CLAUDECODE: "1" }, withHost("mac"), sys).name).toBe("mac/claude");
-    expect(actor({ CAIRN_HOST: "runner" }, withHost("mac"), sys).name).toBe("runner/balder");
+    expect(actor({ CAIRN_HOST: "runner" }, withHost("mac"), sys).name).toBe("runner/harbor");
   });
 
   it("lets CAIRN_ACTOR win outright, keeping the kind", () => {

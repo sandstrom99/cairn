@@ -23,7 +23,7 @@
 // --host is what this machine calls itself in an actor name, `<host>/claude` on every
 // claim. When absent it is the OS hostname up to its first dot, lowercased. cairn runs on
 // trust, so this name is also what tells one person's agents from a colleague's: one
-// that carries the person's name as well as the machine's, `balder-mac-mini` or
+// that carries the person's name as well as the machine's, `harbor-mac-mini` or
 // `maya-wsl`, reads best. Nothing checks it.
 // --default makes this deployment the one every verb resolves to, for a file that already
 // names another; the first deployment in a fresh file is the default either way.

@@ -24,7 +24,7 @@ describe("epicWord", () => {
   const stuck = [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now }];
 
   it("puts a person needed first", () => {
-    const waiting = [{ id: "bl-4", title: "name the day", owner: "balder" }];
+    const waiting = [{ id: "bl-4", title: "name the day", owner: "harbor" }];
     expect(epicWord(epic({ health: { moving: [], stuck: [], waiting } }))).toBe("waiting");
     expect(epicWord(epic({ health: { moving, stuck, waiting } }))).toBe("waiting");
   });

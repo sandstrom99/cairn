@@ -104,7 +104,7 @@ describe("healthLines", () => {
               },
             ],
             stuck: [{ id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) }],
-            waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+            waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "harbor" }],
           },
         },
         now,
@@ -112,7 +112,7 @@ describe("healthLines", () => {
     ).toEqual([
       '  moving   cn-7 "the web window\'s first page" wsl/claude 2h',
       '  stuck    cn-9 "the page\'s live feed" silent 9d',
-      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+      '  waiting  bl-3 "confirm the invite copy" · owner harbor',
     ]);
   });
 
@@ -123,7 +123,7 @@ describe("healthLines", () => {
       title: `stuck ${i + 1}`,
       lastActivity: ago(days * DAY),
     }));
-  const waiting = [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }];
+  const waiting = [{ id: "bl-3", title: "confirm the invite copy", owner: "harbor" }];
 
   it("names the first three stuck issues in the order given and counts the rest", () => {
     expect(
@@ -133,7 +133,7 @@ describe("healthLines", () => {
       '  stuck    cn-2 "stuck 2" silent 4d',
       '  stuck    cn-3 "stuck 3" silent 8d',
       "           and 2 more stuck",
-      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+      '  waiting  bl-3 "confirm the invite copy" · owner harbor',
     ]);
   });
 
@@ -165,7 +165,7 @@ describe("projectLines", () => {
         },
       ],
       stuck: [{ id: "app-2", title: "the settings page", lastActivity: ago(9 * DAY) }],
-      waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+      waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "harbor" }],
     };
     const lines = projectLines(project({ filed: 7, counts, health }), now);
     expect(lines).toEqual(healthLines({ id: "app", title: "the app", counts, health }, now));
@@ -173,7 +173,7 @@ describe("projectLines", () => {
       'app "the app"  3 done · 3 open · 1 follow-up',
       '  moving   app-4 "the invite flow" wsl/claude 2h',
       '  stuck    app-2 "the settings page" silent 9d',
-      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+      '  waiting  bl-3 "confirm the invite copy" · owner harbor',
     ]);
   });
 
@@ -217,7 +217,7 @@ describe("reviewLines", () => {
         {
           id: "bl-1",
           title: "App Store review",
-          owner: "balder",
+          owner: "harbor",
           nudgeAt: Date.UTC(2026, 8, 3),
           holds: [{ id: "cn-1", title: "the lifecycle" }],
         },
@@ -245,7 +245,7 @@ describe("reviewLines", () => {
       'ep-1 "Create to close"  1 done · 3 open · 1 follow-up',
       '  near        cn-3 "fix connection retry" and cn-4 "Fix connection retry."',
       '  inbox       cn-7 "the retry path" 8d',
-      '  nudge       bl-1 "App Store review" · owner balder · nudge 2026-09-03 · holds cn-1 "the lifecycle"',
+      '  nudge       bl-1 "App Store review" · owner harbor · nudge 2026-09-03 · holds cn-1 "the lifecycle"',
       '  silent      cn-2 "the graph" wsl/claude · silent 8d',
       '  unverified  cn-5 "the brief" closed 8d ago · no follow-up · no device here',
       '  edge        cn-5 "the brief" done blocks cn-1 "the lifecycle"',
@@ -441,7 +441,7 @@ describe("blockerLine", () => {
     id: "bl-1",
     title: "the App Store agreement",
     blockerKind: "approval",
-    owner: "balder",
+    owner: "harbor",
     status: "raised",
     raisedAt: ago(5 * MINUTE),
     raisedBy: { name: "wsl/claude" },
@@ -449,13 +449,13 @@ describe("blockerLine", () => {
 
   it("names the owner before anything else, and who raised it", () => {
     expect(blockerLine(raised, now)).toBe(
-      'bl-1 "the App Store agreement" approval · owner balder · raised 5m ago by wsl/claude',
+      'bl-1 "the App Store agreement" approval · owner harbor · raised 5m ago by wsl/claude',
     );
   });
 
   it("says acknowledged where the tense does not already say it", () => {
     expect(blockerLine({ ...raised, status: "waiting" }, now)).toBe(
-      'bl-1 "the App Store agreement" approval · owner balder · waiting · raised 5m ago by wsl/claude',
+      'bl-1 "the App Store agreement" approval · owner harbor · waiting · raised 5m ago by wsl/claude',
     );
   });
 
@@ -466,12 +466,12 @@ describe("blockerLine", () => {
           ...raised,
           status: "resolved",
           resolvedAt: ago(2 * HOUR),
-          resolvedBy: { name: "wsl/balder" },
+          resolvedBy: { name: "wsl/harbor" },
         },
         now,
       ),
     ).toBe(
-      'bl-1 "the App Store agreement" approval · owner balder · resolved 2h ago by wsl/balder',
+      'bl-1 "the App Store agreement" approval · owner harbor · resolved 2h ago by wsl/harbor',
     );
   });
 });
@@ -768,13 +768,13 @@ describe("brief", () => {
       health: {
         moving: [],
         stuck: [],
-        waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+        waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "harbor" }],
       },
       issues: [{ id: "cn-1", title: "schema, ids", status: "open", priority: 0 }],
     });
     expect(brief(shown, now).split("\n")).toEqual([
       'ep-1 "Create to close"  0 done · 1 open · 0 follow-ups · revision 0',
-      '  waiting  bl-3 "confirm the invite copy" · owner balder',
+      '  waiting  bl-3 "confirm the invite copy" · owner harbor',
       "an agent creates, claims, journals and closes work",
       '  cn-1 "schema, ids" P0 open',
     ]);
@@ -880,7 +880,7 @@ describe("brief", () => {
     });
     expect(brief(shown, now).split("\n")).toEqual([
       'bl-1 "the App Store agreement"',
-      "kind            approval · owner balder",
+      "kind            approval · owner harbor",
       "status          raised 2h ago by wsl/claude · revision 0",
       "resolves when   accept it in App Store Connect",
       "nudge           2026-10-01",
@@ -900,7 +900,7 @@ describe("brief", () => {
     });
     const lines = brief(shown, now).split("\n");
     expect(lines).toContain("status          resolved · raised 1d ago by wsl/claude · revision 1");
-    expect(lines).toContain("resolved        by wsl/balder 1h ago: accepted");
+    expect(lines).toContain("resolved        by wsl/harbor 1h ago: accepted");
     expect(lines.at(-2)).toBe("history");
   });
 
@@ -1082,20 +1082,20 @@ describe("historyLines", () => {
       changes: {
         id: "bl-3",
         blockerKind: "decision",
-        owner: "balder",
+        owner: "harbor",
         title: "same title?",
         whatResolves: "drop one",
         issue: "cn-17",
       },
     };
     expect(historyLines([raised], now, "cn-17")).toEqual([
-      '  —  wsl/claude  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder',
+      '  —  wsl/claude  1h ago  blocker.raise  bl-3 "same title?" decision · owner harbor',
     ]);
     expect(historyLines([raised], now, "bl-3")).toEqual([
-      "  —  wsl/claude  1h ago  blocker.raise  decision · owner balder · holds cn-17",
+      "  —  wsl/claude  1h ago  blocker.raise  decision · owner harbor · holds cn-17",
     ]);
     expect(historyLines([raised], now)).toEqual([
-      '  —  wsl/claude  1h ago  blocker.raise  bl-3 "same title?" decision · owner balder · holds cn-17',
+      '  —  wsl/claude  1h ago  blocker.raise  bl-3 "same title?" decision · owner harbor · holds cn-17',
     ]);
     const attached = {
       ...raised,
@@ -1116,24 +1116,24 @@ describe("historyLines", () => {
   it("reads a lifecycle event's explicit changes whole, not the raw patch", () => {
     const claim = {
       revision: 1,
-      actor: { name: "balder/claude" },
+      actor: { name: "harbor/claude" },
       at: ago(2 * HOUR),
       kind: "issue.claim",
-      changes: { status: { from: "open", to: "in_progress" }, claimedBy: { to: "balder/claude" } },
+      changes: { status: { from: "open", to: "in_progress" }, claimedBy: { to: "harbor/claude" } },
     };
     const release = {
       revision: 2,
-      actor: { name: "balder/claude" },
+      actor: { name: "harbor/claude" },
       at: ago(2 * HOUR),
       kind: "issue.release",
       changes: {
         status: { from: "in_progress", to: "open" },
-        claimedBy: { from: "balder/claude" },
+        claimedBy: { from: "harbor/claude" },
       },
     };
     const close = {
       revision: 3,
-      actor: { name: "balder/claude" },
+      actor: { name: "harbor/claude" },
       at: ago(2 * HOUR),
       kind: "issue.close",
       changes: {
@@ -1143,7 +1143,7 @@ describe("historyLines", () => {
     };
     const drop = {
       revision: 4,
-      actor: { name: "balder/claude" },
+      actor: { name: "harbor/claude" },
       at: ago(2 * HOUR),
       kind: "issue.drop",
       changes: {
@@ -1153,10 +1153,10 @@ describe("historyLines", () => {
     };
     const lines = historyLines([claim, release, close, drop], now);
     expect(
-      lines[0]!.endsWith("issue.claim  status open → in_progress, claimedBy — → balder/claude"),
+      lines[0]!.endsWith("issue.claim  status open → in_progress, claimedBy — → harbor/claude"),
     ).toBe(true);
     expect(
-      lines[1]!.endsWith("issue.release  status in_progress → open, claimedBy balder/claude → —"),
+      lines[1]!.endsWith("issue.release  status in_progress → open, claimedBy harbor/claude → —"),
     ).toBe(true);
     expect(
       lines[2]!.endsWith(
@@ -1244,7 +1244,7 @@ describe("historyLines", () => {
       },
     };
     expect(historyLines([resolve], now, "bl-1")).toEqual([
-      "  r2  wsl/balder  1h ago  blocker.resolve  resolution — → done, status waiting → resolved",
+      "  r2  wsl/harbor  1h ago  blocker.resolve  resolution — → done, status waiting → resolved",
     ]);
   });
 
@@ -1351,7 +1351,7 @@ describe("logLine", () => {
       changes: {
         id: "bl-1",
         blockerKind: "decision",
-        owner: "balder",
+        owner: "harbor",
         title: "confirm the invite copy",
         whatResolves: "say which of the two",
         issue: "cn-2",
@@ -1362,7 +1362,7 @@ describe("logLine", () => {
       project: undefined,
     };
     expect(logLine(raise, now)).toBe(
-      'cn-2 "scratch: second"  blocker.raise  wsl/claude  1m ago  bl-1 "confirm the invite copy" decision · owner balder',
+      'cn-2 "scratch: second"  blocker.raise  wsl/claude  1m ago  bl-1 "confirm the invite copy" decision · owner harbor',
     );
     const attach = {
       ...raise,
@@ -1378,7 +1378,7 @@ describe("logLine", () => {
   it("reads the resolve an issue was freed by as the blocker and the note, never as JSON", () => {
     const freed = {
       at: ago(MINUTE),
-      actor: { name: "wsl/balder", kind: "human" } as const,
+      actor: { name: "wsl/harbor", kind: "human" } as const,
       kind: "blocker.resolve",
       revision: undefined,
       changes: {
@@ -1392,7 +1392,7 @@ describe("logLine", () => {
       project: undefined,
     };
     expect(logLine(freed, now)).toBe(
-      'cn-2 "scratch: second"  blocker.resolve  wsl/balder  1m ago  bl-1 "confirm the invite copy": the short one…',
+      'cn-2 "scratch: second"  blocker.resolve  wsl/harbor  1m ago  bl-1 "confirm the invite copy": the short one…',
     );
     const long = { ...freed, changes: { ...freed.changes, resolution: "a".repeat(80) } };
     const [piece] = logParts(long, now).changes;
@@ -1425,7 +1425,7 @@ describe("logLine", () => {
   it("leads with the blocker when a row names no issue, its own resolve a field map", () => {
     const resolve = {
       at: ago(MINUTE),
-      actor: { name: "wsl/balder", kind: "human" } as const,
+      actor: { name: "wsl/harbor", kind: "human" } as const,
       kind: "blocker.resolve",
       revision: 1,
       changes: { status: { from: "raised", to: "resolved" }, resolution: { to: "the short one" } },
@@ -1435,7 +1435,7 @@ describe("logLine", () => {
       project: undefined,
     };
     expect(logLine(resolve, now)).toBe(
-      'bl-1 "confirm the invite copy"  blocker.resolve  wsl/balder  1m ago  status raised → resolved, resolution — → the short one',
+      'bl-1 "confirm the invite copy"  blocker.resolve  wsl/harbor  1m ago  status raised → resolved, resolution — → the short one',
     );
   });
 
@@ -1461,7 +1461,7 @@ describe("logLine", () => {
       kind: "reconcile.run",
       revision: undefined,
       changes: {
-        by: "balder/balder",
+        by: "harbor/harbor",
         did: [
           {
             rule: "drop-edge",
@@ -1469,7 +1469,7 @@ describe("logLine", () => {
             to: { id: "cn-2", title: "the lifecycle, claim to close with evidence" },
           },
         ],
-        owner: "balder",
+        owner: "harbor",
         raised: [],
       },
       issue: undefined,
@@ -1478,11 +1478,11 @@ describe("logLine", () => {
       project: undefined,
     };
     expect(logLine(run, now)).toBe(
-      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  did 1 · raised 0 · by balder/balder',
+      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  did 1 · raised 0 · by harbor/harbor',
     );
-    const idle = { ...run, changes: { by: "balder/claude", did: [], owner: "balder", raised: [] } };
+    const idle = { ...run, changes: { by: "harbor/claude", did: [], owner: "harbor", raised: [] } };
     expect(logLine(idle, now)).toBe(
-      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  nothing to do · by balder/claude',
+      'ep-1 "Create to close"  reconcile.run  cairn/reconcile  9d ago  nothing to do · by harbor/claude',
     );
   });
 
@@ -1560,8 +1560,8 @@ describe("logLine", () => {
 });
 
 describe("briefLines", () => {
-  const claude = { name: "balder/claude", kind: "agent" } as const;
-  const where = { deployment: "local", actor: "balder/claude" };
+  const claude = { name: "harbor/claude", kind: "agent" } as const;
+  const where = { deployment: "local", actor: "harbor/claude" };
   const empty = briefView();
   /** What a ready head carries past its id, title and priority, which the brief's line does not print. */
   const head = {
@@ -1601,10 +1601,10 @@ describe("briefLines", () => {
       now,
     );
     expect(lines).toEqual([
-      "cairn · local · balder/claude",
+      "cairn · local · harbor/claude",
       "projects        app · web",
       'ready 4         cn-7 "the web window\'s first page" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2',
-      'in progress     cn-6 "the brief and the plugin" balder/claude 2h',
+      'in progress     cn-6 "the brief and the plugin" harbor/claude 2h',
       'follow-ups      cn-12 "record explicit changes on close" [cleanup] · cn-13 "confirm on a phone" [verify]',
       "waiting on you  0",
     ]);
@@ -1614,7 +1614,7 @@ describe("briefLines", () => {
   it("says none rather than nothing", () => {
     const lines = briefLines(empty, where, now);
     expect(lines).toEqual([
-      "cairn · local · balder/claude",
+      "cairn · local · harbor/claude",
       "projects        none",
       "ready 0         none",
       "in progress     none",
@@ -1709,13 +1709,13 @@ describe("briefLines", () => {
     );
     // Silence stays in hours for two days, where `1d` would hide how far past 24h it is.
     expect(lines[3]).toBe(
-      'in progress     cn-37 "a session beside the actor" balder/claude 5m · yours · cn-6 "the brief and the plugin" balder/claude 3d · silent 26h · cn-9 "forgotten in this very session" balder/claude 9d · silent 9d · yours',
+      'in progress     cn-37 "a session beside the actor" harbor/claude 5m · yours · cn-6 "the brief and the plugin" harbor/claude 3d · silent 26h · cn-9 "forgotten in this very session" harbor/claude 9d · silent 9d · yours',
     );
   });
 });
 
 describe("unjournaledLine", () => {
-  const session = { name: "balder/claude", kind: "agent", session: "s-1" } as const;
+  const session = { name: "harbor/claude", kind: "agent", session: "s-1" } as const;
   const empty: BriefView["inProgress"] = [];
   const held = (over: Partial<BriefView["inProgress"][number]> = {}) => ({
     id: "cn-38",

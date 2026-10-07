@@ -31,7 +31,7 @@ export const ago = (ms: number): number => now - ms;
 
 /** This machine's session and the person at its terminal (docs/design.md §12). */
 export const agent = { name: "wsl/claude", kind: "agent" } as const;
-export const human = { name: "wsl/balder", kind: "human" } as const;
+export const human = { name: "wsl/harbor", kind: "human" } as const;
 
 /** What `cn show cn-1` answers: open, unclaimed, an hour quiet, a two-line design, nothing around it. */
 export function issue(over: Partial<ShownIssue> = {}): ShownIssue {
@@ -119,7 +119,7 @@ export function blocker(over: Partial<ShownBlocker> = {}): ShownBlocker {
     id: "bl-1",
     title: "the App Store agreement",
     blockerKind: "approval",
-    owner: "balder",
+    owner: "harbor",
     whatResolves: "accept it in App Store Connect",
     links: undefined,
     nudgeAt: undefined,

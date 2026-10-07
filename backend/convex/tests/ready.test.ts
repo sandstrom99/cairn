@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import { DAY } from "../lib/thresholds";
-import { type Harness, actor, balder, closeIssue, raise, seed } from "./test.fixtures";
+import { type Harness, actor, harbor, closeIssue, raise, seed } from "./test.fixtures";
 
 /** A deployment with one epic and two open issues, cn-1 and cn-2. */
 const twoOpen = () => seed({ issues: ["a", "b"] });
@@ -44,7 +44,7 @@ describe("ready.list", () => {
     await raise(t, "cn-2");
     expect(await ids(t)).toEqual(["cn-1"]);
 
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "accepted" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "accepted" });
     expect(await ids(t)).toEqual(["cn-1", "cn-2"]);
   });
 

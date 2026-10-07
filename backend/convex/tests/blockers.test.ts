@@ -9,7 +9,7 @@ import {
   APPROVAL,
   type Harness,
   actor,
-  balder,
+  harbor,
   closeIssue,
   eventsOf,
   historyOf,
@@ -33,7 +33,7 @@ describe("blockers.raise", () => {
       id: "bl-1",
       title: "the App Store agreement",
       blockerKind: "approval",
-      owner: "balder",
+      owner: "harbor",
       whatResolves: "accept it in App Store Connect",
       status: "raised",
       raisedBy: actor,
@@ -47,7 +47,7 @@ describe("blockers.raise", () => {
     expect(event).toMatchObject({
       kind: "blocker.raise",
       actor,
-      changes: { id: "bl-1", blockerKind: "approval", owner: "balder", issue: "cn-1" },
+      changes: { id: "bl-1", blockerKind: "approval", owner: "harbor", issue: "cn-1" },
     });
     // The issue's revision did not move, so the event carries none (§9).
     expect(event?.revision).toBeUndefined();
@@ -96,7 +96,7 @@ describe("blockers.raise", () => {
       t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1", kind: "decision" }),
     ).rejects.toThrow(/--on attaches an existing blocker/);
 
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "signed" });
     await expect(
       t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1" }),
     ).rejects.toThrow(/bl-1 is resolved; raise a new one/);
@@ -166,7 +166,7 @@ describe("blockers.update", () => {
       whatResolves: "accept it in the browser",
       links: [{ url: "https://example.com/terms", by: actor }],
       blockerKind: "approval",
-      owner: "balder",
+      owner: "harbor",
       revision: 1,
     });
 
@@ -215,10 +215,10 @@ describe("blockers.update", () => {
       t.mutation(api.blockers.update, { actor, id: "bl-1", revision: 0 }),
     ).rejects.toMatchObject({ data: { kind: "invalid", message: "nothing to update" } });
 
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "signed" });
     await expect(
-      t.mutation(api.blockers.update, { actor: balder, id: "bl-1", revision: 1, title: "x" }),
-    ).rejects.toThrow(/bl-1 was resolved by wsl\/balder on /);
+      t.mutation(api.blockers.update, { actor: harbor, id: "bl-1", revision: 1, title: "x" }),
+    ).rejects.toThrow(/bl-1 was resolved by wsl\/harbor on /);
   });
 });
 
@@ -227,10 +227,10 @@ describe("blockers.ack", () => {
     const t = await twoOpen();
     await raise(t, "cn-1");
     await expect(t.mutation(api.blockers.ack, { actor, id: "bl-1" })).rejects.toThrow(
-      /only on the person's word, given with --said; it waits on balder/,
+      /only on the person's word, given with --said; it waits on harbor/,
     );
     await expect(t.mutation(api.blockers.ack, { actor, id: "bl-1", said: "   " })).rejects.toThrow(
-      /only on the person's word, given with --said; it waits on balder/,
+      /only on the person's word, given with --said; it waits on harbor/,
     );
   });
 
@@ -251,15 +251,15 @@ describe("blockers.ack", () => {
   it("moves raised to waiting once, and records the person who did it", async () => {
     const t = await twoOpen();
     await raise(t, "cn-1");
-    const acked = await t.mutation(api.blockers.ack, { actor: balder, id: "bl-1" });
+    const acked = await t.mutation(api.blockers.ack, { actor: harbor, id: "bl-1" });
     expect(acked).toMatchObject({ status: "waiting", revision: 1 });
 
-    const again = await t.mutation(api.blockers.ack, { actor: balder, id: "bl-1" });
+    const again = await t.mutation(api.blockers.ack, { actor: harbor, id: "bl-1" });
     expect(again).toMatchObject({ status: "waiting", revision: 1 });
 
     const events = await historyOf(t, "bl-1");
     expect(events.map((e) => e.kind)).toEqual(["blocker.raise", "blocker.ack"]);
-    expect(events.at(-1)).toMatchObject({ actor: balder, revision: 1 });
+    expect(events.at(-1)).toMatchObject({ actor: harbor, revision: 1 });
     // A person needs no word, and an ack without one records none.
     expect(events.at(-1)?.changes).toEqual({ status: { from: "raised", to: "waiting" } });
   });
@@ -267,9 +267,9 @@ describe("blockers.ack", () => {
   it("refuses an ack after the blocker is resolved", async () => {
     const t = await twoOpen();
     await raise(t, "cn-1");
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed" });
-    await expect(t.mutation(api.blockers.ack, { actor: balder, id: "bl-1" })).rejects.toThrow(
-      /bl-1 was resolved by wsl\/balder on /,
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "signed" });
+    await expect(t.mutation(api.blockers.ack, { actor: harbor, id: "bl-1" })).rejects.toThrow(
+      /bl-1 was resolved by wsl\/harbor on /,
     );
   });
 });
@@ -282,14 +282,14 @@ describe("blockers.resolve", () => {
     expect(await readyIds(t)).toEqual([]);
 
     const resolved = await t.mutation(api.blockers.resolve, {
-      actor: balder,
+      actor: harbor,
       id: "bl-1",
       note: "accepted in App Store Connect",
     });
     expect(await readyIds(t)).toEqual(["cn-1", "cn-2"]);
     expect(resolved).toMatchObject({
       status: "resolved",
-      resolvedBy: balder,
+      resolvedBy: harbor,
       resolution: "accepted in App Store Connect",
       revision: 1,
     });
@@ -299,7 +299,7 @@ describe("blockers.resolve", () => {
       const freed = (await historyOf(t, id)).at(-1);
       expect(freed).toMatchObject({
         kind: "blocker.resolve",
-        actor: balder,
+        actor: harbor,
         changes: { blocker: "bl-1", resolution: "accepted in App Store Connect" },
       });
       expect(freed?.revision).toBeUndefined();
@@ -361,18 +361,18 @@ describe("blockers.resolve", () => {
     await raise(t, "cn-1");
     await expect(
       t.mutation(api.blockers.resolve, { actor, id: "bl-1", note: "signed" }),
-    ).rejects.toThrow(/only on the person's word, given with --said; it waits on balder/);
+    ).rejects.toThrow(/only on the person's word, given with --said; it waits on harbor/);
     await expect(
       t.mutation(api.blockers.resolve, { actor, id: "bl-1", note: "signed", said: " " }),
-    ).rejects.toThrow(/only on the person's word, given with --said; it waits on balder/);
+    ).rejects.toThrow(/only on the person's word, given with --said; it waits on harbor/);
     await expect(
-      t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "   " }),
+      t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "   " }),
     ).rejects.toThrow(/a resolution says what happened/);
 
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "signed" });
     await expect(
-      t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed again" }),
-    ).rejects.toThrow(/bl-1 was resolved by wsl\/balder on /);
+      t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "signed again" }),
+    ).rejects.toThrow(/bl-1 was resolved by wsl\/harbor on /);
   });
 });
 
@@ -388,8 +388,8 @@ describe("blockers.list", () => {
     await raise(t, "cn-2", { title: "the DUNS number" });
     await raise(t, "cn-2", { kind: "purchase", title: "the paid developer account" });
     // bl-1 acknowledged: seen work sorts under unseen work whatever its age.
-    await t.mutation(api.blockers.ack, { actor: balder, id: "bl-1" });
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-3", note: "bought" });
+    await t.mutation(api.blockers.ack, { actor: harbor, id: "bl-1" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-3", note: "bought" });
 
     const waiting = await t.query(api.blockers.list, {});
     expect(waiting.map((b) => [b.id, b.status])).toEqual([
@@ -411,7 +411,7 @@ describe("show.get on a blocker", () => {
       kind: "blocker",
       id: "bl-1",
       blockerKind: "approval",
-      owner: "balder",
+      owner: "harbor",
       whatResolves: "accept it in App Store Connect",
       status: "raised",
       raisedBy: actor,
@@ -430,7 +430,7 @@ describe("show.get on a blocker", () => {
       waitingOn: [{ id: "bl-1", title: "the App Store agreement" }],
     });
 
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "signed" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "signed" });
     expect(await t.query(api.show.get, { id: "cn-1" })).toMatchObject({ waitingOn: [] });
   });
 });

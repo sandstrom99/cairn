@@ -16,7 +16,7 @@
 // as `finding: <its first line>`. An edge prints once, on the end that leads its sentence,
 // `cn-2 "…"  edge.add  …  blocked by cn-1`, though both ends' histories carry it. A
 // blocker's raise is the blocker's own line on the issue it was raised on, `bl-1 "…"
-// decision · owner balder`, an attach `waits on bl-1`, and the resolve that freed an issue
+// decision · owner harbor`, an attach `waits on bl-1`, and the resolve that freed an issue
 // is the blocker and the note, `bl-1 "…": done`. A lifecycle move is its fields,
 // `status open → in_progress`.
 //

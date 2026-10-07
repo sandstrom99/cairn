@@ -37,7 +37,7 @@ import {
   APPROVAL,
   type Harness,
   actor,
-  balder,
+  harbor,
   eventsOf,
   fresh,
   raise,
@@ -282,7 +282,7 @@ describe("lifecycle", () => {
     const t = await withOne();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
     const held = await rawIssue(t, "cn-1");
-    const released = await t.run((ctx) => releaseIssue(ctx, balder, held));
+    const released = await t.run((ctx) => releaseIssue(ctx, harbor, held));
     expect(released.status).toBe("open");
     expect(released.claimedBy).toBeUndefined();
     expect(await lastChanges(t, "issue.release")).toEqual({
@@ -291,7 +291,7 @@ describe("lifecycle", () => {
     });
 
     const unclaimed = await rawIssue(t, "cn-1");
-    await t.run((ctx) => releaseIssue(ctx, balder, unclaimed));
+    await t.run((ctx) => releaseIssue(ctx, harbor, unclaimed));
     const changes = await lastChanges(t, "issue.release");
     expect(changes).toEqual({ status: { from: "open", to: "open" } });
     expect("claimedBy" in (changes as object)).toBe(false);
@@ -383,7 +383,7 @@ describe("lifecycle", () => {
     const t = await withOne();
     await raise(t, "cn-1");
     const doc = await rawBlocker(t, "bl-1");
-    const acked = await t.run((ctx) => ackBlocker(ctx, balder, doc));
+    const acked = await t.run((ctx) => ackBlocker(ctx, harbor, doc));
     expect(acked).toMatchObject({ status: "waiting", revision: 1 });
     expect(await lastChanges(t, "blocker.ack")).toEqual({
       status: { from: "raised", to: "waiting" },
@@ -395,7 +395,7 @@ describe("lifecycle", () => {
     await raise(t, "cn-1");
     await t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1" });
     const doc = await rawBlocker(t, "bl-1");
-    const resolved = await t.run((ctx) => resolveBlocker(ctx, balder, doc, "accepted"));
+    const resolved = await t.run((ctx) => resolveBlocker(ctx, harbor, doc, "accepted"));
     expect(resolved).toMatchObject({ status: "resolved", resolution: "accepted", revision: 1 });
 
     const events = await eventsOf(t, "blocker.resolve");
@@ -459,7 +459,7 @@ describe("revision", () => {
         ctx,
         { table: "issues", doc: first },
         { priority: 0 },
-        { kind: "issue.update", actor: balder, changes: { priority: { from: 2, to: 0 } } },
+        { kind: "issue.update", actor: harbor, changes: { priority: { from: 2, to: 0 } } },
       ),
     );
     const second = await rawIssue(t, "cn-1");
@@ -489,7 +489,7 @@ describe("revision", () => {
               {
                 revision: 1,
                 kind: "issue.update",
-                actor: balder,
+                actor: harbor,
                 at: expect.any(Number),
                 changes: { priority: { from: 2, to: 0 } },
               },
@@ -605,7 +605,7 @@ describe("graph", () => {
       }));
 
     expect(await read()).toEqual({ on: ["bl-1", "bl-2"], held: ["cn-1"] });
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "accepted" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "accepted" });
     expect(await read()).toEqual({ on: ["bl-2"], held: ["cn-1"] });
   });
 

@@ -284,7 +284,7 @@ describe("project health", () => {
     expect(health.moving).toMatchObject([{ id: "cn-1", title: "work 1", claimedBy: actor }]);
     expect(health.stuck).toMatchObject([{ id: "cn-2", title: "work 2" }]);
     expect(health.waiting).toEqual([
-      { id: "bl-1", title: "the App Store agreement", owner: "balder" },
+      { id: "bl-1", title: "the App Store agreement", owner: "harbor" },
     ]);
   });
 

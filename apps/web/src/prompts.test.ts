@@ -59,7 +59,7 @@ const epics = {
   "an open epic": [open, undefined],
   stuck: [epic({ health: { moving: [], stuck: [issue()], waiting: [] } }), undefined],
   waiting: [
-    epic({ health: { moving: [], stuck: [], waiting: [{ ...bl4, owner: "balder" }] } }),
+    epic({ health: { moving: [], stuck: [], waiting: [{ ...bl4, owner: "harbor" }] } }),
     undefined,
   ],
   messy: [

@@ -44,7 +44,7 @@ export function issueParts(view: IssueLineView): IssueParts {
 }
 
 /**
- * `bl-1 "the App Store agreement" approval · owner balder · raised 5m ago by wsl/claude`,
+ * `bl-1 "the App Store agreement" approval · owner harbor · raised 5m ago by wsl/claude`,
  * in pieces. The owner is the point of the line: a blocker is work only a person can do,
  * so the person is named before anything else about it. The tail is whichever end of its
  * lifecycle it is at — who raised it while it waits, who ended it once it is resolved —
@@ -317,14 +317,14 @@ const hasArrays = <K extends string>(
 
 /**
  * A `cn reconcile` run, which #32 deleted with the verb, in the words its answer headed
- * with and who asked: `did 2 · raised 1 · by balder/claude`. ep-1 and ep-6 on the worklist
+ * with and who asked: `did 2 · raised 1 · by harbor/claude`. ep-1 and ep-6 on the worklist
  * still carry three, from 2026-09-17.
  */
 const runPiece = ({ by, did, raised }: { by: string; did: unknown[]; raised: unknown[] }) =>
   `${did.length === 0 && raised.length === 0 ? "nothing to do" : `did ${did.length} · raised ${raised.length}`} · by ${by}`;
 
 /**
- * A raise, the way `blockerLine` opens: `bl-3 "…" decision · owner balder`, on the line of
+ * A raise, the way `blockerLine` opens: `bl-3 "…" decision · owner harbor`, on the line of
  * the issue it was raised on. Read from the blocker's own history the reference is the
  * page, so the piece names the issue it holds instead, and read from nobody's it carries
  * both ends, the way an edge does.
@@ -481,7 +481,7 @@ type ShownLink = NonNullable<ShownIssue["links"]>[number];
 /** A link in pieces: its label where it has one, its URL whole, and who added it when. */
 export type LinkParts = { url: string; label?: string; by: string };
 
-/** `by balder/claude 2h ago`, the same words as a proof's. */
+/** `by harbor/claude 2h ago`, the same words as a proof's. */
 export const linkParts = (link: ShownLink, now: number = Date.now()): LinkParts => ({
   url: link.url,
   ...(link.label === undefined ? {} : { label: link.label }),
@@ -550,7 +550,7 @@ type StateWord =
 /**
  * An issue's state in pieces: the word, and what it rests on. Where the state names other
  * things, `tail` is the preposition and `refs` the things, `waiting on bl-4 "…"`; where
- * it does not, `tail` is the rest of the line, `moving balder/claude 2h`, `stuck silent
+ * it does not, `tail` is the rest of the line, `moving harbor/claude 2h`, `stuck silent
  * 9d`, `deferred until 2026-10-01`, `closed 2h ago`; and `open` stands alone.
  */
 type StateParts = { word: StateWord; tail?: string; refs?: Referable[] };
@@ -604,7 +604,7 @@ export function stateParts(shown: ShownIssue, now: number = Date.now()): StatePa
   return { word: "open" };
 }
 
-/** The state as one run: `waiting on bl-4 "name the day"`, `moving balder/claude 2h`, `open`. */
+/** The state as one run: `waiting on bl-4 "name the day"`, `moving harbor/claude 2h`, `open`. */
 export const stateLine = ({ word, tail, refs: items }: StateParts): string =>
   [word, tail, items === undefined ? undefined : refs(items)]
     .filter((part): part is string => part !== undefined && part !== "")

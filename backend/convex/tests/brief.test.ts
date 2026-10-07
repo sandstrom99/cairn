@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
 import { DAY, HOUR } from "../lib/thresholds";
-import { actor, at, balder, fresh, other, raise, rawIssue, seed } from "./test.fixtures";
+import { actor, at, harbor, fresh, other, raise, rawIssue, seed } from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
 
@@ -36,11 +36,11 @@ async function worklist() {
   await raise(t, "cn-3", {
     kind: "decision",
     title: "which retry policy",
-    whatResolves: "balder picks one",
+    whatResolves: "harbor picks one",
   });
   await raise(t, "cn-1", {
     title: "ep-1 has been silent for 9d",
-    whatResolves: "balder says what happens to it",
+    whatResolves: "harbor says what happens to it",
   });
   return t;
 }
@@ -87,7 +87,7 @@ describe("brief.get", () => {
 
   it("frees what a resolved blocker held", async () => {
     const t = await worklist();
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-2", note: "it ships as is" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-2", note: "it ships as is" });
 
     const brief = await t.query(api.brief.get, {});
     expect(brief.ready.count).toBe(2);

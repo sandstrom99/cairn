@@ -42,7 +42,7 @@ const app = project({
   health: {
     moving: [{ id: "app-1", title: "the app", claimedBy: agent, claimedAt: ago(HOUR) }],
     stuck: [{ id: "app-3", title: "the app", lastActivity: ago(5 * DAY) }],
-    waiting: [{ id: "bl-1", title: "PostHog project settings", owner: "balder" }],
+    waiting: [{ id: "bl-1", title: "PostHog project settings", owner: "harbor" }],
   },
 });
 const admin = project({ slug: "admin", name: "Driftwood admin, the harbour office app" });

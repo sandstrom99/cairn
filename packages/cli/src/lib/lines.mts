@@ -94,7 +94,7 @@ export function edgeLine({ type, from, to }: EdgeView): string {
   return `${ref(from)} ${verb} ${ref(to)}`;
 }
 
-/** `bl-1 "the App Store agreement" approval · owner balder · raised 5m ago by wsl/claude` */
+/** `bl-1 "the App Store agreement" approval · owner harbor · raised 5m ago by wsl/claude` */
 export function blockerLine(view: BlockerLineView, now: number = Date.now()): string {
   const { target, kind, tail } = blockerParts(view, now);
   return `${ref(target)} ${kind} · ${tail}`;
@@ -111,12 +111,12 @@ export const freedLine = (issues: Referable[]): string => `  freed  ${refs(issue
  *
  * ```
  * ep-3 "An epic tells the truth"  2 done · 7 open · 1 follow-up
- *   moving   cn-7 "the web window's first page" balder/claude 2h
+ *   moving   cn-7 "the web window's first page" harbor/claude 2h
  *   stuck    cn-9 "the page's live feed" silent 9d
  *   stuck    cn-11 "the rail's counts" silent 4d
  *   stuck    cn-12 "the log's filters" silent 8d
  *            and 2 more stuck
- *   waiting  bl-3 "confirm the invite copy" · owner balder
+ *   waiting  bl-3 "confirm the invite copy" · owner harbor
  * ```
  *
  * Never a percentage: an epic at 95% frozen for a month reads better than one at 40%
@@ -153,7 +153,7 @@ export function projectLines(project: ProjectView, now: number = Date.now()): st
  * ep-1 "Create to close"  1 done · 3 open · 1 follow-up
  *   near        cn-3 "fix connection retry" and cn-4 "Fix connection retry."
  *   inbox       cn-7 "the retry path" 8d
- *   nudge       bl-1 "App Store review" · owner balder · nudge 2026-09-03 · holds cn-1 "…"
+ *   nudge       bl-1 "App Store review" · owner harbor · nudge 2026-09-03 · holds cn-1 "…"
  *   silent      cn-2 "the graph" wsl/claude · silent 8d
  *   unverified  cn-5 "the brief" closed 8d ago · no follow-up · no device here
  *   edge        cn-5 "the brief" done blocks cn-1 "the lifecycle"
@@ -303,7 +303,7 @@ export function logLine(e: LogEvent, now: number = Date.now()): string {
 }
 
 /**
- * One link as `cn show` prints it: `doc · https://example.com/doc · by balder/claude 2h
+ * One link as `cn show` prints it: `doc · https://example.com/doc · by harbor/claude 2h
  * ago`. The URL is always whole, scheme and all, so a terminal can open it.
  */
 export const linkLine = ({ label, url, by }: LinkParts): string =>
@@ -311,7 +311,7 @@ export const linkLine = ({ label, url, by }: LinkParts): string =>
 
 /**
  * One direction as `cn show` prints it: `cn-31 "the writer": the reader first… · by
- * balder/claude 2h ago`, and without the reference on the issue that left it.
+ * harbor/claude 2h ago`, and without the reference on the issue that left it.
  */
 const nextLine = ({ from, text, by }: NextParts): string =>
   `${from ? `${ref(from)}: ` : ""}${text} · ${by}`;
