@@ -24,6 +24,11 @@ the repository opens with the worklist in front of it. Then talk to it:
 
 [What setup does](#what-setup-does) shows each step it runs.
 
+> [!TIP]
+> First time? Try it on a small project of its own, a side project or a scratch
+> repository, before your main codebase. A few sessions there show how agents claim,
+> journal and close work, and what the brief and the page tell you, with nothing at stake.
+
 ### Joining a worklist that exists
 
 A colleague's machine, or another of your own, joins a worklist that is already there and
