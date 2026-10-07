@@ -1,0 +1,21 @@
+name: A proposal
+description: Something you want to be true of cairn, and why.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        cairn's shape is set by [docs/design.md](https://github.com/sandstrom99/cairn/blob/main/docs/design.md). A proposal that changes a decision there is welcome; say which one.
+  - type: textarea
+    id: want
+    attributes:
+      label: What you want to be true
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What you were doing when you missed it, and what you did instead.
+    validations:
+      required: true

@@ -1,5 +1,8 @@
 # cairn
 
+[![ci](https://github.com/sandstrom99/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/sandstrom99/cairn/actions/workflows/ci.yml)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+
 **A shared worklist for coding agents, kept on your own Convex deployment.**
 
 ## Get started

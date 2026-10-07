@@ -7,7 +7,8 @@ does not happen.
 
 ## Reporting a problem
 
-Open an issue on [sandstrom99/cairn](https://github.com/sandstrom99/cairn/issues). Include:
+Open an issue on [sandstrom99/cairn](https://github.com/sandstrom99/cairn/issues/new/choose),
+whose form asks for:
 
 - what you ran, exactly;
 - what it printed, pasted rather than described;
@@ -16,6 +17,8 @@ Open an issue on [sandstrom99/cairn](https://github.com/sandstrom99/cairn/issues
 
 The maintainer tracks accepted work in cairn's own worklist, which is not public, and
 links back to the issue from there.
+
+A security problem goes privately instead, as [SECURITY.md](SECURITY.md) says.
 
 ## Proposing a change
 
