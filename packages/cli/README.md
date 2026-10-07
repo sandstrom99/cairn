@@ -7,7 +7,7 @@ behind it.
 ## Install on a machine
 
 From a clone of its own, kept at main and never worked in, since every repository's
-sessions run the `cn` it holds (the root README's "1. Install `cn`"):
+sessions run the `cn` it holds (`docs/install.md`'s "1. Install `cn`"):
 
 ```bash
 git clone https://github.com/sandstrom99/cairn ~/.local/share/cairn
@@ -56,7 +56,7 @@ The two values to fill in are the deployment's url and its secret, and they live
 in 1Password, as the item `cairn dev deployment` in the Personal vault, fields `url`,
 `secret` and `deployment`, or in a file such as `~/.config/cairn/cairn.secret`, which
 `node backend/scripts/secret.mjs new` writes on the machine that stands the deployment up
-(the root README's "A deployment of your own") and which reaches another machine through
+(`docs/install.md`'s "2. A deployment of your own") and which reaches another machine through
 whatever you share secrets with. The secret is the one `CAIRN_SECRET` set on the
 deployment, so a machine already logged in to Convex can also read it back with
 `npx convex env get CAIRN_SECRET --deployment <deployment>` from `backend/`.

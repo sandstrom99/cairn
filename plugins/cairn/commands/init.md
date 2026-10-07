@@ -14,8 +14,8 @@ Run `cn doctor` first. It says everything about this machine's setup that you ne
 read `~/.config/cairn` yourself, since the secrets are under it. Everything below that is
 not `cn` runs from the cairn checkout, the directory `cn` is installed from:
 `readlink -f "$(command -v cn)"` prints `<checkout>/packages/cli/bin/cn`. With no `cn` on
-PATH at all, install it with the person the way the checkout's README says under
-"1. Install `cn`", in the checkout that `claude plugin marketplace list` shows as the
+PATH at all, install it with the person the way the checkout's `docs/install.md` says
+under "1. Install `cn`", in the checkout that `claude plugin marketplace list` shows as the
 `cairn` source, and ask before writing anything outside it.
 
 The repository is the one this session is in, unless the arguments or the person name
