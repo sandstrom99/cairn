@@ -54,7 +54,10 @@ with the command that proved it. Every session on every machine opens on the sam
 People check in by asking in plain language and never have to run a command. A cairn is
 the stack of stones a traveller leaves to mark the route for whoever comes next.
 
-<img alt="The cairn web page for Driftwood, a tide-and-weather app's worklist: three waiting on you, four in progress and six ready; a strip per project with four weeks of activity; the three blockers waiting on a person and the issues they hold; and the live activity of four agents on the right." src="docs/images/overview-dark.png">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/overview-dark.png">
+  <img alt="The cairn web page for Driftwood, a tide-and-weather app's worklist: three waiting on you, four in progress and six ready; a strip per project with four weeks of activity; the three blockers waiting on a person and the issues they hold; and the live activity of four agents on the right." src="docs/images/overview-light.png">
+</picture>
 
 _A demo worklist, for a fictional team building a tide-and-weather app._
 
@@ -114,7 +117,10 @@ waiting on you  3
 Work is always named by id and title together, `app-14 "fix connection retry"`, so a
 reference means something to whoever reads it, in any session on any machine.
 
-<img alt="An issue's page in the cairn web window: its epic, project and status, the issue it blocks, the links agents attached, its description and acceptance, and on the right the history of what happened to it over twenty days." src="docs/images/issue-dark.png">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/issue-dark.png">
+  <img alt="An issue's page in the cairn web window: its epic, project and status, the issue it blocks, the links agents attached, its description and acceptance, and on the right the history of what happened to it over twenty days." src="docs/images/issue-light.png">
+</picture>
 
 ## What setup does
 
