@@ -4,15 +4,10 @@ An agent worklist on Convex. Task and project state that survives a session, is
 shared by every agent and every machine, and has no sync layer because there is
 nothing to sync.
 
-Settled over an interview on 2026-09-16 and 2026-09-17, and revised the same
-day when the surface question was reopened: one CLI and no MCP server (§10),
-the reference form (§10), and the toolchain (§11). The solution was mapped on
-2026-09-17: the concrete schema and the graph (§3), how the parts talk and the
-verb-to-function table (§10), and the eleven slices, in cairn itself as `cn-1`
-to `cn-11` since the same day (§11). **The repository skeleton is built;
-nothing domain-specific is.** Every decision below is a decision, not a sketch;
-where something was deliberately left open it says so under *Deferred*, with
-the lean recorded.
+Every decision below is a decision, not a sketch, and its reason sits beside
+it. What was chosen without much argument is in §12, and what is deliberately
+left open is in §13, with the lean recorded. How each was reached is in git and
+in cairn's own worklist.
 
 ---
 
@@ -51,34 +46,33 @@ doing that.
 | Hierarchy | `epic` floats above projects. `project` is a field on the **issue**. One epic spans app, web and admin. |
 | Project | Coarse and arbitrary. `app` + `backend` are **one** project. A project may be a repo, or a prototyping effort. Not repo-shaped. |
 | Ids | Project-prefixed: `app-14`, `web-22`. Epics `ep-7`, blockers `bl-3`, from one global counter each. All minted server-side inside a transaction from a `counters` table, never reused. `ep` and `bl` are reserved project slugs. |
-| Actor | `{ name, kind: human \| agent }`, stored inline on every claim, journal entry, edge, blocker and event. `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller, and nothing checks it: cairn runs on trust, and the host in the name carries the person's (§12, §13, 2026-09-29). |
-| Surface | One `cn` CLI over typed Convex calls. **No MCP server.** Revised 2026-09-17; the reasoning is in §10. |
+| Actor | `{ name, kind: human \| agent }`, stored inline on every claim, journal entry, edge, blocker and event. `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller, and nothing checks it: cairn runs on trust, and the host in the name carries the person's (§12, §13). |
+| Surface | One `cn` CLI over typed Convex calls. **No MCP server**; the reasoning is in §10. |
 | References | Every mention of an issue or epic carries id **and** title: `app-14 "fix connection retry"`. A bare id is a bug. §10. |
 | Concurrency | Document revision on mutable fields. Journal entries and comments are inserts and never conflict. |
 | Readiness | Three blocking edges: `blocks`, `blocked-by` (blocker entity), `defer-until`. Computed live. |
 | Statuses | `open`, `in_progress`, `closed`, `dropped`. Blocked is derived, never stored. |
-| Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is the first thing a review sitting looks at (§7). Revised 2026-09-17 from one inbox per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
+| Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is the first thing a review sitting looks at (§7). Not one per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
 | Residue | A `follow-up` issue linked to its parent, counted **outside** the epic denominator. |
 | Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
-| Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5, 2026-09-22). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released on a person's word, by them or by an agent; nothing releases one alone (§7, revised 2026-09-22). Anybody may release, close or drop a claim another holds; leaving it alone is guidance, not a refusal (§5, 2026-09-29). |
-| Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (cn-87). |
+| Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released on a person's word, by them or by an agent; nothing releases one alone (§7). Anybody may release, close or drop a claim another holds; leaving it alone is guidance, not a refusal (§5). |
+| Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (§6). |
 | Blocker channel | Pull-only: on request, and in-session when an agent hits one. The person answers in the session, and the agent ends it on their word. |
-| Reconcile | Revised 2026-09-22: no automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
+| Reconcile | No automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
 | Session start | A hook injects under 20 lines: which projects there are, counts plus the top of each queue. |
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
 | Code hosts | None. A pull request, a commit, an artifact or a doc is a link on the issue (§3 "Links"); cairn reads nothing from and writes nothing to a code host, GitHub Issues included. |
 | Layout | One pnpm workspace under vite-plus: `backend/` (Convex) + `packages/cli`. `apps/*` reserved. §10. |
-| Bootstrap | Schema + create / list / ready / close / journal first, then dogfood within days. |
+| Bootstrap | A minimal first slice, schema + create / list / ready / close / journal, and cairn dogfooded on its own construction from there. §11. |
 
 ---
 
 ## 3. Data model
 
-Drawn concretely on 2026-09-17, when the solution was mapped. This is what
-`backend/convex/schema.ts` transcribes in the first slice: a field here is a
-field there, an index here is an index there. Types are Convex validators:
+This is what `backend/convex/schema.ts` transcribes: a field here is a field
+there, an index here is an index there. Types are Convex validators:
 `string`, `number`, a union of literals for an enum, `?` for optional, `Id<t>`
 for a reference to another table.
 
@@ -92,7 +86,7 @@ projects      slug              string        the id prefix: app, web, cn. ep an
               name              string        its one-line summary
               description?      string        what does not belong, which repository the work lands in
               links?            { url, label?, by, at }[]   a repository is a link, never a field
-              revision?         number        absent on a project from before cn-125, which reads as 0
+              revision?         number        absent on a project stored before it had one, which reads as 0
               index by_slug [slug]
 
 counters      key               string        "ep", "bl", or a project slug
@@ -113,8 +107,8 @@ issues        id                string        app-14
               projectId         Id<projects>
               epicId            Id<epics>     required, always
               title             string
-              description?      string        these three live in issueText; a row from before
-              design?           string          2026-09-30 carries them until issueText:move
+              description?      string        these three live in issueText; a row written
+              design?           string          before it carries them until issueText:move
               acceptance?       string
               type              task | follow-up
               followUpKind?     verify | decide | cleanup       required iff type = follow-up
@@ -222,8 +216,8 @@ revision and what changed. A journal append is an insert: it stamps
 `lastActivity` and writes an event, but neither takes nor bumps `revision`. A
 stale write is rejected with the events since the writer's revision, which is
 exactly the "what changed, who changed it and when" of §9, read from the table
-rather than reconstructed. A project from before cn-125 was stored with no revision
-and reads as revision 0, so nothing migrates it; its first update stores 1.
+rather than reconstructed. A project stored before projects carried a revision reads
+as revision 0, so nothing migrates it; its first update stores 1.
 
 What an event records is what a reader should see, not the patch that was written.
 `lastActivity`, `claimedAt` and `closedAt` are housekeeping the row's own time already
@@ -231,33 +225,32 @@ says, and an actor travels by name. So a claim records `status` and `claimedBy`,
 the same in reverse, a close `status` and a one-line summary of the verification whose
 whole record stays on the issue, and a drop `status` and `droppedReason`; the helpers are
 in `lib/lifecycle.ts`, one per move, each owning the patch it writes and what its event
-records, shared by every site that makes that move. Events written before 2026-09-20
-carry the raw patch for those four kinds, because nothing migrates an audit trail, so
-whatever renders `changes` reads both. No string in `changes` runs past one line of 80
-characters: `record()` in `lib/events.ts` cuts every string, at any depth, to its first
-line, with `…` where more followed, so a description, a design, an acceptance list or a
-resolution's note travels in an event as its first line and stays whole only on the row,
-and the cut `journal.append` made of its own body moved there. Events written before
-2026-09-30 carry whole copies, a create's of every text field and an update's of both
-sides, which nothing migrates either; every reader already printed one line per field, so
-nothing shown changed.
+records, shared by every site that makes that move. Events written before these helpers carry the raw patch
+for those four kinds, because nothing migrates an audit trail, so whatever renders
+`changes` reads both. No string in `changes` runs past one line of 80 characters:
+`record()` in `lib/events.ts` cuts every string, at any depth, to its first line, with
+`…` where more followed, so a description, a design, an acceptance list, a resolution's
+note or a journal body travels in an event as its first line and stays whole only on
+the row. Events written before the cut carry whole copies, a create's of every text field and an
+update's of both sides, which nothing migrates either; every reader prints one line per
+field, so they read the same.
 
-Whatever renders `changes` renders every kind as a line and none as JSON, settled
-2026-09-22 in `eventPieces` (`parts.mts`), which `cn log`, `cn show --history`, a stale
-write's retry lines and the web window's feed and history all go through. A field map is
-its fields, `status open → in_progress`; a journal append its kind and first line; an
-edge, a blocker's raise and an attach read relative to the id whose line it is, the way
-§7 reads an edge from either end, `blocked by cn-1`, `waits on bl-3`, `holds cn-18`; the
+Whatever renders `changes` renders every kind as a line and none as JSON, in
+`eventPieces` (`parts.mts`), which `cn log`, `cn show --history`, a stale write's retry
+lines and the web window's feed and history all go through. A field map is its fields,
+`status open → in_progress`; a journal append its kind and first line; an edge, a
+blocker's raise and an attach read relative to the id whose line it is, the way §7
+reads an edge from either end, `blocked by app-1`, `waits on bl-3`, `holds app-18`; the
 resolve recorded on each issue a blocker held is the blocker and the note. A create has no
 payload, since the reference leading its line already names what was created, except a
 project, which has no reference to lead with and prints as its slug and name. A project's
 update leads with nothing either, and names the project at the start of its changes, as
-the resolve an issue was freed by names its blocker. A raw patch
-from before 2026-09-20, a blocker's own resolve among them, reads as the changes the same
-move records today: the housekeeping and the actor today's event leaves out are dropped,
-an actor prints by name and a verification record as its summary, so an old close and a
-new one print the same line. A `reconcile.run`, from before the sitting of §7 replaced
-the verb, reads as what it did and who asked, `did 5 · raised 0 · by balder/balder`.
+the resolve an issue was freed by names its blocker. An older raw patch, a blocker's own
+resolve among them, reads as the changes the same move records now: the housekeeping and
+the actor a current event leaves out are dropped, an actor prints by name and a
+verification record as its summary, so an old close and a new one print the same line.
+A `reconcile.run`, left by a verb that no longer exists (§7), reads as what it did and
+who asked, `did 5 · raised 0 · by maya/maya`.
 
 ### The three content fields
 
@@ -279,8 +272,8 @@ The three fields, an epic's description and every journal body are **Markdown**:
 CommonMark with GitHub's tables, task lists, strikethrough and bare links. cn prints
 the source, which reads as text in a terminal, and cuts a field to its first line,
 so the first line is a plain sentence that stands alone; a heading's `#`s are dropped
-from a cut line. The page sets it (§8). Settled 2026-09-26 on cn-77, after the page's
-reader of three habits (paragraphs, `- ` lists, backticks) turned the numbered lists
+from a cut line. The page sets it (§8). Full Markdown, not a reader of a few habits:
+one that knows paragraphs, `- ` lists and backticks alone turns the numbered lists
 agents write into one run of text. `cn` reads any of them from stdin as `@-` or from a
 file as `@path`, so a multi-line body never passes through shell quoting, and refuses
 one over 64 KiB.
@@ -291,30 +284,30 @@ how a "tested on device" update disappears, and `--append-notes` dropped 3 of 16
 writes on top of it. The journal replaces it and cannot lose an entry, because
 an append is an insert.
 
-**From 2026-09-30 the three fields and the proof's output live in `issueText`**, one
-row per issue, beside the issue rather than on it. Convex bills a read for the whole
-document, and every list read the text to print one line: on `cairn` that day the text
+**The three fields and the proof's output live in `issueText`**, one row per issue,
+beside the issue rather than on it. Convex bills a read for the whole document, and a
+list reading the text on the row reads it to print one line: on one worklist the text
 was 85% of an issue row's bytes, and 114 of its 136 issues were closed ones every list
-read anyway. `show.get` and `search.find` read the text, the mutations that set it
-write it there, and `issueText:move` moved the rows written before; until it has run
-on a deployment, the readers fall back to the row's own fields. `cn list --json` and `cn ready --json` no longer
-carry the three fields, which only `cn show` ever printed.
+reads anyway. `show.get` and `search.find` read the text, the mutations that set it
+write it there, and `issueText:move` moves the rows written before the table; until it
+has run on a deployment, the readers fall back to the row's own fields. `cn list --json`
+and `cn ready --json` carry none of the three fields, which only `cn show` prints.
 
 **`search.find` reads descriptions and journal bodies through text indexes**, not by
-reading every row. A scan read every description and the whole journal on each call,
-0.7 to 0.9 MB a call on deployments of 130 to 160 issues measured 2026-10-04, and an
-agent searches before every create. The index is asked for the text's longest word
-alone, as a prefix, and `search.find` then holds each row it finds to every word, each
-found from its start: asked for every word, the index answered for any of them, and a
-common one read half the journal, 744 KB for a text nothing held. Titles and links stay one substring rule over the issue rows the call reads
-anyway, so the page's jump bar agrees on a title.
+reading every row. A scan reads every description and the whole journal on each call,
+0.7 to 0.9 MB a call on deployments of 130 to 160 issues, and an agent searches before
+every create. The index is asked for the text's longest word alone, as a prefix, and
+`search.find` then holds each row it finds to every word, each found from its start:
+asked for every word, the index answers for any of them, and a common one reads half
+the journal, 744 KB for a text nothing holds. Titles and links stay one substring rule
+over the issue rows the call reads anyway, so the page's jump bar agrees on a title.
 
 ### Journal entry kinds
 
 `finding`, `decision`, `handoff`, `evidence`, `question`, `next`. Every entry carries an
 author and a timestamp, and every append stamps the issue's `lastActivity`. Where
 §9 says "comments", it means these: there is no second table. `next` is the one kind
-with a status: it is the direction a finished issue leaves (§4, Close), and a live issue
+with a status: it is the direction a finished issue leaves (§5, Close), and a live issue
 refuses it, since where a live one stands is a `handoff`.
 
 ### Links
@@ -330,7 +323,7 @@ takes the new label, and a bare one leaves it as it is, so linking twice is harm
 Only http and https are accepted, because the page renders a link as an anchor. It
 prints as its label, then its URL, then who added it and when:
 
-    doc · https://example.com/doc · by balder/claude 2h ago
+    doc · https://example.com/doc · by maya/claude 2h ago
 
 An epic's links are where its plan doc goes. A decision blocker's are where the artifact
 laying out its options goes, since the blocker is what a person is asked to resolve. A
@@ -345,8 +338,6 @@ cairn. What gets linked, and when, is for the rules a person works under, not fo
 which tells nobody how to version control. The way back from a pull request is the
 reference form in its body, which those rules write.
 
-Decided 2026-09-27 on
-`cn-74 "decide how cairn and git meet: what an issue records of the code work, who writes it, and what stays out"`.
 Considered and not taken:
 
 - A plugin hook on `gh pr create` that attaches the URL by itself. It works, and it
@@ -428,19 +419,19 @@ nothing releases a claim on its own (§7).
 
 "The same session" is the actor's name and its `session` together (§12). Every
 Claude session on a machine is the same `wsl/claude`, so on the name alone two
-parallel sessions both won one claim and, after compaction, nothing could say
+parallel sessions would both win one claim and, after compaction, nothing could say
 which claim was this session's. A second session of the same name is refused
 like any other claimant, told it is held `in another session`; a shell with no
 session is not the session that holds it either.
 
 **Release, close and drop refuse nobody.** Anybody may release, close or drop an
 issue another name has claimed, a person or an agent; the event records whose claim
-it was and who ended it. Until 2026-09-29 an agent was refused on a claim held under
-another name, and that fence protected nothing on a deployment run on trust (§13).
-It stranded a session whose machine was renamed under it, which then acted under the
-new name and could not close its own work, and it refused an agent a person had asked
-to free a silent claim, when the person never runs a command themselves (cn-122).
-Leaving another's claim alone is now the skill's guidance: touch it only when the
+it was and who ended it. Refusing an agent on a claim held under another name would
+protect nothing on a deployment run on trust (§13). It would strand a session whose
+machine was renamed under it, which then acts under the new name and cannot close its
+own work, and it would refuse an agent a person had asked to free a silent claim, when
+the person never runs a command themselves.
+Leaving another's claim alone is the skill's guidance: touch it only when the
 person asks, or when it is plainly this work's own claim under an old name, and
 journal why first. Claim itself still refuses a held issue, since two agents racing
 for one need one winner; a deliberate takeover is a release, then a claim.
@@ -457,7 +448,7 @@ this close was the last thing holding, each as a ready row, and `cn close` print
 them under the closed issue so an agent's loop continues without a second
 `cn ready`. Nothing is stored for it: the edge stays, and reads `done` (§7).
 
-**The direction a close leaves.** Added 2026-10-05 (cn-159). The session that just
+**The direction a close leaves.** The session that just
 finished a piece of work has the strongest opinion on where that branch of work goes
 next, and it is gone a moment later. `cn close --next "<direction>"` keeps it: free text,
 optional, naming issues or none, written in the close's own mutation as a `next` journal
@@ -469,10 +460,9 @@ The brief carries none, since nothing says when a direction has been taken and a
 there would go stale. It is an opinion and never an edge: readiness, order and priority
 do not move for it. Work it names that no issue holds is a follow-up.
 
-This replaced the `next-session` skill and setting of the day before (cn-153, cn-154),
-under which a closing session wrote the next session's opening prompt, the person's own
-rules repeated in it, and ended its reply with it or with an offer to. That was cairn
-running a person's sessions: what a prompt says, how many issues a session takes and how
+It is the direction and not the next session's opening prompt. A closing session that
+wrote that prompt, the person's own rules repeated in it, and ended its reply with it
+or with an offer to, would be cairn running a person's sessions: what a prompt says, how many issues a session takes and how
 a reply ends are a way of working, and a way of working is theirs. cairn is what such a
 way of working is built on, so it keeps the one thing only the worklist can keep, the
 direction, and a person's own skill or loop turns that into whatever opens their next
@@ -486,7 +476,7 @@ the inbox, is not.
 
 ### Follow-ups: residue that must not hang
 
-The problem, in Balder's own two cases:
+The problem, in two real cases:
 
 - A change verified on Android and web, but this machine is WSL and cannot run
   iOS. Very likely fine. It should reach **the next session that can run iOS**.
@@ -528,23 +518,20 @@ device or one particular host can finish says so in its own title or description
 and the session reading `cn ready` decides whether it is one of those. A decision
 only a person can make is a human blocker (§6), which counts in "waiting on you".
 
-Until 2026-09-29 a machine declared `can[]` in its config, from `ios`, `android`,
-`web`, `device` and `decision`, and `ready` marked a row it could not satisfy
-`· needs ios`. It went on Balder's word, in cn-116: the vocabulary was one company's,
-an app shop's, and a tracker meant for anyone's work has no business with it. Of 117
-issues on cairn's own worklist, one had ever required a device. `decision` had put
-decisions in ready, marked, while the brief read `waiting on you 0` with two waiting
-on him. The same day, cn-101 had settled the host case: cairn stays host
-agnostic, so a machine fence is text on the issue.
+A machine declares no `can[]` in its config, and `ready` marks no row `· needs ios`.
+A vocabulary of `ios`, `android`, `web`, `device` and `decision` is one company's, an
+app shop's, and a tracker meant for anyone's work has no business with it. Of 117
+issues on cairn's own worklist, one had ever required a device. A `decision`
+capability puts decisions in ready, marked, while the brief reads `waiting on you 0`
+with two waiting on the person. cairn stays host agnostic, so a machine fence is text
+on the issue.
 
 > beads fences work, and it is broken: **`--label-any` is silently dropped by
 > `bd ready` on every backend**, so a worker fencing itself to one lane claims
 > from another and believes it is fenced. With no fence, nothing can fail open.
 
-`requires[]` went from issues the same day: cn-119 stopped writing and reading it, a
-one-off stripped it from `cairn` and `invyte`, and cn-120 dropped it from the schema, for
-every deployment and not only those two (Balder, "nuke the field for strangers too"). A
-deployment that ran cairn from before `b673ae2` still stores it, and Convex refuses a
+Issues carry no `requires[]` either, and the schema has no such field on any
+deployment. A deployment that ran cairn from before `b673ae2` still stores it, and Convex refuses a
 schema without the field over rows that have it; `docs/install.md`'s "Updating" says the one
 push through `b673ae2` that clears it.
 
@@ -571,16 +558,14 @@ blockers    kind          approval | external-wait | decision | credential | pur
   `--on bl-3`; both are `blockers.raise`.
 - A blocker's title, what resolves it and its links are edited with
   `cn update bl-N` against its revision, while kind and owner stay as raised:
-  changing who a blocker waits on was left out when running cairn for more than one
-  person was settled on trust (§13).
+  changing who a blocker waits on is left out, since running cairn for more than one
+  person rests on trust (§13).
 - **Agents raise them, and end them only on the person's word.** `blockers.ack` and
   `blockers.resolve` refuse an actor of kind `agent` that does not carry `said`, the
   person's words verbatim, and the events, `cn show` and `cn log` quote them. The person
   speaks plain language to their agent and never runs a command (§8), so an agent is how
   a wait on them ends, and the quote is what keeps that honest. It is a guardrail against
   an honest agent, not a lock against a lying one, and on trust that is enough (§13).
-  Changed 2026-09-28 (cn-87), when cn-11, the page acking and resolving behind identity
-  auth, was dropped.
 - They do not appear in any agent work queue, and they are not counted in epic
   progress — otherwise "7 of 10" starts counting work no agent can do.
 
@@ -593,16 +578,13 @@ seen until the next session.
 
 ## 7. Reconcile
 
-Revised 2026-09-22. The first version of this section had three mechanisms
-arriving in order: write-time invariants, a reconcile skill run by hand per
-epic, and a scheduled sweep once the skill had earned trust. The skill was built
-(`cn reconcile`, 2026-09-17) and the sweep after it (2026-09-20, off until an
-owner was set), and in four days of daily use neither ran on the worklist: every
-epic read `never reconciled`, readiness was right the whole time, and the one
-visible residue was `cn show` listing two closed issues as blocking `cn-10`.
-Nobody reached for a tidy-up command, and an unattended one that writes to the
-worklist was never trusted enough to switch on. So the answer to clutter is two
-mechanisms, and neither runs on its own:
+Not a reconcile command run by hand per epic, and not a scheduled sweep once that
+command has earned trust. Both were built, and in four days of daily use neither
+ran on the worklist: every epic read `never reconciled`, readiness was right the
+whole time, and the one visible residue was `cn show` listing two closed issues as
+blocking an open one. Nobody reaches for a tidy-up command, and an unattended one
+that writes to the worklist is never trusted enough to switch on. So the answer to
+clutter is two mechanisms, and neither runs on its own:
 
 1. **Facts are checked where they are made or read.** A rule with one right
    answer does not need a run; it lives in the verb that makes the state or the
@@ -652,17 +634,6 @@ constants of §12.
   a finding; if the person wants it tracked, that is `cn wait`, by hand, under
   their name.
 
-`cn-30 "is an automatic reconcile the right direction, or is it a person and an
-agent going through an epic together"` is the decision; `cn-43 "reconcile
-becomes a sitting: the fact rules move into close, create and show, cn review
-replaces cn reconcile, and the sweep is deleted"` is the implementation, the
-last issue of the backend refactor epic. It landed on 2026-09-22. The one field
-the sweep wrote, `epics.lastReconciledAt`, outlived it by a day: a schema that
-forbids a field will not push over rows that carry it, and `ep-1` and `ep-6` on
-the worklist did. `cn-62 "drop lastReconciledAt from the epics schema once ep-1
-and ep-6 are patched"` patched the two rows with a one-off internal mutation, run
-once and deleted, and took the field out of the schema on 2026-09-23.
-
 **There is no `bd triage`.** beads' hygiene surface is `bd stale`, `bd orphans`,
 `bd lint`, `bd preflight` and `bd human` — and `bd orphans` finds *broken
 dependency edges*, not epic-less issues. The thing that actually goes wrong has
@@ -690,18 +661,17 @@ PATH and no deployment configured the hook prints two lines pointing at
 `/cairn:init` instead of nothing, because a machine that has `cn` installed
 means to use it. With one configured that does not answer, or refuses the
 secret, it prints one line, `cairn: <name> did not answer; cn doctor says why`,
-settled 2026-09-22: until then the hook swallowed every failure, so a dead URL
-or a wrong secret started a session exactly like a machine with nothing
-installed, and the skill taught only two states. The hook never diagnoses; `cn
-doctor` does, and the line names it. With a config that does not resolve at all,
-such as a `CAIRN_DEPLOYMENT` this machine has not set up, it prints `cairn: <cn's
-one line>`, the line `cn` itself fails with, since no deployment was reached to
-not answer (2026-09-29). The hook's 5 s timeout in the manifest is
+rather than nothing: a hook that swallows every failure starts a session on a
+dead URL or a wrong secret exactly like a machine with nothing installed. The
+hook never diagnoses; `cn doctor` does, and the line names it. With a config
+that does not resolve at all, such as a `CAIRN_DEPLOYMENT` this machine has not
+set up, it prints `cairn: <cn's one line>`, the line `cn` itself fails with,
+since no deployment was reached to not answer. The hook's 5 s timeout in the manifest is
 what bounds a URL that never answers at all. One query, `brief.get`,
 returns the numbers and the heads; `cn brief` lays them out:
 
 ```
-cairn · acme · wsl/claude
+cairn · driftwood · harbor-mac/claude
 projects       app · web
 ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
 in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
@@ -725,14 +695,13 @@ SessionStart hook alone; a human terminal has no session.
 
 ### Session end
 
-The other end is one line, not a report. Added 2026-09-22. When a session tries
-to end a turn holding a claim with nothing journaled for longer than the
-threshold in §12, a Stop hook hands it back `cn brief --unjournaled`, which
-calls `brief.unjournaled` and reads this session's in-progress rows alone
-(2026-09-30):
+The other end is one line, not a report. When a session tries to end a turn
+holding a claim with nothing journaled for longer than the threshold in §12, a
+Stop hook hands it back `cn brief --unjournaled`, which calls
+`brief.unjournaled` and reads this session's in-progress rows alone:
 
 ```
-you hold cn-27 "retry on reconnect", last journal 3h ago
+you hold app-27 "retry on reconnect", last journal 3h ago
 ```
 
 One clause per such claim, on one line, or nothing at all; `claimed 2h ago,
@@ -759,7 +728,7 @@ frozen for a month reads better than one at 40% advancing daily.
 ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups
   moving   app-31 "retry on reconnect" wsl/claude 2h
   stuck    web-12 "invite landing copy" silent 9d
-  waiting  bl-3 "confirm the invite copy" · owner balder
+  waiting  bl-3 "confirm the invite copy" · owner maya
 ```
 
 Each line is a fact with a read behind it, `epicHealth` in `lib/health.ts`,
@@ -787,16 +756,16 @@ first, how many events touched the project's issues and how many of those were
 closes, the last bucket being today so far. The count is one row per project per
 day in `pulse`, written in the same transaction as the event (`lib/events.ts`),
 so a pulse is 28 small rows per project rather than every event of four weeks,
-which on 2026-09-30 was half of everything the deployment read. It is a stored
+which, read live, was half of everything one deployment read. It is a stored
 count, the one denormalisation here, and it cannot drift from what it summarises,
 since nothing moves a row but the event it counts. `pulse:rebuild`, run on a cloud
 deployment through `vp run -F @cairn/backend run:cloud`, recounts it from the events,
-for a deployment that had events before the table did. Revised 2026-09-30 from days counted back from the caller's clock (cn-126).
+for a deployment that had events before the table did.
 
 ### The web window
 
-Settled 2026-09-21 on a static mock, before any component was written. The page a person opens answers two questions: what are
-the agents doing, and does anything need me.
+The page a person opens answers two questions: what are the agents doing, and
+does anything need me.
 
 **A row is one of cn's lines, typeset.** The page does not print the padded
 lines a terminal gets, and it does not word anything a second way either.
@@ -813,10 +782,8 @@ The screens are the Overview at `/`, Projects at `/projects` with a page per
 project at `/projects/<slug>`, Issues, one page per id (`/app-14`,
 `/ep-3`, `/bl-2`) that renders what `cn show` prints, and the Log. Where the
 deployment will not answer, the page shows its line and a field for the secret.
-A picker for switching deployments in the page was planned here and taken out
-on 2026-09-21: which deployments a browser knows about is part of running cairn
-for more than one person. Settling that on 2026-09-29 needed no picker, since each
-deployment serves its own page at its own URL (§13). The Overview's headline is the brief
+There is no picker for switching deployments in the page, since each deployment
+serves its own page at its own URL (§13). The Overview's headline is the brief
 said as a sentence, waiting first, in a fixed order, with a clause that has
 nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
@@ -829,8 +796,7 @@ events any project had in a day, and under it `N live` with `N closed` in the 28
 which a project with nothing filed leaves off, its word having said so. The words are the page's own, the ones Projects already
 uses, like the chart's legend; the band prints no cn line. The Overview subscribes to
 the list with the pulse while it is on screen, as the Projects routes do, and draws
-every day quiet until that answer lands. Added 2026-10-01 (cn-141), built to the mock
-on ep-17.
+every day quiet until that answer lands.
 
 Then "Up next": the first five of `cn ready`, each row `issueLine` typeset, with the
 ready count beside the title, so the headline's count has something behind it on the
@@ -839,43 +805,39 @@ page. The rows are the heads `brief.get` already carries, five when the page ask
 as before; the overview never subscribes to `ready.list` a second time, since the brief
 computes readiness once per write for the headline already. Nothing where nothing is
 ready. An issue row prints the revision as the line does, `r3`, pale and mono between
-who holds it and the silence, which the rows had left out until this slice, since no
-pin carried one. Added 2026-10-01 (cn-143).
+who holds it and the silence.
 
 Under the headline, each epic with a health row is its `cn epic list` block,
 with the first line of the epic's description between the head line and the
 rows, set small: the cut `cn show` gives an issue's fields, `…` after it where
 more follows, and that mark a link to the epic's page, where the whole text is
-set. The whole description stood there until 2026-10-01, when an epic that was a
-wayfinder map made the overview that map and put the rows below the fold
-(cn-140). The head line's counts carry a bar beside their text, done in ink, open
+set. Not the whole description, because an epic whose description is a long map
+makes the overview that map and puts the rows below the fold. The head line's counts carry a bar beside their text, done in ink, open
 pale and follow-ups hatched, each its share of the three numbers the text names,
 lightness only since chroma means state; the "Nothing moving" rows carry it too,
 which is where ten epics read as progress at a glance. The bar adds no text to the
-line (cn-142, 2026-10-01). With no epic showing a row, the two epics with the newest
+line. With no epic showing a row, the two epics with the newest
 `lastActivity` stand where the live ones would, each its head line, its
 description's first line and the newest log line that landed in it, so the page
 still says what the deployment has been doing; "Nothing moving" lists the rest,
 and an epic shown above is not listed again. `lastActivity` on an `epics.list` row is the
 newest write to the epic or to any issue under it, as the issues stamp it, the
 same notion of activity the stuck line measures against, so an edge or a blocker
-on its own moves nothing. Added 2026-09-24.
+on its own moves nothing.
 
-What the overview lists at scale, settled 2026-10-01 on ep-17 after invyte's worklist
-of sixty issues and ten epics: an epic's text is one line; only an epic with a health
+What the overview lists at scale, for a worklist of sixty issues and ten epics:
+an epic's text is one line; only an epic with a health
 row shows rows, and the stuck ones are capped at three named; with nothing live, two
 epics stand and the rest are a list; Up next is five rows and a count; the band is the
 one grid on the page, and everything else is one column, because the page is read top
 to bottom and the order of what it says matters more than filling the width.
 
 A page for one id is `cn show` with room. An issue sets the brief's labelled lines,
-`issueFacts`, by what each is rather than as one table (cn-146, 2026-10-01; until then
-a state line opened the page and every fact was a row of one label-and-value table).
-Each fact keeps cn's words and cn's order, in an element of its own carrying
+`issueFacts`, by what each is rather than as one label-and-value table. Each fact keeps cn's words and cn's order, in an element of its own carrying
 `data-fact`; what the page adds beside one sits outside it. Its epic, project and
 status are three tiles: the epic's reference with its count bar and counts where it is
 open, the project's slug with its name and its word, and the status line led by the
-state, `stateParts`' head (`moving balder/claude 2h`, `waiting`, `blocked`,
+state, `stateParts`' head (`moving maya/claude 2h`, `waiting`, `blocked`,
 `stuck silent 9d`, `deferred until 2026-10-01`, `closed 2h ago`, `dropped 2h ago`,
 `open`) in its tone, the priority a badge and the rest small. The proof a close stored,
 the command in mono and its exit code a badge, or the reason a drop gave, is a card,
@@ -891,32 +853,32 @@ takes how many, and the page asks for `JOURNAL_MAX`; paging past that waits for
 a journal that long), with its own history in the column where the Overview has
 the feed. An epic is its health and every issue under it, the finished ones
 included, which is more than `cn show ep-3` lists and is what a person opening
-an epic came for. It opens on its track (cn-145, 2026-10-01): one cell per issue its
+an epic came for. It opens on its track: one cell per issue its
 counts count, the done tasks first in the order they closed, then the live ones moving,
 waiting, stuck and open, then the live follow-ups hatched, each cell in its state's
 chroma and a link with the reference form as its tooltip; a legend in the page's words
 under it, and beside that the epic's closes a day over 28 UTC days, counted from each
 issue's `closedAt` and drawn as a project's pulse is. Its health rows follow, the stuck
 and the waiting alone, since what is moving is the track's and the In progress group's.
-A passage on any of these pages takes the column's width, as the sheet around it does;
-it stopped at 68 characters until cn-144. Getting around is the point of the page: every reference
+A passage on any of these pages takes the column's width, as the sheet around it does.
+Getting around is the point of the page: every reference
 anywhere is a link, an issue names its epic above its title and steps to the
 issue before and after it in the epic's order, the rail marks the epic on
 screen, and one button copies the reference form,
-`cn-26 "apps/web, the read-only window"`, because that is what a person pastes
+`app-14 "fix connection retry"`, because that is what a person pastes
 into a session to say which work they mean.
 
 Beside Copy reference, a round `?` chip opens the ask menu: at most four lines a person
 can say to their agent about the thing on screen, chosen by its kind and state from what
-the page already reads. `Explain cn-14 "…" in plain terms: what it's about and why it
+the page already reads. `Explain app-14 "…" in plain terms: what it's about and why it
 matters` first on every issue, because understanding one comes before every other question
-about it, and a follow-up's title is often in cairn's own words (added 2026-09-26, cn-78);
+about it, and a follow-up's title is often in cairn's own words;
 the line asks for meaning and leaves the answer's shape to the skill, which is the
 reference on its own line and a short bold-led line each for what it is, why it matters
-and where it stands, since "a few sentences" came back as one dense paragraph (cn-79,
-2026-09-28); `Catch me up on cn-14 "…": where it stands, what's been tried,
-what's left` on every issue; `cn-14 "…" has been quiet for 9 days. Find out why and tell
-me what it needs to move` while it is stuck; `Is cn-14 "…" still worth doing? Make the
+and where it stands, since "a few sentences" comes back as one dense paragraph;
+`Catch me up on app-14 "…": where it stands, what's been tried,
+what's left` on every issue; `app-14 "…" has been quiet for 9 days. Find out why and tell
+me what it needs to move` while it is stuck; `Is app-14 "…" still worth doing? Make the
 case either way` past fourteen days open; `ep-3 "…" has gotten messy. Help me sort it
 out: duplicates, stragglers, what no longer belongs` while `cn review` lists anything, for
 which the epic page reads `review.get`; `Help me decide bl-2 "…"` on a blocker nobody has
@@ -928,14 +890,13 @@ reference form whole, so the session it lands in knows what is meant and reads i
 dialogue choices, numbered: the keycap is the cursor, a number copies its line, `?` opens
 it from anywhere on the page. A pie menu was ruled out, since a sentence does not fit a
 wedge; so was a short label over each sentence, which is two wordings of one prompt.
-Added 2026-09-25.
 
-The principle behind it, which is cn-72's: cairn runs behind the scenes. The person in
+The principle behind it: cairn runs behind the scenes. The person in
 the loop speaks plain language, and nothing on the page asks anyone to run or paste a
 command, not a `cn` line and not a slash command. Copying commands would make the person
 the one steering their agents, which is another job.
 
-**Projects.** Added 2026-09-30 (cn-127), built to a mock settled before it, the way the Overview's was. The rail gets a Projects item between Overview and Issues and, above Epics, a section with every project: its dot, its slug and its live count, the name on hover, most pressing first. `/projects` opens on a headline with one clause per project in the same order, waiting, then stuck, then moving, then quiet, then nothing filed, in the page's own words (`apps/web/src/projects.ts`, beside the brief's): `app waits on you. tools is moving, with 2 stuck. admin has nothing filed.` Under it the chart: one lane per project, every live issue a dot placed left to right by how long since it last moved, on a log scale with three days at the middle and 45 days at the right edge, and top to bottom by priority, with each priority's limit from `thresholds.ts` drawn as the zone a dot is in once it is stuck; moving, waiting and stuck are the dot's chroma, and open is hollow. Then a section per project: its `cn project list` block, the head line and the health rows typeset the way an epic's are on the Overview, with the description and the links as chips between the head and the rows, and under the rows the pulse `projects.list` carries, one bar a day for 28 days with the closes in ink at the foot, beside one dot per live issue under each epic. `/projects/<slug>` is one project with room: the chart alone, the pulse beside the epic strips, then Moving, Waiting on you, Stuck and Open, each row `cn list --silent 0d`'s line with a meter of its silence against its priority's limit, and the closes of the last four weeks folded. It lives under `/projects/` because a slug may be `log` or `issues`, which are pages already. The page reads what `projects.list`, `issues.list` and `blockers.list` answer and decides nothing they do not: an issue is stuck because its project's health names it, and waiting because a blocker on the list holds it.
+**Projects.** The rail gets a Projects item between Overview and Issues and, above Epics, a section with every project: its dot, its slug and its live count, the name on hover, most pressing first. `/projects` opens on a headline with one clause per project in the same order, waiting, then stuck, then moving, then quiet, then nothing filed, in the page's own words (`apps/web/src/projects.ts`, beside the brief's): `app waits on you. tools is moving, with 2 stuck. admin has nothing filed.` Under it the chart: one lane per project, every live issue a dot placed left to right by how long since it last moved, on a log scale with three days at the middle and 45 days at the right edge, and top to bottom by priority, with each priority's limit from `thresholds.ts` drawn as the zone a dot is in once it is stuck; moving, waiting and stuck are the dot's chroma, and open is hollow. Then a section per project: its `cn project list` block, the head line and the health rows typeset the way an epic's are on the Overview, with the description and the links as chips between the head and the rows, and under the rows the pulse `projects.list` carries, one bar a day for 28 days with the closes in ink at the foot, beside one dot per live issue under each epic. `/projects/<slug>` is one project with room: the chart alone, the pulse beside the epic strips, then Moving, Waiting on you, Stuck and Open, each row `cn list --silent 0d`'s line with a meter of its silence against its priority's limit, and the closes of the last four weeks folded. It lives under `/projects/` because a slug may be `log` or `issues`, which are pages already. The page reads what `projects.list`, `issues.list` and `blockers.list` answer and decides nothing they do not: an issue is stuck because its project's health names it, and waiting because a blocker on the list holds it.
 
 Six routes do not get a router. The path is the state, and one listener turns
 every plain same-origin link into `history.pushState`, so components write
@@ -945,7 +906,7 @@ with no router around them, and keep the live subscriptions when clicked
 path with `index.html`. The feed's subscription to `events.recent` is the 30 the
 column shows, since every write reruns it, and the Log holds its own at the 200
 newest only while it is open, showing the feed's 30 until those answer, so moving
-to it never blinks empty. Added 2026-09-30.
+to it never blinks empty.
 
 **The page is hosted by the deployment it reads.** `@convex-dev/static-hosting`,
 installed in `backend/convex/convex.config.ts`, keeps the built page in the
@@ -963,28 +924,26 @@ a page. Between the two it records the commit the functions came from as the
 deployment's `CAIRN_PUSHED_FROM` (`backend/scripts/pushed.mjs`), with `-dirty` after it
 where `backend/convex` held uncommitted changes, and `cn doctor` compares it with the
 checkout `cn` runs from, by git: commits, never working trees, and `backend/convex/tests`
-left out, so its last line says which side is behind and the one command that fixes it
-(cn-91, 2026-09-29). Beside it the push records the deployment's name as `CAIRN_NAME`,
+left out, so its last line says which side is behind and the one command that fixes it.
+Beside it the push records the deployment's name as `CAIRN_NAME`,
 the `<name>` of `backend/.env.cloud.<name>.local` and what `cn init --name` calls it,
 which the rail's big word, with the host under it, and the tab title read
-(`deployment.name`): `Issues · invyte`, `cn-14 "…" · invyte`. Two tabs on two
-companies' pages no longer both read "cairn". A deployment the push never reached, the
-anonymous local one and a throwaway, has no name and reads `cairn` (cn-124). The
+(`deployment.name`): `Issues · driftwood`, `app-14 "…" · driftwood`, so two tabs on two
+companies' pages do not both read "cairn". A deployment the push never reached, the
+anonymous local one and a throwaway, has no name and reads `cairn`. The
 bundle names the deployment and never a secret: a person pastes the secret once, into
 that origin's localStorage, and a reload does not ask again. The screen that asks is
 the page's front door and speaks the page's words: "needs its secret" to a browser
 that sent none, "refused the secret" to one that sent the wrong one, and "did not
 answer" only for a deployment that never did. It names no config file, variable or
-command, which are `cn`'s; the guard's line naming them is printed by `cn` alone
-(cn-85, 2026-09-28). `vp
-run dev:web` stays the loop for working on the page. Ruled out on 2026-09-24: one
+command, which are `cn`'s; the guard's line naming them is printed by `cn` alone. `vp
+run dev:web` stays the loop for working on the page. Ruled out: one
 shared hosted page that asks for a URL and a secret, because every visitor would
 trust its host with a secret that can write, and one page would have to match every
 deployment's version of the functions (identity auth does not fix the first, since
 the code served acts as whoever signed in); a static host per person, which is a
 second account and a second deploy to keep in step; and serving from the machine,
-through a `cn web` or a login service, which leaves nothing on a phone. Added
-2026-09-28, cn-70.
+through a `cn web` or a login service, which leaves nothing on a phone.
 
 The look, and what each choice rules out:
 
@@ -1007,7 +966,7 @@ The look, and what each choice rules out:
   `javascript:` link goes nowhere. It is a quarter of the page's script, so it loads
   beside the page and not before it (`Prose.tsx`): the secret form and the first
   screen wait on 152 kB gzipped rather than 198, and a passage reads as written until
-  it lands, or for good if it never does (cn-98, 2026-09-30).
+  it lands, or for good if it never does.
 - **A jump bar where a chat page has its composer.** Type an id or part of a
   title and go. It reads, like everything else on the page.
 - **One motion nobody asked for**: an event arriving over the subscription lands
@@ -1052,7 +1011,7 @@ system failure a human is paged for.**
 
 | Upstream | What happens | Measured |
 |---|---|---|
-| gastownhall/beads#4796 | Two machines mint the same child id before syncing; the merge cannot settle and a pull dies on `child_counters` | Open since 2026-07-14, unfixed in 1.2.2. It happened here on 2026-09-15. Recovery is `bd rename` on the machine that has not pushed |
+| gastownhall/beads#4796 | Two machines mint the same child id before syncing; the merge cannot settle and a pull dies on `child_counters` | Open and unfixed in 1.2.2, and it happened here. Recovery is `bd rename` on the machine that has not pushed |
 | gastownhall/beads#4767 | `bd close` reports success and does not persist under concurrent agentic load | 7 of 8 closes lost in one 8-worker run |
 | gastownhall/beads#3964 | `bd update --append-notes` drops writes in rapid succession | 3 of 16 persisted. Labels survive, notes do not |
 
@@ -1064,14 +1023,13 @@ replicas, so no merge, so nothing to reconcile.
 
 ## 10. Surfaces
 
-One surface. Revised 2026-09-17; the original design had an MCP server beside
-the CLI, and the reasons it went are below.
+One surface: a CLI, without an MCP server beside it, for the reasons below.
 
 | Surface | For |
 |---|---|
 | **`cn` CLI** | Every agent, every hook, every jq pipeline. One verb is one Convex function call plus formatting: the CLI holds no logic. Where a verb takes an action word (`epic new`, `dep rm`), each action is one function, and `cn update` runs its kind's own function, by the id. |
 | **Claude Code plugin** | Skill, SessionStart and Stop hooks, slash commands, and the evals that hold the skill's rules in a real session. Ships from `plugins/cairn` in this repo so it versions with the code and installs anywhere, including cloud runners. |
-| **`apps/web`** | The human's window, in two steps, split 2026-09-20. First a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. The second step, acking and resolving from the page behind identity auth, was cn-11, dropped on 2026-09-28: the person ends a wait by telling their agent, which resolves on their word (§6). The skeleton, one live query inside the gate, landed 2026-09-20. What the page looks like and how it stays cn's words is §8, "The web window". |
+| **`apps/web`** | The human's window: a read-only page over `convex/react` subscriptions, which ships on the deployment's shared secret pasted once into the browser. It does not ack or resolve, so it needs no identity auth: the person ends a wait by telling their agent, which resolves on their word (§6). What the page looks like and how it stays cn's words is §8, "The web window". |
 
 ### Why not an MCP server
 
@@ -1089,7 +1047,7 @@ the CLI, and the reasons it went are below.
   `.mcp.json` for *developing* cairn: tables, logs, function runs. That is a dev
   tool, not the agent surface.
 
-The second consumer arrived on 2026-09-20 and did not need the typed client:
+The second consumer does not need the typed client:
 `apps/web` subscribes through `convex/react` and imports the generated `api`
 from `@cairn/backend` by name, and what it shares with `cn` is the lines, through
 `@cairn/cli`'s exports map (§8). So `packages/cli/src/lib/client.mts` stays the
@@ -1132,16 +1090,15 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
   advances its clock to the present and every query reruns once. Each threshold is spelled
   once, as its moment, in `lib/thresholds.ts`, which the predicates and `clock.next` share,
   so a line cannot appear at a moment the timer did not wait for. Nothing validates `now`;
-  a wrong one misleads only the caller that sent it. Revised 2026-09-30 from a clock
-  rounded down to the minute, which reran every clock-reading query 1,440 times a day per
-  open tab, hidden or not, for lines that change on hours and days.
+  a wrong one misleads only the caller that sent it. Not a clock rounded down to the
+  minute, which reruns every clock-reading query 1,440 times a day per open tab, hidden
+  or not, for lines that change on hours and days.
 - **The deployment is where anything decides.** `ready` computes, `close`
   validates, `review` reads, `create` hands back candidate epics. `cn` parses
   arguments, runs the one command `cn close` proves with, and formats through
   `ref()`.
-- **There is no daemon on any machine, and no cron.** Revised 2026-09-22: the
-  sweep is deleted (§7). Every write the deployment makes is inside a verb
-  somebody ran.
+- **There is no daemon on any machine, and no cron.** Every write the deployment
+  makes is inside a verb somebody ran (§7).
 - **Two channels back to the human**: `cn waiting` and the brief's count now,
   `apps/web` later.
 
@@ -1172,7 +1129,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --priority 1] [--next <direction>]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
 | `cn dep add\|rm <id> --blocked-by\|--blocks\|--related\|--discovered-from\|--duplicates\|--supersedes <id>` | `edges.add` · `edges.remove` | mutation |
-| `cn wait <id> --kind approval --owner balder --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
+| `cn wait <id> --kind approval --owner maya --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
 | `cn waiting` | `blockers.list` | query |
 | `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | `blockers.ack` · `blockers.resolve` | mutation; an agent's carries `--said` |
 | `cn epic new <title> [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
@@ -1197,18 +1154,17 @@ title:
 A bare `app-14` there is a bug in the skill or the CLI. Beads ids like
 `app-wu03.2` gave the reader nothing to hold on to, and a session's worth of
 "working on wu03.2" was unreadable a day later. Later in the same reply, with
-the form in sight above it, a bare id reads fine; settled 2026-09-27 from the
-eval below, whose first three runs each slipped once on a later mention and
-never on a first, while the reader's need was met by the form above. `cn show
+the form in sight above it, a bare id reads fine: the first three runs of the
+eval below each slipped once on a later mention and never on a first, and the
+reader's need was met by the form above. `cn show
 <id>` prints a ten-line brief, every list line starts with the reference form,
 and `--json` carries both fields. A URL into the web app slots in behind the
 same form later. The form is spelled in one place, `ref()` in
 `packages/cli/src/lib/ref.mts`.
 
-The form is the floor, not the context, settled 2026-09-24. After a while in a
-session, "what is next" was answered with "you can do cn-45, you can do cn-50",
-and the person had to open the page to learn what had just been said to them.
-The page is for status; a reply has to stand on its own. So the first time a
+The form is the floor, not the context. Late in a session, "what is next"
+answered with "you can do app-45, you can do app-50" sends the person to the
+page to learn what has just been said to them. The page is for status; a reply has to stand on its own. So the first time a
 reply names an issue or epic in a session, it carries the form and then a
 sentence of what the work is and where it stands, read from `cn show` rather
 than invented; a later mention in the same session is the form alone; and
@@ -1248,28 +1204,16 @@ The first slice is the five mutations and the one hard query:
 schema · create · list · ready · close · journal
 ```
 
-Then dogfood **within days**, in this repo, on cairn's own construction. The
-build was mapped into eleven slices under five epics on 2026-09-17, first in a
-`docs/dogfood.md`, and the same day `create` worked they were imported as
-`cn-1` to `cn-11` under `ep-1` to `ep-5` and the file deleted. The first four
-were the loop above and the import; everything after that is cairn issues in
-cairn, and `cn ready` says what is next.
+Then cairn is dogfooded on its own construction, in this repo. Its work lives in
+its own worklist, as cairn issues in cairn, and `cn ready` says what is next.
 
 The accepted cost: a short throwaway window, and early schema churn means
 migrating your own dogfood data.
 
-Invyte comes later, once it is mature — and that is also when the storage and
-binding questions below get settled against real usage rather than guessed at
-now.
-
-Order of magnitude: **2–5k lines**. Measured 2026-09-22: about 10.5k without
-tests and 17.5k with, across the backend, `cn`, the plugin, the page and the
-scripts.
-
 ### Toolchain
 
-Chosen 2026-09-17 and verified on this machine the same day. Everything runs
-through vite-plus (`vp`): one binary per machine, and it brings its own Node.
+Everything runs through vite-plus (`vp`): one binary per machine, and it brings
+its own Node.
 
 | | |
 |---|---|
@@ -1279,10 +1223,10 @@ through vite-plus (`vp`): one binary per machine, and it brings its own Node.
 | Check | `vp check`: oxfmt, oxlint, and a type-aware check across every tsconfig. Markdown and yaml are left as written. |
 | Tests | `vp run -r test`: vitest per package. The backend runs `convex-test` in the edge runtime, which is closer to Convex's own than Node is. |
 | The gate | `vp run verify` is check plus every test, about a second. A pre-commit hook (`vp config`, once per clone) formats and lints staged files, a Claude Stop hook refuses to end a turn with a changed file failing `vp check`, and CI runs the same gate. `AGENTS.md` carries the per-change table. |
-| End to end | `vp run verify:e2e` runs the per-verb rows of `AGENTS.md` with the real `cn` against a throwaway anonymous local deployment on its own ports and state directory, empty by construction and deleted afterwards. Decided 2026-09-17: automated verification never targets a deployment agents work in. A Convex preview deployment is the later option. |
-| Local backend | `CONVEX_AGENT_MODE=anonymous npx convex dev` runs a local deployment with no Convex account, and is how `convex/_generated` was first produced. `convex codegen` alone refuses to run without a deployment. |
+| End to end | `vp run verify:e2e` runs the per-verb rows of `AGENTS.md` with the real `cn` against a throwaway anonymous local deployment on its own ports and state directory, empty by construction and deleted afterwards. Automated verification never targets a deployment agents work in. A Convex preview deployment is the later option. |
+| Local backend | `CONVEX_AGENT_MODE=anonymous npx convex dev` runs a local deployment with no Convex account, which producing `convex/_generated` needs, since `convex codegen` alone refuses to run without a deployment. |
 | CI | `voidzero-dev/setup-vp`, then the gate, `vp run -F @cairn/web build` and `vp run verify:e2e`; none needs a Convex account. |
-| Web | `apps/web` is Vite 8 and React 19 through the same pinned vite-plus: `vp dev`, `vp build` and `vp test run`, with `@vitejs/plugin-react` 6 for Fast Refresh. Proved on 0.1.24 on 2026-09-20, which until then had only run check and test here. Its tests render to a string with `react-dom/server`, so the suite carries no DOM. Tailwind 4 through `@tailwindcss/vite` and shadcn's components came in on 2026-09-21, on the same 0.1.24: `vp dlx shadcn@latest add <component>` writes into `src/components/ui/`. shadcn's registry now generates `import { cn } from "cn"`, an npm package that ships a binary named `cn`; it is not installed here, because in this repo `cn` is the CLI, and `src/lib/utils.ts` carries the helper over clsx and tailwind-merge instead. Recursive is self-hosted from `@fontsource-variable/recursive`. |
+| Web | `apps/web` is Vite 8 and React 19 through the same pinned vite-plus: `vp dev`, `vp build` and `vp test run`, with `@vitejs/plugin-react` 6 for Fast Refresh, proved on 0.1.24. Its tests render to a string with `react-dom/server`, so the suite carries no DOM. Tailwind 4 through `@tailwindcss/vite` and shadcn's components run on the same 0.1.24: `vp dlx shadcn@latest add <component>` writes into `src/components/ui/`. shadcn's registry generates `import { cn } from "cn"`, an npm package that ships a binary named `cn`; it is not installed here, because in this repo `cn` is the CLI, and `src/lib/utils.ts` carries the helper over clsx and tailwind-merge instead. Recursive is self-hosted from `@fontsource-variable/recursive`. |
 
 Three things pinned, and why:
 
@@ -1292,10 +1236,9 @@ Three things pinned, and why:
   on "Cannot find native binding" before doing anything. The global `vp` need not
   match it: it hands check, test and build to the checkout's own copy, and
   `vp --version` lists both. A global of 0.3.1 or later also brings the pnpm that
-  `packageManager` names, which 0.1.x does not. Until 2026-09-29 this rule tied
-  the global to the catalog too. It was dropped when a global 1.0.0, the
-  installer's latest, over the catalog's 0.1.24 ran `vp install`, `vp run verify`
-  and `vp run verify:e2e` green on a fresh Mac. CI still installs the global at the
+  `packageManager` names, which 0.1.x does not. A global 1.0.0, the installer's
+  latest, over the catalog's 0.1.24 runs `vp install`, `vp run verify` and
+  `vp run verify:e2e` green on a fresh Mac. CI installs the global at the
   catalog's version, since `setup-vp` reads it from `package.json`, and sets pnpm
   up beside it.
 - **TypeScript 5.9, not 7.** vite-plus 0.1.x declares a peer range of 5 or 6,
@@ -1314,7 +1257,7 @@ is what runs, and the rules are few.
 
 ## 12. Proposed, not decided
 
-Called by the design session rather than chosen by Balder. Cheap to overrule:
+Chosen without much argument, and cheap to overrule:
 
 - **Priority 0–4**, matching beads, because agents are already trained on it and
   `bd prime` is emphatic that it is not high/medium/low.
@@ -1324,24 +1267,21 @@ Called by the design session rather than chosen by Balder. Cheap to overrule:
   an agent fabricates.
 - **Follow-up kinds**: `verify`, `decide`, `cleanup`.
 - **No capabilities.** A machine declares nothing about what it can do, and `ready`
-  filters and marks nothing by it (§5, cn-116, 2026-09-29).
+  filters and marks nothing by it (§5).
 - **No epic-to-epic edges.** Epics relate through their issues or not at all.
-
-Added when the solution was mapped, 2026-09-17:
-
 - **The actor `cn` sends** is `CAIRN_ACTOR` when set, else `<host>/<user>`, with
   `kind: agent` when `CLAUDECODE` is in the environment (Claude Code sets it for
-  every shell it runs) and `human` otherwise. So a session on Balder's WSL box is
-  `balder-wsl/claude` and Balder at a terminal there is `balder-wsl/balder`. `<host>` is `CAIRN_HOST`,
+  every shell it runs) and `human` otherwise. So a session on Maya's WSL box is
+  `maya-wsl/claude` and Maya at a terminal there is `maya-wsl/maya`. `<host>` is `CAIRN_HOST`,
   then the config's `host`, which `cn init --host` writes, then the OS hostname up to
-  its first dot and lowercased (since 2026-09-29, so a Mac's `Balders-Mac-mini.local`
-  reads `balders-mac-mini`). The host tells people apart as well as machines, so
+  its first dot and lowercased (so a Mac's `Mayas-Mac-mini.local` reads
+  `mayas-mac-mini`). The host tells people apart as well as machines, so
   `/cairn:init` proposes one that carries the person's first name, `<person>-<machine>`,
-  and nothing checks what is chosen (2026-09-29, cn-121). Since 2026-09-22 it
-  carries `session` beside the name when `CAIRN_SESSION` is set, which the
-  SessionStart hook exports from the `session_id` Claude Code hands it. The
-  name does not change with it, so the log and `--mine` keep one stable actor;
-  every event carries the session, and events before that date carry none.
+  and nothing checks what is chosen. It carries `session` beside the name when
+  `CAIRN_SESSION` is set, which the SessionStart hook exports from the `session_id`
+  Claude Code hands it. The name does not change with it, so the log and `--mine`
+  keep one stable actor; every event carries the session, and events older than
+  the field carry none.
 - **`cn close` runs the command.** The verification record is what the command
   did, captured by `cn`, with the last 40 lines of output and a 10-minute
   timeout. Proof that ran on another machine goes in as an `evidence` journal
@@ -1350,12 +1290,11 @@ Added when the solution was mapped, 2026-09-17:
   older than 7 days and a blocker past its nudge date are `cn review` findings,
   and an issue is stuck once it sits open, unclaimed and unheld past its
   priority's limit, P0 a day, P1 3 days, P2 a week, and P3 and P4 never, so a
-  quiet backlog is not stuck (`STUCK_AFTER_MS`; revised 2026-09-29, cn-129, from
-  the one issue silent longest past 3 days, which named a P4 in nearly every
-  epic). Revised 2026-09-22 from "released" and "raised" (§7). A claim
-  with nothing journaled for an hour, counted from the later of the claim and
-  its newest entry, is what the Stop hook hands back (§8, `JOURNAL_QUIET_MS`,
-  added 2026-09-22).
+  quiet backlog is not stuck (`STUCK_AFTER_MS`), and not the one issue silent
+  longest past 3 days, which names a P4 in nearly every epic. Each is shown or
+  listed, never released or raised (§7). A claim with nothing journaled for an
+  hour, counted from the later of the claim and its newest entry, is what the
+  Stop hook hands back (§8, `JOURNAL_QUIET_MS`).
 - **Near-identical titles** are titles equal after lowercasing and replacing every
   run of non-alphanumerics with one space, or within Levenshtein distance 2 of
   each other after that (`NEAR_TITLE_DISTANCE`). `cn create` hands the matches
@@ -1363,11 +1302,10 @@ Added when the solution was mapped, 2026-09-17:
   through; a `duplicates` edge between them is the answer given (§7).
 - **`ep-0` is the inbox**, created by the first `issues.create` that needs it.
 - **The deployment config** grows two fields, both machine-local:
-  `{ "default": "acme", "deployments": { "acme": { "url": …, "secretCmd": … } } }`.
+  `{ "default": "driftwood", "deployments": { "driftwood": { "url": …, "secretCmd": … } } }`.
   A repository names which of them it uses with `CAIRN_DEPLOYMENT` (§13).
-- **Settings are per machine, and off until turned on** (2026-10-04, cn-153). A setting
-  is behaviour beyond the worklist that some
-  people want cairn to drive and others do not, so nobody's sessions change until they
+- **Settings are per machine, and off until turned on.** A setting is behaviour
+  beyond the worklist that some people want cairn to drive and others do not, so nobody's sessions change until they
   ask. It lives in the machine's config, `"settings": { "<name>": "<state>" }`, beside
   the deployments and above any one of them: a way of working is a person's, and should
   not need each repository or each company's worklist to carry it. So there is no
@@ -1375,26 +1313,25 @@ Added when the solution was mapped, 2026-09-17:
   and a setting kept on the deployment, a company's policy, waits for a real one. A
   setting has states: `off`, where every one starts and which is absence from the file,
   and the setting's own past it, which say how far the person wants cairn to go
-  (2026-10-04: a plain on would make a session either silent or automatic, and a person
-  in the conversation may want to be asked first). `cn setting` lists them and puts one in a state, and the person asks for that
+  (a plain on would make a session either silent or automatic, and a person in the
+  conversation may want to be asked first). `cn setting` lists them and puts one in a state, and the person asks for that
   in their own words. cn stores a setting and prints it and never acts on one: `cn brief`
   ends with each name that is not off and its state, `cn doctor` names them, and the
   skill says what a session does on reading one there, so the behaviour
   reaches any harness that runs `cn`. Claude Code's plugin options (`userConfig`) are not
   the store, since a `cn` run outside Claude Code would never see them. There is no
-  setting yet (2026-10-05, cn-159): the first, `next-session`, went when what it gated
-  turned out to be a person's way of working and the part that was the worklist's moved
-  into `cn close --next` (§4), which nothing gates. The system stays for the next one,
-  which has to pass the same test: how the worklist is left and read, never how sessions
-  are run. A name an older cn wrote into the file is kept and reads as off.
+  setting yet. A setting for what opens the next session would gate a person's way of
+  working, and the part of it that is the worklist's is `cn close --next` (§5), which
+  nothing gates. A setting has to pass that test: how the worklist is left and read,
+  never how sessions are run. A name an older cn wrote into the file is kept and reads as off.
 - **The deployment secret.** One shared secret per deployment, `CAIRN_SECRET` in its
   environment, checked by `lib/guard.ts` on every public function and stripped from the
   arguments before the handler, so nothing downstream sees it. A deployment with none set
   checks nothing, which is what keeps the anonymous local one open. `cn` sends it from
   `~/.config/cairn/secrets/<name>`, which `cn init` writes beside the config and never
   into it, since the config is the file an agent reads to see how a machine is set up and
-  must hold nothing that cannot be printed (2026-10-02, cn-152, after two secrets reached
-  a transcript that way); a secret an older cn cached in the file is read until
+  must hold nothing that cannot be printed, or a secret reaches a transcript that way; a
+  secret an older cn cached in the file is read until
   `cn init --refresh` moves it, and `cn doctor` names the move; `CAIRN_SECRET` in the
   shell wins. It fences a deployment; it does not tell actors apart, which stays §13. It
   is set by `vp run -F @cairn/backend secret`, one operation each for `new`, `rotate` and
@@ -1416,16 +1353,16 @@ implementation.
 
 | Open question | Current lean |
 |---|---|
-| How a session resolves repo → project → deployment | Settled 2026-09-29 (cn-89): `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL from there and its secret from `secrets/<name>` beside it. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
-| Short ids for epics | Settled 2026-09-17: `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
-| Local or cloud deployment for the throwaway window | Settled 2026-09-29 (cn-92): a company's worklist is the development deployment of a Convex project of its own, `cairn-<name>` unless named otherwise. `#new:cloud` makes it with `convex dev --configure new --skip-push`, so no function runs there before `#secret -- new` has fenced it, and `#push:cloud` pushes to it with the login alone. A production deployment would need `convex deploy` and a deploy key, and buys a worklist nothing yet. The anonymous local deployment stays the development copy, and the throwaway stays the tests' (§11) |
-| Auth | Lean, slice 8: one shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secrets/<name>` beside the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. Settled 2026-09-29 (bl-4): that secret stays the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument; the page writes nothing, since cn-11, which would have had it ack and resolve behind identity auth, was dropped on 2026-09-28. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
-| Who counts as the actor on a journal entry or a claim | Settled 2026-09-29 (bl-4): the argument `cn` sends (§12), taken on trust. There is no token to take it from instead |
-| Which project a session is in | Settled 2026-09-29 (cn-93): the repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work (cn-96). It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo. The brief's `projects` line names every project on the deployment, the section only the ones the repository maps, so the skill reads `cn project list` for work that fits none of its rows and asks when more than one could fit; `/cairn:init` drafts the section from the deployment's projects, the table mapping directories to slugs and the description staying the one place that says what a project is (cn-128, 2026-09-30) |
+| How a session resolves repo → project → deployment | `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL from there and its secret from `secrets/<name>` beside it. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
+| Short ids for epics | `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
+| Local or cloud deployment for the throwaway window | A company's worklist is the development deployment of a Convex project of its own, `cairn-<name>` unless named otherwise. `#new:cloud` makes it with `convex dev --configure new --skip-push`, so no function runs there before `#secret -- new` has fenced it, and `#push:cloud` pushes to it with the login alone. A production deployment would need `convex deploy` and a deploy key, and buys a worklist nothing yet. The anonymous local deployment stays the development copy, and the throwaway stays the tests' (§11) |
+| Auth | One shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secrets/<name>` beside the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. That secret is the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument, and the page writes nothing, so nothing on it needs identity auth. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
+| Who counts as the actor on a journal entry or a claim | The argument `cn` sends (§12), taken on trust. There is no token to take it from instead |
+| Which project a session is in | The repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work. It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo. The brief's `projects` line names every project on the deployment, the section only the ones the repository maps, so the skill reads `cn project list` for work that fits none of its rows and asks when more than one could fit; `/cairn:init` drafts the section from the deployment's projects, the table mapping directories to slugs and the description staying the one place that says what a project is |
 | The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |
 | A push channel for human blockers | None. The session is the channel (§6) |
-| Where the page is hosted | Settled 2026-09-28: by the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. With a page per deployment, no browser needs to know about more than one, so there is no picker (the next row) |
-| Running cairn for more than one person | Settled 2026-09-29 (bl-4, cn-28): on trust. Nothing is enforced, and there is no member list, no key per person and no identity auth. **Agents** are told apart by `session` beside the actor's name (2026-09-22, §5, §12), which is the part of identity a claim depends on. **Machines and people** are told apart by the host in the name, `<host>/claude`, which carries the person's name as well as the machine's, `balder-mac-mini/claude` beside a colleague's `maya-mac/claude`; `/cairn:init` proposes such a name and takes whatever is chosen (cn-121). **Handing it over** is the README's "Joining a worklist that exists" for a colleague (cn-111), and "Get started" for someone standing up a worklist of their own. **The page's deployment picker** is not needed: each deployment serves its own page (cn-70). What trust costs: anyone holding a deployment's secret writes under any name they give, and one person cannot be shut out without rotating the secret for everyone |
+| Where the page is hosted | By the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. With a page per deployment, no browser needs to know about more than one, so there is no picker (the next row) |
+| Running cairn for more than one person | On trust. Nothing is enforced, and there is no member list, no key per person and no identity auth. **Agents** are told apart by `session` beside the actor's name (§5, §12), which is the part of identity a claim depends on. **Machines and people** are told apart by the host in the name, `<host>/claude`, which carries the person's name as well as the machine's, `harbor-mac/claude` beside a colleague's `maya-mbp/claude`; `/cairn:init` proposes such a name and takes whatever is chosen. **Handing it over** is the README's "Joining a worklist that exists" for a colleague, and "Get started" for someone standing up a worklist of their own. **The page's deployment picker** is not needed: each deployment serves its own page. What trust costs: anyone holding a deployment's secret writes under any name they give, and one person cannot be shut out without rotating the secret for everyone |
 
 ---
 
@@ -1435,8 +1372,7 @@ implementation.
 public backend package for out-of-tree backends, but it is marked EXPERIMENTAL
 and asks you to implement `storage.DoltStorage`, a **144-method composed
 interface**. The in-tree spike estimated 1.5–2.5k LOC for the adapter alone, and
-there is no first-party Convex Go client. Ruled out 2026-09-15; the ruling
-stands.
+there is no first-party Convex Go client. Ruled out.
 
 ---
 
@@ -1512,7 +1448,7 @@ Almost none of that is the idea. Where the mass sits:
 
 | | |
 |---|---|
-| Repo | `sandstrom99/cairn`, created 2026-09-17 with the skeleton |
+| Repo | `sandstrom99/cairn` |
 | CLI binary | `cn`, two letters, like `bd` |
 | Issue ids | `app-14`, `web-22` |
 | npm | `cairn` is taken, as is every bare English word checked. A published CLI would be `@sandstrom99/cairn` |
@@ -1520,10 +1456,9 @@ Almost none of that is the idea. Where the mass sits:
 **The name.** A cairn is the stack of stones a previous traveller leaves to mark
 the route for whoever comes next. That is what task state outliving a session
 actually is: not a database, a marker left for the next agent saying the way
-goes here. It pairs with the `wayfinder` skill already on this machine —
-**wayfinder charts the map, cairn holds the route.**
+goes here.
 
-Named 2026-09-16. Rejected, and why:
+Rejected, and why:
 
 - **quipu** — the truest metaphor available. The Inca knotted-cord device
   encoded structured, dependent records as knots on cords: literally a database
@@ -1532,9 +1467,4 @@ Named 2026-09-16. Rejected, and why:
 - **strand** — a strand of beads. States the lineage plainly, and a strand is a
   chain of dependent things, which is the part beads gets right. Too derivative.
 - **ready** — named for the one query that matters. Unsearchable, and
-  `ready close cn-14` reads badly.
-
-**Design settled** over an interview on 2026-09-16 and 2026-09-17. The original
-README made this conditional on the beads trial (`app-1ck`) ending in a no;
-that condition is superseded by the decision to build it here and dogfood it on
-its own construction before it goes anywhere near Invyte.
+  `ready close app-14` reads badly.
