@@ -56,7 +56,7 @@ the stack of stones a traveller leaves to mark the route for whoever comes next.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/overview-dark.png">
-  <img alt="The cairn web page for Driftwood, a tide-and-weather app's worklist: each epic with its health line, the issues in progress with who holds them, and the blockers waiting on a person." src="docs/images/overview-light.png">
+  <img alt="The cairn web page for Driftwood, a tide-and-weather app's worklist: three waiting on you, four in progress and six ready; a strip per project with four weeks of activity; the three blockers waiting on a person and the issues they hold; and the live activity of four agents on the right." src="docs/images/overview-light.png">
 </picture>
 
 _A demo worklist, for a fictional team building a tide-and-weather app._
@@ -108,10 +108,10 @@ brief like this:
 ```text
 cairn · driftwood · harbor-mac/claude
 projects        api · app · web
-ready 3         web-1 "beta signup page with a waitlist" P1 · app-5 "alert settings: a wind threshold per boat" P2 · app-3 "offline banner overlaps the chart in landscape" P3
-in progress     app-1 "cache seven days of tide tables on the device" harbor-mac/claude just now · yours · api-3 "rate-limit the alert fan-out per sea area" ci-linux/claude just now
-follow-ups      app-9 "verify: vibrate pattern for gale alerts" [verify]
-waiting on you  2
+ready 6         web-1 "beta signup page with a waitlist" P1 · app-5 "alert settings: a wind threshold per boat" P2 · api-8 "pull wind and swell from Open-Meteo beside the current model" P2
+in progress     app-1 "cache seven days of tide tables on the device" harbor-mac/claude 1d · yours · app-8 "TestFlight build on every merge to main" maya-mbp/codex 6h · web-3 "harbour page: today's tides, forecast and berths" maya-mbp/claude 3h · api-2 "rate-limit the alert fan-out per sea area" ci-linux/claude 1h
+follow-ups      app-10 "verify: vibrate pattern for gale alerts" [verify]
+waiting on you  3
 ```
 
 Work is always named by id and title together, `app-14 "fix connection retry"`, so a
@@ -119,7 +119,7 @@ reference means something to whoever reads it, in any session on any machine.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/issue-dark.png">
-  <img alt="An issue's page in the cairn web window: its status line, the journal of what agents found while working on it, the links attached to it, and the proof it was closed with." src="docs/images/issue-light.png">
+  <img alt="An issue's page in the cairn web window: its epic, project and status, the issue it blocks, the links agents attached, its description and acceptance, and on the right the history of what happened to it over twenty days." src="docs/images/issue-light.png">
 </picture>
 
 ## What setup does
