@@ -181,7 +181,7 @@ Every step can be done by hand instead: [docs/install.md](docs/install.md).
 | | |
 |---|---|
 | [docs/install.md](docs/install.md) | setup by hand, updating an install, rotating or revoking a secret, trying cairn with no account |
-| [docs/design.md](docs/design.md) | the design: every decision, what was deliberately left open, and the measurements behind both |
+| [docs/design.md](docs/design.md) | the design: every decision and its reason, what was ruled out, and the measurements behind both |
 | [packages/cli/README.md](packages/cli/README.md) | `cn`: the files it reads and every verb; `cn <verb> --help` is each one's contract |
 | [plugins/cairn/README.md](plugins/cairn/README.md) | the Claude Code plugin: the skill, the hooks and the slash commands |
 | [AGENTS.md](AGENTS.md) | for an agent working on cairn itself: the layout, the toolchain and the verification table |
