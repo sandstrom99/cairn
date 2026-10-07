@@ -13,7 +13,7 @@ only: not a wiki, not a knowledge base, not an orchestrator.
 ## Where work happens
 
 Never in the install. `cn` on PATH and the plugin every repository's sessions load both
-run from a clone kept at `main`, `~/.local/share/cairn` by the README's "1. Install `cn`",
+run from a clone kept at `main`, `~/.local/share/cairn` by `docs/install.md`'s "1. Install `cn`",
 so a branch checked out there changes every company's sessions at once. Work happens in
 a development clone, anywhere other than the install, and in the worktrees under its
 `.claude/worktrees/`, where checking anything out reaches nothing else.
@@ -48,7 +48,7 @@ rows run against a throwaway they start and stop. A row that names the cloud dep
 `cairn`, or needs a cloud deployment at all (`#push:cloud`, `#secret` against the cloud,
 `#new:cloud`, `cn doctor` with nothing set, the guard row, the `.claude/settings.json`
 row, the init.md row's cairn checkout), runs against a deployment of your own, stood up
-as the README's "Install by hand" says, with `cairn` read as its name; or the pull
+as `docs/install.md` says, with `cairn` read as its name; or the pull
 request names it as not run, and why.
 
 One command, about a second, before you say anything works:

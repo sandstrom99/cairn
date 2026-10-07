@@ -56,7 +56,7 @@ runs the commands.
 
 ## Verifying a change
 
-Once per clone, with `vp` installed as the README's "1. Install `cn`" says:
+Once per clone, with `vp` installed as [docs/install.md](docs/install.md)'s "1. Install `cn`" says:
 
 ```bash
 vp install
@@ -69,7 +69,7 @@ command each kind of change needs. `vp run verify:e2e` needs no deployment of an
 since it runs against a throwaway it starts and stops.
 
 A row that names the cloud deployment `cairn`, or needs a cloud deployment at all, runs
-against a deployment of your own, stood up as the README's "Install by hand" says, with
+against a deployment of your own, stood up as [docs/install.md](docs/install.md) says, with
 `cairn` read as its name; or the pull request names it as not run, and why.
 
 ## Licence

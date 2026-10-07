@@ -545,7 +545,7 @@ agnostic, so a machine fence is text on the issue.
 one-off stripped it from `cairn` and `invyte`, and cn-120 dropped it from the schema, for
 every deployment and not only those two (Balder, "nuke the field for strangers too"). A
 deployment that ran cairn from before `b673ae2` still stores it, and Convex refuses a
-schema without the field over rows that have it; the README's "Updating" says the one
+schema without the field over rows that have it; `docs/install.md`'s "Updating" says the one
 push through `b673ae2` that clears it.
 
 ---
@@ -1294,7 +1294,7 @@ Three things pinned, and why:
   match it: it hands check, test and build to the checkout's own copy, and
   `vp --version` lists both. A global of 0.3.1 or later also brings the pnpm that
   `packageManager` names, which 0.1.x does not. Until 2026-09-29 this rule tied
-  the global to the catalog too. It was dropped when a global 1.0.0, the README's
+  the global to the catalog too. It was dropped when a global 1.0.0, the
   installer's latest, over the catalog's 0.1.24 ran `vp install`, `vp run verify`
   and `vp run verify:e2e` green on a fresh Mac. CI still installs the global at the
   catalog's version, since `setup-vp` reads it from `package.json`, and sets pnpm
