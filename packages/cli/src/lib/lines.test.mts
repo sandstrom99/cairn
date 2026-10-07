@@ -625,10 +625,10 @@ describe("brief", () => {
 
   it("prints the description's first line before the design's", () => {
     const shown = issue({
-      description: "Balder, 2026-09-21: the journal is the most context an issue has.\n\nMore.",
+      description: "Maya, 2026-09-21: the journal is the most context an issue has.\n\nMore.",
     });
     expect(brief(shown, now).split("\n").slice(4, 6)).toEqual([
-      "description     Balder, 2026-09-21: the journal is the most context an issue has.…",
+      "description     Maya, 2026-09-21: the journal is the most context an issue has.…",
       "design          transcribe §3…",
     ]);
   });

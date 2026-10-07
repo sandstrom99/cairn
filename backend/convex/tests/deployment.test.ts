@@ -24,8 +24,8 @@ describe("deployment.pushedFrom", () => {
 
 describe("deployment.name", () => {
   it("is the name #push:cloud recorded", async () => {
-    vi.stubEnv("CAIRN_NAME", "invyte");
-    expect(await fresh().query(api.deployment.name, {})).toBe("invyte");
+    vi.stubEnv("CAIRN_NAME", "driftwood");
+    expect(await fresh().query(api.deployment.name, {})).toBe("driftwood");
   });
 
   it("is null where nothing recorded one", async () => {

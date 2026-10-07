@@ -11,8 +11,8 @@
 // here, so deriving the actor never opens the file itself.
 //
 // Claude Code sets CLAUDECODE in every shell it runs, which is the whole test for `kind`:
-// a session on Balder's WSL box is balder-wsl/claude as an agent, Balder at a terminal
-// there is balder-wsl/balder as a human. Nothing else distinguishes them, and no token is
+// a session on Harbor's Mac is harbor-mac/claude as an agent, Harbor at a terminal
+// there is harbor-mac/harbor as a human. Nothing else distinguishes them, and no token is
 // planned: the host carries the person's name, which is how a colleague's agents differ.
 //
 // Every session on a machine is the same wsl/claude, so the name cannot tell two parallel
@@ -22,7 +22,7 @@
 // terminal has none, and the name stays as it was so the log keeps one stable actor.
 //
 // The OS hostname is cut to its first label and lowercased because a Mac's is
-// `Balders-Mac-mini.local`, and that on every claim reads like noise beside the
+// `Harbors-Mac-mini.local`, and that on every claim reads like noise beside the
 // `harbor-mac/claude` the docs show. A name someone chose, through CAIRN_HOST or
 // `cn init --host`, is taken as given.
 

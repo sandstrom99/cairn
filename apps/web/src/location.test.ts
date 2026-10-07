@@ -63,13 +63,13 @@ describe("isOurs", () => {
 
 describe("titleOf", () => {
   it("names the page, then the deployment", () => {
-    expect(titleOf(routeOf("/issues"), undefined, "invyte")).toBe("Issues · invyte");
-    expect(titleOf(routeOf("/log"), undefined, "invyte")).toBe("Log · invyte");
-    expect(titleOf(routeOf("/cn-14"), 'cn-14 "fix connection retry"', "invyte")).toBe(
-      'cn-14 "fix connection retry" · invyte',
+    expect(titleOf(routeOf("/issues"), undefined, "driftwood")).toBe("Issues · driftwood");
+    expect(titleOf(routeOf("/log"), undefined, "driftwood")).toBe("Log · driftwood");
+    expect(titleOf(routeOf("/cn-14"), 'cn-14 "fix connection retry"', "driftwood")).toBe(
+      'cn-14 "fix connection retry" · driftwood',
     );
-    expect(titleOf(routeOf("/projects"), undefined, "invyte")).toBe("Projects · invyte");
-    expect(titleOf(routeOf("/projects/cn"), undefined, "invyte")).toBe("cn · invyte");
-    expect(titleOf(routeOf("/"), undefined, "invyte")).toBe("invyte");
+    expect(titleOf(routeOf("/projects"), undefined, "driftwood")).toBe("Projects · driftwood");
+    expect(titleOf(routeOf("/projects/cn"), undefined, "driftwood")).toBe("cn · driftwood");
+    expect(titleOf(routeOf("/"), undefined, "driftwood")).toBe("driftwood");
   });
 });

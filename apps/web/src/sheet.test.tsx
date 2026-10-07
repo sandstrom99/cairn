@@ -262,14 +262,13 @@ describe("an issue's page", () => {
   it("prints the description in full, where the brief keeps its first line", () => {
     const described: ShownIssue = {
       ...held,
-      description:
-        "Balder, 2026-09-21: the journal is the most context an issue has.\n\nSo show it.",
+      description: "Maya, 2026-09-21: the journal is the most context an issue has.\n\nSo show it.",
     };
     expect(brief(described, now)).toContain(
-      "description     Balder, 2026-09-21: the journal is the most context an issue has.…",
+      "description     Maya, 2026-09-21: the journal is the most context an issue has.…",
     );
     expect(page(described)).toContain(
-      "description Balder, 2026-09-21: the journal is the most context an issue has. So show it.",
+      "description Maya, 2026-09-21: the journal is the most context an issue has. So show it.",
     );
   });
 

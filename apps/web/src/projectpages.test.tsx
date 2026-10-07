@@ -52,7 +52,7 @@ const blockers: WaitingBlocker[] = [
 
 const app = project({
   slug: "app",
-  name: "Invyte: the app",
+  name: "Driftwood: the app",
   filed: 6,
   counts: { open: 4, inProgress: 1, closed: 1, dropped: 0, followUps: 0 },
   health: {
@@ -76,7 +76,7 @@ describe("ProjectsPage", () => {
   });
 
   it("opens on a clause per project, most pressing first", () => {
-    const admin = project({ slug: "admin", name: "Invyte admin, the admin app" });
+    const admin = project({ slug: "admin", name: "Driftwood admin, the harbour office app" });
     expect(
       text(<ProjectsPage projects={[admin, app]} issues={issues} blockers={blockers} now={now} />),
     ).toMatch(/^app waits on you\. admin has nothing filed\. 5 live issues in 2 projects/);
@@ -93,7 +93,7 @@ describe("ProjectPage", () => {
   });
 
   it("says nothing is filed, and lists nothing, under a project nothing is filed under", () => {
-    const admin = project({ slug: "admin", name: "Invyte admin" });
+    const admin = project({ slug: "admin", name: "Driftwood admin" });
     const markup = renderToStaticMarkup(
       <ProjectPage slug="admin" projects={[admin]} issues={[]} blockers={[]} now={now} />,
     );

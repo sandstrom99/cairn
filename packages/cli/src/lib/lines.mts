@@ -139,7 +139,7 @@ const healthRowLine = (row: HealthRow): string =>
  * A project's health block, as `cn project list` prints it (docs/design.md §8): its
  * head in the reference form with its counts, then what is moving, stuck and waiting,
  * exactly as an epic's. A project nothing has been filed under is its head alone:
- * `admin "Invyte admin, the admin app"  nothing filed`.
+ * `admin "Driftwood admin, the harbour office app"  nothing filed`.
  */
 export function projectLines(project: ProjectView, now: number = Date.now()): string[] {
   const { epic, counts, rows } = projectParts(project, now);
