@@ -1,0 +1,37 @@
+name: A problem
+description: Something cairn did that it should not have, or did not do.
+labels: [bug]
+body:
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: Exactly, as typed or as you asked the agent.
+    validations:
+      required: true
+  - type: textarea
+    id: printed
+    attributes:
+      label: What it printed
+      description: Paste the output rather than describe it.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: textarea
+    id: doctor
+    attributes:
+      label: cn doctor
+      description: What `cn doctor` prints, with secrets and deployment URLs trimmed.
+      render: text
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Your OS, and what `node --version` and `vp --version` print.
+      placeholder: macOS 26.1, node v24.21.0, vp v0.1.24
+    validations:
+      required: true

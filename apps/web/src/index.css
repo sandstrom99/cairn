@@ -1,6 +1,6 @@
 /*
- * index.css: the page's tokens and its three surfaces. The direction is settled on
- * cn-26 "apps/web, the read-only window" and drawn in docs/mock/overview.html:
+ * index.css: the page's tokens and its three surfaces. The direction, as docs/design.md's
+ * "The web window" settles it:
  *
  *   - Glass only on what floats: the rail, the feed, the jump bar, a dialog. Content sits
  *     on paper and scrolls under the glass, which is the only time glass shows anything.

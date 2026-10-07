@@ -57,8 +57,8 @@ describe("cn doctor", () => {
 
   it("names the page at the deployment's URL with .site for .cloud, region and all", () => {
     expect(pageUrl("https://tidy-otter-1.convex.cloud")).toBe("https://tidy-otter-1.convex.site");
-    expect(pageUrl("https://perfect-sandpiper-97.eu-west-1.convex.cloud/")).toBe(
-      "https://perfect-sandpiper-97.eu-west-1.convex.site",
+    expect(pageUrl("https://quiet-heron-412.eu-west-1.convex.cloud/")).toBe(
+      "https://quiet-heron-412.eu-west-1.convex.site",
     );
     expect(pageCheck(cloud)).toEqual([
       { check: "page", ok: true, line: "page https://tidy-otter-1.convex.site" },

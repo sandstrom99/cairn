@@ -347,7 +347,9 @@ describe("tipOf", () => {
 
 describe("shown", () => {
   it("drops the scheme and the trailing slash", () => {
-    expect(shown("https://github.com/invyte-hq/invyte")).toBe("github.com/invyte-hq/invyte");
-    expect(shown("https://invyte.dk/")).toBe("invyte.dk");
+    expect(shown("https://github.com/driftwood-hq/driftwood")).toBe(
+      "github.com/driftwood-hq/driftwood",
+    );
+    expect(shown("https://driftwood.dk/")).toBe("driftwood.dk");
   });
 });

@@ -45,7 +45,7 @@ const app = project({
     waiting: [{ id: "bl-1", title: "PostHog project settings", owner: "balder" }],
   },
 });
-const admin = project({ slug: "admin", name: "Invyte admin, the admin app" });
+const admin = project({ slug: "admin", name: "Driftwood admin, the harbour office app" });
 
 const lanes = [
   { project: app, issues: four, marks, held },

@@ -192,7 +192,7 @@ const filed = project({
   counts: { open: 2, inProgress: 1, closed: 3, dropped: 0, followUps: 1 },
   health: busy.health,
 });
-const empty = project({ slug: "admin", name: "Invyte admin, the admin app" });
+const empty = project({ slug: "admin", name: "Driftwood admin, the harbour office app" });
 
 /** `listed` as `cn list --silent` lists it, quiet two hours. */
 const quiet = { ...listed, silentSince: now - 2 * HOUR };
@@ -561,8 +561,8 @@ describe("what the lines carry", () => {
 describe("the rail's head", () => {
   it("reads the deployment's own name as the big word, with the host under it", () => {
     expect(
-      text(<Rail name="invyte" host="h" epics={[]} theme="light" onToggleTheme={() => {}} />),
-    ).toMatch(/^invyte h /);
+      text(<Rail name="driftwood" host="h" epics={[]} theme="light" onToggleTheme={() => {}} />),
+    ).toMatch(/^driftwood h /);
   });
 
   it("reads cairn where no name is recorded", () => {

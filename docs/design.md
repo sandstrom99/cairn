@@ -45,7 +45,7 @@ doing that.
 
 | Branch | Decision |
 |---|---|
-| Topology | One Convex deployment **per company**. Invyte one, personal another. |
+| Topology | One Convex deployment **per company**. A company's one, personal projects another. |
 | Scope | Code work, plus anything that blocks code work. Nothing free-floating. |
 | Knowledge | Tasks only. A finding is a journal entry; a decision is an issue. Nothing to index. |
 | Hierarchy | `epic` floats above projects. `project` is a field on the **issue**. One epic spans app, web and admin. |
@@ -778,7 +778,7 @@ Epics cut across projects, so an epic's health cannot say whether anything in
 `admin` has stopped moving. A project has the same three lines over its own
 issues, from the same `issueHealth` in `lib/health.ts`, and `cn project list`
 prints a block per project in the epic's shape; a project nothing has been filed
-under is its head alone, `admin "Invyte admin, the admin app"  nothing filed`.
+under is its head alone, `admin "Driftwood admin, the harbour office app"  nothing filed`.
 Beside them the page draws the project's pulse, which the text lines do not
 print. `projects.list` carries it for a caller that sends `pulse: true`,
 `cn project list` and the page's Projects routes, and the rail's subscription on
@@ -795,8 +795,7 @@ for a deployment that had events before the table did. Revised 2026-09-30 from d
 
 ### The web window
 
-Settled 2026-09-21 on a static mock, `docs/mock/overview.html`, before any
-component was written. The page a person opens answers two questions: what are
+Settled 2026-09-21 on a static mock, before any component was written. The page a person opens answers two questions: what are
 the agents doing, and does anything need me.
 
 **A row is one of cn's lines, typeset.** The page does not print the padded
@@ -936,7 +935,7 @@ the loop speaks plain language, and nothing on the page asks anyone to run or pa
 command, not a `cn` line and not a slash command. Copying commands would make the person
 the one steering their agents, which is another job.
 
-**Projects.** Added 2026-09-30 (cn-127), built to the mock Balder settled on cn-123, `https://claude.ai/artifact/4SNvUM8MESoyRAbGacedYo` at version `1790717059-c337`, the way `docs/mock/overview.html` was the Overview's. The rail gets a Projects item between Overview and Issues and, above Epics, a section with every project: its dot, its slug and its live count, the name on hover, most pressing first. `/projects` opens on a headline with one clause per project in the same order, waiting, then stuck, then moving, then quiet, then nothing filed, in the page's own words (`apps/web/src/projects.ts`, beside the brief's): `app waits on you. tools is moving, with 2 stuck. admin has nothing filed.` Under it the chart: one lane per project, every live issue a dot placed left to right by how long since it last moved, on a log scale with three days at the middle and 45 days at the right edge, and top to bottom by priority, with each priority's limit from `thresholds.ts` drawn as the zone a dot is in once it is stuck; moving, waiting and stuck are the dot's chroma, and open is hollow. Then a section per project: its `cn project list` block, the head line and the health rows typeset the way an epic's are on the Overview, with the description and the links as chips between the head and the rows, and under the rows the pulse `projects.list` carries, one bar a day for 28 days with the closes in ink at the foot, beside one dot per live issue under each epic. `/projects/<slug>` is one project with room: the chart alone, the pulse beside the epic strips, then Moving, Waiting on you, Stuck and Open, each row `cn list --silent 0d`'s line with a meter of its silence against its priority's limit, and the closes of the last four weeks folded. It lives under `/projects/` because a slug may be `log` or `issues`, which are pages already. The page reads what `projects.list`, `issues.list` and `blockers.list` answer and decides nothing they do not: an issue is stuck because its project's health names it, and waiting because a blocker on the list holds it.
+**Projects.** Added 2026-09-30 (cn-127), built to a mock settled before it, the way the Overview's was. The rail gets a Projects item between Overview and Issues and, above Epics, a section with every project: its dot, its slug and its live count, the name on hover, most pressing first. `/projects` opens on a headline with one clause per project in the same order, waiting, then stuck, then moving, then quiet, then nothing filed, in the page's own words (`apps/web/src/projects.ts`, beside the brief's): `app waits on you. tools is moving, with 2 stuck. admin has nothing filed.` Under it the chart: one lane per project, every live issue a dot placed left to right by how long since it last moved, on a log scale with three days at the middle and 45 days at the right edge, and top to bottom by priority, with each priority's limit from `thresholds.ts` drawn as the zone a dot is in once it is stuck; moving, waiting and stuck are the dot's chroma, and open is hollow. Then a section per project: its `cn project list` block, the head line and the health rows typeset the way an epic's are on the Overview, with the description and the links as chips between the head and the rows, and under the rows the pulse `projects.list` carries, one bar a day for 28 days with the closes in ink at the foot, beside one dot per live issue under each epic. `/projects/<slug>` is one project with room: the chart alone, the pulse beside the epic strips, then Moving, Waiting on you, Stuck and Open, each row `cn list --silent 0d`'s line with a meter of its silence against its priority's limit, and the closes of the last four weeks folded. It lives under `/projects/` because a slug may be `log` or `issues`, which are pages already. The page reads what `projects.list`, `issues.list` and `blockers.list` answer and decides nothing they do not: an issue is stuck because its project's health names it, and waiting because a blocker on the list holds it.
 
 Six routes do not get a router. The path is the state, and one listener turns
 every plain same-origin link into `history.pushState`, so components write

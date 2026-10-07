@@ -119,7 +119,7 @@ On a machine's first deployment, ask in the same round what the machine is calle
 host in the actor name every claim, journal entry and `in progress` line carries, as
 `<host>/claude`. cairn runs on trust, so that name is the only thing telling this
 person's agents from a colleague's, and it carries the person's name as well as the
-machine's. Propose `<first name>-<machine>`, lowercased, such as `balder-mac-mini` or
+machine's. Propose `<first name>-<machine>`, lowercased, such as `harbor-mac-mini` or
 `maya-wsl`. The first name is `whoami` when that reads as one, else `git config user.name`
 when that does, which often holds a handle instead; otherwise ask who they are in the same
 round. The machine part is a word or two they will recognise. When the default, the host
