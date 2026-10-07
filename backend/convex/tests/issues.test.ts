@@ -7,7 +7,7 @@ import {
   type Harness,
   actor,
   at,
-  balder,
+  harbor,
   closeIssue,
   eventsOf,
   other,
@@ -551,19 +551,19 @@ describe("issues.release", () => {
 
     // Releasing is not claiming: the issue is open for anybody, the releaser included.
     await expect(
-      t.mutation(api.issues.claim, { actor: balder, id: "cn-1" }),
+      t.mutation(api.issues.claim, { actor: harbor, id: "cn-1" }),
     ).resolves.toMatchObject({
-      claimedBy: balder,
+      claimedBy: harbor,
     });
     await expect(t.mutation(api.issues.claim, { actor: other, id: "cn-1" })).rejects.toMatchObject({
-      data: { kind: "claimed", by: balder },
+      data: { kind: "claimed", by: harbor },
     });
   });
 
   it("lets a human release anybody's claim, and does nothing to an unclaimed issue", async () => {
     const t = await withIssue();
     await t.mutation(api.issues.claim, { actor, id: "cn-1" });
-    expect(await t.mutation(api.issues.release, { actor: balder, id: "cn-1" })).toMatchObject({
+    expect(await t.mutation(api.issues.release, { actor: harbor, id: "cn-1" })).toMatchObject({
       status: "open",
       revision: 2,
     });

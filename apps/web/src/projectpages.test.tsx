@@ -42,7 +42,7 @@ const blockers: WaitingBlocker[] = [
     id: "bl-1",
     title: "PostHog project settings",
     blockerKind: "decision",
-    owner: "balder",
+    owner: "harbor",
     status: "raised",
     raisedAt: ago(HOUR),
     raisedBy: agent,
@@ -58,7 +58,7 @@ const app = project({
   health: {
     moving: [{ id: "app-1", title: "the invite flow", claimedBy: agent, claimedAt: ago(HOUR) }],
     stuck: [{ id: "app-3", title: "the settings page", lastActivity: ago(5 * DAY) }],
-    waiting: [{ id: "bl-1", title: "PostHog project settings", owner: "balder" }],
+    waiting: [{ id: "bl-1", title: "PostHog project settings", owner: "harbor" }],
   },
 });
 

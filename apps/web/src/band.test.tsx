@@ -15,7 +15,7 @@ const app = project({
   health: {
     moving: [],
     stuck: [],
-    waiting: [{ id: "bl-1", title: "settings", owner: "balder" }],
+    waiting: [{ id: "bl-1", title: "settings", owner: "harbor" }],
   },
   pulse: [
     ...Array.from({ length: 26 }, () => ({ events: 0, closes: 0 })),

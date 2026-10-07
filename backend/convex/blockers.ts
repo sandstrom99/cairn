@@ -31,7 +31,7 @@ import { expectRevision } from "./lib/revision";
 import { blockerKindValidator, isLive } from "./lib/validators";
 import { blockerView, ref } from "./lib/views";
 
-/** `bl-3 was resolved by balder on 2026-09-17T…`: who ended it, so nobody reopens it. */
+/** `bl-3 was resolved by harbor on 2026-09-17T…`: who ended it, so nobody reopens it. */
 const alreadyResolved = (doc: Doc<"blockers">) =>
   invalid(
     `${doc.id} was resolved by ${doc.resolvedBy?.name ?? "somebody"} on ${new Date(

@@ -7,7 +7,7 @@ const NEW = [
   "--kind",
   "approval",
   "--owner",
-  "balder",
+  "harbor",
   "--title",
   "the App Store agreement",
   "--resolves",
@@ -21,7 +21,7 @@ describe("cn wait", () => {
       args: {
         issue: "cn-1",
         kind: "approval",
-        owner: "balder",
+        owner: "harbor",
         title: "the App Store agreement",
         whatResolves: "accept it in App Store Connect",
       },
@@ -56,9 +56,9 @@ describe("cn wait", () => {
   it("needs an issue, a known kind, and the fields that describe the wait", () => {
     expect(() => parse([])).toThrow(UsageError);
     expect(() => parse(["cn-1", "cn-2", "--on", "bl-3"])).toThrow(UsageError);
-    expect(() => parse(["cn-1", "--kind", "vibes", "--owner", "balder"])).toThrow(UsageError);
+    expect(() => parse(["cn-1", "--kind", "vibes", "--owner", "harbor"])).toThrow(UsageError);
     expect(() =>
-      parse(["cn-1", "--kind", "approval", "--owner", "balder", "--title", "x"]),
+      parse(["cn-1", "--kind", "approval", "--owner", "harbor", "--title", "x"]),
     ).toThrow(/needs --resolves/);
     expect(() =>
       parse(["cn-1", "--kind", "approval", "--title", "the agreement", "--resolves", "sign"]),

@@ -221,7 +221,7 @@ describe("show.get", () => {
       kind: "blocker",
       id: "bl-1",
       blockerKind: "approval",
-      owner: "balder",
+      owner: "harbor",
       status: "raised",
       issues: [{ id: "cn-1" }],
     });

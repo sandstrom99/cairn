@@ -10,7 +10,7 @@ import {
   type Harness,
   actor,
   at,
-  balder,
+  harbor,
   closeIssue,
   eventsOf,
   fresh,
@@ -173,7 +173,7 @@ describe("epic health", () => {
     const health = await healthOf(t);
     expect(health.stuck.map((i) => i.id)).toEqual(["cn-2"]);
     expect(health.waiting).toEqual([
-      { id: "bl-1", title: "the App Store agreement", owner: "balder" },
+      { id: "bl-1", title: "the App Store agreement", owner: "harbor" },
     ]);
   });
 
@@ -218,9 +218,9 @@ describe("epic health", () => {
     await raise(t, "cn-1");
     await t.mutation(api.blockers.raise, { actor, issue: "cn-2", on: "bl-1" });
     expect((await healthOf(t)).waiting).toEqual([
-      { id: "bl-1", title: "the App Store agreement", owner: "balder" },
+      { id: "bl-1", title: "the App Store agreement", owner: "harbor" },
     ]);
-    await t.mutation(api.blockers.resolve, { actor: balder, id: "bl-1", note: "accepted" });
+    await t.mutation(api.blockers.resolve, { actor: harbor, id: "bl-1", note: "accepted" });
     expect((await healthOf(t)).waiting).toEqual([]);
   });
 

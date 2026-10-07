@@ -5,9 +5,9 @@ shared by every agent and every machine, and has no sync layer because there is
 nothing to sync.
 
 Every decision below is a decision, not a sketch, and its reason sits beside
-it. What was chosen without much argument is in §12, and what is deliberately
-left open is in §13, with the lean recorded. How each was reached is in git and
-in cairn's own worklist.
+it. §12 holds the scales, shapes and thresholds the rest relies on, §13 how a
+deployment is chosen, fenced and shared, and §14 what was ruled out. How each
+was reached is in git and in cairn's own worklist.
 
 ---
 
@@ -46,7 +46,7 @@ doing that.
 | Hierarchy | `epic` floats above projects. `project` is a field on the **issue**. One epic spans app, web and admin. |
 | Project | Coarse and arbitrary. `app` + `backend` are **one** project. A project may be a repo, or a prototyping effort. Not repo-shaped. |
 | Ids | Project-prefixed: `app-14`, `web-22`. Epics `ep-7`, blockers `bl-3`, from one global counter each. All minted server-side inside a transaction from a `counters` table, never reused. `ep` and `bl` are reserved project slugs. |
-| Actor | `{ name, kind: human \| agent }`, stored inline on every claim, journal entry, edge, blocker and event. `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller, and nothing checks it: cairn runs on trust, and the host in the name carries the person's (§12, §13). |
+| Actor | `{ name, kind: human \| agent, session? }`, stored inline on every claim, journal entry, edge, blocker and event. `cn` supplies it as an argument, with `kind` set from whether Claude Code is the caller, and nothing checks it: cairn runs on trust, and the host in the name carries the person's (§12, §13). |
 | Surface | One `cn` CLI over typed Convex calls. **No MCP server**; the reasoning is in §10. |
 | References | Every mention of an issue or epic carries id **and** title: `app-14 "fix connection retry"`. A bare id is a bug. §10. |
 | Concurrency | Document revision on mutable fields. Journal entries and comments are inserts and never conflict. |
@@ -55,7 +55,7 @@ doing that.
 | Orphans | `epicId` is non-null. One inbox epic per deployment, `ep-0 "Inbox"`, is the escape hatch, and draining it is the first thing a review sitting looks at (§7). Not one per project: an epic has no project, and `cn list --epic ep-0 --project app` is the per-project view for free. |
 | Done | Closing takes a verification record: what was run and what it said, or `unverified` with a reason. |
 | Residue | A `follow-up` issue linked to its parent, counted **outside** the epic denominator. |
-| Fencing | Advisory in `ready` (returned and marked), filtered in the situation report. |
+| Fencing | None. Work only a device, a host or a person can finish says so in its own text, and a decision only a person can make is a human blocker. §5. |
 | Claiming | Atomic claim, no lease, idempotent per session: the actor's name and the Claude Code session it runs in, together (§5). `lastActivity` is stamped by every journal append. A silent claim is shown as silent and released on a person's word, by them or by an agent; nothing releases one alone (§7). Anybody may release, close or drop a claim another holds; leaving it alone is guidance, not a refusal (§5). |
 | Blockers | Own table, own lifecycle. Agents raise them, and end them only on the person's word, which the record quotes (§6). |
 | Blocker channel | Pull-only: on request, and in-session when an agent hits one. The person answers in the session, and the agent ends it on their word. |
@@ -64,7 +64,7 @@ doing that.
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
 | Code hosts | None. A pull request, a commit, an artifact or a doc is a link on the issue (§3 "Links"); cairn reads nothing from and writes nothing to a code host, GitHub Issues included. |
-| Layout | One pnpm workspace under vite-plus: `backend/` (Convex) + `packages/cli`. `apps/*` reserved. §10. |
+| Layout | One pnpm workspace under vite-plus: `backend/` (Convex), `packages/cli` and `apps/web`, the page. §10. |
 | Bootstrap | A minimal first slice, schema + create / list / ready / close / journal, and cairn dogfooded on its own construction from there. §11. |
 
 ---
@@ -153,6 +153,7 @@ blockers      id                string        bl-3
               resolvedBy?       actor
               resolvedAt?       number
               resolution?       string
+              said?             string        the person's words a resolve rests on, verbatim
               revision          number
               index by_public_id [id], by_status [status]
 
@@ -162,9 +163,9 @@ blockerLinks  blockerId         Id<blockers>
 
 journal       issueId           Id<issues>
               author            actor
-              kind              finding | decision | handoff | evidence | question
+              kind              finding | decision | handoff | evidence | question | next
               body              string
-              index by_issue [issueId]                       ← insert only, never updated
+              index by_issue [issueId], by_issue_kind [issueId, kind]   ← insert only, never updated
               searchIndex search_body [body]
 
 events        kind              string        issue.create, issue.claim, edge.add, blocker.resolve, …
@@ -178,7 +179,13 @@ events        kind              string        issue.create, issue.claim, edge.ad
               index by_issue [issueId, revision], by_epic [epicId], by_blocker [blockerId],
                     by_project [projectId]
 
-actor      =  { name: string, kind: human | agent }          stored inline wherever it appears
+pulse         projectId         Id<projects>
+              day               number        UTC days since the epoch
+              events            number        events that touched the project's issues that day
+              closes            number        of those, the closes
+              index by_project_day [projectId, day]
+
+actor      =  { name: string, kind: human | agent, session?: string }   stored inline wherever it appears
 ```
 
 `_creationTime` is Convex's own field and is the created-at everywhere. Index
@@ -1037,8 +1044,7 @@ One surface: a CLI, without an MCP server beside it, for the reasons below.
   through Convex's generated `api` object, so a verb whose arguments drift from
   the function's validator fails `vp check`, not the agent.
 - An MCP server is a second surface with the same verbs, a process per session
-  and a registration step per agent. The CLI is needed regardless, for hooks and
-  crons.
+  and a registration step per agent. The CLI is needed regardless, for hooks.
 - The beads plugin's own slash commands instruct the agent to *"use the beads
   MCP `create` tool"*. `bd mcp` returns `unknown command` and there is no
   `mcpServers` key anywhere in the plugin. Agents fell back to Bash silently and
@@ -1070,11 +1076,11 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
        client.mts → ConvexHttpClient                                 ▲
        verbs/*    → api.<module>.<fn> → ref()                        │
                                                                      │
- apps/web, later  ──  convex/react subscriptions to the same functions
+ apps/web  ──  convex/react subscriptions to the same functions
 ```
 
 - **Every hop is one typed Convex function call over HTTPS.** `cn` uses the HTTP
-  client: one request, no socket, so a hook or a cron costs one process and one
+  client: one request, no socket, so a hook costs one process and one
   round trip. The web app uses the React client and subscribes to the same
   functions; nothing is written twice.
 - **Every mutation takes `actor`**, and on a mutable field `revision`. The actor is an
@@ -1099,8 +1105,8 @@ HTTP client with the secret spread in, an MCP wrapper, which there is not.
   `ref()`.
 - **There is no daemon on any machine, and no cron.** Every write the deployment
   makes is inside a verb somebody ran (§7).
-- **Two channels back to the human**: `cn waiting` and the brief's count now,
-  `apps/web` later.
+- **Two channels back to the human**: `cn waiting` and the brief's count in a
+  session, and the page (§8).
 
 ### The verbs
 
@@ -1158,8 +1164,8 @@ the form in sight above it, a bare id reads fine: the first three runs of the
 eval below each slipped once on a later mention and never on a first, and the
 reader's need was met by the form above. `cn show
 <id>` prints a ten-line brief, every list line starts with the reference form,
-and `--json` carries both fields. A URL into the web app slots in behind the
-same form later. The form is spelled in one place, `ref()` in
+and `--json` carries both fields. The page answers at `/<id>` for the same id
+(§8). The form is spelled in one place, `ref()` in
 `packages/cli/src/lib/ref.mts`.
 
 The form is the floor, not the context. Late in a session, "what is next"
@@ -1255,9 +1261,10 @@ is what runs, and the rules are few.
 
 ---
 
-## 12. Proposed, not decided
+## 12. Conventions
 
-Chosen without much argument, and cheap to overrule:
+The specific scales, shapes, thresholds and names the sections above rely on. Each
+is decided, and the shape of the design hangs on none of them:
 
 - **Priority 0–4**, matching beads, because agents are already trained on it and
   `bd prime` is emphatic that it is not high/medium/low.
@@ -1346,20 +1353,19 @@ Chosen without much argument, and cheap to overrule:
 
 ---
 
-## 13. Deferred
+## 13. Running cairn
 
-Not forgotten and not assumed. Each is to be settled against real usage during
-implementation.
+How a session finds its deployment and project, how a deployment is fenced and
+hosted, and what running it for more than one person rests on.
 
-| Open question | Current lean |
+| Question | Answer |
 |---|---|
 | How a session resolves repo → project → deployment | `CAIRN_URL`, then `CAIRN_DEPLOYMENT`, then the config's `default`. `CAIRN_DEPLOYMENT` names a deployment in `~/.config/cairn/config.json` and takes its URL from there and its secret from `secrets/<name>` beside it. A repository sets it in the `env` of its Claude settings, which reaches every Bash call and both hooks, `settings.local.json` over `settings.json`; it is a name, never a URL or a secret, so a tracked file may carry it. A name the machine lacks is an error naming the ones it has, and the SessionStart hook prints that line. A project is coarse, so path-derivation stays out, and there is no `.cairn` file in a repo. `cn init` writes the file: checked before written, added and never replaced, and `--refresh` rewrites one deployment's secret, the one `CAIRN_DEPLOYMENT` names when no `--name` is given, mode 600 |
-| Short ids for epics | `ep-7`, one global counter, minted like issue ids; blockers likewise as `bl-3`. §3 |
 | Local or cloud deployment for the throwaway window | A company's worklist is the development deployment of a Convex project of its own, `cairn-<name>` unless named otherwise. `#new:cloud` makes it with `convex dev --configure new --skip-push`, so no function runs there before `#secret -- new` has fenced it, and `#push:cloud` pushes to it with the login alone. A production deployment would need `convex deploy` and a deploy key, and buys a worklist nothing yet. The anonymous local deployment stays the development copy, and the throwaway stays the tests' (§11) |
 | Auth | One shared secret per deployment, `CAIRN_SECRET` in the deployment's env and `secrets/<name>` beside the machine's config, checked by a `lib/guard.ts` wrapper on every public function and skipped when the deployment has none set, so the local anonymous one stays open. That secret is the only check, and no identity auth is planned, for more than one person either (the last row). The actor stays an argument, and the page writes nothing, so nothing on it needs identity auth. The read-only window sends the same shared secret `cn` does, pasted into the page and kept in that browser's localStorage, never in the bundle; the dev server alone also takes it from `CAIRN_SECRET`, so a developer's machine does not ask |
 | Who counts as the actor on a journal entry or a claim | The argument `cn` sends (§12), taken on trust. There is no token to take it from instead |
 | Which project a session is in | The repository's `## cairn` section maps its parts to projects, in `CLAUDE.md` when the repository is wired for everyone who opens it and in `CLAUDE.local.md` when it is wired for one machine. `/cairn:init` writes it, and the skill reads it to pick `--project` on `cn create`. Where another tracker stays on, its last line says which one gets new work. It is prose for an agent, so `cn` still derives nothing from a path, and there is still no `.cairn` file in a repo. The brief's `projects` line names every project on the deployment, the section only the ones the repository maps, so the skill reads `cn project list` for work that fits none of its rows and asks when more than one could fit; `/cairn:init` drafts the section from the deployment's projects, the table mapping directories to slugs and the description staying the one place that says what a project is |
-| The 136 issues in the first company's beads graph | Nothing now; likely a partial import later |
+| Importing an existing beads graph | Not built. A partial import is the likely shape, if a worklist ever needs one |
 | A push channel for human blockers | None. The session is the channel (§6) |
 | Where the page is hosted | By the deployment it reads, at its `.convex.site` URL, shipped by `#push:cloud` after the functions (§8, "The web window"). Not one shared page for every company, which would hold a secret that can write for every visitor and have to match every deployment's functions at once. With a page per deployment, no browser needs to know about more than one, so there is no picker (the next row) |
 | Running cairn for more than one person | On trust. Nothing is enforced, and there is no member list, no key per person and no identity auth. **Agents** are told apart by `session` beside the actor's name (§5, §12), which is the part of identity a claim depends on. **Machines and people** are told apart by the host in the name, `<host>/claude`, which carries the person's name as well as the machine's, `harbor-mac/claude` beside a colleague's `maya-mbp/claude`; `/cairn:init` proposes such a name and takes whatever is chosen. **Handing it over** is the README's "Joining a worklist that exists" for a colleague, and "Get started" for someone standing up a worklist of their own. **The page's deployment picker** is not needed: each deployment serves its own page. What trust costs: anyone holding a deployment's secret writes under any name they give, and one person cannot be shut out without rotating the secret for everyone |

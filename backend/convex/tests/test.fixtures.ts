@@ -20,7 +20,7 @@ import schema from "../schema";
 /** This session's agent, an agent on another machine, and the person. */
 export const actor = { name: "wsl/claude", kind: "agent" } as const;
 export const other = { name: "mac/claude", kind: "agent" } as const;
-export const balder = { name: "wsl/balder", kind: "human" } as const;
+export const harbor = { name: "wsl/harbor", kind: "human" } as const;
 
 const modules = import.meta.glob("../**/*.ts");
 
@@ -95,10 +95,10 @@ export const closeIssue = (
   extra: Partial<Pick<CloseArgs, "actor" | "verification" | "followUp" | "next">> = {},
 ) => t.mutation(api.issues.close, { actor, id, revision, verification: ran, ...extra });
 
-/** The fields of a new blocker, as `cn wait --kind approval --owner balder …` sends them. */
+/** The fields of a new blocker, as `cn wait --kind approval --owner harbor …` sends them. */
 export const APPROVAL = {
   kind: "approval",
-  owner: "balder",
+  owner: "harbor",
   title: "the App Store agreement",
   whatResolves: "accept it in App Store Connect",
 } as const;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { UsageError } from "../lib/cli.mts";
 import { parse } from "./list.mts";
 
-const me = "wsl/balder";
+const me = "wsl/harbor";
 
 describe("cn list", () => {
   it("passes every filter through as the query's arguments", () => {

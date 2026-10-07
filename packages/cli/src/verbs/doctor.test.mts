@@ -140,8 +140,8 @@ describe("cn doctor", () => {
       ok: true,
       line: "actor wsl/claude (agent), session s-1",
     });
-    expect(actorCheck({ name: "wsl/balder", kind: "human" }).line).toBe(
-      "actor wsl/balder (human), no session",
+    expect(actorCheck({ name: "wsl/harbor", kind: "human" }).line).toBe(
+      "actor wsl/harbor (human), no session",
     );
   });
 

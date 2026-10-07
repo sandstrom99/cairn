@@ -374,7 +374,7 @@ describe("an epic's page", () => {
           },
         ],
         stuck: [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY }],
-        waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
+        waiting: [{ id: "bl-4", title: "name the day", owner: "harbor" }],
       },
     });
     const markup = renderToStaticMarkup(<EpicPage epic={busy} issues={[]} now={now} />);

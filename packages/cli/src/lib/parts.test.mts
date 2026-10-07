@@ -166,7 +166,7 @@ describe("the parts a line is joined from", () => {
           },
         ],
         stuck: [{ id: "cn-9", title: "the page's live feed", lastActivity: ago(9 * DAY) }],
-        waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+        waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "harbor" }],
       },
     };
     const parts = healthParts(view, now);
@@ -176,7 +176,7 @@ describe("the parts a line is joined from", () => {
     ).toEqual([
       ["moving", "cn-7", "wsl/claude 2h"],
       ["stuck", "cn-9", "silent 9d"],
-      ["waiting", "bl-3", "· owner balder"],
+      ["waiting", "bl-3", "· owner harbor"],
     ]);
     expect(healthLines(view, now)).toHaveLength(1 + parts.rows.length);
   });
@@ -198,7 +198,7 @@ describe("the parts a line is joined from", () => {
         },
       ],
       stuck: [{ id: "app-2", title: "the settings page", lastActivity: ago(9 * DAY) }],
-      waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "balder" }],
+      waiting: [{ id: "bl-3", title: "confirm the invite copy", owner: "harbor" }],
     };
     expect(projectParts(project({ filed: 5, counts, health }), now)).toEqual(
       healthParts({ id: "app", title: "the app", counts, health }, now),
@@ -210,13 +210,13 @@ describe("the parts a line is joined from", () => {
       id: "bl-1",
       title: "the App Store agreement",
       blockerKind: "approval",
-      owner: "balder",
+      owner: "harbor",
       status: "waiting",
       raisedAt: ago(5 * MINUTE),
       raisedBy: { name: "wsl/claude" },
     };
     const { target, kind, tail } = blockerParts(view, now);
-    expect(tail).toBe("owner balder · waiting · raised 5m ago by wsl/claude");
+    expect(tail).toBe("owner harbor · waiting · raised 5m ago by wsl/claude");
     expect(`${target.id} ${JSON.stringify(target.title)} ${kind} · ${tail}`).toBe(
       blockerLine(view, now),
     );

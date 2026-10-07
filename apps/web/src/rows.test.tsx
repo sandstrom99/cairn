@@ -58,12 +58,12 @@ const busy = epic({
       {
         id: "cn-26",
         title: "apps/web, the read-only window",
-        claimedBy: { name: "balder/claude", kind: "agent" },
+        claimedBy: { name: "harbor/claude", kind: "agent" },
         claimedAt: now - 2 * HOUR,
       },
     ],
     stuck: [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY }],
-    waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
+    waiting: [{ id: "bl-4", title: "name the day", owner: "harbor" }],
   },
 });
 
@@ -79,7 +79,7 @@ const crowded = epic({
       title: `stuck ${i + 1}`,
       lastActivity: now - days * DAY,
     })),
-    waiting: [{ id: "bl-4", title: "name the day", owner: "balder" }],
+    waiting: [{ id: "bl-4", title: "name the day", owner: "harbor" }],
   },
 });
 
@@ -135,10 +135,10 @@ const waitingBlocker: WaitingBlocker = {
   id: "bl-4",
   title: "name the day the page goes live",
   blockerKind: "decision",
-  owner: "balder",
+  owner: "harbor",
   status: "waiting",
   raisedAt: now - 2 * HOUR,
-  raisedBy: { name: "balder/claude" },
+  raisedBy: { name: "harbor/claude" },
   issues: [
     { id: "cn-21", title: "put the page on a public URL" },
     { id: "cn-9", title: "the page's live feed" },
@@ -151,7 +151,7 @@ const listed: Listed = {
   title: "apps/web, the read-only window",
   status: "in_progress",
   priority: 2,
-  claimedBy: { name: "balder/claude" },
+  claimedBy: { name: "harbor/claude" },
   epic: { id: "ep-4", title: "Humans in the loop" },
   type: "task",
   project: "cn",
@@ -242,7 +242,7 @@ const raised = event({
   changes: {
     id: "bl-4",
     blockerKind: "decision",
-    owner: "balder",
+    owner: "harbor",
     title: "name the day",
     whatResolves: "a date",
     issue: "cn-25",
@@ -515,7 +515,7 @@ describe("what the lines carry", () => {
 
   it("reads a raised blocker as its line", () => {
     expect(text(<FeedEvent event={raised} now={now} />)).toContain(
-      'bl-4 "name the day" decision · owner balder',
+      'bl-4 "name the day" decision · owner harbor',
     );
   });
 

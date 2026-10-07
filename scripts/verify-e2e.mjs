@@ -669,7 +669,7 @@ row("verbs/wait.mts", () => {
   assert.match(made.out, /cn-4/, "the fourth issue did not mint cn-4");
 
   const raised = pass(
-    `wait cn-4 --kind decision --owner balder --title scratch --resolves 'the round trip is done'`,
+    `wait cn-4 --kind decision --owner harbor --title scratch --resolves 'the round trip is done'`,
     "cn wait was refused",
   );
   assert.match(raised.out, /bl-1/, "the first blocker did not mint bl-1");
@@ -831,7 +831,7 @@ row("verbs/log.mts", () => {
   );
   assert.ok(
     whole.some((l) =>
-      /^cn-4 ".*  blocker\.raise  e2e\/claude  just now  bl-1 "scratch" decision · owner balder$/.test(
+      /^cn-4 ".*  blocker\.raise  e2e\/claude  just now  bl-1 "scratch" decision · owner harbor$/.test(
         l,
       ),
     ),
@@ -1142,7 +1142,7 @@ row("verbs/update.mts (blocker)", () => {
   assert.ok(issue, "cn create did not print the new issue's id first");
 
   const raised = pass(
-    `wait ${issue} --kind decision --owner balder --title 'scratch: options' --resolves 'scratch: one is picked' --link '[options](https://example.com/options)'`,
+    `wait ${issue} --kind decision --owner harbor --title 'scratch: options' --resolves 'scratch: one is picked' --link '[options](https://example.com/options)'`,
     "cn wait --link was refused",
   );
   assert.match(raised.out, /bl-2/, "the second blocker did not mint bl-2");

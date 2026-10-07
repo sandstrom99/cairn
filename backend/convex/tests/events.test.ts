@@ -42,7 +42,7 @@ describe("events.recent", () => {
     await raise(t, "cn-2", {
       kind: "decision",
       title: "which onboarding copy ships",
-      whatResolves: "balder picks one",
+      whatResolves: "harbor picks one",
     });
     const withBlocker = await t.query(api.events.recent, {});
     const raised = withBlocker.find((e) => e.kind === "blocker.raise");

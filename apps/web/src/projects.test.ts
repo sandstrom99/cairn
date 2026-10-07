@@ -31,7 +31,7 @@ const stuck = [
   { id: "app-2", title: "the settings page", lastActivity: ago(9 * DAY) },
   { id: "app-3", title: "the profile", lastActivity: ago(8 * DAY) },
 ];
-const waiting = [{ id: "bl-1", title: "PostHog project settings", owner: "balder" }];
+const waiting = [{ id: "bl-1", title: "PostHog project settings", owner: "harbor" }];
 const counts = (open: number, inProgress = 0) => ({
   open,
   inProgress,
@@ -255,7 +255,7 @@ describe("markOf", () => {
       id: "bl-1",
       title: "PostHog project settings",
       blockerKind: "decision",
-      owner: "balder",
+      owner: "harbor",
       status: "raised",
       raisedAt: ago(HOUR),
       raisedBy: agent,
