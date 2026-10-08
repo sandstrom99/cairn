@@ -10,7 +10,9 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { notFound } from "./errors";
 import { issuesHeldBy } from "./graph";
-import { type IssueStatus, isLive } from "./validators";
+import { dayOf } from "./pulse";
+import { DAY, PULSE_DAYS } from "./thresholds";
+import { type IssueStatus, epicTypeOf, isLive } from "./validators";
 import { withoutOutput } from "./verification";
 
 export type Ref = { id: string; title: string };
@@ -88,16 +90,27 @@ export type IssueView = Awaited<ReturnType<typeof issueView>>;
  * The counts of a set of issues, an epic's or a project's. The four status counts are over
  * `task` issues only and `followUps` is the open follow-up work beside them: a follow-up
  * sits outside the denominator, so progress cannot be diluted by its own residue (§5).
+ * `recent` is the tasks filed and done in the last `PULSE_DAYS` UTC days, today included,
+ * the window a stream's head reads in place of an all-time done that only grows (§8). It is
+ * aligned to UTC days as the pulse is, so the head changes only at midnight, which
+ * `clock.next` already wakes the page for.
  */
-export function countsOf(issues: Doc<"issues">[]) {
+export function countsOf(issues: Doc<"issues">[], now: number = Date.now()) {
   const tasks = issues.filter((i) => i.type === "task");
   const count = (status: IssueStatus) => tasks.filter((i) => i.status === status).length;
+  const since = (dayOf(now) - (PULSE_DAYS - 1)) * DAY;
   return {
     open: count("open"),
     inProgress: count("in_progress"),
     closed: count("closed"),
     dropped: count("dropped"),
     followUps: issues.filter((i) => i.type === "follow-up" && isLive(i)).length,
+    recent: {
+      days: PULSE_DAYS,
+      filed: tasks.filter((i) => i._creationTime >= since).length,
+      done: tasks.filter((i) => i.status === "closed" && (i.closedAt ?? i.lastActivity) >= since)
+        .length,
+    },
   };
 }
 
@@ -106,17 +119,19 @@ export function countsOf(issues: Doc<"issues">[]) {
  * than reading them, so one read serves the view, the health line and whatever else the
  * caller does with them.
  */
-export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[]) {
+export function epicView(doc: Doc<"epics">, issues: Doc<"issues">[], now: number = Date.now()) {
   return {
     id: doc.id,
     title: doc.title,
+    type: epicTypeOf(doc),
+    doneWhen: doc.doneWhen,
     description: doc.description,
     links: doc.links,
     status: doc.status,
     droppedReason: doc.droppedReason,
     revision: doc.revision,
     createdAt: doc._creationTime,
-    counts: countsOf(issues),
+    counts: countsOf(issues, now),
   };
 }
 

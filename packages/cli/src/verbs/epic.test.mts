@@ -20,6 +20,23 @@ describe("cn epic", () => {
     });
   });
 
+  it("parses new as an outcome with --done-when, or a stream with --stream", () => {
+    expect(parse(["new", "Ship invite links", "--done-when", "a link opens the app"])).toEqual({
+      action: "new",
+      args: { title: "Ship invite links", doneWhen: "a link opens the app" },
+    });
+    expect(parse(["new", "Scout findings", "--stream"])).toEqual({
+      action: "new",
+      args: { title: "Scout findings", type: "stream" },
+    });
+    // Both, or neither, is the deployment's to refuse: it holds the rule.
+    expect(parse(["new", "t", "--stream", "--done-when", "x"]).args).toEqual({
+      title: "t",
+      type: "stream",
+      doneWhen: "x",
+    });
+  });
+
   it("takes an unquoted title as one title", () => {
     expect(parse(["new", "Create", "to", "close"])).toEqual({
       action: "new",
@@ -56,6 +73,16 @@ describe("cn epic", () => {
     expect(() => parse(["close", "ep-1", "--revision", "0", "--reason", "why"])).toThrow(
       UsageError,
     );
+  });
+
+  it("parses close --carry-to, and refuses it beside --drop", () => {
+    expect(parse(["close", "ep-1", "--revision", "3", "--carry-to", "ep-4"])).toEqual({
+      action: "close",
+      args: { id: "ep-1", revision: 3, carryTo: "ep-4" },
+    });
+    expect(() =>
+      parse(["close", "ep-1", "--revision", "0", "--drop", "--reason", "x", "--carry-to", "ep-4"]),
+    ).toThrow(/--carry-to goes with a close, not --drop; a drop takes the work with it/);
   });
 
   it("refuses a drop with no reason, or a blank one, before the deployment sees it", () => {

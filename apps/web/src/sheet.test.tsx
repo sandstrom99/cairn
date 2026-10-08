@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
 import { plain, squeeze } from "./plain.ts";
 import { typesetting } from "./Prose.tsx";
-import { facts } from "./testing.tsx";
+import { facts, rows } from "./testing.tsx";
 
 // The page's passages are set once Markdown.tsx is in (Prose.tsx).
 await typesetting;
@@ -111,7 +111,14 @@ describe("an issue's page", () => {
         epic({
           id: "ep-4",
           title: "Humans in the loop",
-          counts: { open: 1, inProgress: 1, closed: 3, dropped: 0, followUps: 0 },
+          counts: {
+            open: 1,
+            inProgress: 1,
+            closed: 3,
+            dropped: 0,
+            followUps: 0,
+            recent: { days: 28, filed: 0, done: 0 },
+          },
         }),
       ],
     };
@@ -363,7 +370,14 @@ describe("an epic's page", () => {
     const busy = epic({
       id: "ep-4",
       title: "Humans in the loop",
-      counts: { open: 1, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
+      counts: {
+        open: 1,
+        inProgress: 1,
+        closed: 0,
+        dropped: 0,
+        followUps: 0,
+        recent: { days: 28, filed: 0, done: 0 },
+      },
       health: {
         moving: [
           {
@@ -381,6 +395,22 @@ describe("an epic's page", () => {
     expect(markup).not.toContain('href="/cn-26"');
     expect(markup).toContain('href="/cn-10"');
     expect(markup).toContain('href="/bl-4"');
+  });
+
+  it("sets an outcome's done-when as cn's line, first among the rows under its head", () => {
+    const promised = epic({
+      doneWhen: "every issue in it is closed",
+      health: {
+        moving: [],
+        stuck: [{ id: "cn-10", title: "Northwind runs on cairn", lastActivity: now - 9 * DAY }],
+        waiting: [],
+      },
+    });
+    const lines = brief(promised, now).split("\n");
+    expect(lines[1]).toBe("  done when  every issue in it is closed");
+    expect(rows(<EpicPage epic={promised} issues={[]} now={now} />).slice(0, 2)).toEqual(
+      lines.slice(1, 3).map(squeeze),
+    );
   });
 
   it("sets the directions its finished issues left as cn's lines, under its links", () => {

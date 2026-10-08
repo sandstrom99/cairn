@@ -243,7 +243,9 @@ describe("lifecycle", () => {
 
   it("insertEpic returns the row open at revision 0, and its event carries revision 0", async () => {
     const t = fresh();
-    const doc = await t.run((ctx) => insertEpic(ctx, actor, { id: "ep-7", title: "Seven" }));
+    const doc = await t.run((ctx) =>
+      insertEpic(ctx, actor, { id: "ep-7", title: "Seven", type: "outcome" }),
+    );
     expect(doc).toMatchObject({ id: "ep-7", title: "Seven", status: "open", revision: 0 });
     expect("description" in doc).toBe(false);
     const events = await eventsOf(t, "epic.create");
@@ -257,7 +259,7 @@ describe("lifecycle", () => {
     const t = fresh();
     const description = "a session starts warm\nwith the brief in context";
     const doc = await t.run((ctx) =>
-      insertEpic(ctx, actor, { id: "ep-8", title: "Eight", description }),
+      insertEpic(ctx, actor, { id: "ep-8", title: "Eight", type: "outcome", description }),
     );
     expect(doc.description).toBe(description);
     const { createdAt: _, ...rest } = epicView(doc, []);
@@ -330,7 +332,11 @@ describe("lifecycle", () => {
 
   it("editIssue refuses an empty edit, and records each field and the epic as two public ids", async () => {
     const t = await withOne();
-    await t.mutation(api.epics.create, { actor, title: "Second" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "Second",
+      doneWhen: "every issue in it is closed",
+    });
     const doc = await rawIssue(t, "cn-1");
     await t.run(async (ctx) => {
       await expect(editIssue(ctx, actor, doc, {})).rejects.toMatchObject({
@@ -352,7 +358,11 @@ describe("lifecycle", () => {
 
   it("moveIssue is the one-field edit of the epic", async () => {
     const t = await withOne();
-    await t.mutation(api.epics.create, { actor, title: "Second" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "Second",
+      doneWhen: "every issue in it is closed",
+    });
     const doc = await rawIssue(t, "cn-1");
     const ep2 = await rawEpic(t, "ep-2");
     const moved = await t.run((ctx) => moveIssue(ctx, actor, doc, ep2));
@@ -362,7 +372,11 @@ describe("lifecycle", () => {
 
   it("closeEpic and dropEpic record their status maps, the drop with its reason", async () => {
     const t = await seed();
-    await t.mutation(api.epics.create, { actor, title: "Second" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "Second",
+      doneWhen: "every issue in it is closed",
+    });
     const ep1 = await rawEpic(t, "ep-1");
     const closed = await t.run((ctx) => closeEpic(ctx, actor, ep1));
     expect(closed).toMatchObject({ status: "closed", revision: 1 });
@@ -613,7 +627,14 @@ describe("graph", () => {
     const t = await withOne();
     const doc = (await rows(t, "epics")).find((e) => e.id === "ep-1")!;
     const view = epicView(doc, []);
-    expect(view.counts).toEqual({ open: 0, inProgress: 0, closed: 0, dropped: 0, followUps: 0 });
+    expect(view.counts).toEqual({
+      open: 0,
+      inProgress: 0,
+      closed: 0,
+      dropped: 0,
+      followUps: 0,
+      recent: { days: 28, filed: 0, done: 0 },
+    });
     expect(view.droppedReason).toBeUndefined();
 
     await t.mutation(api.epics.close, {

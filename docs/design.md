@@ -62,6 +62,7 @@ doing that.
 | Reconcile | No automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
 | Session start | A hook injects under 20 lines: which projects there are, counts plus the top of each queue. |
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
+| Epics | An outcome, with a done-when line as an issue has its verification, or a stream, an intake that never closes. The title says which: an outcome names the end state, a stream the flow and its duty. Nothing checks the title. §3, §7. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
 | Code hosts | None. A pull request, a commit, an artifact or a doc is a link on the issue (§3 "Links"); cairn reads nothing from and writes nothing to a code host, GitHub Issues included. |
 | Layout | One pnpm workspace under vite-plus: `backend/` (Convex), `packages/cli` and `apps/web`, the page. §10. |
@@ -98,10 +99,12 @@ epics         id                string        ep-7. ep-0 is the one inbox
               description?      string
               links?            { url, label?, by, at }[]   http and https only
               status            open | closed | dropped
+              type?             outcome | stream   absent on rows from before, read by id: ep-0 a stream, any other an outcome
+              doneWhen?         string        an outcome's finish line, one sentence; a stream has none
               droppedReason?    string        the epic view returns it, like an issue's
               revision          number
               index by_public_id [id], by_status [status]
-              ↑ no projectId: an epic is an outcome, not a place
+              ↑ no projectId: an epic is an outcome or a stream, not a place
 
 issues        id                string        app-14
               projectId         Id<projects>
@@ -477,9 +480,17 @@ session. It is on the close and not on a hook because the close is the moment th
 is finished whatever harness runs `cn`: Claude Code's Stop fires at every turn and
 cannot tell, and its SessionEnd fires when nothing is left to write with.
 
-**Edit an epic.** An epic's title, description and links are edited with
+**Edit an epic.** An epic's title, description, done-when and links are edited with
 `cn update ep-N` against its revision, as an issue's are, while it is open; ep-0,
-the inbox, is not.
+the inbox, is not. `--stream` turns an outcome into a stream and clears its done-when,
+and `--outcome --done-when` turns a stream back. A stream is never closed;
+`cn epic close --drop --reason` retires it.
+
+**Close an epic with work left in it.** An outcome is often reached with a few tasks left
+that belong to something next door. `cn epic close ep-N --carry-to ep-M` moves every open
+and in-progress task into ep-M and closes ep-N in one mutation; each issue's history reads
+the move, both epics name the carry, and a claim survives it. Follow-ups stay where they
+are, as on any close. The target is an open epic that is neither ep-N nor the inbox.
 
 ### Follow-ups: residue that must not hang
 
@@ -609,7 +620,7 @@ clutter is two mechanisms, and neither runs on its own:
 | Rule, as first written | Now |
 |---|---|
 | `blocks` edge pointing at a closed issue: drop it | `cn show` reads it as done. Readiness ignored it already; the edge stays as history |
-| Epic with every child closed and no open follow-ups: close it | `cn close` on the last open issue answers that the epic can close and prints the `cn epic close` line. An offer, never a close |
+| Epic with every task closed: close it | `cn close` on the last task answers that the epic can close and prints the `cn epic close` line, follow-ups open beside it or not (§5). An offer, never a close, and never for a stream |
 | Closed `unverified` with no follow-up: spawn one | Inside `issues.close`, in the same mutation |
 | Issue in the inbox, exactly one epic matches: reparent it | At `cn create`: an issue bound for the inbox with a `--parent` in an open epic goes beside the parent, and the answer says so. A `discovered-from` edge is added after the create, so it does not place; `cn review ep-0` lists what sits there past 7 days |
 | Claim with no activity past 24 hours: release it | The brief and `cn review` show it as silent. It is released on a person's word. **Nothing releases a claim on its own** |
@@ -624,8 +635,9 @@ form, with what to do about it left to the two reading it: near-identical
 titles, inbox items past 7 days, blockers past their nudge date, claims silent
 past 24 hours, closes marked unverified with no follow-up beside them, `blocks`
 edges with one end finished and the other still live (an edge whose two ends are
-both finished is history with nothing left to decide, so it is no line), and
-whether every issue is finished so the epic can close. Running it twice reads
+both finished is history with nothing left to decide, so it is no line), an
+outcome's done-when, so the two can judge whether it holds, and an open outcome with
+none, and whether every task is finished so the outcome can close. Running it twice reads
 the same; nothing it prints is consumed by printing it. The thresholds are the
 constants of §12.
 
@@ -733,10 +745,21 @@ frozen for a month reads better than one at 40% advancing daily.
 
 ```
 ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups
+  done when  an invite link opens the app on iOS and Android
   moving   app-31 "retry on reconnect" wsl/claude 2h
   stuck    web-12 "invite landing copy" silent 9d
   waiting  bl-3 "confirm the invite copy" · owner maya
 ```
+
+An outcome's done-when is the first line under its head. A stream never closes, so an
+all-time done would only grow; its head names what it is and counts a window instead:
+
+```
+ep-6 "Scout findings, each fixed or decided"  stream · 11 open · 2 follow-ups · 28d: 7 filed, 4 done
+```
+
+`done` and `open` count tasks, here as in an outcome's head, and a stream's window is
+`PULSE_DAYS` of §12.
 
 Each line is a fact with a read behind it, `epicHealth` in `lib/health.ts`,
 which `epics.list` and `show.get` carry, and a line with nothing behind it is
@@ -1130,7 +1153,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn log [--limit N] [--before <date>]` | `events.recent`: what happened across the deployment, newest first, each event with the issue, epic or blocker it names as id and title; an edge, recorded on both of its ends for their histories, is listed once, on the end that leads its sentence | query |
 | `cn create --project app --epic ep-3 --title … [--priority] [--description] [--design] [--acceptance] [--type follow-up --kind verify --parent app-14] [--link <url>…]` | `issues.create` | mutation |
 | `cn claim <id>` · `cn release <id>` | `issues.claim` · `issues.release` | mutation |
-| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--resolves] [--link] [--unlink]` | `issues.update`, `epics.update` or `blockers.update`, by the id: an epic takes its title, description and links, a blocker its title, `--resolves` and links | mutation |
+| `cn update <id> --revision N [--title] [--description] [--design] [--acceptance] [--priority] [--epic] [--defer-until] [--resolves] [--done-when] [--stream \| --outcome] [--link] [--unlink]` | `issues.update`, `epics.update` or `blockers.update`, by the id: an epic takes its title, description, done-when, type and links, a blocker its title, `--resolves` and links | mutation |
 | `cn journal <id> --kind finding <body>` | `journal.append` | mutation |
 | `cn close <id> --revision N --run '<command>' \| --unverified <why> [--follow-up <title> --kind verify --priority 1] [--next <direction>]` | `issues.close` | mutation |
 | `cn drop <id> --revision N --reason …` | `issues.drop` | mutation |
@@ -1138,7 +1161,7 @@ only unless its row names a positional, and refuses a stray one; `--help` and
 | `cn wait <id> --kind approval --owner maya --title … --resolves … [--nudge <date>] [--link <url>…]` · `cn wait <id> --on bl-3` | `blockers.raise` | mutation |
 | `cn waiting` | `blockers.list` | query |
 | `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | `blockers.ack` · `blockers.resolve` | mutation; an agent's carries `--said` |
-| `cn epic new <title> [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
+| `cn epic new <title> --done-when … \| --stream [--description …] [--link <url>…]` · `cn epic list [--all]` · `cn epic close <id> --revision N [--carry-to <ep-id> \| --drop --reason …]` | `epics.create` · `epics.list` · `epics.close` | |
 | `cn project new <slug> --name … [--description …] [--link <url>…]` · `cn project update <slug> --revision N [--name …] [--description …] [--link <url>…] [--unlink <url>…]` · `cn project list` | `projects.create` · `projects.update`: the name, description and links against a revision; nothing changes a slug, since every issue id carries it · `projects.list` | |
 | `cn review <epic>` | `review.get`: what a person and an agent look at together in one epic, one line each in the reference form; writes nothing | query |
 | `cn doctor` | `projects.list`, as the ping; `deployment.pushedFrom`, as the functions line | query |
@@ -1302,6 +1325,8 @@ is decided, and the shape of the design hangs on none of them:
   listed, never released or raised (§7). A claim with nothing journaled for an
   hour, counted from the later of the claim and its newest entry, is what the
   Stop hook hands back (§8, `JOURNAL_QUIET_MS`).
+- **The pulse window is 28 UTC days**, `PULSE_DAYS` in `lib/thresholds.ts`: a project's
+  pulse and a stream's head both count it, and both roll at UTC midnight.
 - **Near-identical titles** are titles equal after lowercasing and replacing every
   run of non-alphanumerics with one space, or within Levenshtein distance 2 of
   each other after that (`NEAR_TITLE_DISTANCE`). `cn create` hands the matches

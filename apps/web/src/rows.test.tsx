@@ -52,7 +52,14 @@ await typesetting;
 const busy = epic({
   id: "ep-4",
   title: 'Humans in the "loop"',
-  counts: { open: 1, inProgress: 1, closed: 5, dropped: 0, followUps: 1 },
+  counts: {
+    open: 1,
+    inProgress: 1,
+    closed: 5,
+    dropped: 0,
+    followUps: 1,
+    recent: { days: 28, filed: 0, done: 0 },
+  },
   health: {
     moving: [
       {
@@ -71,7 +78,14 @@ const busy = epic({
 const crowded = epic({
   id: "ep-6",
   title: "The page shows what is stuck",
-  counts: { open: 5, inProgress: 0, closed: 1, dropped: 0, followUps: 0 },
+  counts: {
+    open: 5,
+    inProgress: 0,
+    closed: 1,
+    dropped: 0,
+    followUps: 0,
+    recent: { days: 28, filed: 0, done: 0 },
+  },
   health: {
     moving: [],
     stuck: [9, 4, 8, 6, 5].map((days, i) => ({
@@ -84,6 +98,28 @@ const crowded = epic({
 });
 
 const still = epic({ id: "ep-0", title: "Inbox" });
+
+/** `busy` with the sentence that says when it is reached, which stands first under its head. */
+const promised = { ...busy, id: "ep-9", doneWhen: "a person steers every agent from the page" };
+
+/** A stream with nothing moving: its head counts the last 28 days, and it has no done-when. */
+const flowing = epic({
+  id: "ep-10",
+  title: "Scout findings, each fixed or decided",
+  type: "stream",
+  counts: {
+    open: 2,
+    inProgress: 0,
+    closed: 9,
+    dropped: 0,
+    followUps: 1,
+    recent: { days: 28, filed: 3, done: 2 },
+  },
+});
+
+/** Two outcomes with nothing moving: a done-when is always there, so neither is live. */
+const settled = epic({ id: "ep-11", title: "Invites open the app", doneWhen: "a link opens it" });
+const parked = epic({ id: "ep-12", title: "The rail counts", doneWhen: "every count is live" });
 
 /** `busy` with a description, which stands between its head line and its rows. */
 const described = { ...busy, id: "ep-5", description: "what this epic is for" };
@@ -189,7 +225,14 @@ const filed = project({
   slug: "cn",
   name: "cairn: backend, cli, plugin",
   filed: 7,
-  counts: { open: 2, inProgress: 1, closed: 3, dropped: 0, followUps: 1 },
+  counts: {
+    open: 2,
+    inProgress: 1,
+    closed: 3,
+    dropped: 0,
+    followUps: 1,
+    recent: { days: 28, filed: 0, done: 0 },
+  },
   health: busy.health,
 });
 const empty = project({ slug: "admin", name: "Driftwood admin, the harbour office app" });
@@ -201,7 +244,14 @@ const quiet = { ...listed, silentSince: now - 2 * HOUR };
 const parent = epic({
   id: "ep-4",
   title: "Humans in the loop",
-  counts: { open: 0, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
+  counts: {
+    open: 0,
+    inProgress: 1,
+    closed: 0,
+    dropped: 0,
+    followUps: 0,
+    recent: { days: 28, filed: 0, done: 0 },
+  },
 });
 
 /** An event on cn-25, an hour ago, by this session. */
@@ -321,9 +371,41 @@ const PINS: Pin[] = [
     rows: healthLines(mapped, now).slice(1),
   },
   {
+    name: "an outcome's health block, its done-when first under the head line",
+    element: <Epics epics={[promised]} events={[]} issues={[]} now={now} />,
+    text: healthLines(promised, now),
+    rows: healthLines(promised, now).slice(1),
+  },
+  {
+    name: "a stream's head, its window in place of an all-time done",
+    element: <Epics epics={[flowing]} events={[]} issues={[]} now={now} />,
+    text: [healthLines(flowing, now)[0]!],
+  },
+  {
     name: "an epic with nothing moving stands as the latest, its first line alone",
     element: <Epics epics={[still]} events={[]} issues={[]} now={now} />,
     text: [healthLines(still, now)[0]!],
+  },
+  {
+    name: "an outcome with nothing moving stands as the latest, its done-when under its head",
+    element: <Epics epics={[settled]} events={[]} issues={[]} now={now} />,
+    text: healthLines(settled, now),
+    rows: healthLines(settled, now).slice(1),
+  },
+  {
+    name: "outcomes whose one row is their done-when are listed under Nothing moving, not as live",
+    element: <Epics epics={[busy, settled, parked]} events={[]} issues={[]} now={now} />,
+    text: [
+      ...healthLines(busy, now),
+      "Nothing moving",
+      healthLines(settled, now)[0]!,
+      healthLines(parked, now)[0]!,
+    ],
+    rows: [
+      ...healthLines(busy, now).slice(1),
+      healthLines(settled, now)[0]!,
+      healthLines(parked, now)[0]!,
+    ],
   },
   {
     name: "with nothing live, the two epics touched last stand above the rest, each with the newest line that landed in it",
@@ -487,6 +569,17 @@ describe("what the lines carry", () => {
     expect(bar).toBeDefined();
     expect([...bar!.matchAll(/flex-grow:(\d+)/g)].map((m) => m[1])).toEqual(["5", "2", "1"]);
     expect(bar).toContain("hatch");
+  });
+
+  it("draws a stream's done as its window's, the number its text names", () => {
+    const markup = renderToStaticMarkup(
+      <Epics epics={[flowing]} events={[]} issues={[]} now={now} />,
+    );
+    const bar = markup.match(
+      /<span[^>]*title="stream · 2 open · 1 follow-up · 28d: 3 filed, 2 done"[^>]*>(.*?)<\/span>/,
+    )?.[1];
+    expect(bar).toBeDefined();
+    expect([...bar!.matchAll(/flex-grow:(\d+)/g)].map((m) => m[1])).toEqual(["2", "2", "1"]);
   });
 
   it("draws an epic with nothing counted as one hairline", () => {

@@ -120,12 +120,14 @@ export function Epics({
   if (epics.length === 0)
     return (
       <p className="mt-10 text-slate">
-        No open epics. <code className="font-mono text-small">cn epic new "…"</code> starts one.
+        No open epics. <code className="font-mono text-small">cn epic new "…" --done-when "…"</code>{" "}
+        starts one.
       </p>
     );
   const parts = epics.map((view) => ({ view, ...healthParts(view, now) }));
-  const live = parts.filter((p) => p.rows.length > 0);
-  const still = parts.filter((p) => p.rows.length === 0);
+  // An outcome's done-when is always there, so it says nothing about whether the epic moves.
+  const live = parts.filter((p) => p.rows.some((row) => row.fact !== "doneWhen"));
+  const still = parts.filter((p) => !live.includes(p));
   const latest =
     live.length === 0
       ? [...still].sort((a, b) => b.view.lastActivity - a.view.lastActivity).slice(0, 2)
@@ -140,6 +142,7 @@ export function Epics({
       ))}
       {latest.map((p, i) => (
         <EpicSection key={p.view.id} view={p.view} counts={p.counts} first={i === 0}>
+          {p.rows.length > 0 && <HealthRows rows={p.rows} />}
           <LastEvent epic={p.view} events={events} issues={issues} now={now} />
         </EpicSection>
       ))}
@@ -154,7 +157,7 @@ export function Epics({
               >
                 <Ref item={view} plain className="decoration-faint underline-offset-[3px]" />{" "}
                 <span className="inline-flex items-center gap-2.5">
-                  <CountBar counts={view.counts} text={counts} />
+                  <CountBar counts={view.counts} type={view.type} text={counts} />
                   <Run text={counts} className="text-small text-slate" />
                 </span>
               </RowLink>
@@ -185,7 +188,7 @@ function EpicSection({
           <Ref item={view} />
         </h2>{" "}
         <span className="ml-auto inline-flex items-center gap-2.5 narrow:ml-0">
-          <CountBar counts={view.counts} text={counts} />
+          <CountBar counts={view.counts} type={view.type} text={counts} />
           <Run text={counts} className="text-small text-slate" />
         </span>
       </div>

@@ -451,13 +451,22 @@ export function Track({
 
 /**
  * The counts beside their text, as a bar: done in ink, open pale, follow-ups hatched, each
- * segment its share of the three the text names, with a hair between. Lightness only, since
- * chroma means state (index.css). The bar adds no text to the line and carries the text as
- * its title; an epic with nothing counted is one hairline.
+ * segment its share of the three the text names, with a hair between. For a stream, done is
+ * the window's, as its text says. Lightness only, since chroma means state (index.css). The
+ * bar adds no text to the line and carries the text as its title; an epic with nothing
+ * counted is one hairline.
  */
-export function CountBar({ counts, text }: { counts: EpicLineView["counts"]; text: string }) {
+export function CountBar({
+  counts,
+  type,
+  text,
+}: {
+  counts: EpicLineView["counts"];
+  type?: EpicLineView["type"];
+  text: string;
+}) {
   const parts = [
-    { n: counts.closed, className: "bg-ink" },
+    { n: type === "stream" ? counts.recent.done : counts.closed, className: "bg-ink" },
     { n: counts.open + counts.inProgress, className: "bg-ink/22" },
     { n: counts.followUps, className: "hatch" },
   ].filter((p) => p.n > 0);

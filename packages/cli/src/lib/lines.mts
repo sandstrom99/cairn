@@ -130,10 +130,12 @@ export function healthLines(view: HealthView, now: number = Date.now()): string[
 }
 
 /** One row of a health block, under the epic's or the project's head. */
-const healthRowLine = (row: HealthRow): string =>
-  row.fact === "more"
-    ? `  ${fact("")}${row.tail}`
-    : `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`;
+const healthRowLine = (row: HealthRow): string => {
+  if (row.fact === "more") return `  ${fact("")}${row.tail}`;
+  // "done when" fills the nine-wide column with nothing after it, so this row sets its own.
+  if (row.fact === "doneWhen") return `  done when  ${row.tail}`;
+  return `  ${fact(row.fact)}${ref(row.target)} ${row.tail}`;
+};
 
 /**
  * A project's health block, as `cn project list` prints it (docs/design.md §8): its
@@ -151,6 +153,7 @@ export function projectLines(project: ProjectView, now: number = Date.now()): st
  *
  * ```
  * ep-1 "Create to close"  1 done · 3 open · 1 follow-up
+ *   done when   every issue in it is closed
  *   near        cn-3 "fix connection retry" and cn-4 "Fix connection retry."
  *   inbox       cn-7 "the retry path" 8d
  *   nudge       bl-1 "App Store review" · owner harbor · nudge 2026-09-03 · holds cn-1 "…"
@@ -161,12 +164,23 @@ export function projectLines(project: ProjectView, now: number = Date.now()): st
  * ```
  *
  * Every line is a fact the deployment stated, and what to do about it is left to the two
- * reading it. With no finding at all the one row is `nothing to look at`, so an empty
- * answer still says the epic was read.
+ * reading it. An outcome's done-when sits under the head as the context the rest is read
+ * against, and is no finding; an open outcome without one gets a `done when` finding,
+ * `none yet`, first. With no finding at all the one row is `nothing to look at`, so an
+ * empty answer still says the epic was read.
  */
 export function reviewLines(view: ReviewView, now: number = Date.now()): string[] {
   const rows: string[] = [];
   const row = (name: string, text: string) => rows.push(`  ${finding(name)}${text}`);
+  const context =
+    view.epic.type === "outcome" && view.epic.doneWhen !== undefined
+      ? [`  ${finding("done when")}${view.epic.doneWhen}`]
+      : [];
+  if (view.needsDoneWhen)
+    row(
+      "done when",
+      `none yet · cn update ${view.epic.id} --revision ${view.epic.revision} --done-when "…"`,
+    );
   for (const { a, b } of view.near) row("near", `${ref(a)} and ${ref(b)}`);
   for (const item of view.inbox) row("inbox", `${ref(item)} ${age(item.createdAt, now)}`);
   for (const blocker of view.nudges)
@@ -194,7 +208,8 @@ export function reviewLines(view: ReviewView, now: number = Date.now()): string[
   if (view.canClose)
     row("can close", `cn epic close ${view.epic.id} --revision ${view.epic.revision}`);
   return [
-    `${ref(view.epic)}  ${countsRun(view.epic.counts)}`,
+    `${ref(view.epic)}  ${countsRun(view.epic.counts, view.epic.type)}`,
+    ...context,
     ...(rows.length > 0 ? rows : ["  nothing to look at"]),
   ];
 }
@@ -242,12 +257,15 @@ export function closedLines(view: ClosedView): string[] {
 /**
  * `ep-3 "…" closed r2`, or `dropped r2`: the word is the status the deployment answered
  * with, never the flag the verb was given. Under it, each issue a drop took with the
- * epic, and the follow-ups a close left open: a close waits for none of them
- * (docs/design.md §7), so the reader is told they are still routed work.
+ * epic, the tasks a carry moved and the epic they went to, and the follow-ups a close left
+ * open: a close waits for none of them (docs/design.md §7), so the reader is told they are
+ * still routed work.
  */
-export function epicClosedLines({ epic, dropped }: EpicClosedView): string[] {
+export function epicClosedLines({ epic, dropped, carried, carriedTo }: EpicClosedView): string[] {
   const lines = [`${ref(epic)} ${epic.status} r${epic.revision}`];
   for (const issue of dropped) lines.push(`  ${answer("dropped")}${ref(issue)}`);
+  if (carried.length > 0 && carriedTo)
+    lines.push(`  ${answer("carried")}${refs(carried)} to ${ref(carriedTo)}`);
   const { followUps } = epic.counts;
   if (followUps > 0)
     lines.push(`  ${followUps} ${followUps === 1 ? "follow-up" : "follow-ups"} still open`);

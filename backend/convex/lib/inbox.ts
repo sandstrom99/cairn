@@ -2,22 +2,27 @@
 // first issues.create that asks for it and never minted from the counter, so ep-0 is the
 // one epic id that is not a number anybody handed out (docs/design.md §12). `openEpicArg`
 // is here rather than in lookup.ts because it calls `ensureInbox`, and lookup.ts importing
-// this file while this file imports `findEpic` would be a cycle.
+// this file while this file imports `findEpic` would be a cycle. The id itself is declared
+// in validators.ts, beside `epicTypeOf`, which reads it, and is re-exported here.
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { Actor } from "./actor";
 import { invalid, notFound } from "./errors";
 import { insertEpic } from "./lifecycle";
 import { findEpic } from "./lookup";
+import { INBOX_ID } from "./validators";
 
-export const INBOX_ID = "ep-0";
+export { INBOX_ID };
 
-/** The inbox epic, created on first use by `actor`, whose create it is. */
+/**
+ * The inbox epic, created on first use by `actor`, whose create it is. The inbox never
+ * closes, so it is a stream.
+ */
 export async function ensureInbox(ctx: MutationCtx, actor: Actor): Promise<Doc<"epics">> {
   const existing = await findEpic(ctx, INBOX_ID);
   if (existing) return existing;
 
-  return await insertEpic(ctx, actor, { id: INBOX_ID, title: "Inbox" });
+  return await insertEpic(ctx, actor, { id: INBOX_ID, title: "Inbox", type: "stream" });
 }
 
 /**

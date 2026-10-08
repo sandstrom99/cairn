@@ -170,8 +170,9 @@ const ROW =
 const TAIL = "text-small whitespace-nowrap text-slate narrow:col-start-2";
 
 /**
- * An epic's facts, a row each: what is moving, what is stuck, what waits on a person. The
- * stuck issues past the first three are counted in one row that links nowhere.
+ * An epic's facts, a row each: an outcome's done-when, what is moving, what is stuck, what
+ * waits on a person. The done-when, and the stuck issues past the first three counted in
+ * one row, link nowhere.
  */
 export function HealthRows({
   rows,
@@ -185,7 +186,7 @@ export function HealthRows({
     <ul className={className}>
       {rows.map((row) => (
         <HealthRowLine
-          key={row.fact === "more" ? "more" : `${row.fact} ${row.target.id}`}
+          key={"target" in row ? `${row.fact} ${row.target.id}` : row.fact}
           row={row}
         />
       ))}
@@ -194,10 +195,16 @@ export function HealthRows({
 }
 
 function HealthRowLine({ row }: { row: HealthRow }) {
-  if (row.fact === "more")
+  if (!("target" in row))
     return (
       <li className={cn("items-baseline px-4 py-[13px]", ROW)}>
-        <span />
+        {row.fact === "doneWhen" ? (
+          <>
+            <span className="text-small text-slate">done when</span>{" "}
+          </>
+        ) : (
+          <span />
+        )}
         <span className="text-small text-slate">{row.tail}</span>
       </li>
     );

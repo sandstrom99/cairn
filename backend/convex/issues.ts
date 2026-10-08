@@ -42,6 +42,7 @@ import { expectRevision } from "./lib/revision";
 import { nearIdentical } from "./lib/titles";
 import {
   epicFinished,
+  epicTypeOf,
   followUpKindValidator,
   isLive,
   issueStatusValidator,
@@ -270,10 +271,11 @@ export const update = mutation({
  * `verify:` follow-up spawned here instead, unless the issue already has a child of any
  * status (a dropped one was a decision). It is by the closer, never a system name.
  *
- * The offer: when this close finished the last issue of an open epic, `epicDone` carries
+ * The offer: when this close finished the last task of an open outcome, `epicDone` carries
  * the epic and its revision so `cn close` can print the `cn epic close` line. It is an
- * answer, never a close. It waits for open follow-ups too, which makes it stricter than
- * `epics.close`: that one is driven by a person, who may close over routed residue (§5).
+ * answer, never a close. Open follow-ups beside it do not hold it back, as they do not
+ * refuse `epics.close`: residue is routed and outlives the close (§5). A stream never
+ * closes, so it is never offered.
  *
  * Beside them, `madeReady` is every open issue this close was the last thing holding, as
  * the ready row `cn ready` would print (lib/readiness.ts). It is read, never stored.
@@ -330,12 +332,13 @@ export const close = mutation({
           })
         : undefined;
 
-    // Read after the spawn, so a follow-up it just made holds the offer back.
+    // Read after the close and the spawn, so the epic reads as this close left it.
     const epic = await ctx.db.get(doc.epicId);
     const epicDone =
       epic !== null &&
       epic.status === "open" &&
       epic.id !== INBOX_ID &&
+      epicTypeOf(epic) === "outcome" &&
       epicFinished(await issuesIn(ctx, doc.epicId))
         ? { ...ref(epic), revision: epic.revision }
         : undefined;

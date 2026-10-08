@@ -88,6 +88,17 @@ The same reply, with each issue said once:
 > placeholder. It needs a screenshot from a phone, and this machine has no device, so it
 > is next for a session with iOS.
 
+## Where work goes
+
+An epic is an outcome or a stream. An outcome's title names the end state, "Invite links
+open the app", and its done-when says what reached means; a stream's title names the flow
+and its duty, "Scout findings, each fixed or decided", and it never closes. An issue goes
+into an outcome only when doing it moves the outcome toward its done-when; otherwise it
+goes into the stream it belongs to, or a new outcome, never the nearest open epic.
+`cn show <ep>` prints the done-when line to check against. An outcome reached with tasks
+left that belong next door closes with `cn epic close <ep> --revision N --carry-to <ep-id>`,
+so the work is tracked where it goes on.
+
 ## What cairn is for
 
 | Use `cn` when | Not `cn` |
@@ -112,7 +123,7 @@ an issue.
 | `cn log [--limit N]` | what happened across the deployment, newest first: who claimed, closed or raised what | `events.recent` |
 | `cn create` | a new issue; `--epic` is required and the verb offers candidates; a near-identical open title in the epic is printed under the line; `--link <url>` or `--link '[label](url)'` puts a link on it, and repeats | `issues.create` |
 | `cn claim <id>` · `cn release <id>` | atomic, first writer wins, no lease; release refuses nobody, so another's claim is left alone by judgement | `issues.claim` · `issues.release` |
-| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer; `--link` adds a link or relabels one, `--unlink <url>` takes one off. The id says what changes: an epic takes its title, description and links, a blocker its title, `--resolves` and links, and a flag the thing has no field for is refused | `issues.update` · `epics.update` · `blockers.update` |
+| `cn update <id> --revision N` | title, description, design, acceptance, priority, epic, defer; `--link` adds a link or relabels one, `--unlink <url>` takes one off. The id says what changes: an epic takes its title, description, `--done-when` and links, `--stream` or `--outcome` turns it into the other, a blocker its title, `--resolves` and links, and a flag the thing has no field for is refused | `issues.update` · `epics.update` · `blockers.update` |
 | `cn journal <id> --kind …` | append a `finding`, `decision`, `handoff`, `evidence` or `question`; or, on a finished issue, a `next`, the direction `cn close --next` leaves | `journal.append` |
 | `cn close <id> --revision N --run '<cmd>'` | runs the command and records it, or `--unverified <why>`; `--follow-up` spawns the residue; `--next <direction>` leaves where you would take the work from here, which `cn show` prints on the issue, on what it blocked or spawned and on the epic; an `--unverified` close with no `--follow-up` gets a verify follow-up spawned beside it, and the close of an epic's last issue prints the `cn epic close` line; each open issue the close was the last thing holding is printed under it as a `ready` line, the next thing to pick without another `cn ready` | `issues.close` |
 | `cn drop <id> --revision N --reason …` | closed without doing, never silently | `issues.drop` |
@@ -120,8 +131,8 @@ an issue.
 | `cn wait <id> --kind … --owner … --title … --resolves …` | raise a human blocker, or `--on bl-3` to attach one that exists; `--link` puts a link on a new one | `blockers.raise` |
 | `cn waiting` | what is blocked on a human | `blockers.list` |
 | `cn ack <bl> [--said …]` · `cn resolve <bl> --note … [--said …]` | the person's own, or an agent's on their word | `blockers.ack` · `blockers.resolve` |
-| `cn epic new\|list\|close` · `cn project new\|list\|update` | the containers; `epic new --link` puts a link on the new epic, `epic list` and `project list` print a health block each, `project update` changes a project's name, description and links against a revision, `epic close` is refused while a task is open | `epics.*` · `projects.*` |
-| `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, and whether it can close. Writes nothing | `review.get` |
+| `cn epic new\|list\|close` · `cn project new\|list\|update` | the containers; `epic new` takes `--done-when <text>` for an outcome or `--stream` for an intake that never closes, `epic new --link` puts a link on the new epic, `epic list` and `project list` print a health block each, an outcome's done-when first under its head and a stream's head counting its last 28 days, `project update` changes a project's name, description and links against a revision, `epic close` is refused while a task is open and on a stream, which `--drop --reason` retires, and `epic close --carry-to <ep-id>` moves the open tasks into another epic and closes it | `epics.*` · `projects.*` |
+| `cn review <epic>` | what to look at in an epic, one line each: near-identical titles, inbox items past 7 days, blockers past their nudge date, silent claims, unverified closes with no follow-up, blocks edges with one end finished and one still live, an open outcome with no done-when, and whether it can close; an outcome's done-when is printed under the head as context. Writes nothing | `review.get` |
 | `cn doctor` | node, the generated api, whether the deployment answers | `projects.list` |
 | `cn init --name … --url … [--secret-cmd …]` · `cn init --refresh [--name …]` | sets a machine up: writes the config, after checking the deployment answers and takes the secret; `--refresh` takes a rotated secret by re-running the stored command | `projects.list`, as the check |
 | `cn setting` · `cn setting <name> <state>` | what this machine has turned on, and putting a setting in a state: `off`, or one of the setting's own; there is none yet; machine-wide, kept in the config, off until asked for | none, local |

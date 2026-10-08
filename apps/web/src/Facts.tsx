@@ -91,7 +91,7 @@ function EpicTile({ fact, epics, now }: { fact?: Fact; epics?: EpicLineView[]; n
       </div>
       {view && counts && (
         <p className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <CountBar counts={view.counts} text={counts} />
+          <CountBar counts={view.counts} type={view.type} text={counts} />
           <Run text={counts} className="text-meta text-slate" />
         </p>
       )}

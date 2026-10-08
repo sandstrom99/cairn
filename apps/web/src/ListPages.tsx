@@ -52,7 +52,7 @@ export function LogPage({ events, now }: { events: LogEvent[] | undefined; now: 
       ) : events.length === 0 ? (
         <p className="mt-8 text-slate">
           Nothing yet. Every write cn makes lands here, from the first{" "}
-          <code className="font-mono">cn epic new "…"</code> on.
+          <code className="font-mono">cn epic new "…" --done-when "…"</code> on.
         </p>
       ) : (
         <ul className="paper mt-8 px-1 py-1">

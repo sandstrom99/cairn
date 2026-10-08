@@ -71,7 +71,8 @@ export function blockerParts(view: BlockerLineView, now: number = Date.now()): B
  */
 export type HealthRow =
   | { fact: "moving" | "stuck" | "waiting"; target: Referable; tail: string }
-  | { fact: "more"; tail: string };
+  | { fact: "more"; tail: string }
+  | { fact: "doneWhen"; tail: string };
 
 /** How many stuck issues an epic's health names before it counts the rest (§8). */
 const STUCK_NAMED = 3;
@@ -79,21 +80,32 @@ const STUCK_NAMED = 3;
 /** The health block in pieces: the epic, its counts as one run, and a row per fact. */
 export type HealthParts = { epic: Referable; counts: string; rows: HealthRow[] };
 
-/** The counts as one run: `2 done · 0 open · 1 follow-up`. The health block and the review both head with it. */
-export const countsRun = (counts: EpicLineView["counts"]): string => {
-  const { open, inProgress, closed, followUps } = counts;
-  return `${closed} done · ${open + inProgress} open · ${followUps} ${
-    followUps === 1 ? "follow-up" : "follow-ups"
-  }`;
+/**
+ * The counts as one run: `2 done · 0 open · 1 follow-up`. The health block and the review
+ * both head with it. A stream never closes, so an all-time done only grows; its run says
+ * what it is and counts the recent window instead:
+ * `stream · 1 open · 0 follow-ups · 28d: 2 filed, 1 done`.
+ */
+export const countsRun = (
+  counts: EpicLineView["counts"],
+  type: EpicLineView["type"] = "outcome",
+): string => {
+  const { open, inProgress, closed, followUps, recent } = counts;
+  const residue = `${followUps} ${followUps === 1 ? "follow-up" : "follow-ups"}`;
+  if (type === "stream")
+    return `stream · ${open + inProgress} open · ${residue} · ${recent.days}d: ${recent.filed} filed, ${recent.done} done`;
+  return `${closed} done · ${open + inProgress} open · ${residue}`;
 };
 
 /**
- * An epic's health in pieces (docs/design.md §8): what is moving, what is stuck past its
- * priority's limit, the first three by name and the rest counted, and what waits on a
- * person. A row with nothing behind it is not there at all.
+ * An epic's health in pieces (docs/design.md §8): an outcome's done-when first, then what
+ * is moving, what is stuck past its priority's limit, the first three by name and the rest
+ * counted, and what waits on a person. A row with nothing behind it is not there at all.
  */
 export function healthParts(view: HealthView, now: number = Date.now()): HealthParts {
   const rows: HealthRow[] = [];
+  if (view.type !== "stream" && view.doneWhen !== undefined)
+    rows.push({ fact: "doneWhen", tail: view.doneWhen });
   for (const issue of view.health.moving)
     rows.push({
       fact: "moving",
@@ -106,7 +118,7 @@ export function healthParts(view: HealthView, now: number = Date.now()): HealthP
     rows.push({ fact: "more", tail: `and ${view.health.stuck.length - STUCK_NAMED} more stuck` });
   for (const blocker of view.health.waiting)
     rows.push({ fact: "waiting", target: blocker, tail: `· owner ${blocker.owner}` });
-  return { epic: view, counts: countsRun(view.counts), rows };
+  return { epic: view, counts: countsRun(view.counts, view.type), rows };
 }
 
 /** A project's block in pieces, as `cn project list` prints it: its head is the slug and name in the reference form, and a project nothing has been filed under has `nothing filed` for its counts and no rows. */

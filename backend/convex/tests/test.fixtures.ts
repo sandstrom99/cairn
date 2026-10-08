@@ -38,7 +38,11 @@ export type SeedIssue = string | { title: string; priority?: number };
 export async function seed({ issues = [] }: { issues?: SeedIssue[] } = {}): Promise<Harness> {
   const t = fresh();
   await t.mutation(api.projects.create, { actor, slug: "cn", name: "cairn" });
-  await t.mutation(api.epics.create, { actor, title: "Create to close" });
+  await t.mutation(api.epics.create, {
+    actor,
+    title: "Create to close",
+    doneWhen: "every issue in it is closed",
+  });
   for (const issue of issues) {
     const { title, priority } = typeof issue === "string" ? { title: issue } : issue;
     await t.mutation(api.issues.create, {

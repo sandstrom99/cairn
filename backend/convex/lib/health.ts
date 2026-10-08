@@ -119,7 +119,7 @@ export async function epicHealth(
   );
 
   return {
-    ...epicView(doc, issues),
+    ...epicView(doc, issues, now),
     lastActivity,
     health: await issueHealth(ctx, issues, now),
   };

@@ -155,7 +155,13 @@ describe("the parts a line is joined from", () => {
       id: "ep-3",
       title: "An epic tells the truth",
       lastActivity: now - DAY,
-      counts: { open: 1, inProgress: 1, closed: 2, followUps: 1 },
+      counts: {
+        open: 1,
+        inProgress: 1,
+        closed: 2,
+        followUps: 1,
+        recent: { days: 28, filed: 0, done: 0 },
+      },
       health: {
         moving: [
           {
@@ -172,7 +178,7 @@ describe("the parts a line is joined from", () => {
     const parts = healthParts(view, now);
     expect(parts.counts).toBe("2 done · 2 open · 1 follow-up");
     expect(
-      parts.rows.map((row) => [row.fact, row.fact === "more" ? "" : row.target.id, row.tail]),
+      parts.rows.map((row) => [row.fact, "target" in row ? row.target.id : "", row.tail]),
     ).toEqual([
       ["moving", "cn-7", "wsl/claude 2h"],
       ["stuck", "cn-9", "silent 9d"],
@@ -187,7 +193,14 @@ describe("the parts a line is joined from", () => {
       counts: "nothing filed",
       rows: [],
     });
-    const counts = { open: 1, inProgress: 1, closed: 2, dropped: 0, followUps: 1 };
+    const counts = {
+      open: 1,
+      inProgress: 1,
+      closed: 2,
+      dropped: 0,
+      followUps: 1,
+      recent: { days: 28, filed: 0, done: 0 },
+    };
     const health = {
       moving: [
         {

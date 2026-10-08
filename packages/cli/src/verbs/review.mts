@@ -4,8 +4,10 @@
 //
 // One read, and it writes nothing: every line is a fact, and what to do about it is
 // left to the two reading it, through the verbs that exist. Running it twice reads the
-// same. The lines, each in the reference form:
+// same. Under the epic, an outcome's done-when, the line the rest is read against. Then
+// the lines, each in the reference form:
 //
+//   done when   none yet: an open outcome with no done-when, and the cn update line
 //   near        two live issues whose titles are near-identical
 //   inbox       an item in ep-0 for more than 7 days
 //   nudge       a blocker past the day it said to look again
@@ -13,9 +15,10 @@
 //   unverified  a close marked --unverified with no follow-up beside it
 //   edge        a blocks edge with one end finished and one live; it holds nothing
 //               and stays as history
-//   can close   every issue is finished, so the cn epic close line to run
+//   can close   every task is finished, so the cn epic close line to run; a stream
+//               never closes, and is never offered
 //
-// With nothing to look at it prints the epic and `nothing to look at`.
+// With nothing to look at it prints the epic, its done-when, and `nothing to look at`.
 
 import { type ArgSpec, parseArgs } from "../lib/args.mts";
 import { onlyId } from "../lib/flags.mts";

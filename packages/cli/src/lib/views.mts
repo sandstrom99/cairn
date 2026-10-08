@@ -79,11 +79,22 @@ export type BlockerLineView = Referable & {
 
 /** Enough of an epic to print its health block: the counts, and the three lines of §8. */
 export type EpicLineView = Referable & {
+  /** An outcome is reached and closes; a stream is an intake that never closes. */
+  type: "outcome" | "stream";
+  /** An outcome's finish line, one sentence; a stream has none. */
+  doneWhen?: string;
   /** The epic's own, which the overview prints under its head line the way `cn show` does. */
   description?: string;
   /** The newest write to the epic or to any issue under it, as the issues stamp it; the overview sorts by it. */
   lastActivity: number;
-  counts: { open: number; inProgress: number; closed: number; followUps: number };
+  counts: {
+    open: number;
+    inProgress: number;
+    closed: number;
+    followUps: number;
+    /** The tasks filed and done in the last `days`, the window a stream's head reads. */
+    recent: { days: number; filed: number; done: number };
+  };
   health: {
     moving: (Referable & { claimedBy: { name: string }; claimedAt: number })[];
     stuck: (Referable & { lastActivity: number })[];
@@ -92,7 +103,8 @@ export type EpicLineView = Referable & {
 };
 
 /** Enough of an epic or a project to print its health block. */
-export type HealthView = Pick<EpicLineView, "id" | "title" | "counts" | "health">;
+export type HealthView = Pick<EpicLineView, "id" | "title" | "counts" | "health"> &
+  Partial<Pick<EpicLineView, "type" | "doneWhen">>;
 
 /** One journal entry, as `cn show` carries the five newest. */
 export type JournalEntry = { at: number; author: { name: string }; kind: string; body: string };
@@ -110,8 +122,13 @@ export type ClosedView = {
   madeReady: IssueLineView[];
 };
 
-/** What `cn epic close` answers: the epic as it now stands, and what a drop took with it. */
+/**
+ * What `cn epic close` answers: the epic as it now stands, what a drop took with it, and
+ * what a carry moved and where.
+ */
 export type EpicClosedView = {
   epic: Referable & { status: string; revision: number; counts: { followUps: number } };
   dropped: Referable[];
+  carried: Referable[];
+  carriedTo?: Referable;
 };

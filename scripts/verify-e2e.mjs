@@ -331,11 +331,21 @@ row("verbs/project.mts", () => {
 });
 
 row("verbs/epic.mts", () => {
-  const made = pass(`epic new 'Create to close'`, "cn epic new was refused");
-  assert.match(made.out, /ep-1/, "the first epic did not mint ep-1");
-  const listed = pass("epic list", "cn epic list exited non-zero");
-  assert.match(listed.out, /ep-1/);
-  assert.match(listed.out, /Create to close/);
+  const bare = cn(`epic new 'Create to close'`);
+  assert.equal(bare.status, 1, "an outcome without --done-when was not refused");
+  assert.match(bare.out, /--done-when/, "the refusal does not name --done-when");
+  const made = pass(
+    `epic new 'Create to close' --done-when 'scratch: every issue in it is closed'`,
+    "cn epic new --done-when was refused",
+  );
+  assert.match(made.out, /ep-1/, "the first epic did not mint ep-1, so the refusal minted one");
+  const listed = lines(pass("epic list", "cn epic list exited non-zero").stdout);
+  assert.match(listed[0], /^ep-1 "Create to close" {2}/, "cn epic list does not head with ep-1");
+  assert.equal(
+    listed[1],
+    "  done when  scratch: every issue in it is closed",
+    "cn epic list does not print the done-when directly under the head",
+  );
 });
 
 row("verbs/create.mts", () => {
@@ -911,6 +921,7 @@ row("verbs/epic.mts (close)", () => {
   const refused = cn(`epic close ep-1 --revision ${revisionOf("ep-1")}`);
   assert.equal(refused.status, 1, "an epic with open work was allowed to close");
   assert.match(refused.out, /cn-3/, "the refusal does not name cn-3, still open");
+  assert.match(refused.out, /--carry-to/, "the refusal does not name --carry-to");
 });
 
 /** The two near-identical issues the create row mints in ep-2, read by the two rows after it. */
@@ -918,7 +929,10 @@ let twin;
 let other;
 
 row("verbs/create.mts (near)", () => {
-  const made = pass(`epic new 'scratch: review'`, "cn epic new was refused");
+  const made = pass(
+    `epic new 'scratch: review' --done-when 'scratch: both twins are closed'`,
+    "cn epic new was refused",
+  );
   assert.match(made.out, /ep-2/, "the second epic did not mint ep-2");
   const first = pass(
     `create --project cn --epic ep-2 --title 'scratch: the same title'`,
@@ -940,18 +954,26 @@ row("verbs/create.mts (near)", () => {
 
 row("verbs/review.mts", () => {
   const head = 'ep-2 "scratch: review"  0 done · 2 open · 0 follow-ups';
+  const doneWhen = "  done when   scratch: both twins are closed";
   const seen = pass("review ep-2", "cn review ep-2 was refused");
   assert.deepEqual(
     lines(seen.stdout),
     [
       head,
+      doneWhen,
       `  near        ${twin} "scratch: the same title" and ${other} "scratch: the same title."`,
     ],
-    "cn review does not read as the epic's counts and the one near pair",
+    "cn review does not read as the epic's counts, its done-when and the one near pair",
   );
   const view = json("review ep-2");
   assert.equal(view.near.length, 1, "cn review --json does not carry exactly one near pair");
   assert.equal(view.canClose, false, "cn review --json offers to close an epic with open work");
+  assert.equal(view.needsDoneWhen, false, "cn review --json asks an outcome with one for one");
+  assert.equal(
+    view.epic.doneWhen,
+    "scratch: both twins are closed",
+    "cn review --json does not carry the epic's done-when",
+  );
   assert.deepEqual(
     [view.near[0].a.id, view.near[0].b.id],
     [twin, other],
@@ -968,7 +990,7 @@ row("verbs/review.mts", () => {
   pass(`dep add ${other} --duplicates ${twin}`, "cn dep add --duplicates was refused");
   assert.deepEqual(
     lines(cn("review ep-2").stdout),
-    [head, "  nothing to look at"],
+    [head, doneWhen, "  nothing to look at"],
     "a pair with a duplicates edge between them is still listed",
   );
 });
@@ -989,7 +1011,13 @@ row("verbs/close.mts (offer)", () => {
     /^ {2}follow-up {2}cn-\d+ "verify: scratch: the same title\."/m,
     "an unverified close with no --follow-up did not spawn a verify follow-up",
   );
-  assert.doesNotMatch(second.stdout, /^ {2}epic /m, "the epic was offered with a follow-up open");
+  // Both tasks are finished, so the offer stands beside the follow-up this close spawned.
+  const offer = `cn epic close ep-2 --revision ${revisionOf("ep-2")}`;
+  const offered = `  epic       ep-2 "scratch: review" can close · ${offer}`;
+  assert.ok(
+    lines(second.stdout).includes(offered),
+    "the close of the epic's last task does not print the cn epic close line beside its follow-up",
+  );
   const followUps = json(`show ${other}`).followUps;
   assert.equal(followUps.length, 1, "the spawned follow-up does not sit beside the closed parent");
   const spawned = followUps[0].id;
@@ -1004,9 +1032,11 @@ row("verbs/close.mts (offer)", () => {
     lines(cn("review ep-2").stdout),
     [
       'ep-2 "scratch: review"  2 done · 0 open · 1 follow-up',
+      "  done when   scratch: both twins are closed",
       `  edge        ${twin} "scratch: the same title" done blocks ${spawned} "verify: scratch: the same title."`,
+      `  can close   ${offer}`,
     ],
-    "cn review does not list a blocks edge with one end finished and one live",
+    "cn review does not list a blocks edge with one end finished and one live, and the close",
   );
 
   const finishing = pass(
@@ -1014,10 +1044,9 @@ row("verbs/close.mts (offer)", () => {
     `cn close ${spawned} --run 'echo proof' was refused`,
   );
   const revision = revisionOf("ep-2");
-  const offer = `cn epic close ep-2 --revision ${revision}`;
   assert.ok(
-    lines(finishing.stdout).includes(`  epic       ep-2 "scratch: review" can close · ${offer}`),
-    "the close of the epic's last issue does not print the cn epic close line",
+    lines(finishing.stdout).includes(offered),
+    "the close of the epic's follow-up does not print the cn epic close line again",
   );
   // Every issue cn show names that is finished reads so: the follow-up from its parent, and
   // the parent and the edge's far end from the follow-up.
@@ -1044,8 +1073,12 @@ row("verbs/close.mts (offer)", () => {
 
   assert.deepEqual(
     lines(cn("review ep-2").stdout),
-    ['ep-2 "scratch: review"  2 done · 0 open · 0 follow-ups', `  can close   ${offer}`],
-    "cn review does not read a finished epic as the counts and the can close line",
+    [
+      'ep-2 "scratch: review"  2 done · 0 open · 0 follow-ups',
+      "  done when   scratch: both twins are closed",
+      `  can close   ${offer}`,
+    ],
+    "cn review does not read a finished epic as the counts, its done-when and the can close line",
   );
   assert.equal(json("review ep-2").canClose, true, "cn review --json does not say canClose");
 
@@ -1055,13 +1088,13 @@ row("verbs/close.mts (offer)", () => {
   );
   assert.equal(json("show ep-2").status, "closed", "ep-2 is not closed");
   const after = lines(cn("review ep-2").stdout);
-  assert.equal(after[1], "  nothing to look at", "a closed epic still reviews to a finding");
+  assert.equal(after.at(-1), "  nothing to look at", "a closed epic still reviews to a finding");
   assert.equal(json("review ep-2").canClose, false, "a closed epic still says canClose");
 });
 
 row("verbs/update.mts (epic)", () => {
   const made = pass(
-    `epic new 'scratch: plan' --link '[plan](https://example.com/plan)'`,
+    `epic new 'scratch: plan' --done-when 'scratch: the plan is written' --link '[plan](https://example.com/plan)'`,
     "cn epic new --link was refused",
   );
   assert.match(made.out, /ep-3/, "the third epic did not mint ep-3");
@@ -1071,6 +1104,11 @@ row("verbs/update.mts (epic)", () => {
     shown[0],
     'ep-3 "scratch: plan"  0 done · 0 open · 0 follow-ups · revision 0',
     "cn show ep-3 does not open with the epic's head and its revision",
+  );
+  assert.equal(
+    shown[1],
+    "  done when  scratch: the plan is written",
+    "cn show ep-3 does not print the done-when on the line under its head",
   );
   assert.ok(
     shown.includes("links           plan · https://example.com/plan · by e2e/claude just now"),
@@ -1121,7 +1159,7 @@ row("verbs/update.mts (epic)", () => {
   assert.equal(priority.status, 2, "a flag an epic has no field for was not a usage error");
   assert.match(
     priority.out,
-    /an epic has no --priority; cn update ep-3 takes --title, --description, --link and --unlink/,
+    /an epic has no --priority; cn update ep-3 takes --title, --description, --done-when, --stream, --outcome, --link and --unlink/,
     "the refusal does not name the flag and what an epic takes",
   );
 
@@ -1131,6 +1169,63 @@ row("verbs/update.mts (epic)", () => {
   const inbox = cn(`update ep-0 --revision ${revisionOf("ep-0")} --title scratch`);
   assert.equal(inbox.status, 1, "the inbox was allowed to change");
   assert.match(inbox.out, /ep-0 is the inbox; it does not change/);
+
+  assert.equal(
+    pass(
+      "update ep-3 --revision 2 --done-when 'scratch: the plan is read'",
+      "cn update ep-3 --done-when was refused",
+    ).stdout.trim(),
+    'ep-3 "scratch: the plan" r3',
+    "cn update ep-3 --done-when does not print the epic at r3",
+  );
+  assert.ok(
+    lines(cn("show ep-3").stdout).includes("  done when  scratch: the plan is read"),
+    "cn show ep-3 does not read the new done-when",
+  );
+
+  assert.equal(
+    pass("update ep-3 --revision 3 --stream", "cn update ep-3 --stream was refused").stdout.trim(),
+    'ep-3 "scratch: the plan" r4',
+    "cn update ep-3 --stream does not print the epic at r4",
+  );
+  const stream = lines(cn("show ep-3").stdout);
+  assert.equal(
+    stream[0],
+    'ep-3 "scratch: the plan"  stream · 0 open · 0 follow-ups · 28d: 0 filed, 0 done · revision 4',
+    "cn show ep-3 does not head a stream with its window",
+  );
+  assert.ok(!stream.some((l) => l.startsWith("  done when")), "a stream still prints a done-when");
+  const turned = pass("log --limit 1", "cn log --limit 1 exited non-zero").stdout;
+  assert.match(turned, /type outcome → stream/, "cn log does not read the turn to a stream");
+  assert.match(
+    turned,
+    /doneWhen scratch: the plan is read → —/,
+    "cn log does not read the done-when the turn took off",
+  );
+
+  const onStream = cn("update ep-3 --revision 4 --done-when x");
+  assert.equal(onStream.status, 1, "a done-when on a stream was not refused");
+  assert.match(onStream.out, /--outcome/, "the refusal does not name --outcome");
+  const bareOutcome = cn("update ep-3 --revision 4 --outcome");
+  assert.equal(bareOutcome.status, 1, "a stream turned outcome with no done-when was not refused");
+  assert.match(bareOutcome.out, /--done-when/, "the refusal does not name --done-when");
+  const close = cn("epic close ep-3 --revision 4");
+  assert.equal(close.status, 1, "a stream was allowed to close");
+  assert.match(close.out, /ep-3 is a stream; it never closes, and --drop --reason retires it/);
+
+  assert.equal(
+    pass(
+      "update ep-3 --revision 4 --outcome --done-when 'scratch: back'",
+      "cn update ep-3 --outcome --done-when was refused",
+    ).stdout.trim(),
+    'ep-3 "scratch: the plan" r5',
+    "cn update ep-3 --outcome does not print the epic at r5",
+  );
+  assert.equal(
+    lines(pass("review ep-3", "cn review ep-3 was refused").stdout)[1],
+    "  done when   scratch: back",
+    "cn review ep-3 does not print the done-when under its head",
+  );
 });
 
 row("verbs/update.mts (blocker)", () => {
@@ -1282,6 +1377,94 @@ row("verbs/project.mts (update)", () => {
   const unknown = cn("project update nope --revision 0 --name x");
   assert.equal(unknown.status, 1, "an unknown slug was not refused");
   assert.match(unknown.out, /nope/, "the refusal does not name the slug");
+});
+
+row("verbs/epic.mts (carry)", () => {
+  const inPlan = ids(json("list --epic ep-3"));
+  assert.equal(inPlan.length, 1, "ep-3 does not hold exactly the one issue the blocker row made");
+  const [moved] = inPlan;
+  const made = pass(
+    `epic new 'scratch: next' --done-when 'scratch: carried work is done'`,
+    "cn epic new for the carry was refused",
+  );
+  assert.match(made.out, /ep-4/, "the fourth epic did not mint ep-4");
+  pass(`claim ${moved}`, `cn claim ${moved} was refused`);
+
+  const r = revisionOf("ep-3");
+  const self = cn(`epic close ep-3 --revision ${r} --carry-to ep-3`);
+  assert.equal(self.status, 1, "a carry into the epic being closed was not refused");
+  assert.match(self.out, /ep-3 cannot carry its work to itself/);
+  const inbox = cn(`epic close ep-3 --revision ${r} --carry-to ep-0`);
+  assert.equal(inbox.status, 1, "a carry into the inbox was not refused");
+  assert.match(inbox.out, /ep-0 is the inbox; work is carried into an epic, not back to it/);
+  const unknown = cn(`epic close ep-3 --revision ${r} --carry-to ep-99`);
+  assert.equal(unknown.status, 1, "a carry into an epic that does not exist was not refused");
+  assert.match(unknown.out, /ep-99/, "the refusal does not name the unknown epic");
+  const dropped = cn(`epic close ep-3 --revision ${r} --drop --reason x --carry-to ep-4`);
+  assert.equal(dropped.status, 2, "--carry-to beside --drop was not a usage error");
+  const plain = cn(`epic close ep-3 --revision ${r}`);
+  assert.equal(plain.status, 1, "an epic with open work was allowed to close");
+  assert.match(plain.out, /--carry-to/, "the refusal does not name --carry-to");
+  assert.equal(json("show ep-3").status, "open", "a refused close left ep-3 other than open");
+
+  const carried = lines(
+    pass(`epic close ep-3 --revision ${r} --carry-to ep-4`, "cn epic close --carry-to was refused")
+      .stdout,
+  );
+  assert.deepEqual(
+    carried.slice(0, 2),
+    [
+      `ep-3 "scratch: the plan" closed r${r + 1}`,
+      `  carried    ${moved} "scratch: a decision" to ep-4 "scratch: next"`,
+    ],
+    "cn epic close --carry-to does not print the closed epic and what it carried where",
+  );
+
+  const shown = lines(pass(`show ${moved}`, `cn show ${moved} exited non-zero`).stdout);
+  assert.ok(
+    shown.includes('epic            ep-4 "scratch: next"'),
+    "the carried issue does not read the epic it went to",
+  );
+  assert.ok(
+    shown.some((l) => /^status {10}moving e2e\/claude /.test(l)),
+    "the carried issue's claim did not survive the move",
+  );
+  assert.ok(
+    lines(pass(`show ${moved} --history`, "cn show --history exited non-zero").stdout).some((l) =>
+      l.includes("epic ep-3 → ep-4"),
+    ),
+    "the carried issue's history does not read the move",
+  );
+
+  const logged = lines(pass("log --limit 3", "cn log --limit 3 exited non-zero").stdout);
+  assert.equal(logged.length, 3, "cn log --limit 3 printed other than three lines");
+  assert.match(
+    logged[0],
+    new RegExp(`^ep-4 "scratch: next" {2}epic\\.update .*${moved} ep-3 → ep-4`),
+    "cn log does not name the carry on the epic it went into",
+  );
+  assert.match(
+    logged[1],
+    new RegExp(
+      `^ep-3 "scratch: the plan" {2}epic\\.close .*${moved} ep-3 → ep-4, status open → closed`,
+    ),
+    "cn log does not name the carry on the epic that closed",
+  );
+  assert.match(
+    logged[2],
+    new RegExp(`^${moved} "scratch: a decision" {2}issue\\.update .*epic ep-3 → ep-4`),
+    "cn log does not read the move on the issue",
+  );
+
+  assert.match(
+    pass("show ep-4", "cn show ep-4 exited non-zero").stdout,
+    new RegExp(moved),
+    "ep-4 does not list the issue carried into it",
+  );
+  assert.ok(
+    !ids(json("ready")).includes(moved),
+    "the carried issue is ready though bl-2 still holds it",
+  );
 });
 
 row("plugins/cairn/hooks/stop.sh", () => {
