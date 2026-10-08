@@ -19,7 +19,7 @@ import { type Link, type LinkInput, editLinks } from "./links";
 import { checkPriority } from "./priority";
 import { applyRevision } from "./revision";
 import { type IssueText, textOf, writeText } from "./text";
-import type { FollowUpKind, IssueType } from "./validators";
+import { type EpicType, type FollowUpKind, type IssueType, epicTypeOf } from "./validators";
 import type { VerificationInput } from "./verification";
 import { type IssueView, epicView, issueView } from "./views";
 
@@ -109,11 +109,20 @@ export async function insertIssue(
 export async function insertEpic(
   ctx: MutationCtx,
   actor: Actor,
-  fields: { id: string; title: string; description?: string; links?: Link[] },
+  fields: {
+    id: string;
+    title: string;
+    type: EpicType;
+    doneWhen?: string;
+    description?: string;
+    links?: Link[];
+  },
 ): Promise<Doc<"epics">> {
   const _id = await ctx.db.insert("epics", {
     id: fields.id,
     title: fields.title,
+    type: fields.type,
+    ...(fields.doneWhen === undefined ? {} : { doneWhen: fields.doneWhen }),
     ...(fields.description === undefined ? {} : { description: fields.description }),
     ...(fields.links === undefined || fields.links.length === 0 ? {} : { links: fields.links }),
     status: "open",
@@ -326,17 +335,47 @@ export const moveIssue = (
   epic: Doc<"epics">,
 ): Promise<Doc<"issues">> => editIssue(ctx, actor, doc, { epic });
 
-/** Closes an epic, recording the status. Whether it may close is the caller's to decide. */
+/** Each issue a close carried into another epic, by id: `tools-113: ep-7 → ep-13`. */
+export type Carried = Record<string, { from: string; to: string }>;
+
+/**
+ * Closes an epic, recording the status. Whether it may close is the caller's to decide. A
+ * carry names each moved issue by id as a field, `tools-113: ep-7 → ep-13`, which the log
+ * renders like any field.
+ */
 export async function closeEpic(
   ctx: MutationCtx,
   actor: Actor,
   doc: Doc<"epics">,
+  carried: Carried = {},
 ): Promise<Doc<"epics">> {
   return await applyRevision(
     ctx,
     { table: "epics", doc },
     { status: "closed" },
-    { kind: "epic.close", actor, changes: { status: { from: doc.status, to: "closed" } } },
+    {
+      kind: "epic.close",
+      actor,
+      changes: { status: { from: doc.status, to: "closed" }, ...carried },
+    },
+  );
+}
+
+/**
+ * The epic a close carried work into. Its issue set changed, so its revision moves and a
+ * writer holding the old one is told what came in; the patch is empty on purpose.
+ */
+export async function noteCarriedInto(
+  ctx: MutationCtx,
+  actor: Actor,
+  target: Doc<"epics">,
+  carried: Carried,
+): Promise<Doc<"epics">> {
+  return await applyRevision(
+    ctx,
+    { table: "epics", doc: target },
+    {},
+    { kind: "epic.update", actor, changes: carried },
   );
 }
 
@@ -363,6 +402,8 @@ export async function dropEpic(
 export type EpicEdit = {
   title?: string;
   description?: string;
+  doneWhen?: string;
+  type?: EpicType;
   link?: LinkInput[];
   unlink?: string[];
 };
@@ -371,7 +412,9 @@ export type EpicEdit = {
  * The one `epic.update`, shaped like `editIssue`: patches every field given and records
  * each as `{ from, to }`. An epic has no `lastActivity`, so nothing is stamped beside the
  * patch. Refuses an empty edit and a title with nothing in it; a link edit that changes
- * nothing hands the epic back as it was, with no revision and no event.
+ * nothing hands the epic back as it was, with no revision and no event. Turning an epic
+ * into a stream takes its done-when off, since a stream has none; whether a type and a
+ * done-when go together is `epics.update`'s to decide.
  */
 export async function editEpic(
   ctx: MutationCtx,
@@ -389,6 +432,19 @@ export async function editEpic(
   if (edit.description !== undefined) {
     changes.description = { from: doc.description, to: edit.description };
     patch.description = edit.description;
+  }
+  if (edit.doneWhen !== undefined) {
+    changes.doneWhen = { from: doc.doneWhen, to: edit.doneWhen };
+    patch.doneWhen = edit.doneWhen;
+  }
+  if (edit.type !== undefined) {
+    changes.type = { from: epicTypeOf(doc), to: edit.type };
+    patch.type = edit.type;
+    if (edit.type === "stream" && doc.doneWhen !== undefined) {
+      changes.doneWhen = { from: doc.doneWhen, to: undefined };
+      // A patch with `undefined` removes the field from the row.
+      patch.doneWhen = undefined;
+    }
   }
   if (edit.link !== undefined || edit.unlink !== undefined) {
     const links = editLinks(doc.links, edit, doc.id, { by: actor, at: Date.now() });

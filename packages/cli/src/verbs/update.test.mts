@@ -128,6 +128,29 @@ describe("cn update", () => {
     });
   });
 
+  it("reads an epic's --done-when, and --stream or --outcome as its type, never both", () => {
+    const epic = (...flags: string[]) => parse(["ep-3", "--revision", "2", ...flags]);
+    expect(epic("--done-when", "the plan is read")).toEqual({
+      action: "update",
+      kind: "epic",
+      args: { id: "ep-3", revision: 2, doneWhen: "the plan is read" },
+    });
+    expect(epic("--stream").args).toEqual({ id: "ep-3", revision: 2, type: "stream" });
+    expect(epic("--outcome", "--done-when", "back").args).toEqual({
+      id: "ep-3",
+      revision: 2,
+      type: "outcome",
+      doneWhen: "back",
+    });
+    expect(() => epic("--stream", "--outcome")).toThrow(/^--stream or --outcome, not both$/);
+    expect(() => parse(["cn-1", "--revision", "2", "--stream"])).toThrow(
+      /^an issue has no --stream; cn update cn-1 takes /,
+    );
+    expect(() => parse(["bl-2", "--revision", "2", "--done-when", "x"])).toThrow(
+      /^a blocker has no --done-when; cn update bl-2 takes /,
+    );
+  });
+
   it("reads a blocker id's --resolves as what resolves it", () => {
     expect(
       parse([
@@ -148,7 +171,7 @@ describe("cn update", () => {
 
   it("refuses a flag the thing has no field for, naming what it takes", () => {
     expect(() => parse(["ep-3", "--revision", "2", "--priority", "1"])).toThrow(
-      /^an epic has no --priority; cn update ep-3 takes --title, --description, --link and --unlink$/,
+      /^an epic has no --priority; cn update ep-3 takes --title, --description, --done-when, --stream, --outcome, --link and --unlink$/,
     );
     expect(() => parse(["bl-2", "--revision", "2", "--description", "x"])).toThrow(
       /^a blocker has no --description; cn update bl-2 takes --title, --resolves, --link and --unlink$/,

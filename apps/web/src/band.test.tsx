@@ -11,7 +11,14 @@ const app = project({
   slug: "app",
   name: "the app",
   filed: 6,
-  counts: { open: 4, inProgress: 1, closed: 1, dropped: 0, followUps: 0 },
+  counts: {
+    open: 4,
+    inProgress: 1,
+    closed: 1,
+    dropped: 0,
+    followUps: 0,
+    recent: { days: 28, filed: 0, done: 0 },
+  },
   health: {
     moving: [],
     stuck: [],

@@ -17,6 +17,7 @@ import {
   blockerStatusValidator,
   edgeTypeValidator,
   epicStatusValidator,
+  epicTypeValidator,
   followUpKindValidator,
   issueStatusValidator,
   issueTypeValidator,
@@ -39,7 +40,7 @@ export default defineSchema({
     next: v.number(),
   }).index("by_key", ["key"]),
 
-  // No projectId: an epic is an outcome, not a place. ep-0 is the one inbox.
+  // No projectId: an epic is an outcome or a stream, not a place. ep-0 is the one inbox.
   epics: defineTable({
     id: v.string(),
     title: v.string(),
@@ -47,6 +48,9 @@ export default defineSchema({
     // Absent means none: an epic with no links carries no empty array (lib/links.ts).
     links: v.optional(v.array(linkValidator)),
     status: epicStatusValidator,
+    // Absent on rows from before the field, which read by their id (`epicTypeOf`).
+    type: v.optional(epicTypeValidator),
+    doneWhen: v.optional(v.string()),
     droppedReason: v.optional(v.string()),
     revision: v.number(),
   })

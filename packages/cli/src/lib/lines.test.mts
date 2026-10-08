@@ -73,7 +73,13 @@ describe("healthLines", () => {
     id: "ep-3",
     title: "An epic tells the truth",
     lastActivity: now - DAY,
-    counts: { open: 0, inProgress: 0, closed: 2, followUps: 1 },
+    counts: {
+      open: 0,
+      inProgress: 0,
+      closed: 2,
+      followUps: 1,
+      recent: { days: 28, filed: 0, done: 0 },
+    },
     health: { moving: [], stuck: [], waiting: [] },
   };
 
@@ -85,8 +91,59 @@ describe("healthLines", () => {
 
   it("pluralises the follow-ups", () => {
     expect(
-      healthLines({ ...bare, counts: { open: 1, inProgress: 1, closed: 2, followUps: 2 } }, now)[0],
+      healthLines(
+        {
+          ...bare,
+          counts: {
+            open: 1,
+            inProgress: 1,
+            closed: 2,
+            followUps: 2,
+            recent: { days: 28, filed: 0, done: 0 },
+          },
+        },
+        now,
+      )[0],
     ).toBe('ep-3 "An epic tells the truth"  2 done · 2 open · 2 follow-ups');
+  });
+
+  it("prints an outcome's done-when first under its head, and a stream's head as its window", () => {
+    const moving = [
+      { id: "cn-7", title: "epic health", claimedBy: { name: "wsl/claude" }, claimedAt: ago(HOUR) },
+    ];
+    expect(
+      healthLines(
+        {
+          ...bare,
+          type: "outcome",
+          doneWhen: "every count reads true",
+          health: { moving, stuck: [], waiting: [] },
+        },
+        now,
+      ),
+    ).toEqual([
+      'ep-3 "An epic tells the truth"  2 done · 0 open · 1 follow-up',
+      "  done when  every count reads true",
+      '  moving   cn-7 "epic health" wsl/claude 1h',
+    ]);
+    expect(
+      healthLines(
+        {
+          ...bare,
+          id: "ep-2",
+          title: "Scout findings",
+          type: "stream",
+          counts: {
+            open: 1,
+            inProgress: 0,
+            closed: 9,
+            followUps: 0,
+            recent: { days: 28, filed: 2, done: 1 },
+          },
+        },
+        now,
+      ),
+    ).toEqual(['ep-2 "Scout findings"  stream · 1 open · 0 follow-ups · 28d: 2 filed, 1 done']);
   });
 
   it("names what is moving, what is stuck and what waits on a person", () => {
@@ -154,7 +211,14 @@ describe("projectLines", () => {
   });
 
   it("prints the block an epic with the same counts and health prints", () => {
-    const counts = { open: 2, inProgress: 1, closed: 3, dropped: 0, followUps: 1 };
+    const counts = {
+      open: 2,
+      inProgress: 1,
+      closed: 3,
+      dropped: 0,
+      followUps: 1,
+      recent: { days: 28, filed: 0, done: 0 },
+    };
     const health = {
       moving: [
         {
@@ -178,7 +242,14 @@ describe("projectLines", () => {
   });
 
   it("is the head with its counts and no rows when nothing filed is live", () => {
-    const counts = { open: 0, inProgress: 0, closed: 2, dropped: 1, followUps: 0 };
+    const counts = {
+      open: 0,
+      inProgress: 0,
+      closed: 2,
+      dropped: 1,
+      followUps: 0,
+      recent: { days: 28, filed: 0, done: 0 },
+    };
     expect(projectLines(project({ filed: 3, counts }), now)).toEqual([
       'app "the app"  2 done · 0 open · 0 follow-ups',
     ]);
@@ -190,7 +261,14 @@ describe("reviewLines", () => {
     id: "ep-1",
     title: "Create to close",
     revision: 0,
-    counts: { open: 2, inProgress: 1, closed: 1, dropped: 0, followUps: 1 },
+    counts: {
+      open: 2,
+      inProgress: 1,
+      closed: 1,
+      dropped: 0,
+      followUps: 1,
+      recent: { days: 28, filed: 0, done: 0 },
+    },
   };
   const quiet = {
     epic: reviewed,
@@ -274,11 +352,43 @@ describe("reviewLines", () => {
     ]);
   });
 
+  it("prints an outcome's done-when under the head as context, and nothing to look at after it", () => {
+    const epic = { ...reviewed, type: "outcome", doneWhen: "both twins are closed" };
+    expect(reviewLines(review({ epic }), now)).toEqual([
+      'ep-1 "Create to close"  1 done · 3 open · 1 follow-up',
+      "  done when   both twins are closed",
+      "  nothing to look at",
+    ]);
+  });
+
+  it("asks an outcome with no done-when for one, as its first finding", () => {
+    const epic = { ...reviewed, type: "outcome", revision: 3 };
+    expect(reviewLines(review({ epic, needsDoneWhen: true, canClose: true }), now)).toEqual([
+      'ep-1 "Create to close"  1 done · 3 open · 1 follow-up',
+      '  done when   none yet · cn update ep-1 --revision 3 --done-when "…"',
+      "  can close   cn epic close ep-1 --revision 3",
+    ]);
+  });
+
+  it("heads a stream with its window", () => {
+    const epic = { ...reviewed, type: "stream" };
+    expect(reviewLines(review({ epic }), now)[0]).toBe(
+      'ep-1 "Create to close"  stream · 3 open · 1 follow-up · 28d: 0 filed, 0 done',
+    );
+  });
+
   it("prints the can close row alone when that is the one finding", () => {
     const done = {
       ...reviewed,
       revision: 4,
-      counts: { open: 0, inProgress: 0, closed: 4, dropped: 0, followUps: 0 },
+      counts: {
+        open: 0,
+        inProgress: 0,
+        closed: 4,
+        dropped: 0,
+        followUps: 0,
+        recent: { days: 28, filed: 0, done: 0 },
+      },
     };
     expect(reviewLines(review({ canClose: true, epic: done }), now)).toEqual([
       'ep-1 "Create to close"  4 done · 0 open · 0 follow-ups',
@@ -394,6 +504,7 @@ describe("epicClosedLines", () => {
   const closed = (followUps: number) => ({
     epic: { ...told, status: "closed", counts: { followUps } },
     dropped: [],
+    carried: [],
   });
 
   it("takes the word from the status the deployment answered, not from a flag", () => {
@@ -419,11 +530,29 @@ describe("epicClosedLines", () => {
           { id: "cn-4", title: "a" },
           { id: "cn-7", title: "b" },
         ],
+        carried: [],
       }),
     ).toEqual([
       'ep-3 "An epic tells the truth" dropped r2',
       '  dropped    cn-4 "a"',
       '  dropped    cn-7 "b"',
+    ]);
+  });
+
+  it("names the tasks a carry moved and the epic they went to, above the follow-ups", () => {
+    expect(
+      epicClosedLines({
+        ...closed(1),
+        carried: [
+          { id: "cn-4", title: "a" },
+          { id: "cn-7", title: "b" },
+        ],
+        carriedTo: { id: "ep-5", title: "Next door" },
+      }),
+    ).toEqual([
+      'ep-3 "An epic tells the truth" closed r2',
+      '  carried    cn-4 "a", cn-7 "b" to ep-5 "Next door"',
+      "  1 follow-up still open",
     ]);
   });
 });
@@ -764,7 +893,14 @@ describe("brief", () => {
   it("prints an epic as its line, its description and its open issues", () => {
     const shown = epic({
       description: "an agent creates, claims, journals and closes work",
-      counts: { open: 1, inProgress: 0, closed: 0, dropped: 0, followUps: 0 },
+      counts: {
+        open: 1,
+        inProgress: 0,
+        closed: 0,
+        dropped: 0,
+        followUps: 0,
+        recent: { days: 28, filed: 0, done: 0 },
+      },
       health: {
         moving: [],
         stuck: [],
@@ -777,6 +913,14 @@ describe("brief", () => {
       '  waiting  bl-3 "confirm the invite copy" · owner harbor',
       "an agent creates, claims, journals and closes work",
       '  cn-1 "schema, ids" P0 open',
+    ]);
+  });
+
+  it("prints an outcome's done-when on the line under its head", () => {
+    const shown = epic({ doneWhen: "every issue in it is closed" });
+    expect(brief(shown, now).split("\n").slice(0, 2)).toEqual([
+      'ep-1 "Create to close"  0 done · 0 open · 0 follow-ups · revision 0',
+      "  done when  every issue in it is closed",
     ]);
   });
 

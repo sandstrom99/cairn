@@ -4,6 +4,7 @@
 //                  [--acceptance <what>] [--priority 0-4] [--epic <ep-id>]
 //                  [--defer-until <date>|none] [--link <url>…] [--unlink <url>…]
 //   cn update ep-N --revision N [--title <text>] [--description <text>]
+//                  [--done-when <text>] [--stream | --outcome]
 //                  [--link <url>…] [--unlink <url>…]
 //   cn update bl-N --revision N [--title <text>] [--resolves <what ends it>]
 //                  [--link <url>…] [--unlink <url>…]
@@ -13,9 +14,14 @@
 // a revision that has moved is refused with every change since — who changed what, and
 // when — so the answer is to re-read, decide and retry, never to force it.
 //
-// The id says what is changed. An epic takes its title, description and links; a blocker
-// its title, what ends it (--resolves, as `cn wait` spells it) and links, while its kind
-// and owner stay as raised. A flag the thing has no field for is refused, naming it.
+// The id says what is changed. An epic takes its title, description, done-when, type and
+// links; a blocker its title, what ends it (--resolves, as `cn wait` spells it) and links,
+// while its kind and owner stay as raised. A flag the thing has no field for is refused,
+// naming it.
+//
+// --done-when changes the sentence that says when an outcome is reached; a stream has none.
+// --stream turns an outcome into a stream, an intake that never closes, and takes its
+// done-when off. --outcome turns a stream back, and needs --done-when beside it.
 //
 // --defer-until parks the issue until a date, which hides it from `cn ready` and from
 // nothing else; `none` clears the date.
@@ -39,10 +45,12 @@ import { ref } from "../lib/ref.mts";
 export const name = "update";
 export const summary = "change an issue, an epic or a blocker, against the revision you read";
 export const spec = {
+  bool: ["stream", "outcome"],
   value: [
     "revision",
     "title",
     "description",
+    "done-when",
     "design",
     "acceptance",
     "priority",
@@ -62,7 +70,10 @@ type Kind = "issue" | "epic" | "blocker";
 const kindOf = (id: string): Kind =>
   id.startsWith("ep-") ? "epic" : id.startsWith("bl-") ? "blocker" : "issue";
 
-type Flag = Exclude<(typeof spec.value)[number] | (typeof spec.list)[number], "revision">;
+type Flag = Exclude<
+  (typeof spec.bool)[number] | (typeof spec.value)[number] | (typeof spec.list)[number],
+  "revision"
+>;
 
 /** The flags each kind has a field for, in the header's order. */
 const FITS: Record<Kind, readonly Flag[]> = {
@@ -77,7 +88,7 @@ const FITS: Record<Kind, readonly Flag[]> = {
     "link",
     "unlink",
   ],
-  epic: ["title", "description", "link", "unlink"],
+  epic: ["title", "description", "done-when", "stream", "outcome", "link", "unlink"],
   blocker: ["title", "resolves", "link", "unlink"],
 };
 
@@ -108,6 +119,8 @@ type EpicUpdateArgs = {
   revision: number;
   title?: string;
   description?: string;
+  doneWhen?: string;
+  type?: "outcome" | "stream";
   link?: LinkInput[];
   unlink?: string[];
 };
@@ -140,9 +153,10 @@ export function parse(argv: string[]): Parsed {
   const rev = revision(opts.revision, "cn update <id> --revision N");
 
   const kind = kindOf(id);
-  const given = [...spec.value, ...spec.list].filter(
-    (flag): flag is Flag => flag !== "revision" && opts[flag] !== undefined,
-  );
+  const given = [
+    ...spec.bool.filter((flag) => opts[flag]),
+    ...[...spec.value, ...spec.list].filter((flag) => opts[flag] !== undefined),
+  ].filter((flag): flag is Flag => flag !== "revision");
   const stray = given.find((flag) => !FITS[kind].includes(flag));
   if (stray !== undefined)
     throw new UsageError(
@@ -161,9 +175,13 @@ export function parse(argv: string[]): Parsed {
   };
 
   if (kind === "epic") {
+    if (opts.stream && opts.outcome) throw new UsageError("--stream or --outcome, not both");
     const args: EpicUpdateArgs = {
       ...common,
       ...maybe("description", text(opts.description, "--description")),
+      ...maybe("doneWhen", opts["done-when"]),
+      ...(opts.stream ? { type: "stream" as const } : {}),
+      ...(opts.outcome ? { type: "outcome" as const } : {}),
       ...linking,
     };
     if (Object.keys(args).length === 2) throw new UsageError(NOTHING);

@@ -26,8 +26,13 @@ they say so.
 - `edge`: a blocks edge with one end finished and the other still live. It holds nothing
   back. Leave it as history, or `cn dep rm <id> --blocked-by <other>` if the person wants
   it gone.
-- `can close`: every issue is finished. Run the printed `cn epic close` line when the
-  person says to.
+- `done when` under the head: what reaching the outcome means. Ask whether it still holds,
+  and whether the open work moves toward it.
+- `done when … none yet`: an outcome with no done-when. Propose a sentence from the epic's
+  title and description, and on the person's word
+  `cn update <ep> --revision N --done-when "…"`.
+- `can close`: every task is finished; follow-ups stay routed and outlive the close. Run
+  the printed `cn epic close` line when the person says to.
 
 End with `cn review <ep-id>` again and say what is left. The review wrote nothing; every
 change was a verb, in the log under whoever ran it.

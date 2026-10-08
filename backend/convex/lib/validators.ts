@@ -2,9 +2,13 @@
 // and the functions cannot drift. schema.ts builds its tables from them and every function
 // that takes one as an argument imports the same const, so a status or a kind added in one
 // place is added everywhere. Beside them sit the one predicate over issue status that
-// every lifecycle verb asks, and the one over an epic's issues that says it is done. This
-// file imports convex/values and nothing else, since the schema imports it.
+// every lifecycle verb asks, the one over an epic's issues that says it is done, and the
+// one that reads an epic's type. This file imports convex/values and nothing else, since
+// the schema imports it, so the inbox's id lives here for that last one.
 import { v, type Infer } from "convex/values";
+
+/** ep-0 "Inbox", the one epic id never minted from the counter (lib/inbox.ts). */
+export const INBOX_ID = "ep-0";
 
 /** Where an epic is: still an outcome being worked, reached, or given up. */
 export const epicStatusValidator = v.union(
@@ -12,6 +16,12 @@ export const epicStatusValidator = v.union(
   v.literal("closed"),
   v.literal("dropped"),
 );
+
+/** An outcome is reached and closes; a stream is an intake that never closes (§3). */
+export const epicTypeValidator = v.union(v.literal("outcome"), v.literal("stream"));
+
+/** One of `epicTypeValidator`'s literals. */
+export type EpicType = Infer<typeof epicTypeValidator>;
 
 /** A task is the work; a follow-up is the routed residue of closing one (§5). */
 export const issueTypeValidator = v.union(v.literal("task"), v.literal("follow-up"));
@@ -44,9 +54,19 @@ export type IssueStatus = Infer<typeof issueStatusValidator>;
 export const isLive = (doc: { status: IssueStatus }): boolean =>
   doc.status === "open" || doc.status === "in_progress";
 
-/** Every issue finished, follow-ups included, and at least one task was ever there: an epic that was worked and is done (§7). */
+/**
+ * Every task finished and at least one was ever there: an epic that was worked and is done.
+ * A follow-up is residue beside the epic and holds nothing back (§5, §7).
+ */
 export const epicFinished = (issues: { type: IssueType; status: IssueStatus }[]): boolean =>
-  issues.some((i) => i.type === "task") && !issues.some(isLive);
+  issues.some((i) => i.type === "task") && !issues.some((i) => i.type === "task" && isLive(i));
+
+/**
+ * An epic's type. A row from before the field reads by its id, since the inbox was always
+ * the one epic that never closes.
+ */
+export const epicTypeOf = (doc: { id: string; type?: EpicType }): EpicType =>
+  doc.type ?? (doc.id === INBOX_ID ? "stream" : "outcome");
 
 /** What an edge between two issues says. Only `blocks` touches readiness (§4). */
 export const edgeTypeValidator = v.union(

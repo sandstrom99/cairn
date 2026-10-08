@@ -62,7 +62,11 @@ describe("issues.create", () => {
 
   it("hands back the open epics when none was given", async () => {
     const t = await seed();
-    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "A session starts warm",
+      doneWhen: "every issue in it is closed",
+    });
     await expect(
       t.mutation(api.issues.create, { actor, project: "cn", title: "no epic" }),
     ).rejects.toMatchObject({
@@ -110,7 +114,11 @@ describe("issues.create", () => {
 
   it("refuses an epic that is closed or dropped", async () => {
     const t = await seed();
-    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "A session starts warm",
+      doneWhen: "every issue in it is closed",
+    });
     await t.mutation(api.epics.close, { actor, id: "ep-1", revision: 0 });
     await t.mutation(api.epics.close, {
       actor,
@@ -211,7 +219,11 @@ describe("issues.create", () => {
     });
     expect(after.near).toEqual([]);
 
-    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "A session starts warm",
+      doneWhen: "every issue in it is closed",
+    });
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "the graph" });
     const elsewhere = await t.mutation(api.issues.create, {
       actor,
@@ -259,7 +271,11 @@ describe("issues.create", () => {
     const underInbox = await inbox("the retry path, again", "cn-2");
     expect(underInbox).toMatchObject({ id: "cn-3", epic: { id: "ep-0" }, placed: false });
 
-    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "A session starts warm",
+      doneWhen: "every issue in it is closed",
+    });
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "the hook" });
     await closeIssue(t, "cn-4");
     await t.mutation(api.epics.close, { actor, id: "ep-2", revision: 0 });
@@ -317,7 +333,11 @@ describe("issues.list", () => {
   it("orders by priority then age, and filters by epic, project and status", async () => {
     const t = await seed();
     await otherProject(t);
-    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "A session starts warm",
+      doneWhen: "every issue in it is closed",
+    });
     await t.mutation(api.issues.create, {
       actor,
       project: "cn",
@@ -593,7 +613,11 @@ describe("issues.update", () => {
   it("takes the current revision, stamps lastActivity, and records an epic move as ids", async () => {
     at("2026-09-17T09:00:00Z");
     const t = await withIssue();
-    await t.mutation(api.epics.create, { actor, title: "A session starts warm" });
+    await t.mutation(api.epics.create, {
+      actor,
+      title: "A session starts warm",
+      doneWhen: "every issue in it is closed",
+    });
     const before = (await rawIssue(t, "cn-1")).lastActivity;
 
     at("2026-09-17T10:00:00Z");
@@ -966,15 +990,19 @@ describe("issues.close", () => {
     expect(await t.query(api.show.get, { id: "ep-1" })).toMatchObject({ status: "open" });
   });
 
-  it("does not offer while a follow-up is open, and never for the inbox", async () => {
+  it("offers even when the close spawned a follow-up, and never for the inbox or a stream", async () => {
     const t = await withIssue();
     const { epicDone } = await closeIssue(t, "cn-1", 0, {
       followUp: { title: "confirm on a device", kind: "verify" },
     });
-    expect(epicDone).toBeUndefined();
+    expect(epicDone).toEqual({ id: "ep-1", title: "Create to close", revision: 0 });
 
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
     expect((await closeIssue(t, "cn-3")).epicDone).toBeUndefined();
+
+    await t.mutation(api.epics.create, { actor, title: "Scout findings", type: "stream" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "a finding" });
+    expect((await closeIssue(t, "cn-4")).epicDone).toBeUndefined();
   });
 
   /** `from` blocks `to`, the row `cn dep add <to> --blocked-by <from>` writes. */

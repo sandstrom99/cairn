@@ -9,6 +9,7 @@
 // alone: convex-test's own async stays real, and `_creationTime` follows the faked clock.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
+import { insertEpic } from "../lib/lifecycle";
 import { DAY, HOUR } from "../lib/thresholds";
 import {
   type Harness,
@@ -189,7 +190,7 @@ describe("review.get", () => {
     expect((await review(dropped, "ep-1")).edges).toEqual([]);
   });
 
-  it("says the epic can close when every issue is finished, and not the inbox", async () => {
+  it("says the epic can close when every task is finished, follow-ups beside it or not, and not the inbox", async () => {
     const done = await seed({ issues: ["the lifecycle"] });
     await closeIssue(done, "cn-1");
     expect((await review(done, "ep-1")).canClose).toBe(true);
@@ -198,7 +199,7 @@ describe("review.get", () => {
     await closeIssue(residue, "cn-1", 0, {
       followUp: { title: "confirm on a device", kind: "verify" },
     });
-    expect((await review(residue, "ep-1")).canClose).toBe(false);
+    expect((await review(residue, "ep-1")).canClose).toBe(true);
 
     const inbox = await seed();
     await inbox.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
@@ -211,5 +212,44 @@ describe("review.get", () => {
       epic: { id: "ep-1", status: "closed" },
       canClose: false,
     });
+  });
+
+  it("never offers a stream's close, however finished its tasks", async () => {
+    const t = await seed();
+    await t.mutation(api.epics.create, { actor, title: "Scout findings", type: "stream" });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-2", title: "a finding" });
+    await closeIssue(t, "cn-1");
+    expect(await review(t, "ep-2")).toMatchObject({
+      epic: { type: "stream" },
+      canClose: false,
+      needsDoneWhen: false,
+    });
+  });
+
+  it("asks an open outcome with no done-when for one, and nothing else", async () => {
+    const t = await seed();
+    // The shape of an outcome made before epics carried a done-when.
+    await t.run((ctx) => insertEpic(ctx, actor, { id: "ep-9", title: "old", type: "outcome" }));
+    expect((await review(t, "ep-9")).needsDoneWhen).toBe(true);
+    await t.mutation(api.epics.update, {
+      actor,
+      id: "ep-9",
+      revision: 0,
+      doneWhen: "the old work is shipped",
+    });
+    expect(await review(t, "ep-9")).toMatchObject({
+      epic: { doneWhen: "the old work is shipped" },
+      needsDoneWhen: false,
+    });
+
+    await t.mutation(api.epics.create, { actor, title: "Scout findings", type: "stream" });
+    expect((await review(t, "ep-2")).needsDoneWhen).toBe(false);
+
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-0", title: "stray" });
+    expect((await review(t, "ep-0")).needsDoneWhen).toBe(false);
+
+    await t.run((ctx) => insertEpic(ctx, actor, { id: "ep-8", title: "older", type: "outcome" }));
+    await t.mutation(api.epics.close, { actor, id: "ep-8", revision: 0 });
+    expect((await review(t, "ep-8")).needsDoneWhen).toBe(false);
   });
 });

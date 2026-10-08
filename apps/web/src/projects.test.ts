@@ -38,6 +38,7 @@ const counts = (open: number, inProgress = 0) => ({
   closed: 0,
   dropped: 0,
   followUps: 0,
+  recent: { days: 28, filed: 0, done: 0 },
 });
 
 /** An issue as a list carries it: open, P2, in app under ep-1, an hour quiet. */

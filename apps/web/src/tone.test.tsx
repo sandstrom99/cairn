@@ -42,8 +42,15 @@ describe("epicWord", () => {
     const line: EpicLineView = {
       id: "ep-0",
       title: "Inbox",
+      type: "stream",
       lastActivity: now - DAY,
-      counts: { open: 0, inProgress: 0, closed: 0, followUps: 0 },
+      counts: {
+        open: 0,
+        inProgress: 0,
+        closed: 0,
+        followUps: 0,
+        recent: { days: 28, filed: 0, done: 0 },
+      },
       health: { moving: [], stuck: [], waiting: [] },
     };
     expect(epicWord(line)).toBe("nothing moving");

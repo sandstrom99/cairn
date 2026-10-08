@@ -38,7 +38,14 @@ const marks = new Map<string, Mark>([
 const held = new Map([["app-2", { id: "bl-1", title: "PostHog project settings" }]]);
 const app = project({
   filed: 4,
-  counts: { open: 3, inProgress: 1, closed: 0, dropped: 0, followUps: 0 },
+  counts: {
+    open: 3,
+    inProgress: 1,
+    closed: 0,
+    dropped: 0,
+    followUps: 0,
+    recent: { days: 28, filed: 0, done: 0 },
+  },
   health: {
     moving: [{ id: "app-1", title: "the app", claimedBy: agent, claimedAt: ago(HOUR) }],
     stuck: [{ id: "app-3", title: "the app", lastActivity: ago(5 * DAY) }],

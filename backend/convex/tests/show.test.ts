@@ -283,6 +283,7 @@ describe("show.get", () => {
     await t.mutation(api.epics.create, {
       actor,
       title: "a plan",
+      doneWhen: "every issue in it is closed",
       link: [{ url: "https://example.com/plan", label: "plan" }],
     });
     await raise(t, "cn-1", { link: [{ url: "https://example.com/options" }] });

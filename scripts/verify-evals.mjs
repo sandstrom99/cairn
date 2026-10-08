@@ -144,7 +144,7 @@ function cn(line, { as, tolerate = false } = {}) {
  */
 function seed() {
   cn('project new app --name "the app"');
-  cn('epic new "Connection handling"');
+  cn('epic new "Connection handling" --done-when "scratch: connection handling is settled"');
   cn(
     'create --project app --epic ep-1 --title "retry on reconnect" --priority 1 --description "The app drops its socket on a network change and never reconnects, so the person sees a spinner until they restart it."',
   );
