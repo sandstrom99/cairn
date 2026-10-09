@@ -8,6 +8,13 @@ import { ref } from "@cairn/cli/ref";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   type Filter,
   type PageOf,
   type StateKey,
@@ -21,9 +28,6 @@ import {
 import { navigate } from "./location.ts";
 import { StatusDot } from "./rows.tsx";
 
-const SELECT =
-  "h-8 rounded-lg border border-input bg-lift px-2 text-sm text-ink outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-
 /** The status word whose dot a state's chip carries; a follow-up is open, and hollow. */
 const STATUS: Record<StateKey, string> = {
   in_progress: "in_progress",
@@ -35,6 +39,9 @@ const STATUS: Record<StateKey, string> = {
 
 const change = (filter: Filter, to: Parameters<typeof withFilter>[1]) =>
   navigate(hrefOf(withFilter(filter, to)), true);
+
+// Radix refuses an item valued "", so no filter is this; no slug, epic id or priority digit can be.
+const NONE = "*";
 
 export function Toolbar({
   filter,
@@ -62,49 +69,38 @@ export function Toolbar({
         value={filter.q}
         onChange={(e) => change(filter, { q: e.target.value })}
       />
-      <select
-        aria-label="Project"
-        className={SELECT}
-        value={filter.project ?? ""}
-        onChange={(e) => change(filter, { project: e.target.value || undefined })}
-      >
-        <option value="">Every project</option>
-        {projects.map((p) => (
-          <option key={p.slug} value={p.slug}>
-            {p.slug}
-          </option>
-        ))}
-        {unlistedProject && <option value={filter.project}>{filter.project}</option>}
-      </select>
-      <select
-        aria-label="Epic"
-        className={SELECT}
-        value={filter.epic ?? ""}
-        onChange={(e) => change(filter, { epic: e.target.value || undefined })}
-      >
-        <option value="">Every epic</option>
-        {epics.map((e) => (
-          <option key={e.id} value={e.id}>
-            {ref(e)}
-          </option>
-        ))}
-        {unlistedEpic && <option value={filter.epic}>{filter.epic}</option>}
-      </select>
-      <select
-        aria-label="Priority"
-        className={SELECT}
-        value={filter.priority ?? ""}
-        onChange={(e) =>
-          change(filter, { priority: e.target.value === "" ? undefined : Number(e.target.value) })
-        }
-      >
-        <option value="">Any priority</option>
-        {[0, 1, 2, 3, 4].map((p) => (
-          <option key={p} value={String(p)}>
-            P{p}
-          </option>
-        ))}
-      </select>
+      <Pick
+        label="Project"
+        width="w-40"
+        value={filter.project}
+        options={[
+          { value: NONE, text: "Every project" },
+          ...projects.map((p) => ({ value: p.slug, text: p.slug })),
+          ...(unlistedProject ? [{ value: filter.project!, text: filter.project! }] : []),
+        ]}
+        onChange={(v) => change(filter, { project: v })}
+      />
+      <Pick
+        label="Epic"
+        width="w-64"
+        value={filter.epic}
+        options={[
+          { value: NONE, text: "Every epic" },
+          ...epics.map((e) => ({ value: e.id, text: ref(e) })),
+          ...(unlistedEpic ? [{ value: filter.epic!, text: filter.epic! }] : []),
+        ]}
+        onChange={(v) => change(filter, { epic: v })}
+      />
+      <Pick
+        label="Priority"
+        width="w-36"
+        value={filter.priority === undefined ? undefined : String(filter.priority)}
+        options={[
+          { value: NONE, text: "Any priority" },
+          ...[0, 1, 2, 3, 4].map((p) => ({ value: String(p), text: `P${p}` })),
+        ]}
+        onChange={(v) => change(filter, { priority: v === undefined ? undefined : Number(v) })}
+      />
       <div className="flex basis-full items-center gap-2">
         <StateChips filter={filter} counts={counts} />
         {!isDefault(filter) && (
@@ -114,6 +110,57 @@ export function Toolbar({
         )}
       </div>
     </div>
+  );
+}
+
+/** One pick of the toolbar: its options, the one on, and what picking another does. */
+function Pick({
+  label,
+  value,
+  options,
+  onChange,
+  width,
+}: {
+  label: string;
+  value: string | undefined;
+  options: { value: string; text: string }[];
+  onChange: (value: string | undefined) => void;
+  width: string;
+}) {
+  const on = value ?? NONE;
+  // The value is children because Radix fills it from the picked item only after mount, so a
+  // render to a string, and the first paint, would show an empty trigger without them.
+  return (
+    <Select value={on} onValueChange={(v) => onChange(v === NONE ? undefined : v)}>
+      <SelectTrigger
+        aria-label={label}
+        className={cn(
+          "h-8 bg-lift *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate",
+          width,
+        )}
+      >
+        <SelectValue>{options.find((o) => o.value === on)?.text}</SelectValue>
+      </SelectTrigger>
+      {/* Dropped below the trigger as the ask menu is, not laid over it as a native select is;
+          an option's text is the last span, which cuts with an ellipsis instead of running
+          under the check. */}
+      <SelectContent
+        position="popper"
+        align="start"
+        sideOffset={4}
+        className="glass max-w-[min(28rem,calc(100vw-32px))] rounded-xl bg-transparent text-ink"
+      >
+        {options.map((o) => (
+          <SelectItem
+            key={o.value}
+            value={o.value}
+            className="*:[span]:last:block *:[span]:last:min-w-0 *:[span]:last:truncate"
+          >
+            {o.text}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
