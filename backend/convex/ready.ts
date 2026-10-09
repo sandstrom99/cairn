@@ -4,7 +4,7 @@
 //           AND no open `blocks` edge into it
 //           AND no unresolved blocker attached
 //           AND (deferUntil is null OR deferUntil <= now)
-//         ordered by priority, then age
+//         ordered by priority, then age, the rows the stuck rule names after the rest
 //
 // No `isReady` column and no recompute step: the moment a blocker closes, the issue it
 // held is ready, with nothing run in between. beads spends ~2,000 lines here, ~800 of

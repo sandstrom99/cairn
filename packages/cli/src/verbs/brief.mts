@@ -4,10 +4,12 @@
 //   cn brief --unjournaled [--json]
 //
 // Under 20 lines: which projects the deployment has, then the counts and the head of each
-// queue — what is ready, what is in progress and who holds it, the open follow-ups, how
-// much waits on a person, and last the settings this machine has set (`cn setting`), each
-// with its state, a line that is not there when every one is off. State, and never rules: the rules are in the skill, which loads
-// on demand, and a hook always loads.
+// queue — what is ready, what is stuck and how long each has been silent, what is in
+// progress and who holds it, what was done in the last 48 hours and when, the open
+// follow-ups, how much waits on a person, and last the settings this machine has set
+// (`cn setting`), each with its state, a line that is not there when every one is off. A
+// stuck row is not counted as ready. State, and never rules: the rules are in the skill,
+// which loads on demand, and a hook always loads.
 //
 // With no deployment configured it prints nothing and exits 0, so the SessionStart hook
 // costs a session nothing on a machine that has never heard of cairn.

@@ -1712,9 +1712,18 @@ describe("briefLines", () => {
     status: "open",
     epic: { id: "ep-1", title: "Create to close" },
     revision: 0,
+    lastActivity: ago(HOUR),
+  } as const;
+  /** What an in-progress row carries past its id, title and claim, which the line does not print. */
+  const claimed = {
+    priority: 2,
+    status: "in_progress",
+    epic: { id: "ep-1", title: "Create to close" },
+    revision: 1,
+    lastActivity: ago(HOUR),
   } as const;
 
-  it("is the six lines of design §8", () => {
+  it("is the eight lines of design §8", () => {
     const lines = briefLines(
       {
         projects: ["app", "web"],
@@ -1726,15 +1735,18 @@ describe("briefLines", () => {
             { id: "cn-9", title: "the web view", priority: 2, ...head },
           ],
         },
+        stuck: { count: 0, top: [] },
         inProgress: [
           {
             id: "cn-6",
             title: "the brief and the plugin",
+            ...claimed,
             claimedBy: claude,
             claimedAt: ago(2 * HOUR),
             mine: false,
           },
         ],
+        recent: { count: 0, top: [] },
         followUps: [
           { id: "cn-12", title: "record explicit changes on close", followUpKind: "cleanup" },
           { id: "cn-13", title: "confirm on a phone", followUpKind: "verify" },
@@ -1748,11 +1760,64 @@ describe("briefLines", () => {
       "cairn · local · harbor/claude",
       "projects        app · web",
       'ready 4         cn-7 "the web window\'s first page" P1 · cn-8 "the deployment story" P2 · cn-9 "the web view" P2',
+      "stuck 0         none",
       'in progress     cn-6 "the brief and the plugin" harbor/claude 2h',
+      "done 0 in 48h   none",
       'follow-ups      cn-12 "record explicit changes on close" [cleanup] · cn-13 "confirm on a phone" [verify]',
       "waiting on you  0",
     ]);
     expect(lines.length).toBeLessThan(20);
+  });
+
+  it("heads what is stuck with its silence, and what was done in 48h with when", () => {
+    /** A P1 head silent since `at`, as the deployment marks a stuck row. */
+    const stuck = (id: string, title: string, at: number) => ({
+      id,
+      title,
+      priority: 1,
+      ...head,
+      lastActivity: at,
+      silentSince: at,
+    });
+    const lines = briefLines(
+      {
+        ...empty,
+        stuck: {
+          count: 5,
+          top: [
+            stuck("app-3", "the retry", ago(10 * DAY)),
+            stuck("site-2", "the form", ago(9 * DAY)),
+          ],
+        },
+        recent: {
+          count: 23,
+          top: [
+            {
+              id: "app-94",
+              title: "the badge",
+              priority: 2,
+              ...head,
+              status: "closed",
+              closedAt: ago(2 * HOUR),
+            },
+            {
+              id: "app-93",
+              title: "the sheet",
+              priority: 3,
+              ...head,
+              status: "closed",
+              closedAt: ago(3 * HOUR),
+            },
+          ],
+        },
+      },
+      where,
+      now,
+    );
+    expect(lines[3]).toBe(
+      'stuck 5         app-3 "the retry" P1 silent 10d · site-2 "the form" P1 silent 9d',
+    );
+    expect(lines[5]).toBe('done 23 in 48h  app-94 "the badge" 2h ago · app-93 "the sheet" 3h ago');
   });
 
   it("says none rather than nothing", () => {
@@ -1761,7 +1826,9 @@ describe("briefLines", () => {
       "cairn · local · harbor/claude",
       "projects        none",
       "ready 0         none",
+      "stuck 0         none",
       "in progress     none",
+      "done 0 in 48h   none",
       "follow-ups      none",
       "waiting on you  0",
     ]);
@@ -1778,7 +1845,16 @@ describe("briefLines", () => {
       now,
     );
     expect(lines.at(-1)).toBe("settings        hand-on auto");
-    expect(lines).toHaveLength(7);
+    expect(lines).toHaveLength(9);
+  });
+
+  it("prints no stuck or done line when the deployment sends neither, as one not yet pushed with them", () => {
+    const unpushed: Partial<BriefView> = briefView();
+    delete unpushed.stuck;
+    delete unpushed.recent;
+    const lines = briefLines(unpushed as BriefView, where, now);
+    expect(lines.some((line) => /^(stuck|done) /.test(line))).toBe(false);
+    expect(lines).toHaveLength(6);
   });
 
   it("prints no projects line when the deployment sends none, as one not yet pushed with it", () => {
@@ -1786,7 +1862,7 @@ describe("briefLines", () => {
     delete unpushed.projects;
     const lines = briefLines(unpushed as BriefView, where, now);
     expect(lines.some((line) => line.startsWith("projects"))).toBe(false);
-    expect(lines).toHaveLength(5);
+    expect(lines).toHaveLength(7);
     expect(lines.length).toBeLessThan(20);
   });
 
@@ -1797,6 +1873,7 @@ describe("briefLines", () => {
         inProgress: Array.from({ length: 7 }, (_, i) => ({
           id: `cn-${i + 1}`,
           title: "held",
+          ...claimed,
           claimedBy: claude,
           claimedAt: ago(HOUR),
           mine: false,
@@ -1810,9 +1887,9 @@ describe("briefLines", () => {
       where,
       now,
     );
-    expect(lines[3]).toContain("· +2 more");
-    expect(lines[3]?.split(" · ")).toHaveLength(6);
-    expect(lines[4]).toBe(
+    expect(lines[4]).toContain("· +2 more");
+    expect(lines[4]?.split(" · ")).toHaveLength(6);
+    expect(lines[6]).toBe(
       'follow-ups      cn-20 "confirm it" [verify] · cn-21 "confirm it" [verify] · cn-22 "confirm it" [verify] · +2 more',
     );
     expect(lines.length).toBeLessThan(20);
@@ -1826,6 +1903,7 @@ describe("briefLines", () => {
           {
             id: "cn-37",
             title: "a session beside the actor",
+            ...claimed,
             claimedBy: { ...claude, session: "s-1" },
             claimedAt: ago(5 * MINUTE),
             mine: true,
@@ -1833,6 +1911,7 @@ describe("briefLines", () => {
           {
             id: "cn-6",
             title: "the brief and the plugin",
+            ...claimed,
             claimedBy: claude,
             claimedAt: ago(3 * DAY),
             mine: false,
@@ -1841,6 +1920,7 @@ describe("briefLines", () => {
           {
             id: "cn-9",
             title: "forgotten in this very session",
+            ...claimed,
             claimedBy: { ...claude, session: "s-1" },
             claimedAt: ago(9 * DAY),
             mine: true,
@@ -1852,7 +1932,7 @@ describe("briefLines", () => {
       now,
     );
     // Silence stays in hours for two days, where `1d` would hide how far past 24h it is.
-    expect(lines[3]).toBe(
+    expect(lines[4]).toBe(
       'in progress     cn-37 "a session beside the actor" harbor/claude 5m · yours · cn-6 "the brief and the plugin" harbor/claude 3d · silent 26h · cn-9 "forgotten in this very session" harbor/claude 9d · silent 9d · yours',
     );
   });
@@ -1864,6 +1944,11 @@ describe("unjournaledLine", () => {
   const held = (over: Partial<BriefView["inProgress"][number]> = {}) => ({
     id: "cn-38",
     title: "a Stop hook hands back one state line",
+    priority: 2,
+    status: "in_progress" as const,
+    epic: { id: "ep-1", title: "Create to close" },
+    revision: 1,
+    lastActivity: ago(3 * HOUR),
     claimedBy: session,
     claimedAt: ago(3 * HOUR),
     mine: true,

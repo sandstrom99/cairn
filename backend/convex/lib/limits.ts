@@ -1,7 +1,7 @@
 // limits.ts: the sizes a reader meets, named once so the functions that cut to them and
 // the page that says so agree: show.get carries `JOURNAL_HEAD` journal entries unless asked
 // for up to `JOURNAL_MAX`, events.recent hands back at most `LOG_LIMIT` events in one page,
-// brief.get heads `UP_NEXT` ready rows when the Overview asks, search.find takes at
+// brief.get heads `UP_NEXT` ready, stuck and recent rows when the Overview asks, search.find takes at
 // most `SEARCH_HITS` rows back from a text index, and an epic's show.get names the
 // `NEXT_HEAD` newest directions its finished issues left.
 

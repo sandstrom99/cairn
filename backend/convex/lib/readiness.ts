@@ -10,6 +10,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { edgesFrom, edgesTo, unresolvedBlockersOn } from "./graph";
 import { priorityOrder } from "./order";
+import { stuckAt } from "./thresholds";
 import { isLive } from "./validators";
 import { type Ref, issueView, lookups, ref } from "./views";
 
@@ -47,6 +48,24 @@ export const isReady = (blocked: Blocked): boolean =>
   blocked.blockers.length === 0 &&
   blocked.deferredUntil === undefined;
 
+/** True once the stuck rule's moment for `doc` has come: the half of that rule the clock decides. */
+export const isStuckByNow = (doc: Doc<"issues">, now: number): boolean => {
+  const at = stuckAt(doc);
+  return at !== undefined && at <= now;
+};
+
+/**
+ * Ready order: priority then age, with the rows the stuck rule names after the rest
+ * (docs/design.md §4, §8). For a ready row the rule in lib/health.ts reduces to its
+ * moment having passed, since open, unclaimed, held by no blocker and past any deferral
+ * are already true of it; so this and `stuckOf` name the same rows, and the brief's
+ * Stuck group and `cn ready`'s tail agree.
+ */
+export const readyOrder =
+  (now: number) =>
+  (a: Doc<"issues">, b: Doc<"issues">): number =>
+    Number(isStuckByNow(a, now)) - Number(isStuckByNow(b, now)) || priorityOrder(a, b);
+
 /**
  * The ready rows themselves, in ready order. `ready.list` is this function and nothing
  * else, and `brief.get` counts the same rows, so the head of the brief can never disagree
@@ -63,7 +82,7 @@ export async function readyIssues(ctx: QueryCtx, now: number = Date.now()) {
 
   const ready = [];
   for (const doc of open) if (isReady(await blockedBy(ctx, doc, now))) ready.push(doc);
-  ready.sort(priorityOrder);
+  ready.sort(readyOrder(now));
 
   const seen = lookups();
   return await Promise.all(ready.map((doc) => issueView(ctx, doc, seen)));
@@ -88,7 +107,7 @@ export async function madeReadyBy(ctx: QueryCtx, closed: Doc<"issues">, now: num
   for (const doc of targets)
     if (doc !== null && doc.status === "open" && isReady(await blockedBy(ctx, doc, now)))
       ready.push(doc);
-  ready.sort(priorityOrder);
+  ready.sort(readyOrder(now));
 
   const seen = lookups();
   return await Promise.all(ready.map((doc) => issueView(ctx, doc, seen)));

@@ -30,7 +30,7 @@ import { projectBySlug } from "../lib/lookup";
 import { idOrder, priorityOrder } from "../lib/order";
 import { checkPriority } from "../lib/priority";
 import { applyRevision, expectRevision } from "../lib/revision";
-import { DAY, STUCK_AFTER_MS, stuckAt } from "../lib/thresholds";
+import { DAY, HOUR, STUCK_AFTER_MS, fadedAt, stuckAt } from "../lib/thresholds";
 import { isLive } from "../lib/validators";
 import { epicView } from "../lib/views";
 import {
@@ -122,6 +122,12 @@ describe("stuckAt", () => {
     expect(stuckAt({ priority: 0, lastActivity, deferUntil: lastActivity })).toBe(
       lastActivity + limit + 1,
     );
+  });
+});
+
+describe("fadedAt", () => {
+  it("is the first millisecond past 48 hours after the close", () => {
+    expect(fadedAt(17 * DAY)).toBe(17 * DAY + 48 * HOUR + 1);
   });
 });
 

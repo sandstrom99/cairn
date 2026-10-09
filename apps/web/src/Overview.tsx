@@ -1,6 +1,7 @@
 // Overview.tsx: what the page opens on. The brief as a headline, what waits on a person
-// where there is any, up next, the first of what is ready, then every open epic with its
-// health. The band of projects between the headline and what waits is Band.tsx's.
+// where there is any, what is moving and what just landed, what is stuck, up next, the first
+// of what is ready, then every open epic with its health. The band of projects between the
+// headline and what waits is Band.tsx's.
 //
 // Every row here is one of cn's lines, typeset. The pieces come from the `…Parts`
 // functions in @cairn/cli's parts.mts, the same ones the lines themselves are joined
@@ -57,6 +58,34 @@ export function Waiting({ blockers, now }: { blockers: WaitingBlocker[]; now: nu
 
 export type WaitingBlocker = BlockerLineView & { issues: Referable[] };
 
+/**
+ * `cn brief`'s in progress and done lines as rows: what is being worked on, then what just
+ * landed, newest first. The count is both, the closes past the heads included. Nothing where
+ * neither has any.
+ */
+export function Moving({ view, now }: { view: BriefView; now: number }) {
+  const count = view.inProgress.length + view.recent.count;
+  if (count === 0) return null;
+  return (
+    <Group title="Moving" id="moving" count={count} className="mt-10">
+      <IssueRows issues={[...view.inProgress, ...view.recent.top]} now={now} />
+    </Group>
+  );
+}
+
+/**
+ * `cn brief`'s stuck line as rows: each with its silence, drawn against its priority's
+ * limit. Nothing where nothing is stuck; a row here is never under Up next as well.
+ */
+export function Stuck({ view, now }: { view: BriefView; now: number }) {
+  if (view.stuck.count === 0) return null;
+  return (
+    <Group title="Stuck" id="stuck" count={view.stuck.count} className="mt-10">
+      <IssueRows issues={view.stuck.top} now={now} meter="stuck" />
+    </Group>
+  );
+}
+
 /** `cn ready`, as the first rows of it: the ready count beside the title, and the heads the brief carries as rows. Nothing where nothing is ready. */
 export function UpNext({ view }: { view: BriefView }) {
   if (view.ready.count === 0) return null;
@@ -95,11 +124,11 @@ function BlockerRow({ blocker, now }: { blocker: WaitingBlocker; now: number }) 
 }
 
 /**
- * `cn epic list`: the epics with something to say first, each its block with its
- * description under the head line the way `cn show` has it. With nothing live, the two
- * epics touched last stand where the live ones would, each with the newest log line that
- * landed in it, so the page still says what the deployment has been doing; the rest are
- * listed under "Nothing moving", and an epic shown above is not listed again.
+ * `cn epic list`: the epics with something to say first, newest activity first, each its
+ * block with its description under the head line the way `cn show` has it. With nothing
+ * live, the two epics touched last stand where the live ones would, each with the newest
+ * log line that landed in it, so the page still says what the deployment has been doing;
+ * the rest are listed under "Nothing moving", and an epic shown above is not listed again.
  */
 export function Epics({
   epics,
@@ -126,7 +155,9 @@ export function Epics({
     );
   const parts = epics.map((view) => ({ view, ...healthParts(view, now) }));
   // An outcome's done-when is always there, so it says nothing about whether the epic moves.
-  const live = parts.filter((p) => p.rows.some((row) => row.fact !== "doneWhen"));
+  const live = parts
+    .filter((p) => p.rows.some((row) => row.fact !== "doneWhen"))
+    .sort((a, b) => b.view.lastActivity - a.view.lastActivity);
   const still = parts.filter((p) => !live.includes(p));
   const latest =
     live.length === 0

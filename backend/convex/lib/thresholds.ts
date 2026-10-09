@@ -27,6 +27,8 @@ export const PULSE_DAYS = 28;
  * newest entry, is what the Stop hook hands back as one state line (§8).
  */
 export const JOURNAL_QUIET_MS = 1 * HOUR;
+/** A close this recent is on the brief's done line and the Overview's Moving group (§8). */
+export const RECENT_MS = 48 * HOUR;
 
 // The moments each line above starts to hold. Every comparison is strict, silent strictly
 // longer than the limit, so the first millisecond a line holds is its start plus the limit
@@ -40,6 +42,8 @@ export const silentAt = (lastActivity: number): number => lastActivity + CLAIM_S
 export const quietAt = (since: number): number => since + JOURNAL_QUIET_MS + 1;
 /** The moment an inbox item reads stale: review's inbox line. */
 export const staleAt = (createdAt: number): number => createdAt + INBOX_STALE_MS + 1;
+/** The moment a close is no longer recent: the brief's `recent` and clock.next read it. */
+export const fadedAt = (closedAt: number): number => closedAt + RECENT_MS + 1;
 /**
  * The moment an open, unclaimed issue nobody holds reads stuck: its deferral passed and its
  * silence past its priority's limit, or undefined for a priority that is never stuck. The

@@ -384,8 +384,12 @@ ready =
     AND no open `blocks` edge into it
     AND no unresolved blocker attached
     AND (deferUntil is null OR deferUntil <= now)
-  ordered by priority, then age
+  ordered by priority, then age, with the rows §8's stuck rule names after the rest
 ```
+
+A row the queue has been offering, and nobody has taken for longer than its
+priority allows, is not what happens next: the brief names it as stuck instead,
+and putting it last keeps `cn ready` and the page's Up next the same list.
 
 Computed live. **No `isReady` column, no `recompute` command.** beads spends
 roughly 2,000 lines here, of which about 800 exist only to repair a
@@ -668,7 +672,9 @@ A hook injects **under 20 lines**:
 
 - the projects the deployment has, as their slugs
 - ready count, and the top 3 by priority, carrying what `cn ready`'s line prints; the page asks for five
+- what is stuck, count and the top 3, each with its silence
 - in progress, with actor and age, marked `yours` where the claim is this session's
+- what was done in the last 48 hours, count and the newest 3
 - the open follow-ups
 - waiting-on-you as a **count only**
 - a claim silent past the threshold, marked `silent 26h`
@@ -693,10 +699,16 @@ returns the numbers and the heads; `cn brief` lays them out:
 cairn · driftwood · harbor-mac/claude
 projects       app · web
 ready 7        app-31 "retry on reconnect" P1 · web-12 "invite landing copy" P1 · app-40 "…" P2
+stuck 2        app-3 "offline queue" P1 silent 10d · web-2 "…" P1 silent 9d
 in progress    app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
+done 23 in 48h app-94 "invite badge" 2h ago · app-95 "…" 2h ago · app-93 "…" 3h ago
 follow-ups     app-22 "confirm retry path on a device" [verify]
 waiting on you 3
 ```
+
+The brief's `ready` leaves out the rows the stuck rule names, so a row is on the
+`ready` line or the `stuck` line and never both, and the page's Stuck group and
+Up next never share a row.
 
 `yours` and `silent 26h` are the deployment's facts, not the line's: `brief.get`
 takes the caller's actor and marks a claim `mine` on the same test `issues.claim`
@@ -814,8 +826,8 @@ project at `/projects/<slug>`, Issues, one page per id (`/app-14`,
 deployment will not answer, the page shows its line and a field for the secret.
 There is no picker for switching deployments in the page, since each deployment
 serves its own page at its own URL (§13). The Overview's headline is the brief
-said as a sentence, waiting first, in a fixed order, with a clause that has
-nothing behind it set back in grey: `1 waiting on you. 2 in progress. 3 ready.`
+said as a sentence, waiting first and stuck second, in a fixed order, with a clause that has
+nothing behind it set back in grey: `1 waiting on you. 5 stuck. 2 in progress. 3 ready.`
 That wording is the page's own, in `apps/web/src/brief.ts`.
 
 Between the headline and what waits, a band: one tile per project in the order
@@ -828,9 +840,19 @@ uses, like the chart's legend; the band prints no cn line. The Overview subscrib
 the list with the pulse while it is on screen, as the Projects routes do, and draws
 every day quiet until that answer lands.
 
+Then "Moving": the brief's in-progress rows, then its recent closes, newest first,
+each row `issueLine` typeset, with the count of both beside the title, the closes past
+the heads included; what is being worked on, then what just landed. Nothing where both
+are empty.
+
+Then "Stuck": the brief's stuck heads, each row `cn list --silent`'s line with its
+silence drawn against its priority's limit, the meter Projects draws, and the stuck
+count beside the title. Nothing where nothing is stuck.
+
 Then "Up next": the first five of `cn ready`, each row `issueLine` typeset, with the
 ready count beside the title, so the headline's count has something behind it on the
-page. The rows are the heads `brief.get` already carries, five when the page asks
+page. The heads leave out the stuck rows, as the brief's `ready` does, so Up next and
+Stuck never list the same row. The rows are the heads `brief.get` already carries, five when the page asks
 (`top`, `UP_NEXT` in `limits.ts`) and three for `cn brief`, which prints the same text
 as before; the overview never subscribes to `ready.list` a second time, since the brief
 computes readiness once per write for the headline already. Nothing where nothing is
@@ -838,7 +860,7 @@ ready. An issue row prints the revision as the line does, `r3`, pale and mono be
 who holds it and the silence.
 
 Under the headline, each epic with a health row is its `cn epic list` block,
-with the first line of the epic's description between the head line and the
+newest `lastActivity` first, with the first line of the epic's description between the head line and the
 rows, set small: the cut `cn show` gives an issue's fields, `…` after it where
 more follows, and that mark a link to the epic's page, where the whole text is
 set. Not the whole description, because an epic whose description is a long map
