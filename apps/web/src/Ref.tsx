@@ -22,10 +22,27 @@ type Props = {
   /** Where the link goes, when it is not the id's own page: a project's is `/projects/<slug>`. */
   href?: string;
   className?: string;
+  /**
+   * Set the id and the title as two cells of the grid around them, each in its own classes,
+   * rather than as one run: for a row that leads with the title and keeps the id under it.
+   * The row around it is the link, and the quotes stay in the text, unseen.
+   */
+  cells?: { id: string; title: string };
 };
 
-export function Ref({ item, clip = false, plain = false, href, className }: Props) {
+export function Ref({ item, clip = false, plain = false, href, className, cells }: Props) {
   const { id, title } = refParts(item);
+  if (cells)
+    return (
+      <>
+        <span className={cn("font-mono font-medium text-slate", cells.id)}>{id}</span>{" "}
+        <span className={cells.title}>
+          <span className="unseen">"</span>
+          <span className="ref-title">{title}</span>
+          <span className="unseen">"</span>
+        </span>
+      </>
+    );
   const body = (
     <>
       <span className="shrink-0 font-mono text-[0.9em] font-medium text-slate">{id}</span>{" "}

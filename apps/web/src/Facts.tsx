@@ -18,7 +18,7 @@ import { CountBar } from "./Chart.tsx";
 import { Ref, Run } from "./Ref.tsx";
 import type { Listed } from "./rows.tsx";
 import { NextList, OPENABLE } from "./Sheet.tsx";
-import { Dot, type Tone, projectWord, toneOf, toneText } from "./tone.tsx";
+import { Dot, Priority, type Tone, projectWord, toneOf, toneText } from "./tone.tsx";
 
 /** What the page holds beside the issue: the open epics, the projects and every issue, each undefined until it answers. */
 export type Around = {
@@ -130,15 +130,6 @@ function ProjectTile({ fact, projects }: { fact?: Fact; projects?: ProjectView[]
   );
 }
 
-/** A priority as a badge: P0 heaviest, P4 faintest, by lightness alone. */
-const PRIORITY: Record<string, string> = {
-  P0: "bg-ink text-paper",
-  P1: "bg-ink/16 text-ink",
-  P2: "bg-ink/9 text-ink",
-  P3: "bg-ink/5 text-slate",
-  P4: "bg-ink/4 text-faint",
-};
-
 /**
  * cn's status line, `closed 3h ago · P3 · created 4h ago · revision 3`, its pieces set
  * apart: the state in its tone, the priority a badge, the rest small. The separators stay in
@@ -166,18 +157,7 @@ function StatusTile({ fact }: { fact?: Fact }) {
             {rest.map((piece) => (
               <span key={piece}>
                 <span className="unseen"> · </span>
-                {PRIORITY[piece] ? (
-                  <b
-                    className={cn(
-                      "rounded-[5px] px-1.5 py-px font-mono font-[650]",
-                      PRIORITY[piece],
-                    )}
-                  >
-                    {piece}
-                  </b>
-                ) : (
-                  piece
-                )}
+                <Priority token={piece} />
               </span>
             ))}
           </span>
