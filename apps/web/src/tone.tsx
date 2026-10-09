@@ -44,6 +44,26 @@ export function projectWord(project: ProjectView): string {
   return project.filed === 0 ? "nothing filed" : "nothing moving";
 }
 
+/** A priority as a badge: P0 heaviest, P4 faintest, by lightness alone, since chroma means state. */
+const PRIORITY: Record<string, string> = {
+  P0: "bg-ink text-paper",
+  P1: "bg-ink/16 text-ink",
+  P2: "bg-ink/9 text-ink",
+  P3: "bg-ink/5 text-slate",
+  P4: "bg-ink/4 text-faint",
+};
+
+/** cn's priority token, `P2`, as a badge; a token the page does not know is set as it is. */
+export function Priority({ token, className }: { token: string; className?: string }) {
+  const badge = PRIORITY[token];
+  if (badge === undefined) return <span className={className}>{token}</span>;
+  return (
+    <b className={cn("rounded-[5px] px-1.5 py-px font-mono font-[650]", badge, className)}>
+      {token}
+    </b>
+  );
+}
+
 /** The dot alone: the one chroma the rail shows per epic. */
 export function Dot({
   tone,

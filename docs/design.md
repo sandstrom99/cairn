@@ -856,8 +856,26 @@ Stuck never list the same row. The rows are the heads `brief.get` already carrie
 (`top`, `UP_NEXT` in `limits.ts`) and three for `cn brief`, which prints the same text
 as before; the overview never subscribes to `ready.list` a second time, since the brief
 computes readiness once per write for the headline already. Nothing where nothing is
-ready. An issue row prints the revision as the line does, `r3`, pale and mono between
-who holds it and the silence.
+ready.
+
+**Every row has one shape**, whatever list it is in: Moving, Stuck and Up next here,
+the groups of Issues and of an epic's page, a project's lists, an epic's health rows and
+the blockers under Waiting on you (`.row` in `apps/web/src/index.css`, `rows.tsx`). A
+dot in the state's chroma leads; the title stands on its own line, in ink and a little
+weight; under it, small and grey, the facts: the priority as a badge, the id in mono,
+and the epic where the list spans epics, or, for a health row or a blocker, the state
+word in its tone and the id. What is live about the issue stands at the right of the
+title: who holds it, and its silence where the list was asked for it, with the meter of
+that silence against its priority's limit under the words. The status word is the dot,
+hollow for open, teal for in progress, ink for closed and pale for dropped, the fills
+the track uses; the word, the quotes round the title and the revision, `r3`, which is
+the token a retry carries and says nothing to a person, stay in the text unseen, so the
+row still reads and copies as cn's line, in cn's order, which the grid places and the
+markup keeps. Below `narrow` the live cells
+drop under the facts and the meter goes. Ruled out: the status as a word in a column of
+its own, which spelled `in_progress` beside every row of a list already titled In
+progress and took a fifth of the width to do it; and the id and the title as one quoted
+run, which read as a sentence rather than a thing with facts about it.
 
 Under the headline, each epic with a health row is its `cn epic list` block,
 newest `lastActivity` first, with the first line of the epic's description between the head line and the

@@ -21,7 +21,7 @@ import { CountBar } from "./Chart.tsx";
 import { Group } from "./page.tsx";
 import { Ref, Refs, Run } from "./Ref.tsx";
 import { HealthRows, IssueRows, type Listed, RowLink } from "./rows.tsx";
-import { StateWord } from "./tone.tsx";
+import { Dot } from "./tone.tsx";
 
 export function Brief({ view }: { view: BriefView }) {
   const under = underline(view);
@@ -100,21 +100,35 @@ function BlockerRow({ blocker, now }: { blocker: WaitingBlocker; now: number }) 
   const { target, kind, tail } = blockerParts(blocker, now);
   return (
     <div className="divide-y divide-hair">
-      {/* cn's order is reference, kind, tail; the page leads with the kind as its state word. */}
-      <div className="grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 px-4 py-[13px] narrow:grid-cols-[78px_minmax(0,1fr)]">
-        <Ref item={target} className="col-start-2 row-start-1" />{" "}
-        <span className="col-start-1 row-start-1">
-          <StateWord word={kind} tone="waiting" className="text-small" />
-        </span>
-        <span className="col-start-2 text-small text-slate">
-          <span className="unseen"> · </span>
-          <Run text={tail} />
-        </span>
+      {/* cn's order is reference, kind, tail; the row's grid leads with the dot and stands the kind under the title. */}
+      {/* A div round the link, so the row ends a line the way every other row, an li, does. */}
+      <div>
+        <a
+          href={`/${target.id}`}
+          className="row row-fact items-baseline px-4 py-3 hover:bg-ink/[0.022] hover:[&_.ref-title]:underline"
+        >
+          <Ref
+            item={target}
+            cells={{
+              id: "[grid-area:id] text-meta text-slate before:mr-1.5 before:text-mark before:content-['·']",
+              title: "[grid-area:title] text-row font-[550] leading-[1.45] text-ink",
+            }}
+          />{" "}
+          <span className="contents">
+            <Dot tone="waiting" className="mt-[0.4em] [grid-area:dot]" title={kind} />
+            <span className="[grid-area:word] text-meta font-[550] text-waiting-ink">{kind}</span>
+          </span>{" "}
+          <span className="[grid-area:epic] min-w-0 truncate text-meta text-slate before:mr-1.5 before:text-mark before:content-['·']">
+            <span className="unseen"> · </span>
+            <Run text={tail} />
+          </span>
+        </a>
       </div>
       {blocker.issues.length > 0 && (
-        <div className="grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-3 px-4 py-[11px] text-row narrow:grid-cols-[78px_minmax(0,1fr)]">
-          <span className="text-small text-slate">holds</span>{" "}
+        <div className="grid grid-cols-[8px_minmax(0,1fr)] items-baseline gap-x-2.5 px-4 py-[11px] text-row">
+          <span />
           <span>
+            <span className="mr-2 text-small font-[550] text-faint">holds</span>{" "}
             <Refs items={blocker.issues} />
           </span>
         </div>

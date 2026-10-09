@@ -279,6 +279,52 @@
       var(--color-paper);
   }
 
+  /* ---------- the rows: a thing's title over its facts ---------- */
+
+  /*
+   * One grid for every row that names an issue, a blocker or an epic's fact. The dot leads,
+   * the title takes the first line, the facts (priority, id, epic; or the state word and id)
+   * the second, the priority first since its badge is one width and the ids then align, and what is live about it (who holds it, its silence, its owner) stands at
+   * the right of the title. The cells sit in the markup in cn's order and the areas place
+   * them, so the text of the row is still the line. Narrow, what is live drops under the
+   * facts and the meter goes.
+   */
+  .row {
+    display: grid;
+    grid-template-columns: 8px auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "dot title title title holder silent"
+      "dot pri id epic . meter";
+    column-gap: 10px;
+    row-gap: 3px;
+
+    @variant narrow {
+      /* Each spans the flexible column, so neither stretches the priority's or the id's. */
+      grid-template-columns: 8px auto auto minmax(0, 1fr);
+      grid-template-areas:
+        "dot title title title"
+        "dot pri id epic"
+        "dot holder holder holder"
+        "dot silent silent silent";
+    }
+  }
+
+  /* An epic's fact or a blocker: the word that classes it stands where the priority would. */
+  .row-fact {
+    grid-template-columns: 8px auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "dot title title title holder"
+      "dot word id epic .";
+
+    @variant narrow {
+      grid-template-columns: 8px auto auto minmax(0, 1fr);
+      grid-template-areas:
+        "dot title title title"
+        "dot word id epic"
+        "dot holder holder holder";
+    }
+  }
+
   /* ---------- the count bar: the follow-ups' segment, hatched ---------- */
   .hatch {
     background: repeating-linear-gradient(

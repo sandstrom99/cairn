@@ -4,11 +4,16 @@
 // to the page of what it names. The issues are grouped the way `cn list` implies: what is
 // live first, what is finished folded away.
 //
-// An issue's row is `issueLine` typeset: the reference, the priority, the status, the epic
-// where the list spans epics, and who holds it. cn's order is kept in the text; on the page
-// the status leads, because down a column of rows it is the word the eye sorts by. Where
-// the list was asked how long each issue has been silent, the row is `listLine`, the
-// silence after who holds it, and a meter of it against its priority's limit may close it.
+// Every row has one shape, the `.row` grid in index.css: a dot in the state's chroma leads,
+// the title stands on its own line, the facts sit under it as one quiet line, and what is
+// live about it stands at the right of the title. An issue's row is `issueLine` typeset: the
+// facts are the id, the priority and the epic where the list spans epics; the live cell is
+// who holds it and, where the list was asked how long each issue has been silent, the
+// silence (`listLine`), with a meter of it against its priority's limit under the words.
+// The status word is the dot: it stays in the text, unseen, and the dot says it, hollow for
+// open, teal for in progress, ink for closed and pale for dropped, the fills the track uses.
+// The revision, `r3`, stays in the text unseen too: it is the token a retry carries, for an
+// agent, and says nothing to a person. cn's order is kept in the markup; the grid places it.
 import { STUCK_AFTER_MS } from "@cairn/backend/convex/lib/thresholds.js";
 import { type HealthRow, issueParts } from "@cairn/cli/parts";
 import type { Referable } from "@cairn/cli/ref";
@@ -19,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { Meter } from "./Chart.tsx";
 import { Group } from "./page.tsx";
 import { Ref } from "./Ref.tsx";
-import { StateWord, type Tone } from "./tone.tsx";
+import { Dot, Priority, type Tone, toneText } from "./tone.tsx";
 
 /** An issue as a list carries it: enough for a row, which epic, project and kind it is, and when it last moved. */
 export type Listed = IssueLineView & {
@@ -45,7 +50,7 @@ export function RowLink({
       <a
         href={href}
         className={cn(
-          "items-baseline px-4 py-[13px] hover:bg-ink/[0.022] hover:[&_.ref-title]:underline",
+          "items-baseline px-4 py-3 hover:bg-ink/[0.022] hover:[&_.ref-title]:underline",
           className,
         )}
       >
@@ -55,17 +60,30 @@ export function RowLink({
   );
 }
 
-/** A resting status word in a column, by weight rather than tone: no chroma, no dot. */
-const LEVEL: Record<string, string> = {
-  open: "text-ink",
-  closed: "text-slate",
-  dropped: "text-faint",
-};
+/** The cells every row shares: the title's line, the facts under it, and the live cell at the right. */
+const TITLE = "[grid-area:title] text-row font-[550] leading-[1.45] text-ink";
+const FACT = "text-meta text-slate";
+const LIVE = "justify-self-end whitespace-nowrap text-meta text-slate narrow:justify-self-start";
+/** A visual `·` before a fact that is not in cn's line, where a column stands in a terminal. */
+const LED = "before:mr-1.5 before:text-mark before:content-['·']";
+
+/** The dot of a status, by the fills the track uses: hollow, teal, ink, pale. */
+function StatusDot({ status, tone, title }: { status: string; tone?: Tone; title: string }) {
+  const shared = "mt-[0.4em] [grid-area:dot]";
+  if (tone !== undefined && tone !== "still")
+    return <Dot tone={tone} className={shared} title={title} />;
+  if (status === "in_progress") return <Dot tone="moving" className={shared} title={title} />;
+  if (status === "closed")
+    return <i className={cn("size-2 shrink-0 rounded-full bg-ink", shared)} title={title} />;
+  if (status === "dropped")
+    return <i className={cn("size-2 shrink-0 rounded-full bg-mark", shared)} title={title} />;
+  return <Dot tone="still" className={shared} title={title} />;
+}
 
 /**
  * A list of issues, a row each. With `now`, a row that carries its silence prints it the way
  * `cn list --silent` does; with `meter` too, the row ends with that silence drawn in the tone
- * given, against its priority's limit.
+ * given, against its priority's limit, and its dot takes the tone.
  */
 export function IssueRows({
   issues,
@@ -89,70 +107,70 @@ function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; me
   const { target, priority, status, epic, claimedBy, revision } = issueParts(issue);
   const silentSince = now === undefined ? undefined : issue.silentSince;
   const silent = silentSince === undefined ? undefined : age(silentSince, now);
+  const metered = meter !== undefined && silentSince !== undefined && now !== undefined;
+  const finished = status === "closed" || status === "dropped";
   return (
-    <RowLink
-      href={`/${target.id}`}
-      className={cn(
-        "grid gap-x-3 gap-y-0.5 narrow:grid-cols-[112px_minmax(0,1fr)]",
-        meter !== undefined && silentSince !== undefined
-          ? "grid-cols-[112px_minmax(0,1fr)_auto_auto_56px]"
-          : "grid-cols-[112px_minmax(0,1fr)_auto_auto]",
-      )}
-    >
+    <RowLink href={`/${target.id}`} className="row">
       <Ref
         item={target}
-        plain
-        className={cn(
-          "col-start-2 row-start-1 decoration-faint underline-offset-[3px]",
-          (status === "closed" || status === "dropped") && "text-slate",
-        )}
+        cells={{
+          id: cn("[grid-area:id]", FACT, LED),
+          title: cn(TITLE, finished && "text-slate", status === "dropped" && "text-faint"),
+        }}
       />{" "}
-      <span className="col-start-3 row-start-1 font-mono text-meta text-slate narrow:col-start-2 narrow:row-start-3">
-        {priority}
+      <span className={cn("[grid-area:pri]", FACT)}>
+        <Priority token={priority} className="text-micro" />
       </span>{" "}
-      {status === "in_progress" ? (
-        <StateWord word={status} tone="moving" className="col-start-1 row-start-1 text-small" />
-      ) : (
-        <span
-          className={cn(
-            "col-start-1 row-start-1 inline-flex items-center gap-2 text-small font-[550]",
-            LEVEL[status],
-          )}
-        >
-          {status}
-        </span>
-      )}
+      {/* The status is the dot; the word stays in the text for a reader who copies the row or hears it. */}
+      <span className="contents">
+        <StatusDot status={status} tone={meter} title={status} />
+        <span className="unseen">{status}</span>
+      </span>
       {epic && (
         <>
           {" "}
-          <Ref item={epic} plain clip className="col-start-2 row-start-2 text-small text-slate" />
+          <Ref
+            item={epic}
+            plain
+            clip
+            className={cn("[grid-area:epic] min-w-0", FACT, LED, "before:shrink-0")}
+          />
         </>
       )}
-      {(claimedBy || revision || silent) && (
-        <span className="col-start-4 row-start-1 text-small text-slate narrow:col-start-2 narrow:row-start-4">
-          {claimedBy && (
-            <>
-              <span className="unseen"> · </span>
-              {claimedBy}
-            </>
+      {claimedBy && (
+        <span
+          className={cn(
+            LIVE,
+            "[grid-area:holder]",
+            meter === undefined || meter === "still" ? "text-ink" : toneText(meter),
           )}
-          {revision && (
-            <>
-              {/* cn's `r3`, between who holds it and the silence, as the line has it: the token a retry carries. */}{" "}
-              <span className="font-mono text-meta text-faint">{revision}</span>
-            </>
-          )}
-          {silent && (
-            <>
-              {/* Inside the cell, after who holds it, cn's `·` is a separator the eye needs. */}
-              <span className={claimedBy ? "text-mark" : "unseen"}> · </span>
-              silent {silent}
-            </>
-          )}
+        >
+          <span className="unseen"> · </span>
+          {claimedBy}
         </span>
       )}
-      {meter !== undefined && silentSince !== undefined && now !== undefined && (
-        <span className="col-start-5 row-start-1 self-center narrow:hidden">
+      {revision && (
+        <>
+          {/* cn's `r3`, the token a retry carries: in the text for an agent reading the row, and not drawn, since it says nothing to a person. */}{" "}
+          <span className="unseen">{revision}</span>
+        </>
+      )}
+      {silent && (
+        <span
+          className={cn(
+            LIVE,
+            "[grid-area:silent]",
+            claimedBy && LED,
+            meter !== undefined && meter !== "still" && toneText(meter),
+          )}
+        >
+          {/* Inside the text, after who holds it, cn's `·` is a separator; the column, or the drawn dot, does its job on the page. */}
+          <span className="unseen"> · </span>
+          silent {silent}
+        </span>
+      )}
+      {metered && (
+        <span className="mt-px [grid-area:meter] justify-self-end narrow:hidden">
           <Meter
             silentMs={now - silentSince}
             limit={STUCK_AFTER_MS[issue.priority]}
@@ -164,10 +182,6 @@ function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; me
     </RowLink>
   );
 }
-
-const ROW =
-  "grid grid-cols-[92px_minmax(0,1fr)_auto] gap-x-3 gap-y-1 narrow:grid-cols-[78px_minmax(0,1fr)]";
-const TAIL = "text-small whitespace-nowrap text-slate narrow:col-start-2";
 
 /**
  * An epic's facts, a row each: an outcome's done-when, what is moving, what is stuck, what
@@ -197,24 +211,29 @@ export function HealthRows({
 function HealthRowLine({ row }: { row: HealthRow }) {
   if (!("target" in row))
     return (
-      <li className={cn("items-baseline px-4 py-[13px]", ROW)}>
+      <li className="grid grid-cols-[8px_minmax(0,1fr)] items-baseline gap-x-2.5 px-4 py-3">
+        <span />
         {row.fact === "doneWhen" ? (
-          <>
-            <span className="text-small text-slate">done when</span>{" "}
-          </>
+          <span className="text-small text-slate">
+            <span className="mr-2 font-[550] text-faint">done when</span> {row.tail}
+          </span>
         ) : (
-          <span />
+          <span className="text-small text-slate">{row.tail}</span>
         )}
-        <span className="text-small text-slate">{row.tail}</span>
       </li>
     );
   // A waiting row's tail opens with cn's `· `, which a column makes redundant.
   const led = row.tail.startsWith("· ");
   return (
-    <RowLink href={`/${row.target.id}`} className={ROW}>
-      <StateWord word={row.fact} className="text-small" />{" "}
-      <Ref item={row.target} plain className="decoration-faint underline-offset-[3px]" />{" "}
-      <span className={TAIL}>
+    <RowLink href={`/${row.target.id}`} className="row row-fact">
+      <span className="contents">
+        <Dot tone={row.fact} className="mt-[0.4em] [grid-area:dot]" title={row.fact} />
+        <span className={cn("[grid-area:word] font-[550]", FACT, toneText(row.fact))}>
+          {row.fact}
+        </span>
+      </span>{" "}
+      <Ref item={row.target} cells={{ id: cn("[grid-area:id]", FACT, LED), title: TITLE }} />{" "}
+      <span className={cn(LIVE, "[grid-area:holder]")}>
         {led && <span className="unseen">· </span>}
         {led ? row.tail.slice(2) : row.tail}
       </span>
