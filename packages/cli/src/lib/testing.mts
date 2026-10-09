@@ -174,7 +174,9 @@ export function briefView(over: Partial<BriefView> = {}): BriefView {
   return {
     projects: [],
     ready: { count: 0, top: [] },
+    stuck: { count: 0, top: [] },
     inProgress: [],
+    recent: { count: 0, top: [] },
     followUps: [],
     waiting: 0,
     ...over,

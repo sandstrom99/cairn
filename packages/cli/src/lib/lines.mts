@@ -5,8 +5,9 @@
 // imports this file: it sets the same pieces in its own columns, and its tests import it
 // to hold each row's text to the line.
 
+import { RECENT_MS } from "@cairn/backend/convex/lib/thresholds.ts";
 import { type Referable, ref } from "./ref.mts";
-import { age, day, silence, since } from "./time.mts";
+import { HOUR, age, day, silence, since } from "./time.mts";
 import {
   type Fact,
   type HealthRow,
@@ -398,13 +399,15 @@ const IN_PROGRESS_CAP = 5;
 const FOLLOW_UP_CAP = 3;
 
 /**
- * The situation report, at most six lines (docs/design.md §8):
+ * The situation report, at most eight lines (docs/design.md §8):
  *
  * ```
  * cairn · acme · wsl/claude
  * projects        admin · app · site · tools
  * ready 4         app-31 "retry on reconnect" P1 · app-40 "…" P2
+ * stuck 2         app-3 "…" P1 silent 10d · site-2 "…" P1 silent 9d
  * in progress     app-14 "fix connection retry" wsl/claude 2h · yours · web-9 "…" mac/claude 3d · silent 26h
+ * done 23 in 48h  app-94 "…" 2h ago · app-95 "…" 2h ago · app-93 "…" 3h ago
  * follow-ups      app-22 "confirm the retry path" [verify] · app-23 "…" [decide]
  * waiting on you  3
  * ```
@@ -432,6 +435,16 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
     `${label(`ready ${view.ready.count}`)}${view.ready.count === 0 ? "none" : ready.join(" · ")}`,
   );
 
+  // As with projects: a deployment not yet pushed with `stuck` or `recent` sends neither,
+  // and then there is no line rather than a crash.
+  const stuck: BriefView["stuck"] | undefined = view.stuck;
+  if (stuck !== undefined) {
+    const heads = stuck.top.map(
+      (i) => `${ref(i)} P${i.priority} silent ${silence(i.lastActivity, now)}`,
+    );
+    lines.push(`${label(`stuck ${stuck.count}`)}${stuck.count === 0 ? "none" : heads.join(" · ")}`);
+  }
+
   const holding = view.inProgress.map((i) => {
     const who = [
       ref(i),
@@ -449,6 +462,17 @@ export function briefLines(view: BriefView, where: BriefWhere, now: number = Dat
   lines.push(
     `${label("in progress")}${holding.length === 0 ? "none" : capped(holding, IN_PROGRESS_CAP)}`,
   );
+
+  const recent: BriefView["recent"] | undefined = view.recent;
+  if (recent !== undefined) {
+    // Every recent head is a close, so it carries `closedAt`; the guard is for the type alone.
+    const heads = recent.top.map((i) =>
+      i.closedAt === undefined ? ref(i) : `${ref(i)} ${since(i.closedAt, now)}`,
+    );
+    lines.push(
+      `${label(`done ${recent.count} in ${RECENT_MS / HOUR}h`)}${recent.count === 0 ? "none" : heads.join(" · ")}`,
+    );
+  }
 
   const followUps = view.followUps.map(
     (f) => `${ref(f)}${f.followUpKind === undefined ? "" : ` [${f.followUpKind}]`}`,

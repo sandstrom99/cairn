@@ -3,8 +3,18 @@
 // something it cannot move.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import { DAY, HOUR } from "../lib/thresholds";
-import { actor, at, harbor, fresh, other, raise, rawIssue, seed } from "./test.fixtures";
+import { DAY, HOUR, RECENT_MS } from "../lib/thresholds";
+import {
+  actor,
+  at,
+  closeIssue,
+  harbor,
+  fresh,
+  other,
+  raise,
+  rawIssue,
+  seed,
+} from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
 
@@ -64,7 +74,18 @@ describe("brief.get", () => {
     ]);
 
     expect(brief.inProgress).toEqual([
-      { id: "cn-4", title: "d", claimedBy: other, claimedAt: expect.any(Number), mine: false },
+      {
+        id: "cn-4",
+        title: "d",
+        priority: 1,
+        status: "in_progress",
+        epic: { id: "ep-1", title: "Create to close" },
+        revision: 1,
+        lastActivity: expect.any(Number),
+        claimedBy: other,
+        claimedAt: expect.any(Number),
+        mine: false,
+      },
     ]);
 
     // Both are ready, and a follow-up that says it needs a phone is listed like any other.
@@ -111,11 +132,87 @@ describe("brief.get", () => {
   it("takes `now` from the caller rather than the clock, for a subscriber that never re-asks", async () => {
     const t = await worklist();
     // cn-2 is already ready; a second task, deferred, joins it once the defer date passes.
-    const deferUntil = Date.now() + DAY;
+    // An hour, not a day: a day on, cn-2 is a P0 silent past its limit, and stuck, not ready.
+    const deferUntil = Date.now() + HOUR;
     await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "e" });
     await t.mutation(api.issues.update, { actor, id: "cn-7", revision: 0, deferUntil });
     expect((await t.query(api.brief.get, { now: deferUntil - 1 })).ready.count).toBe(1);
     expect((await t.query(api.brief.get, { now: deferUntil })).ready.count).toBe(2);
+  });
+
+  it("names a ready row silent past its priority's limit as stuck, and leaves it out of ready", async () => {
+    const t = await seed({ issues: [{ title: "urgent", priority: 1 }, "later"] });
+    expect((await t.query(api.brief.get, {})).ready.count).toBe(2);
+
+    const brief = await t.query(api.brief.get, { now: Date.now() + 3 * DAY + 2 });
+    expect(brief.stuck.count).toBe(1);
+    expect(brief.stuck.top).toMatchObject([
+      {
+        id: "cn-1",
+        title: "urgent",
+        priority: 1,
+        status: "open",
+        epic: { id: "ep-1", title: "Create to close" },
+        revision: 0,
+        lastActivity: expect.any(Number),
+      },
+    ]);
+    expect(brief.ready.count).toBe(1);
+    expect(brief.ready.top.map((i) => i.id)).toEqual(["cn-2"]);
+  });
+
+  it("keeps a stuck follow-up on the follow-ups line", async () => {
+    const t = await seed({ issues: [{ title: "urgent", priority: 1 }] });
+    await t.mutation(api.issues.create, {
+      actor,
+      project: "cn",
+      epic: "ep-1",
+      title: "confirm it",
+      type: "follow-up",
+      followUpKind: "verify",
+      parent: "cn-1",
+      priority: 1,
+    });
+
+    // Both P1, so both are stuck three days on.
+    const brief = await t.query(api.brief.get, { now: Date.now() + 3 * DAY + 2 });
+    expect(brief.stuck.top.map((i) => i.id)).toEqual(["cn-1", "cn-2"]);
+    expect(brief.ready.count).toBe(0);
+    expect(brief.followUps.map((f) => f.id)).toEqual(["cn-2"]);
+  });
+
+  it("heads what was closed in the last 48 hours, newest first, and counts all of it", async () => {
+    at("2026-09-17T09:00:00Z");
+    const t = await seed({ issues: ["a", "b", "c", "d", "e"] });
+    await closeIssue(t, "cn-1");
+    for (const [id, when] of [
+      ["cn-2", "2026-09-17T10:00:00Z"],
+      ["cn-3", "2026-09-17T10:01:00Z"],
+      ["cn-4", "2026-09-17T10:02:00Z"],
+    ] as const) {
+      at(when);
+      await closeIssue(t, id);
+    }
+    // A drop carries a closedAt too, and is no close.
+    await t.mutation(api.issues.drop, { actor, id: "cn-5", revision: 0, reason: "not needed" });
+    const first = (await rawIssue(t, "cn-1")).closedAt!;
+    const last = (await rawIssue(t, "cn-4")).closedAt!;
+
+    const brief = await t.query(api.brief.get, {});
+    expect(brief.recent.count).toBe(4);
+    expect(brief.recent.top.map((i) => i.id)).toEqual(["cn-4", "cn-3", "cn-2"]);
+    expect(brief.recent.top[0]).toMatchObject({ status: "closed", closedAt: last });
+    const all = await t.query(api.brief.get, { top: 5 });
+    expect(all.recent.top.map((i) => i.id)).toEqual(["cn-4", "cn-3", "cn-2", "cn-1"]);
+
+    // At its faded moment the first close is gone, and the three an hour younger stay.
+    const later = await t.query(api.brief.get, { now: first + RECENT_MS + 1 });
+    expect(later.recent.count).toBe(3);
+    expect(later.recent.top.map((i) => i.id)).not.toContain("cn-1");
+    expect((await t.query(api.brief.get, { now: last + RECENT_MS + 1 })).recent).toEqual({
+      count: 0,
+      top: [],
+    });
   });
 
   it("marks a claim as this session's on the same test the claim is idempotent on", async () => {

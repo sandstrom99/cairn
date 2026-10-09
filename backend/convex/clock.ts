@@ -3,9 +3,9 @@
 // clock it loaded with and asks this for the earliest moment after that clock at which any
 // line those queries draw from the clock would change with no write: an issue turning stuck,
 // a claim turning silent or quiet, a deferral passing, a blocker's nudge date, an inbox item
-// turning stale, or the next UTC midnight, when the pulse's buckets roll. It sets one timer
-// for that moment and moves its clock to the present when it fires, so a tab left open
-// re-asks a few times a day rather than once a minute.
+// turning stale, a close leaving the brief's recent list, or the next UTC midnight, when the
+// pulse's buckets roll. It sets one timer for that moment and moves its clock to the present
+// when it fires, so a tab left open re-asks a few times a day rather than once a minute.
 //
 // It is conservative: the answer is a moment at which a line *may* change. An issue a
 // blocker holds still has its stuck moment counted, and the page reruns and sees nothing
@@ -13,8 +13,8 @@
 // moment is the one lib/thresholds.ts spells for the predicate that draws the line, so the
 // two cannot disagree.
 //
-// It reads the open and in-progress issues through `by_status`, the raised and waiting
-// blockers through `by_status`, the inbox epic, and the newest journal entry of each
+// It reads the open, in-progress and closed issues through `by_status`, the raised and
+// waiting blockers through `by_status`, the inbox epic, and the newest journal entry of each
 // in-progress issue through `by_issue`, the way the brief reads it; and nothing else, so a
 // write that moves none of those leaves the page's timer where it was.
 import { nowArg } from "./lib/clock";
@@ -23,12 +23,13 @@ import { INBOX_ID } from "./lib/inbox";
 import { lastJournaledAt } from "./lib/journal";
 import { findEpic } from "./lib/lookup";
 import { dayOf } from "./lib/pulse";
-import { DAY, quietAt, silentAt, staleAt, stuckAt } from "./lib/thresholds";
+import { DAY, fadedAt, quietAt, silentAt, staleAt, stuckAt } from "./lib/thresholds";
 
 /**
  * The earliest moment after `now` at which a clock-driven line may change with no write, in
  * whole milliseconds. The next UTC midnight is always a candidate, so there is always an
- * answer, and it is never more than a day away.
+ * answer, and it is never more than a day away. A close's faded moment is when it leaves the
+ * brief's `recent`; one long past is filtered out with every other moment behind `now`.
  */
 export const next = query({
   args: { ...nowArg },
@@ -58,6 +59,13 @@ export const next = query({
       moments.push(silentAt(issue.lastActivity));
       moments.push(quietAt((await lastJournaledAt(ctx, issue)).since));
     }
+
+    const closed = await ctx.db
+      .query("issues")
+      .withIndex("by_status", (q) => q.eq("status", "closed"))
+      .collect();
+    for (const issue of closed)
+      if (issue.closedAt !== undefined) moments.push(fadedAt(issue.closedAt));
 
     for (const status of ["raised", "waiting"] as const) {
       const blockers = await ctx.db

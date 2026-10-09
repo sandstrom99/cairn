@@ -3,23 +3,41 @@ import { describe, expect, it } from "vitest";
 import { headline, underline } from "./brief.ts";
 
 describe("headline", () => {
-  it("says the three counts in a fixed order, waiting first", () => {
+  it("says the four counts in a fixed order, waiting first, then stuck", () => {
     const clauses = headline(
       view({
         waiting: 1,
+        stuck: { count: 5, top: [] },
         inProgress: [
-          { id: "cn-26", title: "t", claimedBy: undefined, claimedAt: undefined, mine: false },
+          {
+            id: "cn-26",
+            title: "t",
+            priority: 2,
+            status: "in_progress",
+            epic: { id: "ep-1", title: "e" },
+            revision: 1,
+            lastActivity: 0,
+            claimedBy: undefined,
+            claimedAt: undefined,
+            mine: false,
+          },
         ],
         ready: { count: 2, top: [] },
       }),
     );
-    expect(clauses.map((c) => c.text)).toEqual(["1 waiting on you.", "1 in progress.", "2 ready."]);
+    expect(clauses.map((c) => c.text)).toEqual([
+      "1 waiting on you.",
+      "5 stuck.",
+      "1 in progress.",
+      "2 ready.",
+    ]);
     expect(clauses.every((c) => !c.empty)).toBe(true);
   });
 
   it("keeps a clause with nothing behind it, marked so the page can set it back", () => {
     expect(headline(view())).toEqual([
       { text: "Nothing waiting on you.", empty: true },
+      { text: "Nothing stuck.", empty: true },
       { text: "Nothing in progress.", empty: true },
       { text: "Nothing ready.", empty: true },
     ]);

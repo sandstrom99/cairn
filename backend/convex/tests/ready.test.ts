@@ -97,4 +97,13 @@ describe("ready.list", () => {
     // cn-1 and cn-2 are both P2 and in creation order; cn-3 is P0 and created last.
     expect(await ids(t)).toEqual(["cn-3", "cn-1", "cn-2"]);
   });
+
+  it("lists a row the stuck rule names after the rest, and by priority until it is named", async () => {
+    const t = await seed({ issues: [{ title: "urgent, left alone", priority: 0 }] });
+    await t.mutation(api.issues.create, { actor, project: "cn", epic: "ep-1", title: "later" });
+    const idsAt = async (now: number) => (await t.query(api.ready.list, { now })).map((i) => i.id);
+    // A P0 is stuck past a day; the P2 created after it has a week.
+    expect(await idsAt(Date.now() + DAY + 2)).toEqual(["cn-2", "cn-1"]);
+    expect(await idsAt(Date.now())).toEqual(["cn-1", "cn-2"]);
+  });
 });

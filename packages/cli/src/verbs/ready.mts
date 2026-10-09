@@ -3,9 +3,9 @@
 //   cn ready [--json]
 //
 // An issue is ready when it is open, nothing open blocks it, no unresolved human blocker
-// is attached, and its defer date has passed — ordered by priority, then age. It is
-// computed live on every call: the moment a blocker closes, what it held is ready, with
-// no recompute step in between.
+// is attached, and its defer date has passed — ordered by priority, then age, with the
+// rows the brief names stuck after the rest. It is computed live on every call: the
+// moment a blocker closes, what it held is ready, with no recompute step in between.
 //
 // An issue in progress is somebody's claim, not ready work, so it is not here; `cn list`
 // is the flat view of everything.

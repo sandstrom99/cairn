@@ -37,7 +37,7 @@ import { FeedEvent, HistoryEntry } from "./Feed.tsx";
 import { EpicPage, JournalEntry } from "./ItemPages.tsx";
 import { JumpRow, withTyped } from "./JumpBar.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
-import { Epics, UpNext, Waiting, type WaitingBlocker } from "./Overview.tsx";
+import { Epics, Moving, Stuck, UpNext, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { squeeze } from "./plain.ts";
 import { ProjectHead, ProjectsPage } from "./ProjectPages.tsx";
 import { typesetting } from "./Prose.tsx";
@@ -206,9 +206,35 @@ const ready1 = {
   priority: 1,
   epic: { id: "ep-4", title: "Humans in the loop" },
   revision: 0,
+  lastActivity: now - HOUR,
 };
 const ready2 = { ...ready1, id: "cn-28", title: "the overview at scale", priority: 2 };
 const upNext = [ready1, ready2].map((row) => issueLine(row));
+
+/** What Moving lists: a claim the brief heads, then a close of the last two days. */
+const held = {
+  ...ready1,
+  id: "cn-26",
+  title: "apps/web, the read-only window",
+  status: "in_progress" as const,
+  revision: 3,
+  claimedBy: { name: "harbor/claude", kind: "agent" as const },
+  claimedAt: now - 2 * HOUR,
+  mine: false,
+};
+const landed = {
+  ...ready1,
+  id: "cn-25",
+  title: "the brief names what landed",
+  status: "closed" as const,
+  revision: 2,
+  closedAt: now - 3 * HOUR,
+};
+const moving = briefView({ inProgress: [held], recent: { count: 4, top: [landed] } });
+
+/** What Stuck lists: a P1 the queue offered for ten days with nobody taking it. */
+const left = { ...ready1, id: "cn-3", title: "the retry", lastActivity: now - 10 * DAY };
+const stuck = { ...left, silentSince: left.lastActivity };
 
 /** A finished one, folded away on the issues page. */
 const done: Listed = {
@@ -427,6 +453,18 @@ const PINS: Pin[] = [
     text: ["Waiting on you", blockerLine(waitingBlocker, now), holdsLine(waitingBlocker.issues)],
   },
   {
+    name: "moving: what is held then what landed, both counted, the brief's lines as rows",
+    element: <Moving view={moving} now={now} />,
+    text: ["Moving 5", issueLine(held), issueLine(landed)],
+    rows: [issueLine(held), issueLine(landed)],
+  },
+  {
+    name: "stuck: the brief's stuck heads as cn list --silent lists them",
+    element: <Stuck view={briefView({ stuck: { count: 2, top: [stuck] } })} now={now} />,
+    text: ["Stuck 2", listLine(stuck, now)],
+    rows: [listLine(stuck, now)],
+  },
+  {
     name: "up next: the ready count beside the title, and cn ready's lines as rows",
     element: <UpNext view={briefView({ ready: { count: 7, top: [ready1, ready2] } })} />,
     text: ["Up next 7", ...upNext],
@@ -559,6 +597,33 @@ describe("a row is one of cn's lines", () => {
 describe("what the lines carry", () => {
   it("draws nothing under Up next with nothing ready", () => {
     expect(renderToStaticMarkup(<UpNext view={briefView()} />)).toBe("");
+  });
+
+  it("draws nothing for Moving or Stuck with nothing in either", () => {
+    expect(renderToStaticMarkup(<Moving view={briefView()} now={now} />)).toBe("");
+    expect(renderToStaticMarkup(<Stuck view={briefView()} now={now} />)).toBe("");
+  });
+
+  it("counts closes past the heads under Moving, with nothing in progress", () => {
+    const view = briefView({ recent: { count: 6, top: [landed] } });
+    expect(text(<Moving view={view} now={now} />)).toBe(`Moving 6 ${squeeze(issueLine(landed))}`);
+  });
+
+  it("draws a stuck row's silence against its priority's limit", () => {
+    const markup = renderToStaticMarkup(
+      <Stuck view={briefView({ stuck: { count: 1, top: [stuck] } })} now={now} />,
+    );
+    expect(markup).toContain('title="silent 10d"');
+  });
+
+  it("stands the live epics newest activity first", () => {
+    const newer = { ...busy, id: "ep-13", title: "touched an hour ago", lastActivity: now - HOUR };
+    const older = { ...busy, lastActivity: now - 2 * DAY };
+    const markup = renderToStaticMarkup(
+      <Epics epics={[older, newer]} events={[]} issues={[]} now={now} />,
+    );
+    expect(markup.indexOf('href="/ep-13"')).toBeGreaterThan(-1);
+    expect(markup.indexOf('href="/ep-13"')).toBeLessThan(markup.indexOf('href="/ep-4"'));
   });
 
   it("draws an epic's counts as a bar beside the text, each segment its share, the text its title", () => {

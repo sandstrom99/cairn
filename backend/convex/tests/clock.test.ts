@@ -8,8 +8,8 @@
 // midnight, which is always a candidate and would otherwise be the answer.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../_generated/api";
-import { DAY, HOUR } from "../lib/thresholds";
-import { type Harness, actor, at, fresh, raise, rawIssue, seed } from "./test.fixtures";
+import { DAY, HOUR, fadedAt } from "../lib/thresholds";
+import { type Harness, actor, at, closeIssue, fresh, raise, rawIssue, seed } from "./test.fixtures";
 
 afterEach(() => vi.useRealTimers());
 
@@ -99,6 +99,19 @@ describe("clock.next", () => {
     const nudgeAt = Date.parse("2026-09-17T15:00:00Z");
     await raise(t, "cn-1", { nudgeAt });
     expect(await next(t, Date.now())).toBe(nudgeAt);
+  });
+
+  it("is a close leaving the brief's recent list, or the midnight before it", async () => {
+    at("2026-09-17T09:00:00Z");
+    const t = await seed({ issues: ["a"] });
+    await closeIssue(t, "cn-1");
+    const closedAt = (await rawIssue(t, "cn-1")).closedAt!;
+    const now = closedAt + 1;
+    expect(await next(t, now)).toBe(
+      Math.min(Math.ceil(fadedAt(closedAt)), (Math.floor(now / DAY) + 1) * DAY),
+    );
+    // Past the next midnight, the faded moment is the one ahead.
+    expect(await next(t, MIDNIGHT + DAY + 1)).toBe(Math.ceil(fadedAt(closedAt)));
   });
 
   it("is an inbox item turning stale", async () => {

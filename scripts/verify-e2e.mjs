@@ -448,7 +448,21 @@ row("verbs/brief.mts", () => {
     "projects        cn",
     "the brief's second line is not every project by slug",
   );
-  assert.deepEqual(json("brief").projects, ["cn"], "cn brief --json does not carry projects");
+  // Nothing is closed yet and every issue was filed a moment ago, so both lines say none.
+  assert.equal(
+    lines(brief.stdout)[3],
+    "stuck 0         none",
+    "the line after ready is not the stuck line reading none",
+  );
+  assert.equal(
+    lines(brief.stdout)[5],
+    "done 0 in 48h   none",
+    "the line after in progress is not the done line reading none",
+  );
+  const answer = json("brief");
+  assert.deepEqual(answer.projects, ["cn"], "cn brief --json does not carry projects");
+  assert.equal(answer.stuck.count, 0, "cn brief --json counts something stuck");
+  assert.equal(answer.recent.count, 0, "cn brief --json counts something done");
   assert.equal(cn("brief --can web").status, 2, "cn brief --can web was not refused");
 });
 
