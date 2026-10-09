@@ -2,7 +2,7 @@
 // command that fills it instead of an empty box. With issues, the Issues page lists what
 // its filter matches, the filter read from the query string and every control a link to
 // the next one.
-import { HOUR, ago, now } from "@cairn/cli/testing";
+import { HOUR, ago, epic, now, project } from "@cairn/cli/testing";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DEFAULT, type Filter, parseFilter } from "./issues.ts";
@@ -82,6 +82,28 @@ describe("IssuesPage", () => {
     expect(plain(page([live, finished], parseFilter("status=none")))).toContain(
       "No state picked. Turn one on above.",
     );
+  });
+
+  it("names the project, epic and priority it is filtered on in the toolbar", () => {
+    const markup = renderToStaticMarkup(
+      <IssuesPage
+        issues={[live]}
+        filter={parseFilter("project=app&epic=ep-1&priority=1")}
+        epics={[epic({ id: "ep-1", title: "Ship invite links" })]}
+        projects={[project({ slug: "app" })]}
+        blockers={[]}
+        now={now}
+      />,
+    );
+    for (const label of ["Project", "Epic", "Priority"])
+      expect(markup).toContain(`aria-label="${label}"`);
+    const text = plain(markup);
+    expect(text).toContain("app");
+    expect(text).toContain('ep-1 "Ship invite links"');
+    expect(text).toContain("P1");
+    // Radix keeps a native select beside each trigger for forms, hidden and empty; none shows.
+    expect(markup).not.toMatch(/<select(?![^>]*aria-hidden="true")/);
+    expect(markup).not.toContain("<option");
   });
 
   it("lists 25 rows a page, with a pager to the rest", () => {
