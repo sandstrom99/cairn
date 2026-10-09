@@ -3,7 +3,10 @@
 // plain same-origin link into that instead of a page load. So components write `<a href>`
 // and nothing else: a link works before the script loads, opens in a new tab with a
 // modifier held, renders to a string in a test with no router around it, and keeps the
-// live subscriptions when it is simply clicked.
+// live subscriptions when it is simply clicked. A page whose state is finer than its path
+// keeps it in the query string, read through `useSearch`, and a control that is not a link
+// (a select, a text field) calls `navigate` with `replace`, so typing a filter does not pile
+// up history.
 import { useEffect, useSyncExternalStore } from "react";
 
 export type Route =
@@ -18,7 +21,7 @@ export type Route =
 const ID = /^[a-z][a-z0-9]*-\d+$/;
 
 /** A project's slug, as the deployment takes one: 1 to 16 lowercase letters and digits, starting with a letter. */
-const SLUG = /^[a-z][a-z0-9]{0,15}$/;
+export const SLUG = /^[a-z][a-z0-9]{0,15}$/;
 
 /** Whether a string is an id as cn mints one, which is lowercase: lowercase what was typed first. */
 export const isId = (text: string): boolean => ID.test(text);
@@ -47,9 +50,10 @@ const CHANGED = "cairn:navigate";
  * is main's; the column is fixed and scrolls inside its own list, which a navigation leaves
  * where it was, since the shell mounts that column once.
  */
-export function navigate(href: string): void {
+export function navigate(href: string, replace = false): void {
   if (href === window.location.pathname + window.location.search) return;
-  window.history.pushState(null, "", href);
+  if (replace) window.history.replaceState(null, "", href);
+  else window.history.pushState(null, "", href);
   window.dispatchEvent(new Event(CHANGED));
   window.scrollTo(0, 0);
 }
@@ -69,6 +73,14 @@ export const usePath = (): string =>
     subscribe,
     () => window.location.pathname,
     () => "/",
+  );
+
+/** The current query string, `?…` or `""`, re-rendering the caller when it changes. */
+export const useSearch = (): string =>
+  useSyncExternalStore(
+    subscribe,
+    () => window.location.search,
+    () => "",
   );
 
 /** Whether a click on this link is the page's to handle, or the browser's. */

@@ -1,12 +1,19 @@
-// ListPages.tsx: the two pages that are a list of everything. Issues is `cn list`, grouped
-// by where each issue stands, with what is finished folded away under what is not. The log
-// is `cn log`: the feed, with the room a column beside the overview does not have.
+// ListPages.tsx: the two pages that are a list of everything. Issues is `cn list`, filtered
+// and paged in the browser over the list the page already holds, the filter in the query
+// string (issues.ts), grouped by where each issue stands, and the states chips over it where
+// the folds were. The log is `cn log`: the feed, with the room a column beside the overview
+// does not have.
 import { LOG_LIMIT } from "@cairn/backend/convex/lib/limits.js";
-import type { LogEvent } from "@cairn/cli/views";
+import type { EpicLineView, LogEvent, ProjectView } from "@cairn/cli/views";
 import type { ReactNode } from "react";
+import { Track } from "./Chart.tsx";
 import { FeedEvent } from "./Feed.tsx";
-import { Pending, Title } from "./page.tsx";
-import { Groups, type Listed } from "./rows.tsx";
+import { Pager, Toolbar } from "./Filters.tsx";
+import { type Filter, facets, matched, narrow, pageOf } from "./issues.ts";
+import type { WaitingBlocker } from "./Overview.tsx";
+import { Group, Pending, Title } from "./page.tsx";
+import { closesOf, heldBy, trackOf } from "./projects.ts";
+import { IssueRows, type Listed } from "./rows.tsx";
 
 function PageHead({ title, under }: { title: string; under: ReactNode }) {
   return (
@@ -17,15 +24,28 @@ function PageHead({ title, under }: { title: string; under: ReactNode }) {
   );
 }
 
-export function IssuesPage({ issues }: { issues: Listed[] | undefined }) {
+export function IssuesPage({
+  issues,
+  filter,
+  epics,
+  projects,
+  blockers,
+  now,
+}: {
+  issues: Listed[] | undefined;
+  filter: Filter;
+  epics: EpicLineView[] | undefined;
+  projects: ProjectView[] | undefined;
+  blockers: WaitingBlocker[] | undefined;
+  now: number;
+}) {
   if (issues === undefined) return <Pending>Reading the issues…</Pending>;
-  const live = issues.filter((i) => i.status === "open" || i.status === "in_progress");
-  return (
-    <article>
-      <PageHead
-        title="Issues"
-        under={
-          issues.length === 0 ? (
+  if (issues.length === 0)
+    return (
+      <article>
+        <PageHead
+          title="Issues"
+          under={
             <>
               None yet.{" "}
               <code className="font-mono">
@@ -33,12 +53,55 @@ export function IssuesPage({ issues }: { issues: Listed[] | undefined }) {
               </code>{" "}
               puts the first one here.
             </>
-          ) : (
-            `${live.length} live of ${issues.length}, by priority then age, the way cn list orders them.`
-          )
-        }
+          }
+        />
+      </article>
+    );
+  const narrowed = narrow(issues, filter);
+  const hits = matched(narrowed, filter);
+  const page = pageOf(hits, filter.page);
+  const stuck = (projects ?? []).flatMap((p) => p.health.stuck);
+  return (
+    <article>
+      <PageHead
+        title="Issues"
+        under={`${hits.length} of ${issues.length}, by priority then age, the way cn list orders them.`}
       />
-      <Groups issues={issues} />
+      <Toolbar
+        filter={filter}
+        counts={facets(narrowed)}
+        epics={epics ?? []}
+        projects={projects ?? []}
+      />
+      <Track
+        cells={trackOf(hits, { health: { stuck } }, heldBy(blockers ?? []))}
+        closes={closesOf(hits, now)}
+      />
+      {filter.states.length === 0 ? (
+        <p className="mt-8 text-slate">No state picked. Turn one on above.</p>
+      ) : hits.length === 0 ? (
+        <p className="mt-8 text-slate">
+          Nothing matches.{" "}
+          <a href="/issues" className="underline">
+            Reset the filters
+          </a>
+          .
+        </p>
+      ) : (
+        <>
+          {page.groups.map((g) => (
+            <Group
+              key={g.key}
+              title={g.title}
+              count={g.count}
+              aside={g.rows.length < g.count ? `${g.from}–${g.to} of ${g.count}` : undefined}
+            >
+              <IssueRows issues={g.rows} />
+            </Group>
+          ))}
+          <Pager filter={filter} page={page} />
+        </>
+      )}
     </article>
   );
 }
