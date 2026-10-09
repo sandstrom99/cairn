@@ -34,11 +34,12 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FeedEvent, HistoryEntry } from "./Feed.tsx";
+import { DEFAULT } from "./issues.ts";
 import { EpicPage, JournalEntry } from "./ItemPages.tsx";
 import { JumpRow, withTyped } from "./JumpBar.tsx";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
 import { Epics, Moving, Stuck, UpNext, Waiting, type WaitingBlocker } from "./Overview.tsx";
-import { squeeze } from "./plain.ts";
+import { plain, squeeze } from "./plain.ts";
 import { ProjectHead, ProjectsPage } from "./ProjectPages.tsx";
 import { typesetting } from "./Prose.tsx";
 import { Rail } from "./Rail.tsx";
@@ -236,7 +237,7 @@ const moving = briefView({ inProgress: [held], recent: { count: 4, top: [landed]
 const left = { ...ready1, id: "cn-3", title: "the retry", lastActivity: now - 10 * DAY };
 const stuck = { ...left, silentSince: left.lastActivity };
 
-/** A finished one, folded away on the issues page. */
+/** A finished one, counted on the issues page's Closed chip and listed only with it on. */
 const done: Listed = {
   ...listed,
   id: "cn-23",
@@ -244,6 +245,16 @@ const done: Listed = {
   status: "closed",
   claimedBy: undefined,
   closedAt: now - DAY,
+};
+
+/** The issues page over one live issue and one finished, filtered by default. */
+const issuesPage = {
+  issues: [listed, done],
+  filter: DEFAULT,
+  epics: [],
+  projects: [],
+  blockers: [],
+  now,
 };
 
 /** A project with busy's health, four live issues, and one nothing is filed under. */
@@ -477,17 +488,9 @@ const PINS: Pin[] = [
     rows: [issueLine(listed)],
   },
   {
-    name: "the issues page, grouped, the finished folded",
-    element: <IssuesPage issues={[listed, done]} />,
-    text: [
-      "Issues",
-      "1 live of 2, by priority then age, the way cn list orders them.",
-      "In progress 1",
-      issueLine(listed),
-      "Closed 1",
-      issueLine(done),
-    ],
-    rows: [issueLine(listed), issueLine(done)],
+    name: "the issues page, what is live listed by default",
+    element: <IssuesPage {...issuesPage} />,
+    rows: [issueLine(listed)],
   },
   {
     name: "an epic's page: its state, its track, then its issues without the epic",
@@ -706,13 +709,14 @@ describe("what the lines carry", () => {
     expect(renderToStaticMarkup(<Waiting blockers={[]} now={now} />)).toBe("");
   });
 
-  it("folds away what is finished on the issues page, and only that", () => {
-    const markup = renderToStaticMarkup(<IssuesPage issues={[listed, done]} />);
-    expect(markup.match(/<details/g)).toHaveLength(1);
-    expect(markup.match(/<summary/g)).toHaveLength(1);
-    const folded = markup.slice(markup.indexOf("<details"));
-    expect(folded).toContain("Closed");
-    expect(folded).not.toContain("In progress");
+  it("lists what is live and counts what is finished on the issues page", () => {
+    const markup = renderToStaticMarkup(<IssuesPage {...issuesPage} />);
+    expect(markup).not.toContain("<details");
+    expect(rows(<IssuesPage {...issuesPage} />).join("\n")).not.toContain(done.id);
+    const chip = markup.match(
+      /<a [^>]*aria-pressed="false"[^>]*>(?:(?!<\/a>).)*Closed(?:(?!<\/a>).)*<\/a>/,
+    )?.[0];
+    expect(squeeze(plain(chip ?? ""))).toBe("Closed1");
   });
 });
 

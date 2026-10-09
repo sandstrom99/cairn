@@ -36,8 +36,9 @@ import type { Listing } from "./Feed.tsx";
 import { Broken, errorData, Gate, Lost } from "./Gate.tsx";
 import { useStale } from "./held.ts";
 import { BlockerPage, EpicPage, IssuePage } from "./ItemPages.tsx";
+import { parseFilter } from "./issues.ts";
 import { IssuesPage, LogPage } from "./ListPages.tsx";
-import { type Route, routeOf, useLinks, usePath } from "./location.ts";
+import { type Route, routeOf, useLinks, usePath, useSearch } from "./location.ts";
 import { useMinute } from "./now.ts";
 import { Brief, Epics, Moving, Stuck, UpNext, Waiting, type WaitingBlocker } from "./Overview.tsx";
 import { Pending } from "./page.tsx";
@@ -120,6 +121,7 @@ function Window({
 }) {
   useLinks();
   const path = usePath();
+  const search = useSearch();
   // Whether the column is collapsed is this browser's choice, kept like the secret: read once
   // on load, written the moment it is made.
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -223,7 +225,14 @@ function Window({
           blockers={blockers}
         />
       ) : route.page === "issues" ? (
-        <IssuesPage issues={issues} />
+        <IssuesPage
+          issues={issues}
+          filter={parseFilter(search)}
+          epics={epics}
+          projects={projects}
+          blockers={blockers}
+          now={now}
+        />
       ) : route.page === "log" ? (
         <LogLive who={who} events={events} now={now} />
       ) : (

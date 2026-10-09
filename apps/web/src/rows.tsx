@@ -22,6 +22,7 @@ import type { IssueLineView, ListLineView } from "@cairn/cli/views";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Meter } from "./Chart.tsx";
+import { STATES } from "./issues.ts";
 import { Group } from "./page.tsx";
 import { Ref } from "./Ref.tsx";
 import { Dot, Priority, type Tone, toneText } from "./tone.tsx";
@@ -68,7 +69,7 @@ const LIVE = "justify-self-end whitespace-nowrap text-meta text-slate narrow:jus
 const LED = "before:mr-1.5 before:text-mark before:content-['·']";
 
 /** The dot of a status, by the fills the track uses: hollow, teal, ink, pale. */
-function StatusDot({ status, tone, title }: { status: string; tone?: Tone; title: string }) {
+export function StatusDot({ status, tone, title }: { status: string; tone?: Tone; title: string }) {
   const shared = "mt-[0.4em] [grid-area:dot]";
   if (tone !== undefined && tone !== "still")
     return <Dot tone={tone} className={shared} title={title} />;
@@ -242,17 +243,7 @@ function HealthRowLine({ row }: { row: HealthRow }) {
 }
 
 /** Where each issue stands, the way `cn list` groups them: what is live first, what is finished folded away. */
-const GROUPS: { title: string; pick: (issue: Listed) => boolean; folded: boolean }[] = [
-  { title: "In progress", pick: (i) => i.status === "in_progress", folded: false },
-  { title: "Open", pick: (i) => i.status === "open" && i.type !== "follow-up", folded: false },
-  {
-    title: "Follow-ups",
-    pick: (i) => i.status === "open" && i.type === "follow-up",
-    folded: false,
-  },
-  { title: "Closed", pick: (i) => i.status === "closed", folded: true },
-  { title: "Dropped", pick: (i) => i.status === "dropped", folded: true },
-];
+const GROUPS = STATES.map((s) => ({ ...s, folded: s.key === "closed" || s.key === "dropped" }));
 
 /** A row on an epic's own page does not repeat the epic, the way `cn show ep-3` does not. */
 const withoutEpic = ({
