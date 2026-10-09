@@ -8,11 +8,12 @@
 // the title stands on its own line, the facts sit under it as one quiet line, and what is
 // live about it stands at the right of the title. An issue's row is `issueLine` typeset: the
 // facts are the id, the priority and the epic where the list spans epics; the live cell is
-// who holds it, with the revision faint after it, and, where the list was asked how long
-// each issue has been silent, the silence (`listLine`), which a meter of it against its
-// priority's limit may close. The status word is the dot: it stays in the text, unseen, and
-// the dot says it, hollow for open, teal for in progress, ink for closed and pale for
-// dropped, the fills the track uses. cn's order is kept in the markup; the grid places it.
+// who holds it and, where the list was asked how long each issue has been silent, the
+// silence (`listLine`), with a meter of it against its priority's limit under the words.
+// The status word is the dot: it stays in the text, unseen, and the dot says it, hollow for
+// open, teal for in progress, ink for closed and pale for dropped, the fills the track uses.
+// The revision, `r3`, stays in the text unseen too: it is the token a retry carries, for an
+// agent, and says nothing to a person. cn's order is kept in the markup; the grid places it.
 import { STUCK_AFTER_MS } from "@cairn/backend/convex/lib/thresholds.js";
 import { type HealthRow, issueParts } from "@cairn/cli/parts";
 import type { Referable } from "@cairn/cli/ref";
@@ -109,7 +110,7 @@ function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; me
   const metered = meter !== undefined && silentSince !== undefined && now !== undefined;
   const finished = status === "closed" || status === "dropped";
   return (
-    <RowLink href={`/${target.id}`} className={cn("row", metered && "row-metered")}>
+    <RowLink href={`/${target.id}`} className="row">
       <Ref
         item={target}
         cells={{
@@ -150,10 +151,8 @@ function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; me
       )}
       {revision && (
         <>
-          {/* cn's `r3`, between who holds it and the silence; set faint under them, since it is the token a retry carries and not a fact about the work. */}{" "}
-          <span className="[grid-area:rev] justify-self-end font-mono text-micro text-faint narrow:justify-self-start">
-            {revision}
-          </span>
+          {/* cn's `r3`, the token a retry carries: in the text for an agent reading the row, and not drawn, since it says nothing to a person. */}{" "}
+          <span className="unseen">{revision}</span>
         </>
       )}
       {silent && (
@@ -171,7 +170,7 @@ function IssueRow({ issue, now, meter }: { issue: ListLineView; now?: number; me
         </span>
       )}
       {metered && (
-        <span className="[grid-area:meter] self-center narrow:hidden">
+        <span className="mt-px [grid-area:meter] justify-self-end narrow:hidden">
           <Meter
             silentMs={now - silentSince}
             limit={STUCK_AFTER_MS[issue.priority]}

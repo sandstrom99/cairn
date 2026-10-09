@@ -865,12 +865,13 @@ dot in the state's chroma leads; the title stands on its own line, in ink and a 
 weight; under it, small and grey, the facts: the priority as a badge, the id in mono,
 and the epic where the list spans epics, or, for a health row or a blocker, the state
 word in its tone and the id. What is live about the issue stands at the right of the
-title: who holds it, and its silence where the list was asked for it, with the revision
-faint under them, `r3`, since it is the token a retry carries and not a fact about the
-work. The status word is the dot, hollow for open, teal for in progress, ink for closed
-and pale for dropped, the fills the track uses; the word, like the quotes round the
-title, stays in the text unseen, so the row still reads and copies as cn's line, in
-cn's order, which the grid places and the markup keeps. Below `narrow` the live cells
+title: who holds it, and its silence where the list was asked for it, with the meter of
+that silence against its priority's limit under the words. The status word is the dot,
+hollow for open, teal for in progress, ink for closed and pale for dropped, the fills
+the track uses; the word, the quotes round the title and the revision, `r3`, which is
+the token a retry carries and says nothing to a person, stay in the text unseen, so the
+row still reads and copies as cn's line, in cn's order, which the grid places and the
+markup keeps. Below `narrow` the live cells
 drop under the facts and the meter goes. Ruled out: the status as a word in a column of
 its own, which spelled `in_progress` beside every row of a list already titled In
 progress and took a fifth of the width to do it; and the id and the title as one quoted

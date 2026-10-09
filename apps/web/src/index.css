@@ -286,43 +286,26 @@
    * the title takes the first line, the facts (priority, id, epic; or the state word and id)
    * the second, the priority first since its badge is one width and the ids then align, and what is live about it (who holds it, its silence, its owner) stands at
    * the right of the title. The cells sit in the markup in cn's order and the areas place
-   * them, so the text of the row is still the line. Narrow, the revision joins the facts, what
-   * is live drops under them, and the meter goes.
+   * them, so the text of the row is still the line. Narrow, what is live drops under the
+   * facts and the meter goes.
    */
   .row {
     display: grid;
     grid-template-columns: 8px auto auto minmax(0, 1fr) auto auto;
     grid-template-areas:
       "dot title title title holder silent"
-      "dot pri id epic rev rev";
+      "dot pri id epic . meter";
     column-gap: 10px;
     row-gap: 3px;
 
     @variant narrow {
-      grid-template-columns: 8px auto auto minmax(0, 1fr) auto;
       /* Each spans the flexible column, so neither stretches the priority's or the id's. */
+      grid-template-columns: 8px auto auto minmax(0, 1fr);
       grid-template-areas:
-        "dot title title title title"
-        "dot pri id epic rev"
-        "dot holder holder holder holder"
-        "dot silent silent silent silent";
-    }
-  }
-
-  .row-metered {
-    grid-template-columns: 8px auto auto minmax(0, 1fr) auto auto 56px;
-    grid-template-areas:
-      "dot title title title holder silent meter"
-      "dot pri id epic rev rev meter";
-
-    /* The same as .row's, said again because this rule comes later and would win otherwise. */
-    @variant narrow {
-      grid-template-columns: 8px auto auto minmax(0, 1fr) auto;
-      grid-template-areas:
-        "dot title title title title"
-        "dot pri id epic rev"
-        "dot holder holder holder holder"
-        "dot silent silent silent silent";
+        "dot title title title"
+        "dot pri id epic"
+        "dot holder holder holder"
+        "dot silent silent silent";
     }
   }
 
