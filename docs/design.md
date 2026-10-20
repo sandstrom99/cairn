@@ -62,7 +62,7 @@ doing that.
 | Reconcile | No automatic run. Facts are checked in the verb that makes or reads them; judgement is a sitting, `cn review`, a person and an agent going through one epic. §7. |
 | Session start | A hook injects under 20 lines: which projects there are, counts plus the top of each queue. |
 | Epic view | A health line — moving, stuck, waiting on you. Not a percentage. |
-| Epics | An outcome, with a done-when line as an issue has its verification, or a stream, an intake that never closes. The title says which: an outcome names the end state, a stream the flow and its duty. Nothing checks the title. §3, §7. |
+| Epics | An outcome, with a done-when line as an issue has its verification, or a stream, an intake that never closes. The title is a label, two to five words that say what the epic is about, `ep-3 "Invite links"`, `ep-6 "Scout findings"`: it is the one text a person reads at a glance, in the rail, the brief and every `cn` line, so the end state stays in the done-when and a stream's duty in its description. An issue's title is a sentence, which an agent reads. Nothing checks the title. §3, §7, §8. |
 | Wiring | cairn ships its own Claude Code plugin, from `plugins/cairn` in this repo. |
 | Code hosts | None. A pull request, a commit, an artifact or a doc is a link on the issue (§3 "Links"); cairn reads nothing from and writes nothing to a code host, GitHub Issues included. |
 | Layout | One pnpm workspace under vite-plus: `backend/` (Convex), `packages/cli` and `apps/web`, the page. §10. |
@@ -95,7 +95,7 @@ counters      key               string        "ep", "bl", or a project slug
               index by_key [key]
 
 epics         id                string        ep-7. ep-0 is the one inbox
-              title             string
+              title             string        a label of a few words, what it is about; never the end state
               description?      string
               links?            { url, label?, by, at }[]   http and https only
               status            open | closed | dropped
@@ -756,7 +756,7 @@ Not a percentage. A percentage hides everything that matters — an epic at 95%
 frozen for a month reads better than one at 40% advancing daily.
 
 ```
-ep-3 "Ship invite links"  12 done · 4 open · 3 follow-ups
+ep-3 "Invite links"  12 done · 4 open · 3 follow-ups
   done when  an invite link opens the app on iOS and Android
   moving   app-31 "retry on reconnect" wsl/claude 2h
   stuck    web-12 "invite landing copy" silent 9d
@@ -767,11 +767,22 @@ An outcome's done-when is the first line under its head. A stream never closes, 
 all-time done would only grow; its head names what it is and counts a window instead:
 
 ```
-ep-6 "Scout findings, each fixed or decided"  stream · 11 open · 2 follow-ups · 28d: 7 filed, 4 done
+ep-6 "Scout findings"  stream · 11 open · 2 follow-ups · 28d: 7 filed, 4 done
 ```
 
 `done` and `open` count tasks, here as in an outcome's head, and a stream's window is
 `PULSE_DAYS` of §12.
+
+The head line is where the title is read, and it is read at a glance: here, in the rail
+of the page, on the brief and on every `cn` line that names the epic. So the title is a
+label of two to five words that say what the epic is about, and never the sentence that
+says when it is done. Epics named for their end state, "The app runs on the current
+Flutter and Dart, and its code uses them", filled the rail with lines nobody could take
+in; the sentence belongs in the done-when, which this block prints under the head, and a
+stream's duty in its description. An issue's title is the other way round, the sentence
+of what the work does, since an agent reads it to know what to do and the person reads
+it rarely. Nothing checks a title's length: the rule lives in the skill and in
+`cn epic new --help`, and a title that has grown is renamed with `cn update` (§5).
 
 Each line is a fact with a read behind it, `epicHealth` in `lib/health.ts`,
 which `epics.list` and `show.get` carry, and a line with nothing behind it is

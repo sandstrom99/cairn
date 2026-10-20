@@ -90,14 +90,20 @@ The same reply, with each issue said once:
 
 ## Where work goes
 
-An epic is an outcome or a stream. An outcome's title names the end state, "Invite links
-open the app", and its done-when says what reached means; a stream's title names the flow
-and its duty, "Scout findings, each fixed or decided", and it never closes. An issue goes
-into an outcome only when doing it moves the outcome toward its done-when; otherwise it
-goes into the stream it belongs to, or a new outcome, never the nearest open epic.
-`cn show <ep>` prints the done-when line to check against. An outcome reached with tasks
-left that belong next door closes with `cn epic close <ep> --revision N --carry-to <ep-id>`,
-so the work is tracked where it goes on.
+An epic is an outcome or a stream, and its title is a label: two to five words that say
+what it is about, "Invite links", "Scout findings", "Flutter 3.35 and Dart 3.9". The person
+reads it at a glance in the rail, the brief and every `cn` line that names the epic, so it
+never grows into a sentence; an issue's title is the sentence of what the work does, since
+an agent reads that and the person mostly does not. An outcome's done-when says what
+reached means, "an invite link opens the app on iOS and Android"; a stream's description
+says its duty, "each finding fixed or decided", and it never closes. An issue goes into an
+outcome only when doing it moves the outcome toward its done-when; otherwise it goes into
+the stream it belongs to, or a new outcome, never the nearest open epic. `cn show <ep>`
+prints the done-when line to check against. A title that has grown into a sentence is
+renamed, `cn update <ep> --revision N --title "…"`, with the sentence moved to the done-when
+or the description. An outcome reached with tasks left that belong next door closes with
+`cn epic close <ep> --revision N --carry-to <ep-id>`, so the work is tracked where it goes
+on.
 
 ## What cairn is for
 

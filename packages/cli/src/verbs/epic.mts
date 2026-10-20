@@ -15,10 +15,13 @@
 // The counts are tasks — open, in progress, done — with open follow-ups beside them rather
 // than inside them, so residue cannot dilute progress.
 //
-// An epic is an outcome or a stream. An outcome names its end state in the title and says
-// in `--done-when` what being reached means, as an issue has its verification. A stream
-// names the flow and its duty ("Scout findings, each fixed or decided"), is never closed,
-// and its head counts the last 28 days rather than an all-time done. ep-0 is a stream.
+// An epic is an outcome or a stream. Its title is a label, two to five words that say what
+// it is about ("Invite links", "Scout findings", "Flutter 3.35 and Dart 3.9"): a person
+// reads it at a glance in the rail, the brief and every line that names the epic, so it
+// is never the sentence. An outcome says in `--done-when` what being reached means, as an
+// issue has its verification. A stream names a flow that never closes, its duty in
+// `--description`, and its head counts the last 28 days rather than an all-time done.
+// ep-0 is a stream.
 //
 // `list` prints a health block per epic (docs/design.md §8): the counts, then what is
 // moving, what is stuck past its priority's limit, and what waits on a person. Never a
